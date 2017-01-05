@@ -1,0 +1,3 @@
+#!/bin/bash
+./configure --enable-ipv6=yes --enable-shared=no --enable-usb=no --enable-bluetooth=no --enable-canusb=no --enable-can=no --enable-dbus=no --enable-packet-ring=no
+

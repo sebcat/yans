@@ -341,10 +341,11 @@ static int l_urlbuilder(lua_State *L) {
   struct url_ctx_t **ctx;
   int flags = 0;
 
-  /* TODO: accept optional table instead, with flags, maybe later on
-   *       host_normalizer as well */
-  if (lua_gettop(L) == 1) {
-    flags = (int)luaL_checkinteger(L, 1);
+  if (lua_type(L, 1) == LUA_TTABLE) {
+    if(lua_getfield(L, 1, "flags") == LUA_TNUMBER) {
+      flags = lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
   }
   memset(&opts, 0, sizeof(opts));
   opts.host_normalizer = punycode_encode;
@@ -551,6 +552,7 @@ static int l_urlbuilder_resolve(lua_State *L) {
 }
 
 static void l_device(lua_State *L, pcap_if_t *dev) {
+  /*NB: can't call lua_error/luaL_error in here; l_devices must clear state */
   lua_newtable(L);
   if (dev->name != NULL) {
     lua_pushstring(L, dev->name);
@@ -583,10 +585,11 @@ static void l_device(lua_State *L, pcap_if_t *dev) {
 }
 
 static int l_devices(lua_State *L) {
-  pcap_if_t *devs, *curr;
+  pcap_if_t *devs = NULL, *curr;
   char errbuf[PCAP_ERRBUF_SIZE];
   lua_Integer ndevs=0;
 
+  errbuf[0] = '\0';
   if (pcap_findalldevs(&devs, errbuf) < 0) {
     return luaL_error(L, "%s", errbuf);
   }
@@ -620,10 +623,10 @@ static const struct luaL_Reg yansaddr_m[] = {
 
 static const struct luaL_Reg yansblock_m[] = {
   /* TODO:
-  {"__len", NULL}, how to handle too large length? Error? LUA_MAXINTEGER?
-                   Multiple integers (incompatible with __len)?
-  {"__div", NULL},  split blocks into sub-blocks
-  */
+     {"__len", NULL}, how to handle too large length? Error? LUA_MAXINTEGER?
+     Multiple integers (incompatible with __len)?
+     {"__div", NULL},  split blocks into sub-blocks
+   */
   {"__tostring", l_block_tostring},
   {"first", l_block_first},
   {"last", l_block_last},

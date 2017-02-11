@@ -133,7 +133,7 @@ test_url_parse(builder, "foo://wiie:foö@[::1%1]:22/?foo#bar", {
   fragment="bar",
 })
 
-builder = yans.URLBuilder(yans.URLFL_REMOVE_EMPTY_QUERY)
+builder = yans.URLBuilder{flags=yans.URLFL_REMOVE_EMPTY_QUERY}
 test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?", {
   scheme="foo",
   auth="wiie:foo@[::1%1]:22",
@@ -169,7 +169,7 @@ test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?#", {
   path="/",
   fragment="",
 })
-builder = yans.URLBuilder(yans.URLFL_REMOVE_EMPTY_FRAGMENT)
+builder = yans.URLBuilder{flags=yans.URLFL_REMOVE_EMPTY_FRAGMENT}
 test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?", {
   scheme="foo",
   auth="wiie:foo@[::1%1]:22",
@@ -207,8 +207,8 @@ test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?#", {
   path="/",
   query="",
 })
-builder = yans.URLBuilder(yans.URLFL_REMOVE_EMPTY_QUERY |
-    yans.URLFL_REMOVE_EMPTY_FRAGMENT)
+builder = yans.URLBuilder{flags = yans.URLFL_REMOVE_EMPTY_QUERY |
+    yans.URLFL_REMOVE_EMPTY_FRAGMENT}
 test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?", {
   scheme="foo",
   auth="wiie:foo@[::1%1]:22",
@@ -369,8 +369,8 @@ function test_url_resolve(builder, base, ref, expected)
     error(string.format("resolve: expected:%q actual:%q", expected, actual))
   end
 end
-builder = yans.URLBuilder(yans.URLFL_REMOVE_EMPTY_QUERY |
-    yans.URLFL_REMOVE_EMPTY_FRAGMENT)
+builder = yans.URLBuilder{flags= yans.URLFL_REMOVE_EMPTY_QUERY |
+    yans.URLFL_REMOVE_EMPTY_FRAGMENT}
 test_url_resolve(builder,"http://example.com/", "http://www.example.aom",
     "http://www.example.aom/")
 test_url_resolve(builder,"", "", "")
@@ -453,3 +453,4 @@ test_url_resolve(builder,"https://example.com/", "//www.example.com/?foö#bar",
     "https://www.example.com/?fo%c3%b6#bar")
 test_url_resolve(builder,"https:", "//www.straße.de/straße",
     "https://www.xn--strae-oqa.de/stra%c3%9fe")
+

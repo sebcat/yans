@@ -1,5 +1,6 @@
-CFLAGS=-Wall -O0 -g -L3rd_party -I3rd_party -I3rd_party/libpcap
+CFLAGS=-std=c99 -Wall -O0 -g -L3rd_party -I3rd_party -I3rd_party/libpcap
 LDFLAGS=-llua -llinenoise -lpcap -lm
+SRC=libyans.c ip.c buf.c url.c yans.c punycode.c u8.c
 
 all: yans
 
@@ -8,11 +9,11 @@ all: yans
 deps:
 	make -C 3rd_party
 
-yans: deps ip.c libyans.c yans.c
-	$(CC) $(CFLAGS) -o yans libyans.c ip.c buf.c url.c yans.c $(LDFLAGS)
+yans: $(SRC)
+	$(CC) $(CFLAGS) -o yans $(SRC) $(LDFLAGS)
 
 test:
-	@for A in `ls *_test.lua`; do ./yans $$A; done
+	@for A in `ls *_test.lua`; do echo $$A; ./yans $$A; done
 
 cleandeps:
 	make -C 3rd_party clean

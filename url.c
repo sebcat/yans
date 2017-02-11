@@ -71,6 +71,10 @@ void url_ctx_free(url_ctx_t *ctx) {
   }
 }
 
+const struct url_opts *url_ctx_opts(url_ctx_t *ctx) {
+  return &ctx->opts;
+}
+
 /* authority   = [ userinfo "@" ] host [ ":" port ]
  * userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
  * host        = IP-literal / IPv4address / reg-name
@@ -90,6 +94,7 @@ static int url_parse_auth(const char *s, struct url_parts *out) {
   pos = s + out->auth;
   len = out->authlen;
   if ((cptr = memchr(pos, '@', len)) != NULL) {
+    out->flags |= URLPART_HAS_USERINFO;
     out->userinfolen = cptr - pos;
     out->userinfo = pos - s;
     pos += out->userinfolen + 1;
@@ -108,6 +113,7 @@ static int url_parse_auth(const char *s, struct url_parts *out) {
       pos += out->hostlen;
       len -= out->hostlen;
       if (len > 0 && *pos == ':') {
+        out->flags |= URLPART_HAS_PORT;
         out->portlen = len - 1;
         out->port = (pos-s) + 1;
       }
@@ -118,6 +124,7 @@ static int url_parse_auth(const char *s, struct url_parts *out) {
     /* non IP-literal */
     if ((cptr = memchr(pos, ':', len)) != NULL) {
       /* have port */
+      out->flags |= URLPART_HAS_PORT;
       out->hostlen = cptr - pos;
       out->host = pos-s;
       pos += out->hostlen + 1;
@@ -251,6 +258,14 @@ size_t url_remove_dot_segments(char *s, size_t len) {
    ((x) >= '0' && (x) <= '0') || \
    (strchr("-._~!$&'()*+,;=:@/?", (x)) != NULL))
 
+int url_supported_scheme(const char *s) {
+  if (strcmp(s, "http") != 0 &&
+      strcmp(s, "https") != 0) {
+    return EURL_SCHEME;
+  }
+  return EURL_OK;
+}
+
 int url_normalize(url_ctx_t *ctx, const char *s, buf_t *out) {
   struct url_parts parts;
   size_t i;
@@ -271,8 +286,7 @@ int url_normalize(url_ctx_t *ctx, const char *s, buf_t *out) {
       buf_achar(out, tolower(s[i]));
     }
     buf_achar(out, 0);
-    if (strcmp(out->data, "http") != 0 &&
-        strcmp(out->data, "https") != 0) {
+    if (url_supported_scheme(out->data) != EURL_OK) {
       return EURL_SCHEME;
     }
     buf_shrink(out, 1);
@@ -475,4 +489,22 @@ fail:
   buf_cleanup(&ref);
   return ret;
 }
+
+const char *url_errstr(int code) {
+  switch(code) {
+    case EURL_OK:
+      return "url: OK";
+    case EURL_MEM:
+      return "url: out of memory";
+    case EURL_PARSE:
+      return "url: unable to parse URL";
+    case EURL_SCHEME:
+      return "url: unsupported scheme";
+    case EURL_HOST:
+      return "url: invalid host";
+    default:
+      return "url: unknown error";
+  }
+}
+
 

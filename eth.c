@@ -29,7 +29,33 @@ int eth_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   return ETHERR_OK;
 }
 
-#endif /* defined(__FreeBSD__) */
+#elif defined(__linux__)
+
+int eth_valid(const struct sockaddr *saddr) {
+  const struct sockaddr_ll *ll;
+  if (saddr->sa_family == AF_PACKET) {
+    ll = (const struct sockaddr_ll*)saddr;
+    if (ll->sll_halen == ETH_ALEN) {
+      return ETHERR_OK;
+    }
+  }
+  return ETHERR_INVALID_IF;
+}
+
+int eth_init(struct eth_addr *eth, const struct sockaddr *saddr) {
+  const struct sockaddr_ll *ll;
+  int ret;
+
+  if ((ret = eth_valid(saddr)) != ETHERR_OK) {
+    return ret;
+  }
+  ll = (struct sockaddr_ll*)saddr;
+  eth->index = ll->sll_ifindex;
+  memcpy(eth->addr, ll->sll_addr, ETH_ALEN);
+  return ETHERR_OK;
+}
+
+#endif /* defined(__FreeBSD__) || defined(__linux__) */
 
 int eth_tostring(const struct eth_addr *eth, char *s, size_t len) {
   return snprintf(s, len, "%02x:%02x:%02x:%02x:%02x:%02x",

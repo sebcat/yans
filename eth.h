@@ -1,14 +1,15 @@
 #ifndef ETH_H_
 #define ETH_H_
 
-/* AF_* type for link layer address */
-#if defined(__FreeBSD__)
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+
+/* AF_* type for link layer address */
+#if defined(__FreeBSD__)
 #include <net/if_dl.h>
 #elif defined(__linux__)
-#error "TODO: Implement Linux support"
+#include <linux/if_packet.h>
 #else
 #error "Unsupported platform"
 #endif

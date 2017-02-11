@@ -411,7 +411,7 @@ int url_resolve(url_ctx_t *ctx, const char *base, const char *inref,
 
   /* reference URL has a scheme */
   if (refparts.schemelen > 0) {
-    buf_adata(out, ref.data, ref.len);
+    buf_adata(out, ref.data, ref.len-1);
     goto done;
   }
 
@@ -423,7 +423,7 @@ int url_resolve(url_ctx_t *ctx, const char *base, const char *inref,
   /* reference URL does not have a scheme but has an authority */
   if (refparts.authlen > 0) {
     buf_adata(out, "//", 2);
-    buf_adata(out, ref.data + refparts.auth , ref.len - refparts.auth);
+    buf_adata(out, ref.data + refparts.auth , ref.len - refparts.auth - 1);
     goto done;
   }
 

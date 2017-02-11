@@ -5,14 +5,19 @@
 #include "3rd_party/libpcap/pcap/pcap.h"
 #include "ip.h"
 #include "url.h"
+#include "eth.h"
 #include "punycode.h"
 
-#define MTNAME_ADDR       "yans.Addr"
+#define MTNAME_IPADDR     "yans.IPAddr"
+#define MTNAME_ETHADDR    "yans.EthAddr"
 #define MTNAME_BLOCK      "yans.Block"
 #define MTNAME_URLBUILDER "yans.URLBuilder"
 
-#define checkaddr(L, i) \
-    ((ip_addr_t*)luaL_checkudata(L, (i), MTNAME_ADDR))
+#define checkipaddr(L, i) \
+    ((ip_addr_t*)luaL_checkudata(L, (i), MTNAME_IPADDR))
+
+#define checkethaddr(L, i) \
+    ((struct eth_addr *)luaL_checkudata(L, (i), MTNAME_ETHADDR))
 
 #define checkblock(L, i) \
     ((ip_block_t*)luaL_checkudata(L, (i), MTNAME_BLOCK))
@@ -25,8 +30,16 @@ static inline ip_addr_t *l_newipaddr(lua_State *L) {
   ip_addr_t *addr;
 
   addr = lua_newuserdata(L, sizeof(ip_addr_t));
-  luaL_setmetatable(L, MTNAME_ADDR);
+  luaL_setmetatable(L, MTNAME_IPADDR);
   return addr;
+}
+
+static inline struct eth_addr *l_newethaddr(lua_State *L) {
+  struct eth_addr *eth;
+
+  eth = lua_newuserdata(L, sizeof(struct eth_addr));
+  luaL_setmetatable(L, MTNAME_ETHADDR);
+  return eth;
 }
 
 static inline ip_block_t *l_newblock(lua_State *L) {
@@ -51,7 +64,7 @@ static inline ip_addr_t *l_pushipaddr(lua_State *L, struct sockaddr *saddr) {
   return addr;
 }
 
-static int l_addr(lua_State *L) {
+static int l_ipaddr(lua_State *L) {
   ip_addr_t *addr;
   const char *s;
   int err = 0;
@@ -68,12 +81,12 @@ static int l_addr(lua_State *L) {
   return 1;
 }
 
-static int l_addr_tostring(lua_State *L) {
+static int l_ipaddr_tostring(lua_State *L) {
   char addrbuf[YANS_IP_ADDR_MAXLEN];
   ip_addr_t *addr;
   int err=0;
 
-  addr = checkaddr(L, 1);
+  addr = checkipaddr(L, 1);
   if (ip_addr_str(addr, addrbuf, sizeof(addrbuf), &err) < 0) {
     if (err != 0) {
       luaL_error(L, "Addr: string conversion error: %s",
@@ -86,12 +99,12 @@ static int l_addr_tostring(lua_State *L) {
   return 1;
 }
 
-static int l_addr_eqop(lua_State *L) {
+static int l_ipaddr_eqop(lua_State *L) {
   ip_addr_t *a, *b;
   int err = 0, ret;
 
-  a = checkaddr(L, 1);
-  b = checkaddr(L, 2);
+  a = checkipaddr(L, 1);
+  b = checkipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
   if (err != 0) {
     luaL_error(L, "Addr: failed comparison: %s\n", ip_addr_strerror(err));
@@ -103,12 +116,12 @@ static int l_addr_eqop(lua_State *L) {
   return 1;
 }
 
-static int l_addr_ltop(lua_State *L) {
+static int l_ipaddr_ltop(lua_State *L) {
   ip_addr_t *a, *b;
   int err = 0, ret;
 
-  a = checkaddr(L, 1);
-  b = checkaddr(L, 2);
+  a = checkipaddr(L, 1);
+  b = checkipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
   if (err != 0) {
     luaL_error(L, "Addr: failed comparison: %s\n", ip_addr_strerror(err));
@@ -120,12 +133,12 @@ static int l_addr_ltop(lua_State *L) {
   return 1;
 }
 
-static int l_addr_leop(lua_State *L) {
+static int l_ipaddr_leop(lua_State *L) {
   ip_addr_t *a, *b;
   int err = 0, ret;
 
-  a = checkaddr(L, 1);
-  b = checkaddr(L, 2);
+  a = checkipaddr(L, 1);
+  b = checkipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
   if (err != 0) {
     luaL_error(L, "Addr: failed comparison: %s\n", ip_addr_strerror(err));
@@ -138,7 +151,7 @@ static int l_addr_leop(lua_State *L) {
 }
 
 /* ip_addr arithmetic depends on signed 32-bit integers */
-static void l_addr_checkipnum(lua_State *L, lua_Integer n) {
+static void l_ipaddr_checkipnum(lua_State *L, lua_Integer n) {
   if (sizeof(lua_Integer) > sizeof(uint32_t)) {
     if (n < -2147483648 || n > 2147483647) {
       luaL_error(L, "Addr: added number is out of range");
@@ -147,68 +160,76 @@ static void l_addr_checkipnum(lua_State *L, lua_Integer n) {
 }
 
 /* get the ip_addr_t and the */
-static void l_addr_arithops(lua_State *L, ip_addr_t **addr, lua_Integer *n) {
+static void l_ipaddr_arithops(lua_State *L, ip_addr_t **addr, lua_Integer *n) {
   int isnum;
 
-  if ((*addr = luaL_testudata(L, 1, MTNAME_ADDR)) == NULL &&
-      (*addr = luaL_testudata(L, 2, MTNAME_ADDR)) == NULL) {
-    luaL_error(L, "non-"MTNAME_ADDR" 'add' operation");
+  if ((*addr = luaL_testudata(L, 1, MTNAME_IPADDR)) == NULL &&
+      (*addr = luaL_testudata(L, 2, MTNAME_IPADDR)) == NULL) {
+    luaL_error(L, "non-"MTNAME_IPADDR" 'add' operation");
   }
 
   *n = lua_tointegerx(L, 2, &isnum);
   if (!isnum) {
     *n = lua_tointegerx(L, 1, &isnum);
     if (!isnum) {
-      luaL_error(L, "attempted to add non-integer value to "MTNAME_ADDR);
+      luaL_error(L, "attempted to add non-integer value to "MTNAME_IPADDR);
     }
   }
 
-  l_addr_checkipnum(L, *n);
+  l_ipaddr_checkipnum(L, *n);
 }
 
-static int l_addr_addop(lua_State *L) {
+static int l_ipaddr_addop(lua_State *L) {
   ip_addr_t *addr, *newaddr;
   lua_Integer n;
 
-  l_addr_arithops(L, &addr, &n);
+  l_ipaddr_arithops(L, &addr, &n);
   newaddr = l_newipaddr(L);
   memcpy(newaddr, addr, sizeof(ip_addr_t));
   ip_addr_add(newaddr, (int32_t)n);
   return 1;
 }
 
-static int l_addr_subop(lua_State *L) {
+static int l_ipaddr_subop(lua_State *L) {
   ip_addr_t *addr, *newaddr;
   lua_Integer n;
 
-  l_addr_arithops(L, &addr, &n);
+  l_ipaddr_arithops(L, &addr, &n);
   newaddr = l_newipaddr(L);
   memcpy(newaddr, addr, sizeof(ip_addr_t));
   ip_addr_sub(newaddr, (int32_t)n);
   return 1;
 }
 
-static int l_addr_add(lua_State *L) {
+static int l_ipaddr_add(lua_State *L) {
   ip_addr_t *addr;
   lua_Integer n;
 
-  addr = checkaddr(L, 1);
+  addr = checkipaddr(L, 1);
   n = luaL_checkinteger(L, 2);
-  l_addr_checkipnum(L, n);
+  l_ipaddr_checkipnum(L, n);
   ip_addr_add(addr, (int32_t)n);
   lua_pushvalue(L, 1);
   return 1;
 }
 
-static int l_addr_sub(lua_State *L) {
+static int l_ipaddr_sub(lua_State *L) {
   ip_addr_t *addr;
   lua_Integer n;
 
-  addr = checkaddr(L, 1);
+  addr = checkipaddr(L, 1);
   n = luaL_checkinteger(L, 2);
-  l_addr_checkipnum(L, n);
+  l_ipaddr_checkipnum(L, n);
   ip_addr_sub(addr, (int32_t)n);
   lua_pushvalue(L, 1);
+  return 1;
+}
+
+static int l_ethaddr_tostring(lua_State *L) {
+  char addr[ETH_STRSZ];
+  struct eth_addr *eth = checkethaddr(L, 1);
+  eth_tostring(eth, addr, ETH_STRSZ);
+  lua_pushstring(L, addr);
   return 1;
 }
 
@@ -273,7 +294,7 @@ static int l_block_contains(lua_State *L) {
   int ret;
 
   blk = checkblock(L, 1);
-  addr = checkaddr(L, 2);
+  addr = checkipaddr(L, 2);
   if ((ret = ip_block_contains(blk, addr, NULL)) < 0) {
     luaL_error(L, "contains: incompatible address types");
   }
@@ -290,46 +311,61 @@ static lua_Integer l_device_addrs(lua_State*L, pcap_addr_t *addrs) {
   lua_Integer naddrs = 0;
   ip_addr_t *addr = NULL, *netmask = NULL;
   ip_block_t *blk;
+  struct eth_addr *eth;
+  int eth_valid_res;
+
 
   for (curr = addrs; curr != NULL; curr = curr->next) {
-    if (curr->addr == NULL
-        || (curr->addr->sa_family != AF_INET &&
-            curr->addr->sa_family != AF_INET6)) {
+    if (curr->addr == NULL) {
       continue;
     }
-    if (naddrs == 0) {
+    if ((eth_valid_res = eth_valid(curr->addr)) == ETHERR_OK ||
+        (curr->addr->sa_family == AF_INET ||
+        curr->addr->sa_family == AF_INET6)) {
+      if (naddrs == 0) {
+        lua_newtable(L);
+      }
+    } else {
+      continue;
+    }
+
+    if (eth_valid_res == ETHERR_OK) {
       lua_newtable(L);
-    }
+      eth = l_newethaddr(L);
+      eth_init(eth, curr->addr);
+      lua_setfield(L, -2, "addr");
+      naddrs++;
+    } else {
+      /* AF_INET || AF_INET6 */
+      lua_newtable(L);
+      addr = l_pushipaddr(L, curr->addr);
+      lua_setfield(L, -2, "addr");
+      naddrs++;
 
-    lua_newtable(L);
-    addr = l_pushipaddr(L, curr->addr);
-    lua_setfield(L, -2, "addr");
-    naddrs++;
+      if (curr->netmask != NULL) {
+        netmask = l_pushipaddr(L, curr->netmask);
+        lua_setfield(L, -2, "netmask");
+      }
 
-    if (curr->netmask != NULL) {
-      netmask = l_pushipaddr(L, curr->netmask);
-      lua_setfield(L, -2, "netmask");
-    }
+      if (curr->broadaddr != NULL) {
+        l_pushipaddr(L, curr->broadaddr);
+        lua_setfield(L, -2, "broadaddr");
+      }
 
-    if (curr->broadaddr != NULL) {
-      l_pushipaddr(L, curr->broadaddr);
-      lua_setfield(L, -2, "broadaddr");
-    }
+      if (curr->dstaddr != NULL) {
+        l_pushipaddr(L, curr->dstaddr);
+        lua_setfield(L, -2, "dstaddr");
+      }
 
-    if (curr->dstaddr != NULL) {
-      l_pushipaddr(L, curr->dstaddr);
-      lua_setfield(L, -2, "dstaddr");
-    }
-
-    if (addr != NULL && netmask != NULL) {
-      blk = l_newblock(L);
-      if (ip_block_netmask(blk, addr, netmask, NULL) == 0) {
-        lua_setfield(L, -2, "block");
-      } else {
-        lua_pop(L, 1);
+      if (addr != NULL && netmask != NULL) {
+        blk = l_newblock(L);
+        if (ip_block_netmask(blk, addr, netmask, NULL) == 0) {
+          lua_setfield(L, -2, "block");
+        } else {
+          lua_pop(L, 1);
+        }
       }
     }
-
     lua_rawseti(L, -2, naddrs);
   }
 
@@ -605,19 +641,24 @@ static int l_devices(lua_State *L) {
   return 1;
 }
 
-static const struct luaL_Reg yansaddr_m[] = {
-  {"__tostring", l_addr_tostring},
-  {"__eq", l_addr_eqop},
-  {"__lt", l_addr_ltop},
-  {"__le", l_addr_leop},
+static const struct luaL_Reg yansipaddr_m[] = {
+  {"__tostring", l_ipaddr_tostring},
+  {"__eq", l_ipaddr_eqop},
+  {"__lt", l_ipaddr_ltop},
+  {"__le", l_ipaddr_leop},
 
   /* immutable */
-  {"__add", l_addr_addop},
-  {"__sub", l_addr_subop},
+  {"__add", l_ipaddr_addop},
+  {"__sub", l_ipaddr_subop},
 
   /* mutable */
-  {"add", l_addr_add},
-  {"sub", l_addr_sub},
+  {"add", l_ipaddr_add},
+  {"sub", l_ipaddr_sub},
+  {NULL, NULL}
+};
+
+static const struct luaL_Reg yansethaddr_m[] = {
+  {"__tostring", l_ethaddr_tostring},
   {NULL, NULL}
 };
 
@@ -644,7 +685,7 @@ static const struct luaL_Reg yansurlbuilder_m[] = {
 };
 
 static const struct luaL_Reg yans_f[] = {
-  {"Addr", l_addr},
+  {"IPAddr", l_ipaddr},
   {"Block", l_block},
   {"URLBuilder", l_urlbuilder},
   {"devices", l_devices},
@@ -660,7 +701,8 @@ int luaopen_yans(lua_State *L) {
     const char *mt;
     const struct luaL_Reg *reg;
   } types[] = {
-    {MTNAME_ADDR, yansaddr_m},
+    {MTNAME_IPADDR, yansipaddr_m},
+    {MTNAME_ETHADDR, yansethaddr_m},
     {MTNAME_BLOCK, yansblock_m},
     {MTNAME_URLBUILDER, yansurlbuilder_m},
     {NULL, NULL},

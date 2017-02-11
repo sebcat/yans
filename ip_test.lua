@@ -1,11 +1,11 @@
 #!/usr/bin/env lua
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
-Addr = yans.Addr
+IPAddr = yans.IPAddr
 Block = yans.Block
 
 local function test_addr_tostring_self(str)
-	addr = Addr(str)
+	addr = IPAddr(str)
 	if tostring(addr) ~= str then
     error(tostring(addr).." ~= "..str)
   end
@@ -16,63 +16,63 @@ test_addr_tostring_self("127.0.0.1")
 test_addr_tostring_self("ff02::1")
 
 -- __eq
-assert(Addr"127.0.0.1" == Addr"127.0.0.1")
-assert(Addr"127.0.0.1 127.0.6.4" == Addr"127.0.0.1")
-assert(Addr"\t 127.0.0.1\t " == Addr"127.0.0.1")
-assert(Addr"127.0.0.1" ~= Addr"127.0.0.0")
-assert(Addr"127.0.0.1" ~= Addr"127.0.0.2")
-assert(Addr"ff02::1" == Addr"ff02::1")
-assert(Addr"ff02::1" ~= Addr"ff02::")
-assert(Addr"ff02::1" ~= Addr"ff02::2")
+assert(IPAddr"127.0.0.1" == IPAddr"127.0.0.1")
+assert(IPAddr"127.0.0.1 127.0.6.4" == IPAddr"127.0.0.1")
+assert(IPAddr"\t 127.0.0.1\t " == IPAddr"127.0.0.1")
+assert(IPAddr"127.0.0.1" ~= IPAddr"127.0.0.0")
+assert(IPAddr"127.0.0.1" ~= IPAddr"127.0.0.2")
+assert(IPAddr"ff02::1" == IPAddr"ff02::1")
+assert(IPAddr"ff02::1" ~= IPAddr"ff02::")
+assert(IPAddr"ff02::1" ~= IPAddr"ff02::2")
 
 -- __lt
-assert(Addr"127.0.0.0" < Addr"127.0.0.1")
-assert(not(Addr"127.0.0.1" < Addr"127.0.0.1"))
-assert(not(Addr"127.0.0.2" < Addr"127.0.0.1"))
-assert(Addr"ff02::1" < Addr"ff02::2")
-assert(not(Addr"ff02::1" < Addr"ff02::1"))
-assert(not(Addr"ff02::2" < Addr"ff02::1"))
+assert(IPAddr"127.0.0.0" < IPAddr"127.0.0.1")
+assert(not(IPAddr"127.0.0.1" < IPAddr"127.0.0.1"))
+assert(not(IPAddr"127.0.0.2" < IPAddr"127.0.0.1"))
+assert(IPAddr"ff02::1" < IPAddr"ff02::2")
+assert(not(IPAddr"ff02::1" < IPAddr"ff02::1"))
+assert(not(IPAddr"ff02::2" < IPAddr"ff02::1"))
 
 -- __le
-assert(Addr"127.0.0.0" <= Addr"127.0.0.1")
-assert(Addr"127.0.0.1" <= Addr"127.0.0.1")
-assert(not(Addr"127.0.0.2" <= Addr"127.0.0.1"))
-assert(Addr"ff02::1" <= Addr"ff02::2")
-assert(Addr"ff02::1" <= Addr"ff02::1")
-assert(not(Addr"ff02::2" <= Addr"ff02::1"))
+assert(IPAddr"127.0.0.0" <= IPAddr"127.0.0.1")
+assert(IPAddr"127.0.0.1" <= IPAddr"127.0.0.1")
+assert(not(IPAddr"127.0.0.2" <= IPAddr"127.0.0.1"))
+assert(IPAddr"ff02::1" <= IPAddr"ff02::2")
+assert(IPAddr"ff02::1" <= IPAddr"ff02::1")
+assert(not(IPAddr"ff02::2" <= IPAddr"ff02::1"))
 
 -- __add
-local a = Addr"126.255.255.255"
+local a = IPAddr"126.255.255.255"
 local res = a + 2
-assert(a == Addr"126.255.255.255")
-assert(res == Addr"127.0.0.1")
-local a = Addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+assert(a == IPAddr"126.255.255.255")
+assert(res == IPAddr"127.0.0.1")
+local a = IPAddr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 local res = a + 2
-assert(a == Addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-assert(res == Addr"::1")
+assert(a == IPAddr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
+assert(res == IPAddr"::1")
 
 
 -- __sub
-local a = Addr"127.0.0.1"
+local a = IPAddr"127.0.0.1"
 local res = a - 2
-assert(a == Addr"127.0.0.1")
-assert(res == Addr"126.255.255.255")
-local a = Addr"::1"
+assert(a == IPAddr"127.0.0.1")
+assert(res == IPAddr"126.255.255.255")
+local a = IPAddr"::1"
 local res = a - 2
-assert(a == Addr"::1")
-assert(res == Addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
+assert(a == IPAddr"::1")
+assert(res == IPAddr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
 
 -- mutable add method
 local function addr_add(addr, n, expected)
-  actual = Addr(addr):add(n)
+  actual = IPAddr(addr):add(n)
   if tostring(actual) ~= expected then
     error(addr.." + "..tostring(n)..": expected "..expected..
         ", was: "..tostring(actual))
   end
 end
-local a = Addr"127.0.0.1"
+local a = IPAddr"127.0.0.1"
 a:add(1)
-assert(a == Addr"127.0.0.2")
+assert(a == IPAddr"127.0.0.2")
 addr_add("255.255.255.255", 1, "0.0.0.0")
 addr_add("0.0.255.255", 1, "0.1.0.0")
 addr_add("0.0.0.0", -1, "255.255.255.255")
@@ -88,15 +88,15 @@ addr_add("::1", -1, "::")
 
 -- mutable sub method
 local function addr_sub(addr, n, expected)
-  actual = Addr(addr):sub(n)
+  actual = IPAddr(addr):sub(n)
   if tostring(actual) ~= expected then
     error(addr.." + "..tostring(n)..": expected "..expected..", was: "
         ..tostring(actual))
   end
 end
-local a = Addr"127.0.0.1"
+local a = IPAddr"127.0.0.1"
 a:sub(1)
-assert(a == Addr"127.0.0.0")
+assert(a == IPAddr"127.0.0.0")
 addr_sub("255.255.255.255", -1, "0.0.0.0")
 addr_sub("0.0.255.255", -1, "0.1.0.0")
 addr_sub("0.0.0.0", 1, "255.255.255.255")
@@ -185,7 +185,7 @@ block_err("::1-127.0.0.1")
 
 local function block_contains(blk, addr, expected_in)
   blk = Block(blk)
-  addr = Addr(addr)
+  addr = IPAddr(addr)
   if blk:contains(addr) ~= expected_in then
     if expected_in then
       error(string.format("%s not in %s", addr, blk))
@@ -244,6 +244,7 @@ do
         print("")
       end
     end
+    print("")
   end
 end
 

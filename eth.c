@@ -108,7 +108,7 @@ int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   const struct sockaddr_ll *ll;
   int ret;
 
-  if ((ret = eth_valid(saddr)) != ETHERR_OK) {
+  if ((ret = eth_addr_valid(saddr)) != ETHERR_OK) {
     return ret;
   }
   ll = (struct sockaddr_ll*)saddr;

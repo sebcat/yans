@@ -73,9 +73,9 @@ static int l_ipaddr(lua_State *L) {
   addr = l_newipaddr(L);
   if (ip_addr(addr, s, &err) < 0) {
     if (err != 0) {
-      luaL_error(L, "Addr: %s, address \"%s\"", ip_addr_strerror(err), s);
+      luaL_error(L, "IPAddr: %s, address \"%s\"", ip_addr_strerror(err), s);
     } else {
-      luaL_error(L, "Addr: IP address parse error \"%s\"", s);
+      luaL_error(L, "IPAddr: IP address parse error \"%s\"", s);
     }
   }
   return 1;
@@ -89,10 +89,10 @@ static int l_ipaddr_tostring(lua_State *L) {
   addr = checkipaddr(L, 1);
   if (ip_addr_str(addr, addrbuf, sizeof(addrbuf), &err) < 0) {
     if (err != 0) {
-      luaL_error(L, "Addr: string conversion error: %s",
+      luaL_error(L, "IPAddr: string conversion error: %s",
           ip_addr_strerror(err));
     } else {
-      luaL_error(L, "Addr: string conversion error");
+      luaL_error(L, "IPAddr: string conversion error");
     }
   }
   lua_pushfstring(L, "%s", addrbuf);
@@ -107,7 +107,7 @@ static int l_ipaddr_eqop(lua_State *L) {
   b = checkipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
   if (err != 0) {
-    luaL_error(L, "Addr: failed comparison: %s\n", ip_addr_strerror(err));
+    luaL_error(L, "IPAddr: failed comparison: %s\n", ip_addr_strerror(err));
   } else if (ret == 0) {
     lua_pushboolean(L, 1);
   } else {
@@ -124,7 +124,7 @@ static int l_ipaddr_ltop(lua_State *L) {
   b = checkipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
   if (err != 0) {
-    luaL_error(L, "Addr: failed comparison: %s\n", ip_addr_strerror(err));
+    luaL_error(L, "IPAddr: failed comparison: %s\n", ip_addr_strerror(err));
   } else if (ret < 0) {
     lua_pushboolean(L, 1);
   } else {
@@ -141,7 +141,7 @@ static int l_ipaddr_leop(lua_State *L) {
   b = checkipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
   if (err != 0) {
-    luaL_error(L, "Addr: failed comparison: %s\n", ip_addr_strerror(err));
+    luaL_error(L, "IPAddr: failed comparison: %s\n", ip_addr_strerror(err));
   } else if (ret <= 0) {
     lua_pushboolean(L, 1);
   } else {
@@ -154,7 +154,7 @@ static int l_ipaddr_leop(lua_State *L) {
 static void l_ipaddr_checkipnum(lua_State *L, lua_Integer n) {
   if (sizeof(lua_Integer) > sizeof(uint32_t)) {
     if (n < -2147483648 || n > 2147483647) {
-      luaL_error(L, "Addr: added number is out of range");
+      luaL_error(L, "IPAddr: added number is out of range");
     }
   }
 }
@@ -228,8 +228,20 @@ static int l_ipaddr_sub(lua_State *L) {
 static int l_ethaddr_tostring(lua_State *L) {
   char addr[ETH_STRSZ];
   struct eth_addr *eth = checkethaddr(L, 1);
-  eth_tostring(eth, addr, ETH_STRSZ);
+  eth_addr_tostring(eth, addr, ETH_STRSZ);
   lua_pushstring(L, addr);
+  return 1;
+}
+
+static int l_ethaddr_ifindex(lua_State *L) {
+  struct eth_addr *eth = checkethaddr(L, 1);
+  lua_pushinteger(L, (lua_Integer)eth->index);
+  return 1;
+}
+
+static int l_ethaddr_bytes(lua_State *L) {
+  struct eth_addr *eth = checkethaddr(L, 1);
+  lua_pushlstring(L, (const char *)eth->addr, ETH_ALEN);
   return 1;
 }
 
@@ -258,10 +270,10 @@ static int l_block_tostring(lua_State *L) {
   addr = checkblock(L, 1);
   if (ip_block_str(addr, addrbuf, sizeof(addrbuf), &err) < 0) {
     if (err != 0) {
-      luaL_error(L, "Addr: string conversion error: %s",
+      luaL_error(L, "IPAddr: string conversion error: %s",
           ip_addr_strerror(err));
     } else {
-      luaL_error(L, "Addr: string conversion error");
+      luaL_error(L, "IPAddr: string conversion error");
     }
   }
   lua_pushfstring(L, "%s", addrbuf);
@@ -319,7 +331,7 @@ static lua_Integer l_device_addrs(lua_State*L, pcap_addr_t *addrs) {
     if (curr->addr == NULL) {
       continue;
     }
-    if ((eth_valid_res = eth_valid(curr->addr)) == ETHERR_OK ||
+    if ((eth_valid_res = eth_addr_valid(curr->addr)) == ETHERR_OK ||
         (curr->addr->sa_family == AF_INET ||
         curr->addr->sa_family == AF_INET6)) {
       if (naddrs == 0) {
@@ -332,7 +344,7 @@ static lua_Integer l_device_addrs(lua_State*L, pcap_addr_t *addrs) {
     if (eth_valid_res == ETHERR_OK) {
       lua_newtable(L);
       eth = l_newethaddr(L);
-      eth_init(eth, curr->addr);
+      eth_addr_init(eth, curr->addr);
       lua_setfield(L, -2, "addr");
       naddrs++;
     } else {
@@ -487,8 +499,6 @@ static int l_urlbuilder_build(lua_State *L) {
   } else {
     lua_pop(L, 1);
   }
-
-  /* do we have userinfo, host, port? if no, do we have auth? */
 
   lua_getfield(L, 2, "port");
   lua_getfield(L, 2, "host");
@@ -659,6 +669,8 @@ static const struct luaL_Reg yansipaddr_m[] = {
 
 static const struct luaL_Reg yansethaddr_m[] = {
   {"__tostring", l_ethaddr_tostring},
+  {"ifindex", l_ethaddr_ifindex},
+  {"bytes", l_ethaddr_bytes},
   {NULL, NULL}
 };
 
@@ -690,9 +702,7 @@ static const struct luaL_Reg yans_f[] = {
   {"URLBuilder", l_urlbuilder},
   {"devices", l_devices},
   /* TODO: - network(str): CIDR handling for networks. return table with
-   *         network, broadcast addrs and range (as a Block)
-   *       - Eth: ethernet address type (maybe rename Addr -> IPAddr and have
-   *         EthAddr) */
+   *         network, broadcast addrs and range (as a Block) */
   {NULL, NULL}
 };
 

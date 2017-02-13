@@ -28,9 +28,14 @@ struct eth_addr {
 #define ETHERR_OK            0
 #define ETHERR_INVALID_IF   -1
 
-int eth_valid(const struct sockaddr *saddr);
-int eth_init(struct eth_addr *eth, const struct sockaddr *saddr);
-int eth_tostring(const struct eth_addr *eth, char *s, size_t len);
+typedef struct eth_sender_t eth_sender_t;
 
+int eth_addr_valid(const struct sockaddr *saddr);
+int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr);
+int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len);
+
+eth_sender_t *eth_sender_new(const char *iface);
+void eth_sender_free(eth_sender_t *sender);
+ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len);
 
 #endif

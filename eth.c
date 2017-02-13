@@ -6,17 +6,20 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <net/if.h>
 
 #if defined(__FreeBSD__)
-#include <net/if.h>
 #include <net/bpf.h>
 #endif /* defined(__FreeBSD__) */
 
-#include "eth.h"
+#if defined(__linux__)
+#include <linux/if_packet.h>
+#include <netinet/ether.h>
+#endif /* defined(__linux__)*/
 
-struct eth_sender_t {
-  int fd;
-};
+#define ETHFRAME_MINSZ 14 /* DST + SRC + type */
+
+#include "eth.h"
 
 #if defined(__FreeBSD__)
 
@@ -43,6 +46,10 @@ int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   memcpy(eth->addr, LLADDR(dl), ETH_ALEN);
   return ETHERR_OK;
 }
+
+struct eth_sender_t {
+  int fd;
+};
 
 eth_sender_t *eth_sender_new(const char *iface) {
   int fd = -1;
@@ -84,12 +91,16 @@ void eth_sender_free(eth_sender_t *sender) {
 
 ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
   ssize_t ret;
+
+  if (len < ETHFRAME_MINSZ) {
+    return -1;
+  }
+
   do {
-    ret = write(sender->fd, data, len);
+    ret = send(sender->fd, data, len, MSG_NOSIGNAL);
   } while(ret == -1 && errno == EINTR);
   return ret;
 }
-
 
 #elif defined(__linux__)
 
@@ -116,6 +127,71 @@ int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   memcpy(eth->addr, ll->sll_addr, ETH_ALEN);
   return ETHERR_OK;
 }
+
+struct eth_sender_t {
+  int fd;
+  int ifindex;
+};
+
+eth_sender_t *eth_sender_new(const char *iface) {
+  int fd = -1;
+  struct ifreq ifr;
+  eth_sender_t *sender = NULL;
+
+  if ((sender = calloc(1, sizeof(eth_sender_t))) == NULL) {
+    goto fail;
+  }
+
+  if ((fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
+    goto fail;
+  }
+
+  snprintf(ifr.ifr_name, IFNAMSIZ, "%s", iface);
+  if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+    goto fail;
+  }
+
+  sender->fd = fd;
+  sender->ifindex = ifr.ifr_ifindex;
+  return sender;
+
+fail:
+  if (sender != NULL) {
+    free(sender);
+  }
+  if (fd != -1) {
+    close(fd);
+  }
+  return NULL;
+}
+
+void eth_sender_free(eth_sender_t *sender) {
+  if (sender != NULL) {
+    close(sender->fd);
+    free(sender);
+  }
+}
+
+ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
+  ssize_t ret;
+  struct sockaddr_ll lladdr;
+
+  if (len < ETHFRAME_MINSZ) {
+    return -1;
+  }
+
+  memset(&lladdr, 0, sizeof(lladdr));
+  lladdr.sll_family = AF_PACKET;
+  lladdr.sll_ifindex = sender->ifindex;
+  memcpy(lladdr.sll_addr, data, ETH_ALEN);
+
+  do {
+    ret = sendto(sender->fd, data, len, MSG_NOSIGNAL,
+        (struct sockaddr*)&lladdr, sizeof(lladdr));
+  } while(ret == -1 && errno == EINTR);
+  return ret;
+}
+
 
 #endif /* defined(__FreeBSD__) || defined(__linux__) */
 

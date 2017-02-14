@@ -378,7 +378,7 @@ test_url_resolve(builder,"foo", "/bar", "/bar")
 test_url_resolve(builder,"foo", "?bar", "foo?bar")
 test_url_resolve(builder,"/foo", "?bar", "/foo?bar")
 test_url_resolve(builder,"/foo", "#bar", "/foo#bar")
---base is not normalized in url_resolve */
+-- base is not normalized in url_resolve
 test_url_resolve(builder,"http://example.com", "", "http://example.com")
 test_url_resolve(builder,"http://example.com/", "", "http://example.com/")
 test_url_resolve(builder,"http://example.com/", "?", "http://example.com/")

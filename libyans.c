@@ -1,12 +1,12 @@
 /* vim: set tabstop=2 shiftwidth=2 expandtab ai: */
 #include <string.h>
 
-#include "3rd_party/lua.h"
 #include "3rd_party/libpcap/pcap/pcap.h"
 #include "ip.h"
 #include "url.h"
 #include "eth.h"
 #include "punycode.h"
+#include "libyans.h"
 
 #define MTNAME_IPADDR     "yans.IPAddr"
 #define MTNAME_ETHADDR    "yans.EthAddr"

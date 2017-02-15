@@ -89,7 +89,8 @@ static int encode_label(buf_t *buf, const uint8_t *s, size_t len) {
         continue;
       }
       int32_t q = delta;
-      for(int32_t k = BS_BASE; ;k += BS_BASE) {
+      int32_t k;
+      for(k = BS_BASE; ;k += BS_BASE) {
         int32_t t = k - bias;
         if (t < BS_TMIN) {
           t = BS_TMIN;

@@ -1,6 +1,6 @@
 CFLAGS=-Wall -Os -g -L3rd_party -I3rd_party -I3rd_party/libpcap
 LDFLAGS=-llua -llinenoise -lpcap -lm
-SRC=libyans.c ip.c buf.c url.c yans.c punycode.c u8.c
+SRC=libyans.c ypcap.c ip.c buf.c url.c yans.c punycode.c u8.c
 SRC+=eth.c
 
 all: yans

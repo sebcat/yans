@@ -9,6 +9,7 @@
 #include "3rd_party/lua.h"
 
 #include "libyans.h"
+#include "ypcap.h"
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -111,6 +112,7 @@ static lua_State * state_or_die() {
 
   luaL_openlibs(L);
   luaL_requiref(L, "yans", luaopen_yans, 1);
+  luaL_requiref(L, "ypcap", luaopen_ypcap, 1);
   return L;
 }
 
@@ -172,9 +174,9 @@ int main(int argc, char *argv[]) {
 
   };
 
-	if (argc < 2 || (argv[1][0] == '-' &&argv[1][1] == 'h')) {
-		usage();
-	}
+  if (argc < 2 || (argv[1][0] == '-' &&argv[1][1] == 'h')) {
+    usage();
+  }
 
   for(i=0; i<sizeof(cmds)/sizeof(cmdfunc_t); i++) {
     if (strcmp(argv[1], cmds[i].name) == 0) {

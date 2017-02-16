@@ -98,9 +98,10 @@ static int l_ypcap_next(lua_State *L) {
 
   ret = pcap_next_ex(ypcap->pcap, &pkthdr, &pktdata);
   if (ret == 1) {
-    /* packet received */
-    /* TODO: Implement */
-    return 0;
+    lua_pushlstring(L, (const char *)pktdata, (size_t)pkthdr->caplen);
+    lua_pushinteger(L, (lua_Integer)pkthdr->ts.tv_sec);
+    lua_pushinteger(L, (lua_Integer)pkthdr->ts.tv_usec);
+    return 3;
   } else if (ret == 0 || ret == -2) {
     /* timeout if live capture, end of file if reading from savefile */
     lua_pushnil(L);

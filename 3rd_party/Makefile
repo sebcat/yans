@@ -1,6 +1,6 @@
 # XXX: We should move to automake here
 
-CFLAGS=-Wall -Os
+CFLAGS+=-Wall -Os
 AR=ar rc
 RANLIB=ranlib
 

@@ -6,6 +6,7 @@ AC_INIT([yans], [1.0.0], [seb.cato@gmail.com])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([subdir-objects foreign -Wall -Werror])
 AM_SILENT_RULES([yes])
+AM_PROG_AR
 
 LT_INIT
 
@@ -43,6 +44,6 @@ AC_CHECK_LIB([pcap], [pcap_create], [PCAPLIB=-lpcap],
         [AC_MSG_ERROR([libpcap missing])])
 AC_SUBST([PCAPLIB])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile 3rd_party/Makefile])
 
 AC_OUTPUT

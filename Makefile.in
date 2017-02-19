@@ -415,8 +415,9 @@ YANS_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
 	$(YANS_LOG_FLAGS)
 DIST_SUBDIRS = $(SUBDIRS)
-am__DIST_COMMON = $(srcdir)/Makefile.in README compile config.guess \
-	config.sub depcomp install-sh ltmain.sh missing test-driver
+am__DIST_COMMON = $(srcdir)/Makefile.in README ar-lib compile \
+	config.guess config.sub depcomp install-sh ltmain.sh missing \
+	test-driver
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)

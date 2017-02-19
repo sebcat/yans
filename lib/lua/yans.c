@@ -11,7 +11,7 @@
 
 #define MTNAME_IPADDR     "yans.IPAddr"
 #define MTNAME_ETHADDR    "yans.EthAddr"
-#define MTNAME_BLOCK      "yans.Block"
+#define MTNAME_BLOCK      "yans.IPBlock"
 #define MTNAME_URLBUILDER "yans.URLBuilder"
 
 #define checkipaddr(L, i) \
@@ -255,9 +255,9 @@ static int l_block(lua_State *L) {
   blk = l_newblock(L);
   if (ip_block(blk, s, &err) < 0) {
     if (err != 0) {
-      luaL_error(L, "Block: %s, block \"%s\"", ip_block_strerror(err), s);
+      luaL_error(L, "IPBlock: %s, block \"%s\"", ip_block_strerror(err), s);
     } else {
-      luaL_error(L, "Block: parse error \"%s\"", s);
+      luaL_error(L, "IPBlock: parse error \"%s\"", s);
     }
   }
   return 1;
@@ -699,11 +699,11 @@ static const struct luaL_Reg yansurlbuilder_m[] = {
 
 static const struct luaL_Reg yans_f[] = {
   {"IPAddr", l_ipaddr},
-  {"Block", l_block},
+  {"IPBlock", l_block},
   {"URLBuilder", l_urlbuilder},
   {"devices", l_devices},
   /* TODO: - network(str): CIDR handling for networks. return table with
-   *         network, broadcast addrs and range (as a Block) */
+   *         network, broadcast addrs and range (as an IPBlock) */
   {NULL, NULL}
 };
 

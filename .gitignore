@@ -10,4 +10,4 @@ Makefile.in
 config.status
 *_test
 libtool
-yans
+/yans

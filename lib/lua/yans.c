@@ -43,7 +43,7 @@ static inline struct eth_addr *l_newethaddr(lua_State *L) {
   return eth;
 }
 
-static inline ip_block_t *l_newblock(lua_State *L) {
+static inline ip_block_t *l_newipblock(lua_State *L) {
   ip_block_t *blk;
 
   blk = lua_newuserdata(L, sizeof(ip_block_t));
@@ -246,13 +246,13 @@ static int l_ethaddr_bytes(lua_State *L) {
   return 1;
 }
 
-static int l_block(lua_State *L) {
+static int l_ipblock(lua_State *L) {
   ip_block_t *blk;
   const char *s;
   int err = 0;
 
   s = luaL_checkstring(L, 1);
-  blk = l_newblock(L);
+  blk = l_newipblock(L);
   if (ip_block(blk, s, &err) < 0) {
     if (err != 0) {
       luaL_error(L, "IPBlock: %s, block \"%s\"", ip_block_strerror(err), s);
@@ -263,7 +263,7 @@ static int l_block(lua_State *L) {
   return 1;
 }
 
-static int l_block_tostring(lua_State *L) {
+static int l_ipblock_tostring(lua_State *L) {
   char addrbuf[YANS_IP_ADDR_MAXLEN*2+2];
   ip_block_t *addr;
   int err=0;
@@ -281,7 +281,7 @@ static int l_block_tostring(lua_State *L) {
   return 1;
 }
 
-static int l_block_first(lua_State *L) {
+static int l_ipblock_first(lua_State *L) {
   ip_block_t *blk;
   ip_addr_t *addr;
 
@@ -291,7 +291,7 @@ static int l_block_first(lua_State *L) {
   return 1;
 }
 
-static int l_block_last(lua_State *L) {
+static int l_ipblock_last(lua_State *L) {
   ip_block_t *blk;
   ip_addr_t *addr;
 
@@ -301,7 +301,7 @@ static int l_block_last(lua_State *L) {
   return 1;
 }
 
-static int l_block_contains(lua_State *L) {
+static int l_ipblock_contains(lua_State *L) {
   ip_block_t *blk;
   ip_addr_t *addr;
   int ret;
@@ -371,7 +371,7 @@ static lua_Integer l_device_addrs(lua_State*L, pcap_addr_t *addrs) {
       }
 
       if (addr != NULL && netmask != NULL) {
-        blk = l_newblock(L);
+        blk = l_newipblock(L);
         if (ip_block_netmask(blk, addr, netmask, NULL) == 0) {
           lua_setfield(L, -2, "block");
         } else {
@@ -681,10 +681,10 @@ static const struct luaL_Reg yansblock_m[] = {
      Multiple integers (incompatible with __len)?
      {"__div", NULL},  split blocks into sub-blocks
    */
-  {"__tostring", l_block_tostring},
-  {"first", l_block_first},
-  {"last", l_block_last},
-  {"contains", l_block_contains},
+  {"__tostring", l_ipblock_tostring},
+  {"first", l_ipblock_first},
+  {"last", l_ipblock_last},
+  {"contains", l_ipblock_contains},
   {NULL, NULL}
 };
 
@@ -699,7 +699,7 @@ static const struct luaL_Reg yansurlbuilder_m[] = {
 
 static const struct luaL_Reg yans_f[] = {
   {"IPAddr", l_ipaddr},
-  {"IPBlock", l_block},
+  {"IPBlock", l_ipblock},
   {"URLBuilder", l_urlbuilder},
   {"devices", l_devices},
   /* TODO: - network(str): CIDR handling for networks. return table with

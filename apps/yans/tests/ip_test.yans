@@ -2,7 +2,7 @@
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
 IPAddr = yans.IPAddr
-Block = yans.Block
+IPBlock = yans.IPBlock
 
 local function test_addr_tostring_self(str)
 	addr = IPAddr(str)
@@ -110,9 +110,9 @@ addr_sub("::1:0:0:0:0", 1, "::ffff:ffff:ffff:ffff")
 addr_sub("ff02::1", -1, "ff02::2")
 addr_sub("::1", 1, "::")
 
--- yans.Block first, last
+-- yans.IPBlock first, last
 local function block(s, efirst, elast)
-  blk = Block(s)
+  blk = IPBlock(s)
   afirst, alast = tostring(blk:first()), tostring(blk:last())
   if afirst ~= efirst or alast ~= elast then
     error(string.format("expected %s-%s, was %s-%s",
@@ -140,7 +140,7 @@ block("255.255.255.255/0", "0.0.0.0", "255.255.255.255")
 block("255.255.255.255/32", "255.255.255.255", "255.255.255.255")
 
 local function block_str(s, expected)
-  blk = Block(s)
+  blk = IPBlock(s)
   actual = tostring(blk)
   if actual ~= expected then
     error(string.format("expected %q, got %q", expected, actual))
@@ -167,7 +167,7 @@ block_str("255.255.255.255/0", "0.0.0.0-255.255.255.255")
 block_str("255.255.255.255/32", "255.255.255.255-255.255.255.255")
 
 local function block_err(s)
-  local ok, res = pcall(Block, s)
+  local ok, res = pcall(IPBlock, s)
   if ok then
     error("expected failure, got "..tostring(res))
   end
@@ -184,7 +184,7 @@ block_err("127.0.0.1-::1")
 block_err("::1-127.0.0.1")
 
 local function block_contains(blk, addr, expected_in)
-  blk = Block(blk)
+  blk = IPBlock(blk)
   addr = IPAddr(addr)
   if blk:contains(addr) ~= expected_in then
     if expected_in then

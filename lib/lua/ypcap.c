@@ -19,7 +19,7 @@ typedef struct {
 } ypcap_t;
 
 static int l_ypcap_new(lua_State *L) {
-  const char *iface, *file;
+  const char *iface = NULL, *file = NULL;
   ypcap_t *ypcap;
 
   luaL_checktype(L, 1, LUA_TTABLE);

@@ -88,8 +88,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-TESTS = lib_net_url_test$(EXEEXT)
-check_PROGRAMS = lib_net_url_test$(EXEEXT)
+TESTS = lib_net_url_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
+	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
+check_PROGRAMS = lib_net_url_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
+	yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -118,6 +120,10 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
+	lib/util/u8_test.$(OBJEXT)
+lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
+lib_util_u8_test_LDADD = $(LDADD)
 am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
 	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
@@ -161,8 +167,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(lib_net_url_test_SOURCES) $(yans_SOURCES)
-DIST_SOURCES = $(lib_net_url_test_SOURCES) $(yans_SOURCES)
+SOURCES = $(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
+	$(yans_SOURCES)
+DIST_SOURCES = $(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
+	$(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -388,7 +396,6 @@ am__set_TESTS_bases = \
   bases=`echo $$bases`
 RECHECK_LOGS = $(TEST_LOGS)
 TEST_SUITE_LOG = test-suite.log
-TEST_EXTENSIONS = @EXEEXT@ .test
 LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 LOG_COMPILE = $(LOG_COMPILER) $(AM_LOG_FLAGS) $(LOG_FLAGS)
 am__set_b = \
@@ -403,10 +410,10 @@ am__set_b = \
   esac
 am__test_logs1 = $(TESTS:=.log)
 am__test_logs2 = $(am__test_logs1:@EXEEXT@.log=.log)
-TEST_LOGS = $(am__test_logs2:.test.log=.log)
-TEST_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
-TEST_LOG_COMPILE = $(TEST_LOG_COMPILER) $(AM_TEST_LOG_FLAGS) \
-	$(TEST_LOG_FLAGS)
+TEST_LOGS = $(am__test_logs2:.yans.log=.log)
+YANS_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
+YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
+	$(YANS_LOG_FLAGS)
 DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in README compile config.guess \
 	config.sub depcomp install-sh ltmain.sh missing test-driver
@@ -571,6 +578,8 @@ top_srcdir = @top_srcdir@
 SUBDIRS = 3rd_party
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror
+TEST_EXTENSIONS = .yans
+YANS_LOG_COMPILER = ./yans
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \
@@ -588,7 +597,12 @@ yans_LDADD = \
     3rd_party/liblinenoise.a \
     3rd_party/liblua.a
 
-lib_net_url_test_SOURCES = lib/net/url.c \
+lib_util_u8_test_SOURCES = \
+    lib/util/u8.c \
+    lib/util/u8_test.c
+
+lib_net_url_test_SOURCES = \
+    lib/net/url.c \
     lib/net/url_test.c \
     lib/net/punycode.c \
     lib/util/u8.c \
@@ -597,7 +611,7 @@ lib_net_url_test_SOURCES = lib/net/url.c \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .log .o .obj .test .test$(EXEEXT) .trs
+.SUFFIXES: .c .lo .log .o .obj .trs .yans .yans$(EXEEXT)
 am--refresh: Makefile
 	@:
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
@@ -715,6 +729,12 @@ lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_net_url_test$(EXEEXT): $(lib_net_url_test_OBJECTS) $(lib_net_url_test_DEPENDENCIES) $(EXTRA_lib_net_url_test_DEPENDENCIES) 
 	@rm -f lib_net_url_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_net_url_test_OBJECTS) $(lib_net_url_test_LDADD) $(LIBS)
+lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+
+lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
+	@rm -f lib_util_u8_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -762,6 +782,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1050,19 +1071,26 @@ lib_net_url_test.log: lib_net_url_test$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
-.test.log:
+lib_util_u8_test.log: lib_util_u8_test$(EXEEXT)
+	@p='lib_util_u8_test$(EXEEXT)'; \
+	b='lib_util_u8_test'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+.yans.log:
 	@p='$<'; \
 	$(am__set_b); \
-	$(am__check_pre) $(TEST_LOG_DRIVER) --test-name "$$f" \
+	$(am__check_pre) $(YANS_LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
-	$(am__common_driver_flags) $(AM_TEST_LOG_DRIVER_FLAGS) $(TEST_LOG_DRIVER_FLAGS) -- $(TEST_LOG_COMPILE) \
+	$(am__common_driver_flags) $(AM_YANS_LOG_DRIVER_FLAGS) $(YANS_LOG_DRIVER_FLAGS) -- $(YANS_LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
-@am__EXEEXT_TRUE@.test$(EXEEXT).log:
+@am__EXEEXT_TRUE@.yans$(EXEEXT).log:
 @am__EXEEXT_TRUE@	@p='$<'; \
 @am__EXEEXT_TRUE@	$(am__set_b); \
-@am__EXEEXT_TRUE@	$(am__check_pre) $(TEST_LOG_DRIVER) --test-name "$$f" \
+@am__EXEEXT_TRUE@	$(am__check_pre) $(YANS_LOG_DRIVER) --test-name "$$f" \
 @am__EXEEXT_TRUE@	--log-file $$b.log --trs-file $$b.trs \
-@am__EXEEXT_TRUE@	$(am__common_driver_flags) $(AM_TEST_LOG_DRIVER_FLAGS) $(TEST_LOG_DRIVER_FLAGS) -- $(TEST_LOG_COMPILE) \
+@am__EXEEXT_TRUE@	$(am__common_driver_flags) $(AM_YANS_LOG_DRIVER_FLAGS) $(YANS_LOG_DRIVER_FLAGS) -- $(YANS_LOG_COMPILE) \
 @am__EXEEXT_TRUE@	"$$tst" $(AM_TESTS_FD_REDIRECT)
 
 distdir: $(DISTFILES)

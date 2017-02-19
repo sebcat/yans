@@ -43,9 +43,6 @@ AC_CHECK_LIB([pcap], [pcap_create], [PCAPLIB=-lpcap],
         [AC_MSG_ERROR([libpcap missing])])
 AC_SUBST([PCAPLIB])
 
-
-
-
 AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT

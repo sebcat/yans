@@ -21,6 +21,8 @@ liblinenoise.a:
 clean:
 	rm -f liblua.a lua.o liblinenoise.a linenoise.a
 
-check:
+# check makes all because the toplevel Makefile.am depends on the libraries
+# in here to exist
+check: all
 
 maintainer-clean:

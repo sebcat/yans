@@ -4,11 +4,17 @@ AM_CFLAGS = -Wall -Werror
 
 TESTS = \
     lib_net_url_test \
-    lib_util_u8_test
+    lib_util_u8_test \
+    apps/yans/tests/url_test.yans \
+    apps/yans/tests/ip_test.yans
+
+TEST_EXTENSIONS = .yans
+YANS_LOG_COMPILER = ./yans
 
 check_PROGRAMS = \
     lib_net_url_test \
-    lib_util_u8_test
+    lib_util_u8_test \
+    yans
 
 bin_PROGRAMS = yans
 

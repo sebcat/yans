@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fts.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include <lib/util/os.h>
 
@@ -40,6 +42,10 @@ static void os_setpatherr(os_t *os, const char *fname, const char *path,
   len = snprintf(os->errbuf, OS_ERRBUFSZ, "%s %s: ", fname, path);
   vsnprintf(os->errbuf+len, OS_ERRBUFSZ-len, fmt, ap);
   va_end(ap);
+}
+
+static void os_perror(os_t *os, const char *s) {
+  os_seterr(os, "%s: %s", s, strerror(errno));
 }
 
 const char *os_strerror(os_t *os) {
@@ -177,21 +183,20 @@ int os_chrootd(os_t *os, struct os_chrootd_opts *opts) {
   /* create the PID file with correct UID/GID, or fail if it exists */
   snprintf(buf, sizeof(buf), "%.*s.pid", (int)sizeof(buf)-8, opts->name);
   if ((pidfilefd = open(buf, O_WRONLY|O_CREAT|O_EXCL, 0644)) < 0) {
-    os_seterr(os, "os_chrootd: PID file already exists");
+    os_perror(os, "os_chrootd: pidfile open");
     goto fail;
   } else if (fchown(pidfilefd, opts->uid, opts->gid) != 0) {
-    os_seterr(os, "os_chrootd: pidfile chown: %s", strerror(errno));
+    os_perror(os, "os_chrootd: pidfile chown");
     goto fail;
   }
 
   /* create the dumpfile with correct UID/GID, truncate if it exists */
   snprintf(buf, sizeof(buf), "%.*s.dump", (int)sizeof(buf)-8, opts->name);
   if ((dumpfilefd = open(buf, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0) {
-    os_seterr(os, "os_chrootd: unable to create dumpfile: %s",
-        strerror(errno));
+    os_perror(os, "os_chrootd: dumpfile open");
     goto fail;
   } else if (fchown(dumpfilefd, opts->uid, opts->gid) != 0) {
-    os_seterr(os, "os_chrootd: dumpfile chown: %s", strerror(errno));
+    os_perror(os, "os_chrootd: dumpfile chown");
     goto fail;
   }
 
@@ -199,26 +204,26 @@ int os_chrootd(os_t *os, struct os_chrootd_opts *opts) {
   if (opts->nagroups == 0) {
     gid_t gid = opts->gid;
     if (setgroups(1, &gid) != 0) {
-      os_seterr(os, "os_chrootd: setgroups failure: %s", strerror(errno));
+      os_perror(os, "os_chrootd: setgroups");
       goto fail;
     }
   } else if (setgroups(opts->nagroups, opts->agroups) != 0) {
-    os_seterr(os, "os_chrootd: setgroups failure: %s", strerror(errno));
+    os_perror(os, "os_chrootd: setgroups");
     goto fail;
   }
 
   /* change gid and pid */
   if (setgid(opts->gid) != 0) {
-    os_seterr(os, "os_chrootd: setgid failure: %s", strerror(errno));
+    os_perror(os, "os_chrootd: setgid");
     goto fail;
   } else if (setuid(opts->uid) != 0) {
-    os_seterr(os, "os_chrootd: setuid failure: %s", strerror(errno));
+    os_perror(os, "os_chrootd: setuid");
     goto fail;
   }
 
   /* daemonize - first fork */
   if ((pid = fork()) < 0) {
-    os_seterr(os, "os_chrootd: fork failure: %s", strerror(errno));
+    os_perror(os, "os_chrootd: fork");
     goto fail;
   } else if (pid > 0) {
     exit(EXIT_SUCCESS);
@@ -228,7 +233,7 @@ int os_chrootd(os_t *os, struct os_chrootd_opts *opts) {
   setsid();
   umask(0);
   if ((pid = fork()) < 0) {
-    os_seterr(os, "os_chrootd: second fork failure: %s", strerror(errno));
+    os_perror(os, "os_chrootd: fork2");
     goto fail;
   } else if (pid > 0) {
     exit(EXIT_SUCCESS);
@@ -255,6 +260,71 @@ fail:
 
   if (dumpfilefd >= 0) {
     close(dumpfilefd);
+  }
+
+  return OS_ERR;
+}
+
+/* this may be too small, in which case it's possible to retry getpwnam_r,
+ * getgrnam_r with a larger buffer size, but we keep it simple for now and
+ * report the error instead */
+#define IDBUFSZ (32*1024)
+
+int os_getuid(os_t *os, const char *user, uid_t *uid) {
+  char *buf = NULL;
+  struct passwd pwd, *res = NULL;
+
+  CLEARERRBUF(os);
+  if ((buf = malloc(IDBUFSZ)) == NULL) {
+    os_perror(os, "os_getuid: malloc");
+    goto fail;
+  }
+
+  if (getpwnam_r(user, &pwd, buf, IDBUFSZ, &res) != 0) {
+    os_perror(os, "os_getuid: getpwnam_r");
+    goto fail;
+  } else if (res == NULL) {
+    os_seterr(os, "os_getuid: no such user (%s)", user);
+    goto fail;
+  }
+
+  *uid = res->pw_uid;
+  free(buf);
+  return OS_OK;
+
+fail:
+  if (buf != NULL) {
+    free(buf);
+  }
+
+  return OS_ERR;
+}
+
+int os_getgid(os_t *os, const char *group, gid_t *gid) {
+  char *buf = NULL;
+  struct group grp, *res = NULL;
+
+  CLEARERRBUF(os);
+  if ((buf = malloc(IDBUFSZ)) == NULL) {
+    os_perror(os, "os_getpid: malloc");
+    goto fail;
+  }
+
+  if (getgrnam_r(group, &grp, buf, IDBUFSZ, &res) != 0) {
+    os_perror(os, "os_getgid: getgrnam_r");
+    goto fail;
+  } else if (res == NULL) {
+    os_seterr(os, "os_getgid: no such group (%s)", group);
+    goto fail;
+  }
+
+  *gid = res->gr_gid;
+  free(buf);
+  return OS_OK;
+
+fail:
+  if (buf != NULL) {
+    free(buf);
   }
 
   return OS_ERR;

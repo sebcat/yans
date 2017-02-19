@@ -16,7 +16,14 @@ check_PROGRAMS = \
     lib_util_u8_test \
     yans
 
-bin_PROGRAMS = yans
+bin_PROGRAMS = \
+    yans \
+    pcapd
+
+pcapd_SOURCES = \
+    lib/util/os.c \
+    lib/util/ylog.c \
+    apps/pcapd/pcapd.c
 
 yans_SOURCES = \
     lib/util/u8.c \

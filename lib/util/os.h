@@ -1,6 +1,7 @@
 #ifndef OS_H_
 #define OS_H_
 
+#include <sys/types.h>
 #include <unistd.h>
 
 #define OS_OK   0
@@ -49,6 +50,8 @@ struct os_chrootd_opts {
  *   Must be called as root */
 int os_chrootd(os_t *os, struct os_chrootd_opts *opts);
 
+int os_getuid(os_t *os, const char *user, uid_t *uid);
+int os_getgid(os_t *os, const char *group, gid_t *gid);
 
 #endif
 

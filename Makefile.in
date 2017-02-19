@@ -92,7 +92,7 @@ TESTS = lib_net_url_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
 	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
 check_PROGRAMS = lib_net_url_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
 	yans$(EXEEXT)
-bin_PROGRAMS = yans$(EXEEXT)
+bin_PROGRAMS = yans$(EXEEXT) pcapd$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -124,6 +124,10 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
+am_pcapd_OBJECTS = lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
+	apps/pcapd/pcapd.$(OBJEXT)
+pcapd_OBJECTS = $(am_pcapd_OBJECTS)
+pcapd_LDADD = $(LDADD)
 am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
 	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
@@ -168,9 +172,9 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(yans_SOURCES)
+	$(pcapd_SOURCES) $(yans_SOURCES)
 DIST_SOURCES = $(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(yans_SOURCES)
+	$(pcapd_SOURCES) $(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -581,6 +585,11 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
+pcapd_SOURCES = \
+    lib/util/os.c \
+    lib/util/ylog.c \
+    apps/pcapd/pcapd.c
+
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \
@@ -736,6 +745,22 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
+lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+apps/pcapd/$(am__dirstamp):
+	@$(MKDIR_P) apps/pcapd
+	@: > apps/pcapd/$(am__dirstamp)
+apps/pcapd/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) apps/pcapd/$(DEPDIR)
+	@: > apps/pcapd/$(DEPDIR)/$(am__dirstamp)
+apps/pcapd/pcapd.$(OBJEXT): apps/pcapd/$(am__dirstamp) \
+	apps/pcapd/$(DEPDIR)/$(am__dirstamp)
+
+pcapd$(EXEEXT): $(pcapd_OBJECTS) $(pcapd_DEPENDENCIES) $(EXTRA_pcapd_DEPENDENCIES) 
+	@rm -f pcapd$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(pcapd_OBJECTS) $(pcapd_LDADD) $(LIBS)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -765,6 +790,7 @@ yans$(EXEEXT): $(yans_OBJECTS) $(yans_DEPENDENCIES) $(EXTRA_yans_DEPENDENCIES)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f apps/pcapd/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
 	-rm -f lib/net/*.$(OBJEXT)
@@ -773,6 +799,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@apps/pcapd/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
@@ -782,8 +809,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1321,6 +1350,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f apps/pcapd/$(DEPDIR)/$(am__dirstamp)
+	-rm -f apps/pcapd/$(am__dirstamp)
 	-rm -f apps/yans/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/yans/$(am__dirstamp)
 	-rm -f lib/lua/$(DEPDIR)/$(am__dirstamp)
@@ -1340,7 +1371,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/pcapd/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -1388,7 +1419,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/pcapd/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

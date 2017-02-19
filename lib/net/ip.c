@@ -34,8 +34,6 @@ int ip_addr(ip_addr_t *addr, const char *s, int *err) {
     *end = '\0';
   }
 
-
-
   memset(&hints, 0, sizeof(hints));
   hints.ai_flags = AI_NUMERICHOST|AI_NUMERICSERV;
   if ((ret = getaddrinfo(start, NULL, &hints, &ai)) != 0) {
@@ -114,7 +112,6 @@ static inline void ip_addr_add_ipv6(ip_addr_t *addr, int32_t n) {
     ext[0] = ext[1] = ext[2] = 0;
   }
 
-
   for(i = 3; i >= 0; i--) {
     acc = ((uint64_t)ntohl(addr->u.sin6.sin6_addr.s6_addr32[i]))
         + (uint64_t)ext[i] + acc;
@@ -179,7 +176,6 @@ static void ip6_block_mask(ip_addr_t *first, ip_addr_t *last,
     uint32_t prefixlen) {
   /* clear the lower bits of 'first', set the lower bits of 'last' */
   ip_addr_t mask;
-
   ip6_netmask(&mask, prefixlen);
   ip6_clearbits(first, &mask);
   ip6_setbits(last, &mask);
@@ -188,7 +184,6 @@ static void ip6_block_mask(ip_addr_t *first, ip_addr_t *last,
 static void ip4_netmask(ip_addr_t *addr, uint32_t prefixlen) {
   memset(&addr->u.sin, 0, sizeof(addr->u.sin));
   addr->u.sin.sin_family = AF_INET;
-
   if (prefixlen == 0) {
     addr->u.sin.sin_addr.s_addr = 0;
   } else if (prefixlen > 32) {
@@ -207,7 +202,6 @@ static void ip4_netmask(ip_addr_t *addr, uint32_t prefixlen) {
 static inline void ip4_block_mask(ip_addr_t *first, ip_addr_t *last,
     uint32_t prefixlen) {
   ip_addr_t mask;
-
   ip4_netmask(&mask, prefixlen);
   ip4_clearbits(first, &mask);
   ip4_setbits(last, &mask);
@@ -278,7 +272,6 @@ int ip_block(ip_block_t *blk, const char *s, int *err) {
   char addrbuf[YANS_IP_ADDR_MAXLEN];
 
   snprintf(addrbuf, sizeof(addrbuf), "%s", s);
-  cptr = strchr(addrbuf, '/');
   if ((cptr = strchr(addrbuf, '/')) != NULL) {
     *cptr = 0;
     return ip_block_cidr(blk, addrbuf, cptr+1, err);

@@ -7,7 +7,7 @@
 #define EURL_SCHEME    -3
 #define EURL_HOST      -4
 
-#include "buf.h"
+#include <lib/util/buf.h>
 
 #define URLFL_REMOVE_EMPTY_QUERY    (1 << 0)
 #define URLFL_REMOVE_EMPTY_FRAGMENT (1 << 1)

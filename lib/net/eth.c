@@ -19,7 +19,7 @@
 
 #define ETHFRAME_MINSZ 14 /* DST + SRC + type */
 
-#include "eth.h"
+#include <lib/net/eth.h>
 
 #if defined(__FreeBSD__)
 

@@ -12,7 +12,7 @@
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif
 
-#include "ip.h"
+#include <lib/net/ip.h>
 
 
 int ip_addr(ip_addr_t *addr, const char *s, int *err) {

@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "u8.h"
-#include "buf.h"
+#include <lib/util/u8.h>
+#include <lib/util/buf.h>
 
 #define ACE_PREFIX     "xn--"
 #define ACE_PREFIX_LEN (sizeof(ACE_PREFIX)-1)

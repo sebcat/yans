@@ -1,0 +1,32 @@
+SUBDIRS = 3rd_party
+ACLOCAL_AMFLAGS = -I m4
+AM_CFLAGS = -Wall -Werror
+
+TESTS = lib_net_url_test
+
+check_PROGRAMS = lib_net_url_test
+bin_PROGRAMS = yans
+
+yans_SOURCES = \
+    lib/util/u8.c \
+    lib/util/buf.c \
+    lib/net/punycode.c \
+    lib/net/eth.c \
+    lib/net/ip.c \
+    lib/net/url.c \
+    lib/lua/yans.c \
+    lib/lua/ypcap.c \
+    apps/yans/yans.c
+
+yans_LDADD = \
+    $(PCAPLIB) \
+    -lm \
+    3rd_party/liblinenoise.a \
+    3rd_party/liblua.a
+
+lib_net_url_test_SOURCES = lib/net/url.c \
+    lib/net/url_test.c \
+    lib/net/punycode.c \
+    lib/util/u8.c \
+    lib/util/buf.c
+

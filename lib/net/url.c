@@ -21,8 +21,8 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "buf.h"
-#include "url.h"
+#include <lib/util/buf.h>
+#include <lib/net/url.h>
 
 #define URL_INITALLOC  512
 

@@ -82,11 +82,43 @@ fail:
 	return -1;
 }
 
-static void print_url_parts(size_t i, const char *name, struct url_parts *p) {
-	fprintf(stderr, "  %s index %zu:\n    scheme: %zu %zu\n    auth: %zu %zu\n"
+static void url_parts_flagstr(int flags, char *buf, size_t len) {
+  int next;
+
+  next = snprintf(buf, len, "0");
+  buf += next; len -= (size_t)next;
+
+  if (flags & URLPART_HAS_USERINFO) {
+    next = snprintf(buf, len, "|URLPART_HAS_USERINFO");
+    buf += next; len -= (size_t)next;
+  }
+
+  if (flags & URLPART_HAS_PORT) {
+    next = snprintf(buf, len, "|URLPART_HAS_PORT");
+    buf += next; len -= (size_t)next;
+  }
+
+  if (flags & URLPART_HAS_QUERY) {
+    next = snprintf(buf, len, "|URLPART_HAS_QUERY");
+    buf += next; len -= (size_t)next;
+  }
+
+  if (flags & URLPART_HAS_FRAGMENT) {
+    next = snprintf(buf, len, "|URLPART_HAS_FRAGMENT");
+    buf += next; len -= (size_t)next;
+  }
+}
+
+
+static void print_url_parts(const char *name, struct url_parts *p) {
+    char flagsbuf[512];
+
+    url_parts_flagstr(p->flags, flagsbuf, sizeof(flagsbuf));
+	fprintf(stderr, "  %s:\n    scheme: %zu %zu\n    auth: %zu %zu\n"
 			"    userinfo %zu %zu\n    host: %zu %zu\n    port: %zu %zu\n"
-			"    path: %zu %zu\n    query: %zu %zu\n    fragment: %zu %zu\n",
-			name, i,
+			"    path: %zu %zu\n    query: %zu %zu\n    fragment: %zu %zu\n"
+            "    flags: %s\n",
+			name,
 			p->scheme, p->schemelen,
 			p->auth, p->authlen,
 			p->userinfo, p->userinfolen,
@@ -94,7 +126,8 @@ static void print_url_parts(size_t i, const char *name, struct url_parts *p) {
 			p->port, p->portlen,
 			p->path, p->pathlen,
 			p->query, p->querylen,
-			p->fragment, p->fragmentlen);
+			p->fragment, p->fragmentlen,
+            flagsbuf);
 }
 
 static int test_parse() {
@@ -191,7 +224,7 @@ static int test_parse() {
 			.path = 15, .pathlen = 0,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO,
 		}},
 		{"foo://wiie:foo@bar", {
 			.scheme = 0, .schemelen = 3,
@@ -202,7 +235,7 @@ static int test_parse() {
 			.path = 18, .pathlen = 0,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO,
 		}},
 		{"foo://wiie:foo@bar:", {
 			.scheme = 0, .schemelen = 3,
@@ -213,7 +246,7 @@ static int test_parse() {
 			.path = 19, .pathlen = 0,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT,
 		}},
 		{"foo://wiie:foo@bar:22", {
 			.scheme = 0, .schemelen = 3,
@@ -224,7 +257,7 @@ static int test_parse() {
 			.path = 21, .pathlen = 0,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT,
 		}},
 		{"foo://wiie:foo@bar:22/", {
 			.scheme = 0, .schemelen = 3,
@@ -235,7 +268,7 @@ static int test_parse() {
 			.path = 21, .pathlen = 1,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT,
 		}},
 		{"foo://wiie:foo@[::1%1]:22", {
 			.scheme = 0, .schemelen = 3,
@@ -246,7 +279,7 @@ static int test_parse() {
 			.path = 25, .pathlen = 0,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT,
 		}},
 		{"foo://wiie:foo@[::1%1]:22/", {
 			.scheme = 0, .schemelen = 3,
@@ -257,7 +290,7 @@ static int test_parse() {
 			.path = 25, .pathlen = 1,
 			.query = 0, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = 0,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT,
 		}},
 		{"foo://wiie:foo@[::1%1]:22/?", {
 			.scheme = 0, .schemelen = 3,
@@ -268,7 +301,7 @@ static int test_parse() {
 			.path = 25, .pathlen = 1,
 			.query = 27, .querylen = 0,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = URLPART_HAS_QUERY,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT|URLPART_HAS_QUERY,
 		}},
 		{"foo://wiie:foo@[::1%1]:22/?foo", {
 			.scheme = 0, .schemelen = 3,
@@ -279,7 +312,7 @@ static int test_parse() {
 			.path = 25, .pathlen = 1,
 			.query = 27, .querylen = 3,
 			.fragment = 0, .fragmentlen = 0,
-			.flags = URLPART_HAS_QUERY,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT|URLPART_HAS_QUERY,
 		}},
 		{"foo://wiie:foo@[::1%1]:22/?foo#", {
 			.scheme = 0, .schemelen = 3,
@@ -290,7 +323,8 @@ static int test_parse() {
 			.path = 25, .pathlen = 1,
 			.query = 27, .querylen = 3,
 			.fragment = 31, .fragmentlen = 0,
-			.flags = URLPART_HAS_QUERY|URLPART_HAS_FRAGMENT,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT|URLPART_HAS_QUERY|
+                URLPART_HAS_FRAGMENT,
 		}},
 		{"foo://wiie:foo@[::1%1]:22/?foo#bar", {
 			.scheme = 0, .schemelen = 3,
@@ -301,7 +335,8 @@ static int test_parse() {
 			.path = 25, .pathlen = 1,
 			.query = 27, .querylen = 3,
 			.fragment = 31, .fragmentlen = 3,
-			.flags = URLPART_HAS_QUERY | URLPART_HAS_FRAGMENT,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT|URLPART_HAS_QUERY|
+                URLPART_HAS_FRAGMENT,
 		}},
 		{"foo://wiie:foö@[::1%1]:22/?foo#bar", { /* UTF-8 ö = 0xC3 0xB6 */
 			.scheme = 0, .schemelen = 3,
@@ -312,7 +347,8 @@ static int test_parse() {
 			.path = 26, .pathlen = 1,
 			.query = 28, .querylen = 3,
 			.fragment = 32, .fragmentlen = 3,
-			.flags = URLPART_HAS_QUERY | URLPART_HAS_FRAGMENT,
+			.flags = URLPART_HAS_USERINFO|URLPART_HAS_PORT|URLPART_HAS_QUERY|
+                URLPART_HAS_FRAGMENT,
 		}},
 		{NULL, {0}},
 	};
@@ -330,8 +366,9 @@ static int test_parse() {
 		}
 
 		if (memcmp(&tv->expected, &parts, sizeof(parts)) != 0) {
-			print_url_parts(i, "expected", &tv->expected);
-			print_url_parts(i, "actual", &parts);
+            fprintf(stderr, "  input[%zu]: %s\n", i, tv->input);
+			print_url_parts("expected", &tv->expected);
+			print_url_parts("actual", &parts);
 			goto fail;
 		}
 	}

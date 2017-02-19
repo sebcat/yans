@@ -2,9 +2,14 @@ SUBDIRS = 3rd_party
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror
 
-TESTS = lib_net_url_test
+TESTS = \
+    lib_net_url_test \
+    lib_util_u8_test
 
-check_PROGRAMS = lib_net_url_test
+check_PROGRAMS = \
+    lib_net_url_test \
+    lib_util_u8_test
+
 bin_PROGRAMS = yans
 
 yans_SOURCES = \
@@ -24,7 +29,12 @@ yans_LDADD = \
     3rd_party/liblinenoise.a \
     3rd_party/liblua.a
 
-lib_net_url_test_SOURCES = lib/net/url.c \
+lib_util_u8_test_SOURCES = \
+    lib/util/u8.c \
+    lib/util/u8_test.c
+
+lib_net_url_test_SOURCES = \
+    lib/net/url.c \
     lib/net/url_test.c \
     lib/net/punycode.c \
     lib/util/u8.c \

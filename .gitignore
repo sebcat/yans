@@ -3,3 +3,11 @@
 *.trs
 *.a
 autom4te.cache/
+.deps/
+.dirstamp
+Makefile
+Makefile.in
+config.status
+*_test
+libtool
+yans

@@ -18,6 +18,7 @@ buf_t *buf_init(buf_t *buf, size_t cap);
 void buf_cleanup(buf_t *buf);
 int buf_achar(buf_t *buf, int ch);
 int buf_adata(buf_t *buf, const void *data, size_t len);
+int buf_reserve(buf_t *buf, size_t len);
 void buf_shrink(buf_t *buf, size_t nbytes);
 
 #endif

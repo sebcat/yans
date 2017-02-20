@@ -10,6 +10,7 @@
 #include <grp.h>
 #include <pthread.h>
 
+#include <lib/pcapd/pcapd.h>
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
@@ -146,7 +147,7 @@ static int pcapcli_start(pcapcli_t *cli) {
   return 0;
 }
 
-static void accept_loop(int listenfd) {
+static void accept_loop(pcapd_t *pcapd) {
   int id_counter = 0;
   pcapcli_t *cli;
   int clifd;
@@ -172,11 +173,11 @@ static void accept_loop(int listenfd) {
 }
 
 int main(int argc, char *argv[]) {
-  struct sockaddr_un saddr;
   struct pcapd_opts opts;
+  pcapd_t pcapd;
   os_t os;
-  int fd = -1;
 
+  pcapd_setup(&pcapd);
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
@@ -198,26 +199,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-    ylog_perror("socket");
-    goto end;
-  }
-  saddr.sun_family = AF_UNIX;
-  snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", DAEMON_SOCK);
-  unlink(saddr.sun_path);
-  if (bind(fd, (struct sockaddr*)&saddr, sizeof(saddr)) < 0) {
-    ylog_perror("bind");
-    goto end;
-  } else if (listen(fd, SOMAXCONN) < 0) {
-    ylog_perror("listen");
-    goto end;
+  if (pcapd_listen(&pcapd, DAEMON_SOCK) != PCAPD_OK) {
+    ylog_error("pcapd_listen: %s", pcapd_strerror(&pcapd));
+  } else {
+    ylog_info("started");
+    accept_loop(&pcapd);
   }
 
-  ylog_info("started");
-  accept_loop(fd);
 end:
-  if (fd >= 0) {
-    close(fd);
-  }
+  pcapd_close(&pcapd);
   return EXIT_FAILURE;
 }

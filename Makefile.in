@@ -127,14 +127,14 @@ lib_util_u8_test_LDADD = $(LDADD)
 am_pcapd_OBJECTS = lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	apps/pcapd/pcapd.$(OBJEXT)
 pcapd_OBJECTS = $(am_pcapd_OBJECTS)
-pcapd_LDADD = $(LDADD)
+am__DEPENDENCIES_1 =
+pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
 	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
 	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
-am__DEPENDENCIES_1 =
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) 3rd_party/liblinenoise.a \
 	3rd_party/liblua.a
 AM_V_P = $(am__v_P_@AM_V@)
@@ -522,6 +522,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PCAPLIB = @PCAPLIB@
+PTHREADLIB = @PTHREADLIB@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -589,6 +590,10 @@ pcapd_SOURCES = \
     lib/util/os.c \
     lib/util/ylog.c \
     apps/pcapd/pcapd.c
+
+pcapd_LDADD = \
+    $(PCAPLIB) \
+    $(PTHREADLIB)
 
 yans_SOURCES = \
     lib/util/u8.c \

@@ -25,6 +25,10 @@ pcapd_SOURCES = \
     lib/util/ylog.c \
     apps/pcapd/pcapd.c
 
+pcapd_LDADD = \
+    $(PCAPLIB) \
+    $(PTHREADLIB)
+
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \

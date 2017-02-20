@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <string.h>
 #include <time.h>
+#include <errno.h>
 
 #include <lib/util/ylog.h>
 
@@ -78,6 +80,10 @@ void ylog_error(const char *fmt, ...) {
     ylogger.log_error(msgbuf);
     va_end(ap);
   }
+}
+
+void ylog_perror(const char *str) {
+  ylog_error("%s: %s", str, strerror(errno));
 }
 
 void ylog_info(const char *fmt, ...) {

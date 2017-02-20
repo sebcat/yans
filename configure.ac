@@ -41,8 +41,12 @@ AC_FUNC_STRCOLL
 AC_CHECK_FUNCS([atexit dup2 memchr memmove memset mkdir regcomp rmdir setlocale socket strcasecmp strchr strcspn strdup strerror strpbrk strrchr strspn strstr strtoul])
 
 AC_CHECK_LIB([pcap], [pcap_create], [PCAPLIB=-lpcap],
-        [AC_MSG_ERROR([libpcap missing])])
+  [AC_MSG_ERROR([libpcap missing])])
 AC_SUBST([PCAPLIB])
+
+AC_CHECK_LIB([pthread], [pthread_create], [PTHREADLIB=-lpthread],
+  [AC_MSG_ERROR([libpthread missing])])
+AC_SUBST([PTHREADLIB])
 
 AC_CONFIG_FILES([Makefile 3rd_party/Makefile])
 

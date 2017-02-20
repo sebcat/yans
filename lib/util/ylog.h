@@ -23,6 +23,7 @@ void ylog_init(const char *ident, int logger);
 void ylog_fatal(int action, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
 void ylog_error(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+void ylog_perror(const char *str);
 void ylog_info(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 #endif

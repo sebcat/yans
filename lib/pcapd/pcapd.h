@@ -13,7 +13,7 @@
   do { \
     (pcapd)->fd = -1; \
     (pcapd)->errbuf[0] = '\0'; \
-  while(0);
+  } while(0);
 
 typedef struct pcapd_t {
   int fd;

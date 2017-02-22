@@ -82,7 +82,22 @@ fail:
 }
 
 int pcapd_accept(pcapd_t *pcapd, pcapd_t *cli) {
-  /* TODO: Implement */
+  int fd;
+
+  CLEARERRBUF(pcapd);
+  do {
+    fd = accept(pcapd->fd, NULL, NULL);
+  } while(fd < 0 && errno == EINTR);
+
+  if (fd < 0) {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf), "accept: %s",
+        strerror(errno));
+    return PCAPD_ERR;
+  }
+
+  CLEARERRBUF(cli);
+  cli->fd = fd;
+  return PCAPD_OK;
 }
 
 int pcapd_wropen(pcapd_t *pcapd, const char *iface, const char *filter) {

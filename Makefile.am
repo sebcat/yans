@@ -21,6 +21,8 @@ bin_PROGRAMS = \
     pcapd
 
 pcapd_SOURCES = \
+    lib/util/buf.c \
+    lib/util/io.c \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/pcapd/pcapd.c \

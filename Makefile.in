@@ -124,7 +124,8 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
-am_pcapd_OBJECTS = lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
+am_pcapd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
+	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/pcapd/pcapd.$(OBJEXT) apps/pcapd/pcapd.$(OBJEXT)
 pcapd_OBJECTS = $(am_pcapd_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -587,6 +588,8 @@ AM_CFLAGS = -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
 pcapd_SOURCES = \
+    lib/util/buf.c \
+    lib/util/io.c \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/pcapd/pcapd.c \
@@ -751,6 +754,8 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
+lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
@@ -825,6 +830,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/pcapd/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@

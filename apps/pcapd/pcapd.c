@@ -1,19 +1,14 @@
-#include <stdio.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <errno.h>
-#include <pwd.h>
-#include <grp.h>
-#include <pthread.h>
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
 
-#include <lib/pcapd/pcapd.h>
-#include <lib/util/ylog.h>
 #include <lib/util/os.h>
+#include <lib/util/ylog.h>
+#include <lib/pcapd/pcapd.h>
 
 #define DAEMON_NAME "pcapd"
 #define DAEMON_SOCK "pcapd.sock"

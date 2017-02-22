@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <lib/util/io.h>
 

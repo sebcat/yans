@@ -84,8 +84,8 @@ static void accept_loop(pcapd_t *pcapd) {
       ylog_perror("pcapcli_start");
     } else {
       cli = NULL; /* cli is now owned by the thread started by pcapcli_start */
+      ylog_info("pcap client started (id:%d)", id_counter);
       id_counter++;
-      ylog_info("pcap client started (id:%d)", cli->id);
     }
   }
   ylog_perror("accept");

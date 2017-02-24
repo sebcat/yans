@@ -137,7 +137,7 @@ am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) 3rd_party/liblinenoise.a \
-	3rd_party/liblua.a
+	3rd_party/liblpeg.a 3rd_party/liblua.a
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -614,6 +614,7 @@ yans_LDADD = \
     $(PCAPLIB) \
     -lm \
     3rd_party/liblinenoise.a \
+    3rd_party/liblpeg.a \
     3rd_party/liblua.a
 
 lib_util_u8_test_SOURCES = \

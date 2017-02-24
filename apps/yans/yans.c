@@ -7,6 +7,7 @@
 
 #include <3rd_party/linenoise.h>
 #include <3rd_party/lua.h>
+#include <3rd_party/lpeg.h>
 
 #include <lib/lua/yans.h>
 #include <lib/lua/ypcap.h>
@@ -113,6 +114,7 @@ static lua_State * state_or_die() {
   luaL_openlibs(L);
   luaL_requiref(L, "yans", luaopen_yans, 1);
   luaL_requiref(L, "ypcap", luaopen_ypcap, 1);
+  luaL_requiref(L, "lpeg", luaopen_lpeg, 1);
   return L;
 }
 

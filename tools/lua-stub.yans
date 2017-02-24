@@ -1,7 +1,6 @@
-#!/usr/bin/env lua
 -- vim: set tabstop=2 shiftwidth=2 cc=80 expandtab:
 
--- Builds an amalgamation of the lua interpreter. Can maybe be used for
+-- Builds an amalgamation of the Lua interpreter. Can maybe be used for
 -- other C projects with a similar project layout with minor adjustments.
 --
 -- Doesn't handle conditional includes, and a few other things. Manual
@@ -25,7 +24,7 @@ LUADIR=arg[1]
 -- would require patching some functionality which is not as clean as just
 -- amalgamating the neccesary files.
 HFILES = "cd "..LUADIR.." && ls *.h"
-CFILES = "cd "..LUADIR.." && ls *.c | grep -Ev 'lua.c|luac.c'"
+CFILES = "cd "..LUADIR.." && ls *.c"
 
 -- executes a command from the OS which is expected to return a list of file
 -- names fullfilling the pattern %w/_.-

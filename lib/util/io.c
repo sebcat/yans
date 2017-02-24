@@ -97,7 +97,7 @@ int io_readtlv(int fd, buf_t *buf) {
     return ret;
   }
 
-  len = *(uint32_t*)buf->data & 0xffffff;
+  len = IO_TLVLEN(buf);
   if (buf_reserve(buf, sizeof(uint32_t) + (size_t)len) < 0) {
     return IO_MEM;
   }

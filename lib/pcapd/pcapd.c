@@ -1,4 +1,5 @@
 #include <lib/pcapd/pcapd.h>
+#include <lib/util/io.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -15,6 +16,17 @@
 #define PCAPD_TERR  2
 
 #define CLEARERRBUF(pcapd) ((pcapd)->errbuf[0] = '\0')
+
+
+int pcapd_init(pcapd_t *pcapd, size_t bufsz) {
+  pcapd->fd = -1;
+  pcapd->errbuf[0] = '\0';
+  if (buf_init(&pcapd->buf, bufsz) == NULL) {
+    return PCAPD_ERR;
+  }
+  return PCAPD_OK;
+}
+
 
 const char *pcapd_strerror(pcapd_t *pcapd) {
   return pcapd->errbuf;
@@ -100,14 +112,72 @@ int pcapd_accept(pcapd_t *pcapd, pcapd_t *cli) {
   return PCAPD_OK;
 }
 
-int pcapd_wropen(pcapd_t *pcapd, const char *iface, const char *filter) {
-  int ret;
-  uint32_t ifacelen, filterlen;
-  struct iovec iov[4];
+int pcapd_rdopen(pcapd_t *pcapd) {
+  int ret, status = PCAPD_ERR;
+  uint32_t type, len, ifacelen, filterlen;
+  char *val;
 
   CLEARERRBUF(pcapd);
-  ifacelen = (uint32_t)strlen(iface);
-  filterlen = (uint32_t)strlen(filter);
+  buf_clear(&pcapd->buf);
+  if ((ret = io_readtlv(pcapd->fd, &pcapd->buf)) != IO_OK) {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf), "pcapd_rdopen: %s",
+        io_strerror(ret));
+    goto exit;
+  }
+  type = IO_TLVTYPE(&pcapd->buf);
+  if (type != PCAPD_TOPEN) {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+        "pcapd_rdopen: unknown type (%d)", type);
+    goto exit;
+  }
+  len = IO_TLVLEN(&pcapd->buf);
+  if (len < sizeof(uint32_t)+2) {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+        "pcapd_rdopen: message too short (was:%u)", len);
+    goto exit;
+  }
+  val = IO_TLVVAL(&pcapd->buf);
+  ifacelen = *(uint32_t*)val;
+  filterlen = *(uint32_t*)(val+4);
+  if (ifacelen == 0 || filterlen == 0 ||
+      ifacelen + filterlen + sizeof(uint32_t)*2 != len) {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+        "pcapd_rdopen: missmatched length fields");
+    goto exit;
+  }
+
+  if (*(val + sizeof(uint32_t)*2 + ifacelen-1) != '\0') {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+        "pcapd_rdopen: ifacelen missing trailing nullbyte");
+    goto exit;
+  } else if (*(val + sizeof(uint32_t)*2 + ifacelen + filterlen-1) != '\0') {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+        "pcapd_rdopen: filterlen missing trailing nullbyte");
+    goto exit;
+  }
+
+  status = PCAPD_OK;
+exit:
+  return status;
+}
+
+int pcapd_wropen(pcapd_t *pcapd, const char *iface, const char *filter) {
+  int ret, status = PCAPD_ERR;
+  uint32_t ifacelen, filterlen, type;
+  struct iovec iov[4];
+
+  if (filter == NULL) {
+    filter = "";
+  }
+
+  CLEARERRBUF(pcapd);
+  /* send PCAPD_TOPEN to pcapd listener
+   * header    ifacelen   filterlen    iface      filter
+   * uint32_t  uint32_t   uint32_t     ifacelen   filterlen
+   *  - includes the trailing \0 bytes in iface, filter
+   *  - header is managed by io_writetlv */
+  ifacelen = (uint32_t)strlen(iface) + 1;
+  filterlen = (uint32_t)strlen(filter) + 1;
   iov[0].iov_base = &ifacelen;
   iov[0].iov_len = sizeof(ifacelen);
   iov[1].iov_base = &filterlen;
@@ -118,15 +188,36 @@ int pcapd_wropen(pcapd_t *pcapd, const char *iface, const char *filter) {
   iov[3].iov_len = (size_t)filterlen;
   if ((ret = io_writetlv(pcapd->fd, PCAPD_TOPEN, iov,
       sizeof(iov)/sizeof(struct iovec))) != IO_OK) {
-    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf), "io_writetlv: %s",
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf), "req pcapd_wropen: %s",
         io_strerror(ret));
-    goto fail;
+    goto exit;
   }
 
-  /* TODO: implement */
+  /* read the response */
+  buf_clear(&pcapd->buf);
+  if ((ret = io_readtlv(pcapd->fd, &pcapd->buf)) != IO_OK) {
+    snprintf(pcapd->errbuf, sizeof(pcapd->errbuf), "resp pcapd_wropen: %s",
+        io_strerror(ret));
+    goto exit;
+  }
 
-fail:
-  return PCAPD_ERR;
+  /* validate response */
+  type = IO_TLVTYPE(&pcapd->buf);
+  if (type != PCAPD_TOK) {
+    if (type == PCAPD_TERR) {
+      snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+          "resp pcapd_wropen: %*s", IO_TLVLEN(&pcapd->buf),
+          IO_TLVVAL(&pcapd->buf));
+    } else {
+      snprintf(pcapd->errbuf, sizeof(pcapd->errbuf),
+          "resp pcapd_wropen: unknown type (%u)", type);
+    }
+    goto exit;
+  }
+
+  status = PCAPD_OK;
+exit:
+  return status;
 }
 
 int pcapd_close(pcapd_t *pcapd) {

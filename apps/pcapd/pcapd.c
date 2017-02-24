@@ -30,7 +30,10 @@ static pcapcli_t *pcapcli_new(int id) {
   }
   cli->flags = 0;
   cli->id = id;
-  pcapd_setup(&cli->ipc);
+  if (pcapd_init(&cli->ipc, 1024) == PCAPD_ERR) {
+    free(cli);
+    return NULL;
+  }
   return cli;
 }
 
@@ -172,7 +175,6 @@ int main(int argc, char *argv[]) {
   pcapd_t pcapd;
   os_t os;
 
-  pcapd_setup(&pcapd);
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
@@ -194,6 +196,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  if (pcapd_init(&pcapd, 32) == PCAPD_ERR) {
+    ylog_perror("pcapd_init");
+    goto end;
+  }
   if (pcapd_listen(&pcapd, DAEMON_SOCK) != PCAPD_OK) {
     ylog_error("pcapd_listen: %s", pcapd_strerror(&pcapd));
   } else {
@@ -201,7 +207,7 @@ int main(int argc, char *argv[]) {
     accept_loop(&pcapd);
   }
 
-end:
   pcapd_close(&pcapd);
+end:
   return EXIT_FAILURE;
 }

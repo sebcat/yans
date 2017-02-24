@@ -3,11 +3,15 @@
 
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include <lib/util/buf.h>
 
 #define IO_TLVMAXSZ       0xffffff
+#define IO_TLVTYPE(buf)   (*(uint32_t*)(buf)->data >> 24)
+#define IO_TLVLEN(buf)    (*(uint32_t*)(buf)->data & 0xffffff)
+#define IO_TLVVAL(buf)    ((buf)->data+4)
 
 #define IO_OK             0
 #define IO_ERR           -1   /* general read/write failure */

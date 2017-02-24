@@ -47,6 +47,7 @@ yans_LDADD = \
     $(PCAPLIB) \
     -lm \
     3rd_party/liblinenoise.a \
+    3rd_party/liblpeg.a \
     3rd_party/liblua.a
 
 lib_util_u8_test_SOURCES = \

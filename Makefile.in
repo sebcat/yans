@@ -126,7 +126,7 @@ lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
 am_pcapd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	lib/pcapd/pcapd.$(OBJEXT) apps/pcapd/pcapd.$(OBJEXT)
+	apps/pcapd/pcapd.$(OBJEXT)
 pcapd_OBJECTS = $(am_pcapd_OBJECTS)
 am__DEPENDENCIES_1 =
 pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -592,7 +592,6 @@ pcapd_SOURCES = \
     lib/util/io.c \
     lib/util/os.c \
     lib/util/ylog.c \
-    lib/pcapd/pcapd.c \
     apps/pcapd/pcapd.c
 
 pcapd_LDADD = \
@@ -761,14 +760,6 @@ lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/pcapd/$(am__dirstamp):
-	@$(MKDIR_P) lib/pcapd
-	@: > lib/pcapd/$(am__dirstamp)
-lib/pcapd/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/pcapd/$(DEPDIR)
-	@: > lib/pcapd/$(DEPDIR)/$(am__dirstamp)
-lib/pcapd/pcapd.$(OBJEXT): lib/pcapd/$(am__dirstamp) \
-	lib/pcapd/$(DEPDIR)/$(am__dirstamp)
 apps/pcapd/$(am__dirstamp):
 	@$(MKDIR_P) apps/pcapd
 	@: > apps/pcapd/$(am__dirstamp)
@@ -814,7 +805,6 @@ mostlyclean-compile:
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
 	-rm -f lib/net/*.$(OBJEXT)
-	-rm -f lib/pcapd/*.$(OBJEXT)
 	-rm -f lib/util/*.$(OBJEXT)
 
 distclean-compile:
@@ -829,7 +819,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/pcapd/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
@@ -1381,8 +1370,6 @@ distclean-generic:
 	-rm -f lib/lua/$(am__dirstamp)
 	-rm -f lib/net/$(DEPDIR)/$(am__dirstamp)
 	-rm -f lib/net/$(am__dirstamp)
-	-rm -f lib/pcapd/$(DEPDIR)/$(am__dirstamp)
-	-rm -f lib/pcapd/$(am__dirstamp)
 	-rm -f lib/util/$(DEPDIR)/$(am__dirstamp)
 	-rm -f lib/util/$(am__dirstamp)
 
@@ -1396,7 +1383,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf apps/pcapd/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/pcapd/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/pcapd/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -1444,7 +1431,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf apps/pcapd/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/pcapd/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/pcapd/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

@@ -7,39 +7,23 @@
 #include <errno.h>
 
 #include <lib/util/os.h>
+#include <lib/util/io.h>
 #include <lib/util/ylog.h>
-#include <lib/pcapd/pcapd.h>
 
 #define DAEMON_NAME "pcapd"
 #define DAEMON_SOCK "pcapd.sock"
-
-#define PCAPCLIF_STARTED (1 << 0)
+#define MAX_ACCEPT_RETRIES 3
 
 typedef struct pcapcli_t {
   int flags;
   int id;
   pthread_t tid;
-  pcapd_t ipc;
+  io_t io;
 } pcapcli_t;
-
-static pcapcli_t *pcapcli_new(int id) {
-  pcapcli_t *cli;
-
-  if ((cli = malloc(sizeof(pcapcli_t))) == NULL) {
-    return NULL;
-  }
-  cli->flags = 0;
-  cli->id = id;
-  if (pcapd_init(&cli->ipc, 1024) == PCAPD_ERR) {
-    free(cli);
-    return NULL;
-  }
-  return cli;
-}
 
 static void pcapcli_free(pcapcli_t *cli) {
   if (cli != NULL) {
-    pcapd_close(&cli->ipc);
+    io_close(&cli->io);
   }
 }
 
@@ -51,42 +35,45 @@ static void *pcapcli_main(void *arg) {
   return NULL;
 }
 
-static int pcapcli_start(pcapcli_t *cli) {
-  if (cli->flags & PCAPCLIF_STARTED) {
-    errno = EACCES;
-    return -1;
+static pcapcli_t *pcapcli_new(io_t *client, int id) {
+  pcapcli_t *cli;
+
+  if ((cli = malloc(sizeof(pcapcli_t))) == NULL) {
+    return NULL;
   }
+  cli->flags = 0;
+  memcpy(&cli->io, client, sizeof(io_t));
+  cli->id = id;
   if (pthread_create(&cli->tid, NULL, pcapcli_main, cli) != 0) {
-    return -1;
+    free(cli);
+    return NULL;
   }
-  cli->flags |= PCAPCLIF_STARTED;
-  return 0;
+  return cli;
 }
 
-static void accept_loop(pcapd_t *pcapd) {
-  int id_counter = 0;
-  pcapcli_t *cli = NULL;
+static void accept_loop(io_t *listener) {
+  int id_counter = 0, retries = 0;
+  io_t client;
   while(1) {
-    /* cleanup old cli (if any) and allocate a new one */
-    if (cli != NULL) {
-      pcapcli_free(cli);
-    } else if ((cli = pcapcli_new(id_counter)) == NULL) {
-      ylog_perror("pcapcli_new");
+    if (io_accept(listener, &client) != IO_OK) {
+      ylog_error("io_accept: %s", io_strerror(listener));
+      if (retries >= MAX_ACCEPT_RETRIES) {
+        break;
+      }
+      retries++;
       continue;
     }
 
-    /* accept and start new clients */
-    if (pcapd_accept(pcapd, &cli->ipc) != PCAPD_OK) {
-      ylog_error("pcapd_accept: %s", pcapd_strerror(pcapd));
-    } else if (pcapcli_start(cli) < 0) {
-      ylog_perror("pcapcli_start");
+    retries = 0;
+    if (pcapcli_new(&client, id_counter) == NULL) {
+      ylog_perror("pcapcli_new");
+      io_close(&client);
     } else {
-      cli = NULL; /* cli is now owned by the thread started by pcapcli_start */
       ylog_info("pcap client started (id:%d)", id_counter);
       id_counter++;
     }
   }
-  ylog_perror("accept");
+  ylog_error("accept: maximum number of retries reached");
 }
 
 struct pcapd_opts {
@@ -172,8 +159,8 @@ static int parse_args_or_die(struct pcapd_opts *opts, int argc, char **argv) {
 
 int main(int argc, char *argv[]) {
   struct pcapd_opts opts;
-  pcapd_t pcapd;
   os_t os;
+  io_t io;
 
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
@@ -196,18 +183,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (pcapd_init(&pcapd, 32) == PCAPD_ERR) {
-    ylog_perror("pcapd_init");
-    goto end;
-  }
-  if (pcapd_listen(&pcapd, DAEMON_SOCK) != PCAPD_OK) {
-    ylog_error("pcapd_listen: %s", pcapd_strerror(&pcapd));
+  if (io_listen_unix(&io, DAEMON_SOCK) != IO_OK) {
+    ylog_error("io_listen_unix: %s", io_strerror(&io));
   } else {
     ylog_info("started");
-    accept_loop(&pcapd);
+    accept_loop(&io);
   }
 
-  pcapd_close(&pcapd);
+  io_close(&io);
 end:
   return EXIT_FAILURE;
 }

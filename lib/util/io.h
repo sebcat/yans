@@ -14,21 +14,25 @@
 #define IO_TLVVAL(buf)    ((buf)->data+4)
 
 #define IO_OK             0
-#define IO_ERR           -1   /* general read/write failure */
-#define IO_UNEXPECTEDEOF -2
-#define IO_MSGTOOBIG     -3
-#define IO_MEM           -4
+#define IO_ERR           -1
 
-const char *io_strerror(int err);
+#define IO_ERRBUFSZ 256
 
-int io_writeall(int fd, void *data, size_t len);
-int io_writevall(int fd, struct iovec *iov, int iovcnt);
-int io_readfull(int fd, void *data, size_t len);
+typedef struct {
+  int fd;
+  char errbuf[IO_ERRBUFSZ];
+} io_t;
 
-/* io_*tlv - TLV implementation
- * types can be 0-0xff inclusive
- * length can be 0-0xffffff inclusive, excluding the TLV header */
-int io_readtlv(int fd, buf_t *buf);
-int io_writetlv(int fd, int type, struct iovec *iov, int iovcnt);
+const char *io_strerror(io_t *io);
+
+int io_listen_unix(io_t *io, const char *path);
+int io_connect_unix(io_t *io, const char *path);
+int io_accept(io_t *io, io_t *out);
+
+int io_writeall(io_t *io, void *data, size_t len);
+int io_writevall(io_t *io, struct iovec *iov, int iovcnt);
+int io_readfull(io_t *io, void *data, size_t len);
+
+int io_close(io_t *io);
 
 #endif

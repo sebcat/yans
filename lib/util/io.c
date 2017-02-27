@@ -1,37 +1,100 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
 
 #include <lib/util/io.h>
 
-const char *io_strerror(int err) {
-  switch(err) {
-    case IO_OK:
-      return "success";
-    case IO_ERR:
-      return "read/write failure";
-    case IO_UNEXPECTEDEOF:
-      return "unexpected eof";
-    case IO_MSGTOOBIG:
-      return "message too big";
-    case IO_MEM:
-      return "memory allocation error";
-    default:
-      return "unknown error";
-  }
+#define IO_SETERR(io, ...) \
+    snprintf((io)->errbuf, sizeof((io)->errbuf), __VA_ARGS__);
+
+#define IO_PERROR(io, func) \
+    snprintf((io)->errbuf, sizeof((io)->errbuf), "%s: %s", \
+        (func), strerror(errno));
+
+#define IO_CLEARERR(io) ((io)->errbuf[0] = '\0')
+
+const char *io_strerror(io_t *io) {
+  return io->errbuf;
 }
 
-int io_writeall(int fd, void *data, size_t len) {
+int io_listen_unix(io_t *io, const char *path) {
+  struct sockaddr_un saddr;
+  int fd = -1;
+
+  IO_CLEARERR(io);
+  if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+    IO_PERROR(io, "socket");
+    return IO_ERR;
+  }
+  saddr.sun_family = AF_UNIX;
+  snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", path);
+  unlink(saddr.sun_path);
+  if (bind(fd, (struct sockaddr*)&saddr, sizeof(saddr)) < 0) {
+    IO_PERROR(io, "bind");
+    goto fail_close;
+  } else if (listen(fd, SOMAXCONN) < 0) {
+    IO_PERROR(io, "listen");
+    goto fail_close;
+  }
+  io->fd = fd;
+  return IO_OK;
+fail_close:
+  close(fd);
+  return IO_ERR;
+}
+
+int io_connect_unix(io_t *io, const char *path) {
+  struct sockaddr_un saddr;
+  int fd = -1;
+
+  IO_CLEARERR(io);
+  if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+    IO_PERROR(io, "socket");
+    return IO_ERR;
+  }
+  saddr.sun_family = AF_UNIX;
+  snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", path);
+  if (connect(fd, (struct sockaddr *)&saddr, sizeof(saddr)) != 0) {
+    IO_PERROR(io, "connect");
+    close(fd);
+    return IO_ERR;
+  }
+  io->fd = fd;
+  return IO_OK;
+}
+
+int io_accept(io_t *io, io_t *out) {
+  int fd;
+  IO_CLEARERR(io);
+  do {
+    fd = accept(io->fd, NULL, NULL);
+  } while (fd < 0 && errno == EINTR);
+  if (fd < 0) {
+    IO_PERROR(io, "accept");
+    return IO_ERR;
+  }
+  out->fd = fd;
+  return IO_OK;
+}
+
+int io_writeall(io_t *io, void *data, size_t len) {
   char *cptr = data;
   ssize_t ret;
+  IO_CLEARERR(io);
   while(len > 0) {
-    ret = write(fd, cptr, len);
+    ret = write(io->fd, cptr, len);
     if (ret < 0 && errno == EINTR) {
       continue;
     } else if (ret < 0) {
+      IO_PERROR(io, "write");
       return IO_ERR;
     } else if (ret == 0) {
-      return IO_UNEXPECTEDEOF;
+      IO_SETERR(io, "write: unexpected EOF");
+      return IO_ERR;
     }
     cptr += ret;
     len -= ret;
@@ -39,18 +102,20 @@ int io_writeall(int fd, void *data, size_t len) {
   return IO_OK;
 }
 
-int io_writevall(int fd, struct iovec *iov, int iovcnt) {
+int io_writevall(io_t *io, struct iovec *iov, int iovcnt) {
   ssize_t ret;
   size_t currvec = 0;
-
+  IO_CLEARERR(io);
   while (currvec < iovcnt) {
-    ret = writev(fd, iov+currvec, iovcnt-currvec);
+    ret = writev(io->fd, iov+currvec, iovcnt-currvec);
     if (ret < 0 && errno == EINTR) {
       continue;
     } else if (ret < 0) {
+      IO_PERROR(io, "writev");
       return IO_ERR;
     } else if (ret == 0) {
-      return IO_UNEXPECTEDEOF;
+      IO_SETERR(io, "writev: unexpected EOF");
+      return IO_ERR;
     }
 
     /* advance currvec */
@@ -67,17 +132,20 @@ int io_writevall(int fd, struct iovec *iov, int iovcnt) {
   return IO_OK;
 }
 
-int io_readfull(int fd, void *data, size_t len) {
+int io_readfull(io_t *io, void *data, size_t len) {
   char *cptr = data;
   ssize_t ret;
+  IO_CLEARERR(io);
   while(len > 0) {
-    ret = read(fd, cptr, len);
+    ret = read(io->fd, cptr, len);
     if (ret < 0 && errno == EINTR) {
       continue;
     } else if (ret < 0) {
+      IO_PERROR(io, "read");
       return IO_ERR;
     } else if (ret == 0) {
-      return IO_UNEXPECTEDEOF;
+      IO_SETERR(io, "read: unexpected EOF");
+      return IO_ERR;
     }
     cptr += ret;
     len -= ret;
@@ -85,67 +153,11 @@ int io_readfull(int fd, void *data, size_t len) {
   return IO_OK;
 }
 
-int io_readtlv(int fd, buf_t *buf) {
-  int ret;
-  uint32_t len;
-  buf_clear(buf);
-  if (buf_reserve(buf, sizeof(uint32_t)) < 0) {
-    return IO_MEM;
+int io_close(io_t *io) {
+  IO_CLEARERR(io);
+  if (close(io->fd) < 0) {
+    IO_PERROR(io, "close");
+    return IO_ERR;
   }
-
-  if ((ret = io_readfull(fd, buf->data, sizeof(uint32_t))) != IO_OK) {
-    return ret;
-  }
-
-  len = IO_TLVLEN(buf);
-  if (buf_reserve(buf, sizeof(uint32_t) + (size_t)len) < 0) {
-    return IO_MEM;
-  }
-
-  if ((ret = io_readfull(fd, buf->data+sizeof(uint32_t), (size_t)len)) < 0) {
-    return ret;
-  }
-
-  buf->len = sizeof(uint32_t) + (size_t)len;
   return IO_OK;
-}
-
-#define IOVBUFSZ 16
-
-int io_writetlv(int fd, int type, struct iovec *iov, int iovcnt) {
-  int i, niovecs, ret;
-  size_t len = 0;
-  uint32_t header;
-  struct iovec iovbuf[IOVBUFSZ];
-
-  if (iovcnt == 0) {
-    return 0;
-  }
-
-  for(i=0; i<iovcnt; i++) {
-    len += iov[i].iov_len;
-  }
-
-  if (len > IO_TLVMAXSZ) {
-    return IO_MSGTOOBIG;
-  }
-
-  /* write the first IOVBUFSZ-1 iovecs, with the header iovec prepended */
-  niovecs = iovcnt < IOVBUFSZ ? iovcnt : IOVBUFSZ-1;
-  memcpy(iovbuf+1, iov, niovecs);
-  header = (((type&0xff)<<24) | len);
-  iovbuf[0].iov_base = &header;
-  iovbuf[0].iov_len = sizeof(header);
-  if ((ret = io_writevall(fd, iovbuf, niovecs+1)) != IO_OK) {
-    return ret;
-  }
-
-  /* write the rest of the iovecs, if any */
-  iovcnt -= niovecs;
-  if (iovcnt > 0) {
-    iov += niovecs;
-    return io_writevall(fd, iov, iovcnt);
-  } else {
-    return IO_OK;
-  }
 }

@@ -25,7 +25,6 @@ pcapd_SOURCES = \
     lib/util/io.c \
     lib/util/os.c \
     lib/util/ylog.c \
-    lib/pcapd/pcapd.c \
     apps/pcapd/pcapd.c
 
 pcapd_LDADD = \

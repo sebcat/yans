@@ -14,35 +14,51 @@
 #define DAEMON_SOCK "pcapd.sock"
 #define MAX_ACCEPT_RETRIES 3
 
+/* represents a connected client session */
 typedef struct pcapcli_t {
-  int flags;
   int id;
   pthread_t tid;
-  io_t io;
+  FILE *fp;
 } pcapcli_t;
 
 static void pcapcli_free(pcapcli_t *cli) {
   if (cli != NULL) {
-    io_close(&cli->io);
+    if (cli->fp != NULL) {
+      fclose(cli->fp);
+      cli->fp = NULL;
+    }
   }
 }
 
 static void *pcapcli_main(void *arg) {
   pcapcli_t *cli = arg;
+  char buf[64];
+  int len = 0;
 
-  ylog_info("pcap client finished (id:%d)", cli->id);
+  fscanf(cli->fp, "%d:", &len);
+  if (len >= sizeof(buf)) {
+    len = sizeof(buf)-1;
+  }
+  fread(buf, 1, len, cli->fp);
+  buf[len] = '\0';
+  if (fgetc(cli->fp) != ',') {
+    ylog_error("pcapcli%d: unexpected character in input, expected ','", cli->id);
+  } else {
+    ylog_info("pcapcli%d: %s", cli->id, buf);
+  }
+
+  ylog_info("pcapcli%d: ended", cli->id);
   pcapcli_free(cli);
   return NULL;
 }
 
-static pcapcli_t *pcapcli_new(io_t *client, int id) {
+static pcapcli_t *pcapcli_new(FILE *fp, int id) {
   pcapcli_t *cli;
 
   if ((cli = malloc(sizeof(pcapcli_t))) == NULL) {
     return NULL;
   }
-  cli->flags = 0;
-  memcpy(&cli->io, client, sizeof(io_t));
+  cli->fp = fp;
   cli->id = id;
   if (pthread_create(&cli->tid, NULL, pcapcli_main, cli) != 0) {
     free(cli);
@@ -54,20 +70,26 @@ static pcapcli_t *pcapcli_new(io_t *client, int id) {
 static void accept_loop(io_t *listener) {
   int id_counter = 0, retries = 0;
   io_t client;
+  FILE *fp;
   while(1) {
     if (io_accept(listener, &client) != IO_OK) {
+      retries++;
       ylog_error("io_accept: %s", io_strerror(listener));
       if (retries >= MAX_ACCEPT_RETRIES) {
         break;
       }
-      retries++;
       continue;
     }
 
     retries = 0;
-    if (pcapcli_new(&client, id_counter) == NULL) {
-      ylog_perror("pcapcli_new");
+    if (io_tofp(&client, "w+", &fp) != IO_OK) {
+      ylog_error("io_tofp: %s", io_strerror(&client));
       io_close(&client);
+      continue;
+    }
+    if (pcapcli_new(fp, id_counter) == NULL) {
+      ylog_perror("pcapcli_new");
+      fclose(fp);
     } else {
       ylog_info("pcap client started (id:%d)", id_counter);
       id_counter++;

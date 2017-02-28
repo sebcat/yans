@@ -15,8 +15,6 @@
     snprintf((io)->errbuf, sizeof((io)->errbuf), "%s: %s", \
         (func), strerror(errno));
 
-#define IO_CLEARERR(io) ((io)->errbuf[0] = '\0')
-
 const char *io_strerror(io_t *io) {
   return io->errbuf;
 }
@@ -25,7 +23,6 @@ int io_listen_unix(io_t *io, const char *path) {
   struct sockaddr_un saddr;
   int fd = -1;
 
-  IO_CLEARERR(io);
   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     IO_PERROR(io, "socket");
     return IO_ERR;
@@ -51,7 +48,6 @@ int io_connect_unix(io_t *io, const char *path) {
   struct sockaddr_un saddr;
   int fd = -1;
 
-  IO_CLEARERR(io);
   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     IO_PERROR(io, "socket");
     return IO_ERR;
@@ -69,7 +65,6 @@ int io_connect_unix(io_t *io, const char *path) {
 
 int io_accept(io_t *io, io_t *out) {
   int fd;
-  IO_CLEARERR(io);
   do {
     fd = accept(io->fd, NULL, NULL);
   } while (fd < 0 && errno == EINTR);
@@ -84,7 +79,6 @@ int io_accept(io_t *io, io_t *out) {
 int io_writeall(io_t *io, void *data, size_t len) {
   char *cptr = data;
   ssize_t ret;
-  IO_CLEARERR(io);
   while(len > 0) {
     ret = write(io->fd, cptr, len);
     if (ret < 0 && errno == EINTR) {
@@ -105,7 +99,6 @@ int io_writeall(io_t *io, void *data, size_t len) {
 int io_writevall(io_t *io, struct iovec *iov, int iovcnt) {
   ssize_t ret;
   size_t currvec = 0;
-  IO_CLEARERR(io);
   while (currvec < iovcnt) {
     ret = writev(io->fd, iov+currvec, iovcnt-currvec);
     if (ret < 0 && errno == EINTR) {
@@ -135,7 +128,6 @@ int io_writevall(io_t *io, struct iovec *iov, int iovcnt) {
 int io_readfull(io_t *io, void *data, size_t len) {
   char *cptr = data;
   ssize_t ret;
-  IO_CLEARERR(io);
   while(len > 0) {
     ret = read(io->fd, cptr, len);
     if (ret < 0 && errno == EINTR) {
@@ -154,10 +146,26 @@ int io_readfull(io_t *io, void *data, size_t len) {
 }
 
 int io_close(io_t *io) {
-  IO_CLEARERR(io);
-  if (close(io->fd) < 0) {
-    IO_PERROR(io, "close");
+  int ret = IO_OK;
+  if (io->fd >= 0) {
+    if (close(io->fd) < 0) {
+      IO_PERROR(io, "close");
+      ret = IO_ERR;
+    }
+    io->fd = -1;
+  }
+  return ret;
+}
+
+int io_tofp(io_t *io, const char *mode, FILE **out) {
+  FILE *fp;
+
+  if ((fp = fdopen(io->fd, mode)) == NULL) {
+    IO_PERROR(io, "fdopen");
     return IO_ERR;
   }
+
+  io->fd = -1;
+  *out = fp;
   return IO_OK;
 }

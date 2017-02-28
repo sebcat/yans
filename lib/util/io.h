@@ -35,4 +35,8 @@ int io_readfull(io_t *io, void *data, size_t len);
 
 int io_close(io_t *io);
 
+/* converts an io_t to a FILE*. After this, the io_t instance disowns the
+ * underlying file descriptor, as ownership of it is passed to the FILE*. */
+int io_tofp(io_t *io, const char *mode, FILE **out);
+
 #endif

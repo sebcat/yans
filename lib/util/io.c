@@ -15,6 +15,8 @@
     snprintf((io)->errbuf, sizeof((io)->errbuf), "%s: %s", \
         (func), strerror(errno));
 
+#define CONTROLMSG 0x41424344
+
 const char *io_strerror(io_t *io) {
   return io->errbuf;
 }
@@ -167,5 +169,89 @@ int io_tofp(io_t *io, const char *mode, FILE **out) {
 
   io->fd = -1;
   *out = fp;
+  return IO_OK;
+}
+
+int io_sendfd(io_t *io, int fd) {
+  struct iovec iov;
+  struct msghdr mhdr = {0};
+  struct cmsghdr *cmsg;
+  int m = CONTROLMSG;
+  ssize_t ret;
+  union {
+    char buf[CMSG_SPACE(sizeof(int))];
+    struct cmsghdr align;
+  } u;
+
+  memset(&u, 0, sizeof(u));
+  iov.iov_base = &m;
+  iov.iov_len = sizeof(m);
+  mhdr.msg_iov = &iov;
+  mhdr.msg_iovlen = 1;
+  mhdr.msg_control = u.buf;
+  mhdr.msg_controllen = sizeof(u);
+  cmsg = CMSG_FIRSTHDR(&mhdr);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+  memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
+  do {
+    ret = sendmsg(io->fd, &mhdr, MSG_NOSIGNAL);
+  } while (ret < 0 && errno == EINTR);
+  if (ret < 0) {
+    IO_PERROR(io, "sendmsg");
+    return IO_ERR;
+  }
+  return IO_OK;
+}
+
+int io_recvfd(io_t *io, int *out) {
+  struct msghdr mhdr = {0};
+  struct iovec iov;
+  ssize_t ret;
+  struct cmsghdr *cmsg;
+  int m = 0;
+  int fd = -1;
+  union {
+    char buf[CMSG_SPACE(sizeof(int))];
+    struct cmsghdr align;
+  } u;
+
+  iov.iov_base = &m;
+  iov.iov_len = sizeof(m);
+  mhdr.msg_iov = &iov;
+  mhdr.msg_iovlen = 1;
+  mhdr.msg_control = u.buf;
+  mhdr.msg_controllen = sizeof(u);
+  do {
+    ret = recvmsg(io->fd, &mhdr, MSG_NOSIGNAL);
+  } while (ret < 0 && errno == EINTR);
+  if (ret < 0) {
+    IO_PERROR(io, "recvmsg");
+    return IO_ERR;
+  }
+
+  for (cmsg = CMSG_FIRSTHDR(&mhdr); cmsg != NULL;
+      cmsg = CMSG_NXTHDR(&mhdr, cmsg)) {
+    if (cmsg->cmsg_level == SOL_SOCKET &&
+        cmsg->cmsg_type == SCM_RIGHTS &&
+        cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+      memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
+      break;
+    }
+  }
+
+  if (fd < 0) {
+    IO_SETERR(io, "no file descriptor received");
+    return IO_ERR;
+  }
+
+  if (m != CONTROLMSG) {
+    IO_SETERR(io, "unexpected control message (0x%08x)", m);
+    close(fd);
+    return IO_ERR;
+  }
+
+  *out = fd;
   return IO_OK;
 }

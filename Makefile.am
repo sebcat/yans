@@ -4,6 +4,7 @@ AM_CFLAGS = -Wall -Werror
 
 TESTS = \
     lib_net_url_test \
+    lib_net_punycode_test \
     lib_util_u8_test \
     apps/yans/tests/url_test.yans \
     apps/yans/tests/ip_test.yans
@@ -13,6 +14,7 @@ YANS_LOG_COMPILER = ./yans
 
 check_PROGRAMS = \
     lib_net_url_test \
+    lib_net_punycode_test \
     lib_util_u8_test \
     yans
 
@@ -52,6 +54,12 @@ yans_LDADD = \
 lib_util_u8_test_SOURCES = \
     lib/util/u8.c \
     lib/util/u8_test.c
+
+lib_net_punycode_test_SOURCES = \
+    lib/util/u8.c \
+    lib/util/buf.c \
+    lib/net/punycode.c \
+    lib/net/punycode_test.c
 
 lib_net_url_test_SOURCES = \
     lib/net/url.c \

@@ -177,33 +177,3 @@ fail:
   return NULL;
 }
 
-#ifdef WOLOLO
-
-#include <stdio.h>
-#include <stdlib.h>
-
-int main() {
-  struct {
-    char *in;
-    char *expected;
-  } vals[] = {
-    {"", ""},
-    {".", "."},
-    {"..", ".."},
-    {"...", "..."},
-    {"www.example.com", "www.example.com"},
-    {"bücher.example.com", "xn--bcher-kva.example.com"},
-    {NULL, NULL},
-  };
-  size_t i;
-
-  for(i=0; vals[i].in != NULL; i++) {
-    char *actual = punycode_encode(vals[i].in, strlen(vals[i].in));
-    printf("\"%s\" \"%s\"\n", vals[i].expected, actual);
-    if (actual != NULL) {
-      free(actual);
-    }
-  }
-}
-
-#endif

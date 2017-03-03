@@ -88,9 +88,11 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-TESTS = lib_net_url_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
-	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
-check_PROGRAMS = lib_net_url_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
+TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
+	lib_util_u8_test$(EXEEXT) apps/yans/tests/url_test.yans \
+	apps/yans/tests/ip_test.yans
+check_PROGRAMS = lib_net_url_test$(EXEEXT) \
+	lib_net_punycode_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
 	yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT) pcapd$(EXEEXT)
 subdir = .
@@ -111,15 +113,20 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
+am_lib_net_punycode_test_OBJECTS = lib/util/u8.$(OBJEXT) \
+	lib/util/buf.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
+	lib/net/punycode_test.$(OBJEXT)
+lib_net_punycode_test_OBJECTS = $(am_lib_net_punycode_test_OBJECTS)
+lib_net_punycode_test_LDADD = $(LDADD)
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
 am_lib_net_url_test_OBJECTS = lib/net/url.$(OBJEXT) \
 	lib/net/url_test.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT)
 lib_net_url_test_OBJECTS = $(am_lib_net_url_test_OBJECTS)
 lib_net_url_test_LDADD = $(LDADD)
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
 am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
@@ -172,9 +179,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(pcapd_SOURCES) $(yans_SOURCES)
-DIST_SOURCES = $(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
+SOURCES = $(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
+	$(lib_util_u8_test_SOURCES) $(pcapd_SOURCES) $(yans_SOURCES)
+DIST_SOURCES = $(lib_net_punycode_test_SOURCES) \
+	$(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
 	$(pcapd_SOURCES) $(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
@@ -620,6 +628,12 @@ lib_util_u8_test_SOURCES = \
     lib/util/u8.c \
     lib/util/u8_test.c
 
+lib_net_punycode_test_SOURCES = \
+    lib/util/u8.c \
+    lib/util/buf.c \
+    lib/net/punycode.c \
+    lib/net/punycode_test.c
+
 lib_net_url_test_SOURCES = \
     lib/net/url.c \
     lib/net/url_test.c \
@@ -722,18 +736,6 @@ clean-checkPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
-lib/net/$(am__dirstamp):
-	@$(MKDIR_P) lib/net
-	@: > lib/net/$(am__dirstamp)
-lib/net/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/net/$(DEPDIR)
-	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
-lib/net/url.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
-lib/net/url_test.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
-lib/net/punycode.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/util/$(am__dirstamp):
 	@$(MKDIR_P) lib/util
 	@: > lib/util/$(am__dirstamp)
@@ -744,6 +746,24 @@ lib/util/u8.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/net/$(am__dirstamp):
+	@$(MKDIR_P) lib/net
+	@: > lib/net/$(am__dirstamp)
+lib/net/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/net/$(DEPDIR)
+	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/punycode.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/punycode_test.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+
+lib_net_punycode_test$(EXEEXT): $(lib_net_punycode_test_OBJECTS) $(lib_net_punycode_test_DEPENDENCIES) $(EXTRA_lib_net_punycode_test_DEPENDENCIES) 
+	@rm -f lib_net_punycode_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib_net_punycode_test_OBJECTS) $(lib_net_punycode_test_LDADD) $(LIBS)
+lib/net/url.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/url_test.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 
 lib_net_url_test$(EXEEXT): $(lib_net_url_test_OBJECTS) $(lib_net_url_test_DEPENDENCIES) $(EXTRA_lib_net_url_test_DEPENDENCIES) 
 	@rm -f lib_net_url_test$(EXEEXT)
@@ -817,6 +837,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
@@ -1109,6 +1130,13 @@ recheck: all $(check_PROGRAMS)
 lib_net_url_test.log: lib_net_url_test$(EXEEXT)
 	@p='lib_net_url_test$(EXEEXT)'; \
 	b='lib_net_url_test'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+lib_net_punycode_test.log: lib_net_punycode_test$(EXEEXT)
+	@p='lib_net_punycode_test$(EXEEXT)'; \
+	b='lib_net_punycode_test'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

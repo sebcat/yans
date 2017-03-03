@@ -35,6 +35,11 @@ static void *pcapcli_main(void *arg) {
   char buf[64];
   int len = 0;
 
+  /* TODO: pass an fd to a dumpfile here, and the iface and filter as
+   * netstrings. poll both the client fd and the pcap handle. When data is
+   * passed from the client, finalize the dumpfile and close the client fd
+   * see: pcap_get_selectable_fd, fileno */
+
   fscanf(cli->fp, "%d:", &len);
   if (len >= sizeof(buf)) {
     len = sizeof(buf)-1;

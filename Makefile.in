@@ -132,8 +132,8 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
 am_pcapd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
-	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	apps/pcapd/pcapd.$(OBJEXT)
+	lib/util/fio.$(OBJEXT) lib/util/os.$(OBJEXT) \
+	lib/util/ylog.$(OBJEXT) apps/pcapd/pcapd.$(OBJEXT)
 pcapd_OBJECTS = $(am_pcapd_OBJECTS)
 am__DEPENDENCIES_1 =
 pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -598,6 +598,7 @@ YANS_LOG_COMPILER = ./yans
 pcapd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
+    lib/util/fio.c \
     lib/util/os.c \
     lib/util/ylog.c \
     apps/pcapd/pcapd.c
@@ -776,6 +777,8 @@ lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPEND
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
 lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
@@ -841,6 +844,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/fio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@

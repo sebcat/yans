@@ -5,14 +5,23 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <poll.h>
+#include <signal.h>
+
+#include <pcap/pcap.h>
 
 #include <lib/util/os.h>
+#include <lib/util/fio.h>
 #include <lib/util/io.h>
 #include <lib/util/ylog.h>
 
 #define DAEMON_NAME "pcapd"
 #define DAEMON_SOCK "pcapd.sock"
 #define MAX_ACCEPT_RETRIES 3
+#define MAX_FILTERSZ (1 << 20)
+#define SNAPLEN 2048
+#define PCAP_TO_MS 100
+#define POLL_TO_MS 25
 
 /* represents a connected client session */
 typedef struct pcapcli_t {
@@ -30,29 +39,147 @@ static void pcapcli_free(pcapcli_t *cli) {
   }
 }
 
+static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
+  struct pollfd fds[1];
+  int clifd = fileno(cli->fp);
+  char closebuf[16];
+  int ret;
+  struct pcap_pkthdr *pkt_header;
+  const u_char *pkt_data;
+
+  for(;;) {
+    ret = pcap_next_ex(pcap, &pkt_header, &pkt_data);
+    if (ret < 0) {
+      ylog_error("pcapcli%d: pcap_next_ex: %s", cli->id, pcap_geterr(pcap));
+      break;
+    } else if (ret > 0) {
+      pcap_dump((u_char*)dumper, pkt_header, pkt_data);
+    }
+
+    fds[0].fd = clifd;
+    fds[0].events = POLLIN | POLLRDBAND;
+    do {
+      ret = poll(fds, sizeof(fds) / sizeof(struct pollfd), POLL_TO_MS);
+    } while (ret < 0 && errno == EINTR);
+    if (ret < 0) {
+      ylog_error("pcapcli%d: poll: %s", cli->id, strerror(errno));
+      break;
+    } else if (ret == 0) {
+      continue;
+    }
+
+    /* check clifd */
+    if (fds[0].revents & (POLLIN | POLLRDBAND)) {
+      /* clifd has data, this indicates that clifd wants to close the
+       * listener gracefully. It should be an empty netstring, but we
+       * don't really care if it is. It should be though, because otherwise
+       * we may end up blocking on a read. We want to close gracefully,
+       * because when we close the client fd, we signal that we're done
+       * with the dumpfile. If the client disconnects and we're in a dumpfile
+       * write, the client might do things with the dumpfile while pcapd is
+       * writing to it, which is less-than-ideal. */
+      fio_readns(cli->fp, closebuf, sizeof(closebuf));
+      ylog_info("pcapcli%d: client disconnected gracefully", cli->id);
+      return;
+    } else if (fds[0].revents & (POLLHUP | POLLERR)) {
+      ylog_error("pcapcli%d: client disconnected prematurely", cli->id);
+      return;
+    }
+  }
+}
+
 static void *pcapcli_main(void *arg) {
   pcapcli_t *cli = arg;
-  char buf[64];
-  int len = 0;
+  char iface[64];
+  char *filter = NULL;
+  int dumpfd = -1;
+  int ret;
+  io_t io;
+  pcap_t *pcap = NULL;
+  char errbuf[PCAP_ERRBUF_SIZE];
+  size_t filtersz;
+  FILE *dumpf = NULL;
+  struct bpf_program bpf;
+  pcap_dumper_t *dumper = NULL;
 
-  /* TODO: pass an fd to a dumpfile here, and the iface and filter as
-   * netstrings. poll both the client fd and the pcap handle. When data is
-   * passed from the client, finalize the dumpfile and close the client fd
-   * see: pcap_get_selectable_fd, fileno */
-
-  fscanf(cli->fp, "%d:", &len);
-  if (len >= sizeof(buf)) {
-    len = sizeof(buf)-1;
+  /* borrow the fd from cli->fp. Closing &c is still managed by
+   * pcapcli_free. mixing io_* with FILE* I/O on same underlying
+   * fd should be done carefully, as it is mixing buffered
+   * with unbuffered code. */
+  io_init(&io, fileno(cli->fp));
+  if (io_recvfd(&io, &dumpfd) != IO_OK) {
+    ylog_error("pcapcli%d: io_recvfd: %s", cli->id, io_strerror(&io));
+    goto end;
+  } else if ((dumpf = fdopen(dumpfd, "w")) == NULL) {
+    ylog_error("pcapcli%d: fdopen: %s", cli->id, strerror(errno));
+    goto end;
   }
-  fread(buf, 1, len, cli->fp);
-  buf[len] = '\0';
-  if (fgetc(cli->fp) != ',') {
-    ylog_error("pcapcli%d: unexpected character in input, expected ','", cli->id);
-  } else {
-    ylog_info("pcapcli%d: %s", cli->id, buf);
+  dumpfd = -1; /* dumpf takes ownership of dumpfd */
+
+  if ((ret = fio_readns(cli->fp, iface, sizeof(iface))) != FIO_OK) {
+    ylog_error("pcapcli%d: iface: %s", cli->id, fio_strerror(ret));
+    goto end;
   }
 
+  if ((ret = fio_readnsa(cli->fp, MAX_FILTERSZ, &filter, &filtersz)) !=
+      FIO_OK) {
+    ylog_error("pcapcli%d: filter: %s", cli->id, fio_strerror(ret));
+  }
+
+  ylog_info("pcapcli%d: starting iface:\"%s\" filtersz:%zuB",
+      cli->id, iface, filtersz);
+
+  errbuf[0] = '\0';
+  if ((pcap = pcap_open_live(iface, SNAPLEN, 0, PCAP_TO_MS, errbuf)) == NULL) {
+    ylog_error("pcapcli%d: %s", cli->id, errbuf);
+    goto end;
+  } else if (errbuf[0] != '\0') {
+    ylog_info("pcapcli%d: pcap warning: %s", cli->id, errbuf);
+  }
+
+  if (pcap_activate(pcap) != 0) {
+    ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+    goto end;
+  }
+
+  if (filtersz > 0) {
+    if (pcap_compile(pcap, &bpf, filter, 1, PCAP_NETMASK_UNKNOWN) < 0) {
+      ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+      goto end;
+    }
+    ret = pcap_setfilter(pcap, &bpf);
+    pcap_freecode(&bpf);
+    if (ret < 0) {
+      ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+      goto end;
+    }
+  }
+
+  if ((dumper = pcap_dump_fopen(pcap, dumpf)) == NULL) {
+    ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+    goto end;
+  }
+
+  pcapcli_loop(cli, pcap, dumper);
+
+end:
   ylog_info("pcapcli%d: ended", cli->id);
+  if (dumper != NULL) {
+    pcap_dump_close(dumper);
+  }
+  if (dumpfd >= 0) {
+    close(dumpfd);
+  }
+  if (dumpf != NULL) {
+    fclose(dumpf); /* XXX: if dumper has ownership of dumpf, this may be a
+                    * double close */
+  }
+  if (filter != NULL) {
+    free(filter);
+  }
+  if (pcap != NULL) {
+    pcap_close(pcap);
+  }
   pcapcli_free(cli);
   return NULL;
 }
@@ -96,7 +223,6 @@ static void accept_loop(io_t *listener) {
       ylog_perror("pcapcli_new");
       fclose(fp);
     } else {
-      ylog_info("pcap client started (id:%d)", id_counter);
       id_counter++;
     }
   }
@@ -189,6 +315,7 @@ int main(int argc, char *argv[]) {
   os_t os;
   io_t io;
 
+  signal(SIGPIPE, SIG_IGN);
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);

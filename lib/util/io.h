@@ -23,6 +23,15 @@ typedef struct {
   char errbuf[IO_ERRBUFSZ];
 } io_t;
 
+#define io_init(_io, _fd) \
+    do { \
+      (_io)->fd = (_fd); \
+      (_io)->errbuf[0] = '\0'; \
+    } while(0);
+
+#define io_fileno(_io) \
+    (_io)->fd;
+
 const char *io_strerror(io_t *io);
 
 int io_listen_unix(io_t *io, const char *path);

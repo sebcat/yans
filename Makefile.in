@@ -138,10 +138,11 @@ pcapd_OBJECTS = $(am_pcapd_OBJECTS)
 am__DEPENDENCIES_1 =
 pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
+	lib/util/io.$(OBJEXT) lib/util/fio.$(OBJEXT) \
 	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
 	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
 	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
-	apps/yans/yans.$(OBJEXT)
+	lib/lua/pcapd.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) 3rd_party/liblinenoise.a \
 	3rd_party/liblpeg.a 3rd_party/liblua.a
@@ -610,12 +611,15 @@ pcapd_LDADD = \
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \
+    lib/util/io.c \
+    lib/util/fio.c \
     lib/net/punycode.c \
     lib/net/eth.c \
     lib/net/ip.c \
     lib/net/url.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
+    lib/lua/pcapd.c \
     apps/yans/yans.c
 
 yans_LDADD = \
@@ -809,6 +813,8 @@ lib/lua/yans.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/ypcap.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/pcapd.$(OBJEXT): lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
 apps/yans/$(am__dirstamp):
 	@$(MKDIR_P) apps/yans
 	@: > apps/yans/$(am__dirstamp)
@@ -835,6 +841,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@apps/pcapd/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@

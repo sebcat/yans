@@ -5,6 +5,8 @@
 #include <sys/uio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
 
 #include <lib/util/buf.h>
 
@@ -30,9 +32,11 @@ typedef struct {
     } while(0);
 
 #define io_fileno(_io) \
-    (_io)->fd;
+    ((_io)->fd)
 
 const char *io_strerror(io_t *io);
+
+int io_open(io_t *io, const char *path, int flags, ...);
 
 int io_listen_unix(io_t *io, const char *path);
 int io_connect_unix(io_t *io, const char *path);

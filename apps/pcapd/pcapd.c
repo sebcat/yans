@@ -131,32 +131,27 @@ static void *pcapcli_main(void *arg) {
 
   errbuf[0] = '\0';
   if ((pcap = pcap_open_live(iface, SNAPLEN, 0, PCAP_TO_MS, errbuf)) == NULL) {
-    ylog_error("pcapcli%d: %s", cli->id, errbuf);
+    ylog_error("pcapcli%d: pcap_open_live: %s", cli->id, errbuf);
     goto end;
   } else if (errbuf[0] != '\0') {
-    ylog_info("pcapcli%d: pcap warning: %s", cli->id, errbuf);
-  }
-
-  if (pcap_activate(pcap) != 0) {
-    ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
-    goto end;
+    ylog_info("pcapcli%d: pcap_open_live warning: %s", cli->id, errbuf);
   }
 
   if (filtersz > 0) {
     if (pcap_compile(pcap, &bpf, filter, 1, PCAP_NETMASK_UNKNOWN) < 0) {
-      ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+      ylog_error("pcapcli%d: pcap_compile: %s", cli->id, pcap_geterr(pcap));
       goto end;
     }
     ret = pcap_setfilter(pcap, &bpf);
     pcap_freecode(&bpf);
     if (ret < 0) {
-      ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+      ylog_error("pcapcli%d: pcap_setfilter: %s", cli->id, pcap_geterr(pcap));
       goto end;
     }
   }
 
   if ((dumper = pcap_dump_fopen(pcap, dumpf)) == NULL) {
-    ylog_error("pcapcli%d: %s", cli->id, pcap_geterr(pcap));
+    ylog_error("pcapcli%d: pcap_dump_fopen: %s", cli->id, pcap_geterr(pcap));
     goto end;
   }
 
@@ -223,6 +218,7 @@ static void accept_loop(io_t *listener) {
       ylog_perror("pcapcli_new");
       fclose(fp);
     } else {
+      ylog_info("pcapcli%d: connected", id_counter);
       id_counter++;
     }
   }

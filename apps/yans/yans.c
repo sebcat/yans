@@ -11,6 +11,7 @@
 
 #include <lib/lua/yans.h>
 #include <lib/lua/ypcap.h>
+#include <lib/lua/pcapd.h>
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -114,6 +115,7 @@ static lua_State * state_or_die() {
   luaL_openlibs(L);
   luaL_requiref(L, "yans", luaopen_yans, 1);
   luaL_requiref(L, "ypcap", luaopen_ypcap, 1);
+  luaL_requiref(L, "pcapd", luaopen_pcapd, 1);
   luaL_requiref(L, "lpeg", luaopen_lpeg, 1);
   return L;
 }

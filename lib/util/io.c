@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include <lib/util/io.h>
 
@@ -19,6 +20,29 @@
 
 const char *io_strerror(io_t *io) {
   return io->errbuf;
+}
+
+int io_open(io_t *io, const char *path, int flags, ...) {
+  int mode;
+  int fd;
+  va_list ap;
+
+  if (flags & O_CREAT) {
+    va_start(ap, flags);
+    /* mode_t is promoted to int when passed through '...' */
+    mode = va_arg(ap, int);
+    va_end(ap);
+    fd = open(path, flags, (mode_t)mode);
+  } else {
+    fd = open(path, flags);
+  }
+  if (fd < 0) {
+    IO_PERROR(io, "open");
+    return IO_ERR;
+  }
+
+  io->fd = fd;
+  return IO_OK;
 }
 
 int io_listen_unix(io_t *io, const char *path) {

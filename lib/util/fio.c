@@ -68,3 +68,21 @@ int fio_readnsa(FILE *fp, size_t maxsz, char **out, size_t *outlen) {
   }
   return FIO_OK;
 }
+
+int fio_writens(FILE *fp, const char *data, size_t len) {
+  unsigned int msglen = (unsigned int)len;
+  errno = 0;
+  if (fprintf(fp, "%u:", msglen) < 0) {
+    return FIO_ERR;
+  }
+  if (fwrite(data, 1, len, fp) < len) {
+    return FIO_ERR;
+  }
+  if (fputc(',', fp) != ',') {
+    return FIO_ERR;
+  }
+  if (fflush(fp) != 0) {
+    return FIO_ERR;
+  }
+  return FIO_OK;
+}

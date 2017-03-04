@@ -21,4 +21,6 @@ int fio_readns(FILE *fp, char *buf, size_t len);
  * returns FIO_OK on success or an error code on failure */
 int fio_readnsa(FILE *fp, size_t maxsz, char **out, size_t *outlen);
 
+int fio_writens(FILE *fp, const char *data, size_t len);
+
 #endif

@@ -37,12 +37,15 @@ pcapd_LDADD = \
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \
+    lib/util/io.c \
+    lib/util/fio.c \
     lib/net/punycode.c \
     lib/net/eth.c \
     lib/net/ip.c \
     lib/net/url.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
+    lib/lua/pcapd.c \
     apps/yans/yans.c
 
 yans_LDADD = \

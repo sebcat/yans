@@ -57,6 +57,10 @@ static int l_pcapd_open(lua_State *L) {
   const char *iface = luaL_checklstring(L, 3, &ifacelen);
   const char *filter = lua_tolstring(L, 4, &filterlen);
 
+  if (pcapd->fio == NULL) {
+    return luaL_error(L, "attempted to open a closed session");
+  }
+
   if (filter == NULL) {
     filter = "";
     filterlen = 0;

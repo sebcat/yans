@@ -26,8 +26,9 @@
 #define MAX_ACCEPT_RETRIES 3
 #define MAX_FILTERSZ (1 << 20)
 #define SNAPLEN 2048
-#define PCAP_TO_MS 100
-#define POLL_TO_MS 25
+#define PCAP_TO_MS 1000
+#define POLL_TO_MS -1
+#define PCAP_DISPATCH_CNT 64
 #define PCAPD_STACKSZ (1 << 16)
 
 /* represents a connected client session */
@@ -47,32 +48,30 @@ static void pcapcli_free(pcapcli_t *cli) {
 }
 
 static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
-  struct pollfd fds[1];
+  struct pollfd fds[2];
   int clifd = fileno(cli->fp);
   char closebuf[16];
   int ret;
-  struct pcap_pkthdr *pkt_header;
-  const u_char *pkt_data;
+  int pcapfd;
+
+  if ((pcapfd = pcap_get_selectable_fd(pcap)) < 0) {
+    ylog_error("pcapcli%d: pcap_get_selectable_fd failure", cli->id);
+    return;
+  }
 
   for(;;) {
-    ret = pcap_next_ex(pcap, &pkt_header, &pkt_data);
-    if (ret < 0) {
-      ylog_error("pcapcli%d: pcap_next_ex: %s", cli->id, pcap_geterr(pcap));
-      break;
-    } else if (ret > 0) {
-      pcap_dump((u_char*)dumper, pkt_header, pkt_data);
-    }
-
     fds[0].fd = clifd;
     fds[0].events = POLLIN | POLLRDBAND;
+    fds[1].fd = pcapfd;
+    fds[1].events = POLLIN | POLLRDBAND;
     do {
       ret = poll(fds, sizeof(fds) / sizeof(struct pollfd), POLL_TO_MS);
     } while (ret < 0 && errno == EINTR);
-    if (ret < 0) {
+    if (ret == 0) {
+      continue;
+    } else if (ret < 0) {
       ylog_error("pcapcli%d: poll: %s", cli->id, strerror(errno));
       break;
-    } else if (ret == 0) {
-      continue;
     }
 
     /* check clifd */
@@ -90,6 +89,18 @@ static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
       return;
     } else if (fds[0].revents & (POLLHUP | POLLERR)) {
       ylog_error("pcapcli%d: client disconnected prematurely", cli->id);
+      return;
+    }
+
+    /* check pcapfd */
+    if (fds[1].revents & (POLLIN | POLLRDBAND)) {
+      if (pcap_dispatch(pcap, PCAP_DISPATCH_CNT, pcap_dump, (u_char*)dumper)
+          < 0) {
+        ylog_error("pcapcli%d: pcap_dispatch: %s", cli->id, pcap_geterr(pcap));
+        return;
+      }
+    } else if (fds[1].revents & (POLLHUP | POLLERR)) {
+      ylog_error("pcapcli%d: pcapfd closed unexpectedly", cli->id);
       return;
     }
   }
@@ -163,6 +174,11 @@ static void *pcapcli_main(void *arg) {
   }
   dumpf = NULL; /* dumper has ownership over dumpf, and will clear it on
                  * pcap_dump_close */
+
+  if (pcap_setnonblock(pcap, 1, errbuf) < 0) {
+    ylog_error("pcapcli%d: pcap_setnonblock: %s", cli->id, errbuf);
+    goto end;
+  }
 
   pcapcli_loop(cli, pcap, dumper);
 

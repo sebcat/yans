@@ -1,6 +1,6 @@
 SUBDIRS = 3rd_party
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror
+AM_CFLAGS = -Wall -Werror -g
 
 TESTS = \
     lib_net_url_test \
@@ -31,6 +31,7 @@ pcapd_SOURCES = \
     apps/pcapd/pcapd.c
 
 pcapd_LDADD = \
+    $(CAPLIB) \
     $(PCAPLIB) \
     $(PTHREADLIB)
 

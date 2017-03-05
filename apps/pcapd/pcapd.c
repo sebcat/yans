@@ -1,3 +1,4 @@
+/* vim: set tabstop=2 shiftwidth=2 expandtab ai: */
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -7,6 +8,11 @@
 #include <errno.h>
 #include <poll.h>
 #include <signal.h>
+
+#ifdef __linux__
+#include <sys/prctl.h>
+#include <sys/capability.h>
+#endif
 
 #include <pcap/pcap.h>
 
@@ -22,6 +28,7 @@
 #define SNAPLEN 2048
 #define PCAP_TO_MS 100
 #define POLL_TO_MS 25
+#define PCAPD_STACKSZ (1 << 16)
 
 /* represents a connected client session */
 typedef struct pcapcli_t {
@@ -154,6 +161,8 @@ static void *pcapcli_main(void *arg) {
     ylog_error("pcapcli%d: pcap_dump_fopen: %s", cli->id, pcap_geterr(pcap));
     goto end;
   }
+  dumpf = NULL; /* dumper has ownership over dumpf, and will clear it on
+                 * pcap_dump_close */
 
   pcapcli_loop(cli, pcap, dumper);
 
@@ -166,8 +175,7 @@ end:
     close(dumpfd);
   }
   if (dumpf != NULL) {
-    fclose(dumpf); /* XXX: if dumper has ownership of dumpf, this may be a
-                    * double close */
+    fclose(dumpf);
   }
   if (filter != NULL) {
     free(filter);
@@ -180,15 +188,45 @@ end:
 }
 
 static pcapcli_t *pcapcli_new(FILE *fp, int id) {
+  pthread_attr_t attrs;
   pcapcli_t *cli;
+  int ret;
+
+  if ((ret = pthread_attr_init(&attrs)) != 0) {
+    ylog_error("pcapcli%d: pthread_attr_init: %s", id, strerror(ret));
+    return NULL;
+  }
+
+  /* create the thread in a detached state, so that the thread resources are
+   * released on thread completion and not on explicit join */
+  if ((ret = pthread_attr_setdetachstate(&attrs,
+      PTHREAD_CREATE_DETACHED)) != 0) {
+    ylog_error("pcapcli%d: pthread_attr_setdetachstate: %s", id,
+        strerror(ret));
+    pthread_attr_destroy(&attrs);
+    return NULL;
+  }
+
+  /* set a predictable, relatively low stack size */
+  if ((ret = pthread_attr_setstacksize(&attrs, PCAPD_STACKSZ)) != 0) {
+    ylog_error("pcapcli%d: pthread_attr_setstacksize: %s", id,
+        strerror(ret));
+    pthread_attr_destroy(&attrs);
+    return NULL;
+  }
 
   if ((cli = malloc(sizeof(pcapcli_t))) == NULL) {
+    ylog_error("pcapcli%d: malloc: %s", id, strerror(errno));
+    pthread_attr_destroy(&attrs);
     return NULL;
   }
   cli->fp = fp;
   cli->id = id;
-  if (pthread_create(&cli->tid, NULL, pcapcli_main, cli) != 0) {
+  ret = pthread_create(&cli->tid, &attrs, pcapcli_main, cli);
+  pthread_attr_destroy(&attrs);
+  if (ret != 0) {
     free(cli);
+    ylog_error("pcapcli%d: pthread_create: %s", id, strerror(ret));
     return NULL;
   }
   return cli;
@@ -215,12 +253,12 @@ static void accept_loop(io_t *listener) {
       continue;
     }
     if (pcapcli_new(fp, id_counter) == NULL) {
-      ylog_perror("pcapcli_new");
+      /* pcapcli_new does logging of errors */
       fclose(fp);
     } else {
       ylog_info("pcapcli%d: connected", id_counter);
-      id_counter++;
     }
+    id_counter++;
   }
   ylog_error("accept: maximum number of retries reached");
 }
@@ -322,6 +360,39 @@ int main(int argc, char *argv[]) {
   } else {
     struct os_chrootd_opts chroot_opts;
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
+
+    /* for Linux: Set the "keep capabilities" flag to 1 and drop the permitted,
+     * inheritable and effective capabilities to only include the ones needed
+     * to set up the chroot, as well as CAP_NET_RAW. */
+#ifdef __linux__
+    do {
+      cap_t caps;
+      cap_value_t newcaps[] = {
+        CAP_NET_RAW,
+        CAP_CHOWN,
+        CAP_FOWNER,
+        CAP_DAC_OVERRIDE,
+        CAP_SETGID,
+        CAP_SETUID,
+        CAP_SYS_CHROOT,
+      };
+      prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+      caps = cap_init(); /* cap_init == all flags cleared */
+      cap_set_flag(caps, CAP_PERMITTED, sizeof(newcaps)/sizeof(cap_value_t),
+          newcaps, CAP_SET);
+      cap_set_flag(caps, CAP_EFFECTIVE, sizeof(newcaps)/sizeof(cap_value_t),
+          newcaps, CAP_SET);
+      cap_set_flag(caps, CAP_INHERITABLE, sizeof(newcaps)/sizeof(cap_value_t),
+          newcaps, CAP_SET);
+      if (cap_set_proc(caps) < 0) {
+        cap_free(caps);
+        ylog_error("cap_set_proc pre-chroot: %s", strerror(errno));
+        goto end;
+      }
+      cap_free(caps);
+    } while(0);
+#endif
+
     chroot_opts.name = DAEMON_NAME;
     chroot_opts.path = opts.basepath;
     chroot_opts.uid = opts.uid;
@@ -331,6 +402,24 @@ int main(int argc, char *argv[]) {
       ylog_error("%s", os_strerror(&os));
       goto end;
     }
+    /* For Linux: After chrooting, drop the capabilities that was needed to
+     * establish the chroot from the permitted set while keeping CAP_NET_RAW.
+     * Set CAP_NET_RAW in the effecive set which was cleared on setuid() */
+#ifdef __linux__
+    do {
+      cap_t caps;
+      cap_value_t newcaps[] = {CAP_NET_RAW};
+      caps = cap_init();
+      cap_set_flag(caps, CAP_PERMITTED, 1, newcaps, CAP_SET);
+      cap_set_flag(caps, CAP_EFFECTIVE, 1, newcaps, CAP_SET);
+      if (cap_set_proc(caps) < 0) {
+        cap_free(caps);
+        ylog_error("cap_set_proc post-chroot: %s", strerror(errno));
+        goto end;
+      }
+      cap_free(caps);
+    } while(0);
+#endif
   }
 
   if (io_listen_unix(&io, DAEMON_SOCK) != IO_OK) {

@@ -48,6 +48,10 @@ AC_CHECK_LIB([pthread], [pthread_create], [PTHREADLIB=-lpthread],
   [AC_MSG_ERROR([libpthread missing])])
 AC_SUBST([PTHREADLIB])
 
+# Linux only: libcap
+AC_CHECK_LIB([cap], [cap_set_flag], [CAPLIB=-lcap], [CAPLIB=])
+AC_SUBST([CAPLIB])
+
 AC_CONFIG_FILES([Makefile 3rd_party/Makefile])
 
 AC_OUTPUT

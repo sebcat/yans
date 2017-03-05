@@ -53,6 +53,7 @@ int io_listen_unix(io_t *io, const char *path) {
     IO_PERROR(io, "socket");
     return IO_ERR;
   }
+  memset(&saddr, 0, sizeof(saddr));
   saddr.sun_family = AF_UNIX;
   snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", path);
   unlink(saddr.sun_path);

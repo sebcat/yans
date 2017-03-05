@@ -42,8 +42,8 @@ static void pcapcli_free(pcapcli_t *cli) {
   if (cli != NULL) {
     if (cli->fp != NULL) {
       fclose(cli->fp);
-      cli->fp = NULL;
     }
+    free(cli);
   }
 }
 

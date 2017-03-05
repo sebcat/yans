@@ -48,7 +48,7 @@ int fio_readnsa(FILE *fp, size_t maxsz, char **out, size_t *outlen) {
   if (msglen >= maxsz)  {
     return FIO_ERRTOOLARGE;
   }
-  if ((buf = malloc((size_t)msglen)) == NULL) {
+  if ((buf = malloc((size_t)msglen+1)) == NULL) {
     return FIO_ERR;
   }
   if (fread(buf, 1, msglen, fp) != msglen) {

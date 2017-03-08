@@ -89,11 +89,11 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
-	lib_util_u8_test$(EXEEXT) apps/yans/tests/url_test.yans \
-	apps/yans/tests/ip_test.yans
+	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
+	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
 check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_net_punycode_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
-	yans$(EXEEXT)
+	lib_util_netstring_test$(EXEEXT) yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT) pcapd$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -127,6 +127,11 @@ am_lib_net_url_test_OBJECTS = lib/net/url.$(OBJEXT) \
 	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT)
 lib_net_url_test_OBJECTS = $(am_lib_net_url_test_OBJECTS)
 lib_net_url_test_LDADD = $(LDADD)
+am_lib_util_netstring_test_OBJECTS = lib/util/netstring.$(OBJEXT) \
+	lib/util/netstring_test.$(OBJEXT)
+lib_util_netstring_test_OBJECTS =  \
+	$(am_lib_util_netstring_test_OBJECTS)
+lib_util_netstring_test_LDADD = $(LDADD)
 am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
@@ -182,10 +187,11 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
-	$(lib_util_u8_test_SOURCES) $(pcapd_SOURCES) $(yans_SOURCES)
-DIST_SOURCES = $(lib_net_punycode_test_SOURCES) \
-	$(lib_net_url_test_SOURCES) $(lib_util_u8_test_SOURCES) \
+	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
 	$(pcapd_SOURCES) $(yans_SOURCES)
+DIST_SOURCES = $(lib_net_punycode_test_SOURCES) \
+	$(lib_net_url_test_SOURCES) $(lib_util_netstring_test_SOURCES) \
+	$(lib_util_u8_test_SOURCES) $(pcapd_SOURCES) $(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -430,7 +436,7 @@ YANS_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
 	$(YANS_LOG_FLAGS)
 DIST_SUBDIRS = $(SUBDIRS)
-am__DIST_COMMON = $(srcdir)/Makefile.in README ar-lib compile \
+am__DIST_COMMON = $(srcdir)/Makefile.in README TODO ar-lib compile \
 	config.guess config.sub depcomp install-sh ltmain.sh missing \
 	test-driver
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -632,6 +638,10 @@ yans_LDADD = \
     3rd_party/liblpeg.a \
     3rd_party/liblua.a
 
+lib_util_netstring_test_SOURCES = \
+    lib/util/netstring.c \
+    lib/util/netstring_test.c
+
 lib_util_u8_test_SOURCES = \
     lib/util/u8.c \
     lib/util/u8_test.c
@@ -776,6 +786,14 @@ lib/net/url_test.$(OBJEXT): lib/net/$(am__dirstamp) \
 lib_net_url_test$(EXEEXT): $(lib_net_url_test_OBJECTS) $(lib_net_url_test_DEPENDENCIES) $(EXTRA_lib_net_url_test_DEPENDENCIES) 
 	@rm -f lib_net_url_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_net_url_test_OBJECTS) $(lib_net_url_test_LDADD) $(LIBS)
+lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/netstring_test.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+
+lib_util_netstring_test$(EXEEXT): $(lib_util_netstring_test_OBJECTS) $(lib_util_netstring_test_DEPENDENCIES) $(EXTRA_lib_util_netstring_test_DEPENDENCIES) 
+	@rm -f lib_util_netstring_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib_util_netstring_test_OBJECTS) $(lib_util_netstring_test_LDADD) $(LIBS)
 lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 
@@ -856,6 +874,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/fio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/netstring.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/netstring_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
@@ -1158,6 +1178,13 @@ lib_net_punycode_test.log: lib_net_punycode_test$(EXEEXT)
 lib_util_u8_test.log: lib_util_u8_test$(EXEEXT)
 	@p='lib_util_u8_test$(EXEEXT)'; \
 	b='lib_util_u8_test'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+lib_util_netstring_test.log: lib_util_netstring_test$(EXEEXT)
+	@p='lib_util_netstring_test$(EXEEXT)'; \
+	b='lib_util_netstring_test'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

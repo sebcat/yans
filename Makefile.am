@@ -6,6 +6,7 @@ TESTS = \
     lib_net_url_test \
     lib_net_punycode_test \
     lib_util_u8_test \
+    lib_util_netstring_test \
     apps/yans/tests/url_test.yans \
     apps/yans/tests/ip_test.yans
 
@@ -16,6 +17,7 @@ check_PROGRAMS = \
     lib_net_url_test \
     lib_net_punycode_test \
     lib_util_u8_test \
+    lib_util_netstring_test \
     yans
 
 bin_PROGRAMS = \
@@ -55,6 +57,10 @@ yans_LDADD = \
     3rd_party/liblinenoise.a \
     3rd_party/liblpeg.a \
     3rd_party/liblua.a
+
+lib_util_netstring_test_SOURCES = \
+    lib/util/netstring.c \
+    lib/util/netstring_test.c
 
 lib_util_u8_test_SOURCES = \
     lib/util/u8.c \

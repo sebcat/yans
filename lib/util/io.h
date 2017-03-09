@@ -55,4 +55,6 @@ int io_tofp(io_t *io, const char *mode, FILE **out);
 int io_sendfd(io_t *io, int fd);
 int io_recvfd(io_t *io, int *out);
 
+int io_setnonblock(io_t *io, int val);
+
 #endif

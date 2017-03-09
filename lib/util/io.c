@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <poll.h>
 
 #include <lib/util/io.h>
 
@@ -103,16 +104,34 @@ int io_accept(io_t *io, io_t *out) {
   return IO_OK;
 }
 
+static int io_wpoll(io_t *io) {
+  struct pollfd pfd;
+
+  pfd.fd = io->fd;
+  pfd.events = POLLOUT;
+  return poll(&pfd, 1, -1);
+}
+
 int io_writeall(io_t *io, void *data, size_t len) {
   char *cptr = data;
   ssize_t ret;
   while(len > 0) {
     ret = write(io->fd, cptr, len);
-    if (ret < 0 && errno == EINTR) {
-      continue;
-    } else if (ret < 0) {
-      IO_PERROR(io, "write");
-      return IO_ERR;
+    if (ret < 0) {
+      if (errno == EINTR) {
+        continue;
+      } else if (errno == EAGAIN ||
+          errno == EWOULDBLOCK ||
+          errno == EINPROGRESS) {
+        if (io_wpoll(io) < 0) {
+          IO_PERROR(io, "poll");
+          return IO_ERR;
+        }
+        continue;
+      } else {
+        IO_PERROR(io, "write");
+        return IO_ERR;
+      }
     } else if (ret == 0) {
       IO_SETERR(io, "write: unexpected EOF");
       return IO_ERR;
@@ -128,11 +147,21 @@ int io_writevall(io_t *io, struct iovec *iov, int iovcnt) {
   size_t currvec = 0;
   while (currvec < iovcnt) {
     ret = writev(io->fd, iov+currvec, iovcnt-currvec);
-    if (ret < 0 && errno == EINTR) {
-      continue;
-    } else if (ret < 0) {
-      IO_PERROR(io, "writev");
-      return IO_ERR;
+    if (ret < 0) {
+      if (errno == EINTR) {
+        continue;
+      } else if (errno == EAGAIN ||
+          errno == EWOULDBLOCK ||
+          errno == EINPROGRESS) {
+        if (io_wpoll(io) < 0) {
+          IO_PERROR(io, "poll");
+          return IO_ERR;
+        }
+        continue;
+      } else {
+        IO_PERROR(io, "writev");
+        return IO_ERR;
+      }
     } else if (ret == 0) {
       IO_SETERR(io, "writev: unexpected EOF");
       return IO_ERR;
@@ -152,16 +181,34 @@ int io_writevall(io_t *io, struct iovec *iov, int iovcnt) {
   return IO_OK;
 }
 
+static int io_rpoll(io_t *io) {
+  struct pollfd pfd;
+
+  pfd.fd = io->fd;
+  pfd.events = POLLIN|POLLPRI;
+  return poll(&pfd, 1, -1);
+}
+
 int io_readfull(io_t *io, void *data, size_t len) {
   char *cptr = data;
   ssize_t ret;
   while(len > 0) {
     ret = read(io->fd, cptr, len);
-    if (ret < 0 && errno == EINTR) {
-      continue;
-    } else if (ret < 0) {
-      IO_PERROR(io, "read");
-      return IO_ERR;
+    if (ret < 0) {
+      if (errno == EINTR) {
+        continue;
+      } else if (errno == EAGAIN ||
+          errno == EWOULDBLOCK ||
+          errno == EINPROGRESS) {
+        if (io_rpoll(io) < 0) {
+          IO_PERROR(io, "poll");
+          return IO_ERR;
+        }
+        continue;
+      } else {
+        IO_PERROR(io, "read");
+        return IO_ERR;
+      }
     } else if (ret == 0) {
       IO_SETERR(io, "read: unexpected EOF");
       return IO_ERR;
@@ -279,4 +326,21 @@ int io_recvfd(io_t *io, int *out) {
 
   *out = fd;
   return IO_OK;
+}
+
+int io_setnonblock(io_t *io, int val) {
+  int flags = fcntl(io->fd, F_GETFL);
+
+  if (val == 0) {
+    flags = flags & ~O_NONBLOCK;
+  } else {
+    flags = flags | O_NONBLOCK;
+  }
+
+  if (fcntl(io->fd, flags) == -1) {
+    IO_PERROR(io, "fcntl");
+    return IO_ERR;
+  } else {
+    return IO_OK;
+  }
 }

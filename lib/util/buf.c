@@ -24,7 +24,7 @@ void buf_cleanup(buf_t *buf) {
   }
 }
 
-static int buf_grow(buf_t *buf, size_t needed) {
+int buf_grow(buf_t *buf, size_t needed) {
   size_t added;
   char *ndata;
 
@@ -60,16 +60,6 @@ int buf_adata(buf_t *buf, const void *data, size_t len) {
 
   memcpy(buf->data + buf->len, data, len);
   buf->len += len;
-  return 0;
-}
-
-int buf_reserve(buf_t *buf, size_t nbytes) {
-  size_t nleft = buf->cap - buf->len;
-  if (nleft < nbytes) {
-    if (buf_grow(buf, nbytes-nleft) < 0) {
-      return -1;
-    }
-  }
   return 0;
 }
 

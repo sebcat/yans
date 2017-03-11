@@ -10,6 +10,8 @@
 
 #include <lib/util/io.h>
 
+#define READBUF_GROWSZ 256
+
 #define IO_SETERR(io, ...) \
     snprintf((io)->errbuf, sizeof((io)->errbuf), __VA_ARGS__);
 
@@ -17,7 +19,7 @@
     snprintf((io)->errbuf, sizeof((io)->errbuf), "%s: %s", \
         (func), strerror(errno));
 
-#define CONTROLMSG 0x41424344
+#define CONTROLMSG 0x41424344 /* 'DCBA' in LSB order */
 
 const char *io_strerror(io_t *io) {
   return io->errbuf;
@@ -343,4 +345,30 @@ int io_setnonblock(io_t *io, int val) {
   } else {
     return IO_OK;
   }
+}
+
+int io_readbuf(io_t *io, buf_t *buf, size_t *nread) {
+  ssize_t ret;
+  size_t bufsz = buf->cap - buf->len;
+  if (bufsz < READBUF_GROWSZ) {
+    if (buf_grow(buf, READBUF_GROWSZ) < 0) {
+      IO_PERROR(io, "buf_grow");
+      return IO_ERR;
+    }
+    bufsz = buf->cap - buf->len;
+  }
+
+  do {
+    ret = read(io->fd, buf->data + buf->len, bufsz);
+  } while (ret < 0 && errno == EINTR);
+  if (ret < 0) {
+    IO_PERROR(io, "read");
+    return IO_ERR;
+  }
+
+  if (nread != NULL) {
+    *nread = (size_t)ret;
+  }
+
+  return IO_OK;
 }

@@ -88,6 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+target_triplet = @target@
 TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
 	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
@@ -435,7 +436,7 @@ TEST_LOGS = $(am__test_logs2:.yans.log=.log)
 YANS_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
 	$(YANS_LOG_FLAGS)
-DIST_SUBDIRS = $(SUBDIRS)
+DIST_SUBDIRS = 3rd_party freebsd
 am__DIST_COMMON = $(srcdir)/Makefile.in README TODO ar-lib compile \
 	config.guess config.sub depcomp install-sh ltmain.sh missing \
 	test-driver
@@ -595,11 +596,16 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
+target = @target@
 target_alias = @target_alias@
+target_cpu = @target_cpu@
+target_os = @target_os@
+target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = 3rd_party
+@FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
+SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror -g
 TEST_EXTENSIONS = .yans

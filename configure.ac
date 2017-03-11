@@ -3,6 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([yans], [1.0.0], [seb.cato@gmail.com])
+AC_CANONICAL_TARGET
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([subdir-objects foreign -Wall -Werror])
 AM_SILENT_RULES([yes])
@@ -52,6 +53,9 @@ AC_SUBST([PTHREADLIB])
 AC_CHECK_LIB([cap], [cap_set_flag], [CAPLIB=-lcap], [CAPLIB=])
 AC_SUBST([CAPLIB])
 
-AC_CONFIG_FILES([Makefile 3rd_party/Makefile])
+AM_CONDITIONAL([FREEBSD_OPT], [
+  case "$target_os" in freebsd*) true; ;;  *) false; ;; esac])
+
+AC_CONFIG_FILES([Makefile 3rd_party/Makefile freebsd/Makefile])
 
 AC_OUTPUT

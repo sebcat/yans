@@ -1,0 +1,52 @@
+#!/bin/sh
+# PROVIDE: pcapd
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the group and user:
+#   pw groupadd pcapd
+#   pw useradd pcapd -d /var/pcapd -g pcapd -s /user/sbin/nologin
+#
+# The daemon drops user privs itself, which is why pcapd_user, pcapd_group
+# is not used
+: ${pcapd_duser:="pcapd"}
+: ${pcapd_dgroup:="pcapd"}
+
+name="pcapd"
+rcvar="pcapd_enable"
+command="/usr/bin/pcapd"
+command_args="-u ${pcapd_duser} -g ${pcapd_dgroup} -b /var/pcapd"
+start_precmd="pcapd_precmd"
+pidfile="/var/pcapd/pcapd.pid"
+
+pcapd_precmd()
+{
+  if [ -d /var/pcapd ]; then
+    rm -rf /var/pcapd
+  fi
+
+  mkdir /var/pcapd || {
+    warn "Unable to create /var/pcapd"
+    return 1
+  }
+
+  chmod 770 /var/pcapd || {
+    warn "Failed to set correct permissions of /var/pcapd"
+    return 1
+  }
+
+  chown "${pcapd_duser}:${pcapd_dgroup}" /var/pcapd || {
+    warn "Failed to set correct ownership of /var/pcapd"
+    return 1
+  }
+
+  mkdir -p /var/pcapd/dev
+  mknod /var/pcapd/dev/bpf c 0 13 "${pcapd_duser}:${pcapd_dgroup}"
+  chmod 660 /var/pcapd/dev/bpf
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

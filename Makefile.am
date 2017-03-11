@@ -1,4 +1,9 @@
-SUBDIRS = 3rd_party
+if FREEBSD_OPT
+  MAYBE_FREEBSD = freebsd
+endif
+
+SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
+
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror -g
 

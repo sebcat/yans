@@ -5,7 +5,7 @@ endif
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror -g
+AM_CFLAGS = -Wall -Werror
 
 TESTS = \
     lib_net_url_test \
@@ -32,15 +32,15 @@ bin_PROGRAMS = \
 pcapd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
-    lib/util/fio.c \
     lib/util/os.c \
     lib/util/ylog.c \
+    lib/util/netstring.c \
     apps/pcapd/pcapd.c
 
 pcapd_LDADD = \
     $(CAPLIB) \
     $(PCAPLIB) \
-    $(PTHREADLIB)
+    $(EVENTLIB)
 
 yans_SOURCES = \
     lib/util/u8.c \
@@ -65,6 +65,7 @@ yans_LDADD = \
 
 lib_util_netstring_test_SOURCES = \
     lib/util/netstring.c \
+    lib/util/buf.c \
     lib/util/netstring_test.c
 
 lib_util_u8_test_SOURCES = \

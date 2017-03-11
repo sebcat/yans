@@ -129,7 +129,7 @@ am_lib_net_url_test_OBJECTS = lib/net/url.$(OBJEXT) \
 lib_net_url_test_OBJECTS = $(am_lib_net_url_test_OBJECTS)
 lib_net_url_test_LDADD = $(LDADD)
 am_lib_util_netstring_test_OBJECTS = lib/util/netstring.$(OBJEXT) \
-	lib/util/netstring_test.$(OBJEXT)
+	lib/util/buf.$(OBJEXT) lib/util/netstring_test.$(OBJEXT)
 lib_util_netstring_test_OBJECTS =  \
 	$(am_lib_util_netstring_test_OBJECTS)
 lib_util_netstring_test_LDADD = $(LDADD)
@@ -138,8 +138,8 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
 am_pcapd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
-	lib/util/fio.$(OBJEXT) lib/util/os.$(OBJEXT) \
-	lib/util/ylog.$(OBJEXT) apps/pcapd/pcapd.$(OBJEXT)
+	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) apps/pcapd/pcapd.$(OBJEXT)
 pcapd_OBJECTS = $(am_pcapd_OBJECTS)
 am__DEPENDENCIES_1 =
 pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -506,6 +506,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+EVENTLIB = @EVENTLIB@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -541,7 +542,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PCAPLIB = @PCAPLIB@
-PTHREADLIB = @PTHREADLIB@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -607,21 +607,21 @@ top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror -g
+AM_CFLAGS = -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
 pcapd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
-    lib/util/fio.c \
     lib/util/os.c \
     lib/util/ylog.c \
+    lib/util/netstring.c \
     apps/pcapd/pcapd.c
 
 pcapd_LDADD = \
     $(CAPLIB) \
     $(PCAPLIB) \
-    $(PTHREADLIB)
+    $(EVENTLIB)
 
 yans_SOURCES = \
     lib/util/u8.c \
@@ -646,6 +646,7 @@ yans_LDADD = \
 
 lib_util_netstring_test_SOURCES = \
     lib/util/netstring.c \
+    lib/util/buf.c \
     lib/util/netstring_test.c
 
 lib_util_u8_test_SOURCES = \
@@ -808,8 +809,6 @@ lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPEND
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
 lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
@@ -826,6 +825,8 @@ apps/pcapd/pcapd.$(OBJEXT): apps/pcapd/$(am__dirstamp) \
 pcapd$(EXEEXT): $(pcapd_OBJECTS) $(pcapd_DEPENDENCIES) $(EXTRA_pcapd_DEPENDENCIES) 
 	@rm -f pcapd$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(pcapd_OBJECTS) $(pcapd_LDADD) $(LIBS)
+lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \

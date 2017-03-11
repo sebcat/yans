@@ -366,6 +366,7 @@ int io_readbuf(io_t *io, buf_t *buf, size_t *nread) {
     return IO_ERR;
   }
 
+  buf->len += (size_t)ret;
   if (nread != NULL) {
     *nread = (size_t)ret;
   }

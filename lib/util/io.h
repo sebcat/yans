@@ -25,13 +25,13 @@ typedef struct {
   char errbuf[IO_ERRBUFSZ];
 } io_t;
 
-#define io_init(_io, _fd) \
+#define IO_INIT(_io, _fd) \
     do { \
       (_io)->fd = (_fd); \
       (_io)->errbuf[0] = '\0'; \
     } while(0);
 
-#define io_fileno(_io) \
+#define IO_FILENO(_io) \
     ((_io)->fd)
 
 const char *io_strerror(io_t *io);
@@ -57,4 +57,5 @@ int io_recvfd(io_t *io, int *out);
 
 int io_setnonblock(io_t *io, int val);
 
+int io_readbuf(io_t *io, buf_t *buf, size_t *nread);
 #endif

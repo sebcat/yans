@@ -27,7 +27,7 @@ static int l_pcapd_connect(lua_State *L) {
     return luaL_error(L, "%s", io_strerror(&sock));
   }
 
-  if ((pcapd->fio = fdopen(io_fileno(&sock), "w")) == NULL) {
+  if ((pcapd->fio = fdopen(IO_FILENO(&sock), "w")) == NULL) {
     io_close(&sock);
     return luaL_error(L, "fdopen: %s", strerror(errno));
   }
@@ -52,10 +52,14 @@ static int l_pcapd_open(lua_State *L) {
   int ret;
   size_t ifacelen;
   size_t filterlen;
+  size_t cmdlen;
+  luaL_Buffer b;
   struct pcapd *pcapd = checkpcapd(L, 1);
   const char *dumppath = luaL_checkstring(L, 2);
   const char *iface = luaL_checklstring(L, 3, &ifacelen);
   const char *filter = lua_tolstring(L, 4, &filterlen);
+  const char *cmd;
+  
 
   if (pcapd->fio == NULL) {
     return luaL_error(L, "attempted to open a closed session");
@@ -70,19 +74,21 @@ static int l_pcapd_open(lua_State *L) {
     return luaL_error(L, "dumpfile: %s", io_strerror(&dumpfile));
   }
 
-  io_init(&cli, fileno(pcapd->fio));
-  ret = io_sendfd(&cli, io_fileno(&dumpfile));
+  IO_INIT(&cli, fileno(pcapd->fio));
+  ret = io_sendfd(&cli, IO_FILENO(&dumpfile));
   io_close(&dumpfile);
   if (ret != IO_OK) {
     return luaL_error(L, "sendfd: %s", io_strerror(&cli));
   }
 
-  if ((ret = fio_writens(pcapd->fio, iface, ifacelen)) != FIO_OK) {
-    return luaL_error(L, "%s: %s", iface, fio_strerror(ret));
-  }
-
-  if ((ret = fio_writens(pcapd->fio, filter, filterlen)) != FIO_OK) {
-    return luaL_error(L, "filter: %s", fio_strerror(ret));
+  luaL_buffinit(L, &b);
+  luaL_addlstring(&b, iface, ifacelen);
+  luaL_addlstring(&b, "", 1);
+  luaL_addlstring(&b, filter, filterlen);
+  luaL_pushresult(&b);
+  cmd = luaL_checklstring(L, -1, &cmdlen);
+  if ((ret = fio_writens(pcapd->fio, cmd, cmdlen)) != FIO_OK) {
+    return luaL_error(L, "unable to send command: %s", fio_strerror(ret));
   }
 
   return 0;

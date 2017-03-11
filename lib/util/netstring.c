@@ -92,6 +92,6 @@ int netstring_append_buf(buf_t *buf, const char *str, size_t len) {
 
 fail:
   buf->len = oldlen;
-  return ret;
+  return failcode;
 }
 

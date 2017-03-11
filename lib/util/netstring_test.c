@@ -21,19 +21,23 @@ int main() {
     char *expected_strs[MAX_EXPECTED];
     int expected_rets[MAX_EXPECTED];
   } inputs[] = {
-    {"",       {NULL}, {NS_ERRINCOMPLETE}},
-    {":",      {NULL}, {NS_ERRFMT} },
-    {"0",      {NULL}, {NS_ERRINCOMPLETE}},
-    {"0:",     {NULL}, {NS_ERRINCOMPLETE}},
+    {"",       {NULL}, {NETSTRING_ERRINCOMPLETE}},
+    {":",      {NULL}, {NETSTRING_ERRFMT} },
+    {"0",      {NULL}, {NETSTRING_ERRINCOMPLETE}},
+    {"0:",     {NULL}, {NETSTRING_ERRINCOMPLETE}},
 
-    {"0:,",    {"", NULL}, {NS_OK, NS_ERRINCOMPLETE}},
-    {"0:,0",   {"", NULL}, {NS_OK, NS_ERRINCOMPLETE}},
-    {"0:,0:",  {"", NULL}, {NS_OK, NS_ERRINCOMPLETE}},
-    {"0:,0:,", {"", "", NULL}, {NS_OK, NS_OK, NS_ERRINCOMPLETE}},
+    {"0:,",    {"", NULL}, {NETSTRING_OK, NETSTRING_ERRINCOMPLETE}},
+    {"0:,0",   {"", NULL}, {NETSTRING_OK, NETSTRING_ERRINCOMPLETE}},
+    {"0:,0:",  {"", NULL}, {NETSTRING_OK, NETSTRING_ERRINCOMPLETE}},
+    {"0:,0:,", {"", "", NULL}, {NETSTRING_OK, NETSTRING_OK,
+        NETSTRING_ERRINCOMPLETE}},
 
-    {"1:a,1:b,", {"a", "b", NULL}, {NS_OK, NS_OK, NS_ERRINCOMPLETE}},
-    {"4:sven,3:ior,", {"sven", "ior", NULL}, {NS_OK, NS_OK, NS_ERRINCOMPLETE}},
-    {"4:sven,3:ior,wiie", {"sven", "ior", NULL}, {NS_OK, NS_OK, NS_ERRFMT}},
+    {"1:a,1:b,", {"a", "b", NULL}, {NETSTRING_OK, NETSTRING_OK,
+        NETSTRING_ERRINCOMPLETE}},
+    {"4:sven,3:ior,", {"sven", "ior", NULL}, {NETSTRING_OK, NETSTRING_OK,
+        NETSTRING_ERRINCOMPLETE}},
+    {"4:sven,3:ior,wiie", {"sven", "ior", NULL}, {NETSTRING_OK, NETSTRING_OK,
+        NETSTRING_ERRFMT}},
     {NULL, {0}, {0}},
   };
 
@@ -50,7 +54,7 @@ int main() {
             netstring_strerror(ret));
         status = EXIT_FAILURE;
       }
-      if (ret == NS_OK) {
+      if (ret == NETSTRING_OK) {
         if (strcmp(res, inputs[i].expected_strs[j]) != 0) {
           fprintf(stderr, "input (%zu, %zu): expected \"%s\", was \"%s\"\n",
               i, j, inputs[i].expected_strs[j], res);
@@ -59,7 +63,7 @@ int main() {
         curr = res + reslen + 1;
       }
       j++;
-    } while(ret == NS_OK && curr < (buf+buflen));
+    } while(ret == NETSTRING_OK && curr < (buf+buflen));
     free(buf);
   }
   return status;

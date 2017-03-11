@@ -21,6 +21,7 @@ buf_t *buf_init(buf_t *buf, size_t cap) {
 void buf_cleanup(buf_t *buf) {
   if (buf->data != NULL) {
     free(buf->data);
+    buf->data = NULL;
   }
 }
 

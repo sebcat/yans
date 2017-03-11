@@ -639,7 +639,7 @@ LTLIBOBJS
 FREEBSD_OPT_FALSE
 FREEBSD_OPT_TRUE
 CAPLIB
-PTHREADLIB
+EVENTLIB
 PCAPLIB
 LIBOBJS
 CPP
@@ -14173,13 +14173,13 @@ fi
 
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lpthread" >&5
-$as_echo_n "checking for pthread_create in -lpthread... " >&6; }
-if ${ac_cv_lib_pthread_pthread_create+:} false; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for event_base_dispatch in -levent" >&5
+$as_echo_n "checking for event_base_dispatch in -levent... " >&6; }
+if ${ac_cv_lib_event_event_base_dispatch+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpthread  $LIBS"
+LIBS="-levent  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -14189,30 +14189,30 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char pthread_create ();
+char event_base_dispatch ();
 int
 main ()
 {
-return pthread_create ();
+return event_base_dispatch ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_pthread_pthread_create=yes
+  ac_cv_lib_event_event_base_dispatch=yes
 else
-  ac_cv_lib_pthread_pthread_create=no
+  ac_cv_lib_event_event_base_dispatch=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_pthread_pthread_create" >&5
-$as_echo "$ac_cv_lib_pthread_pthread_create" >&6; }
-if test "x$ac_cv_lib_pthread_pthread_create" = xyes; then :
-  PTHREADLIB=-lpthread
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_event_event_base_dispatch" >&5
+$as_echo "$ac_cv_lib_event_event_base_dispatch" >&6; }
+if test "x$ac_cv_lib_event_event_base_dispatch" = xyes; then :
+  EVENTLIB=-levent
 else
-  as_fn_error $? "libpthread missing" "$LINENO" 5
+  as_fn_error $? "libevent2 missing" "$LINENO" 5
 fi
 
 

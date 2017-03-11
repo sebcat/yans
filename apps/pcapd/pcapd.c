@@ -1,5 +1,4 @@
 /* vim: set tabstop=2 shiftwidth=2 expandtab ai: */
-#include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -14,23 +13,28 @@
 #include <sys/capability.h>
 #endif
 
+#include <event2/event.h>
 #include <pcap/pcap.h>
 
 #include <lib/util/os.h>
-#include <lib/util/fio.h>
 #include <lib/util/io.h>
 #include <lib/util/ylog.h>
+#include <lib/util/netstring.h>
 
 #define DAEMON_NAME "pcapd"
 #define DAEMON_SOCK "pcapd.sock"
 #define MAX_ACCEPT_RETRIES 3
-#define MAX_FILTERSZ (1 << 20)
+#define READCMD_TIMEO_S 5 /* timeout for reading iface name, filter */
+#define CMDBUFINITSZ 1024
+
+#define MAX_CMDSZ (1 << 20)
 #define SNAPLEN 2048
 #define PCAP_TO_MS 1000
 #define POLL_TO_MS -1
 #define PCAP_DISPATCH_CNT 64
 #define PCAPD_STACKSZ (1 << 16)
 
+#if 0
 /* represents a connected client session */
 typedef struct pcapcli_t {
   int id;
@@ -55,7 +59,7 @@ static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
   int pcapfd;
 
   if ((pcapfd = pcap_get_selectable_fd(pcap)) < 0) {
-    ylog_error("pcapcli%d: pcap_get_selectable_fd failure", cli->id);
+    ylog_error("pcapcli%u: pcap_get_selectable_fd failure", cli->id);
     return;
   }
 
@@ -70,7 +74,7 @@ static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
     if (ret == 0) {
       continue;
     } else if (ret < 0) {
-      ylog_error("pcapcli%d: poll: %s", cli->id, strerror(errno));
+      ylog_error("pcapcli%u: poll: %s", cli->id, strerror(errno));
       break;
     }
 
@@ -85,10 +89,10 @@ static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
        * write, the client might do things with the dumpfile while pcapd is
        * writing to it, which is less-than-ideal. */
       fio_readns(cli->fp, closebuf, sizeof(closebuf));
-      ylog_info("pcapcli%d: client disconnected gracefully", cli->id);
+      ylog_info("pcapcli%u: client disconnected gracefully", cli->id);
       return;
     } else if (fds[0].revents & (POLLHUP | POLLERR)) {
-      ylog_error("pcapcli%d: client disconnected prematurely", cli->id);
+      ylog_error("pcapcli%u: client disconnected prematurely", cli->id);
       return;
     }
 
@@ -96,11 +100,11 @@ static void pcapcli_loop(pcapcli_t *cli, pcap_t *pcap, pcap_dumper_t *dumper) {
     if (fds[1].revents & (POLLIN | POLLRDBAND)) {
       if (pcap_dispatch(pcap, PCAP_DISPATCH_CNT, pcap_dump, (u_char*)dumper)
           < 0) {
-        ylog_error("pcapcli%d: pcap_dispatch: %s", cli->id, pcap_geterr(pcap));
+        ylog_error("pcapcli%u: pcap_dispatch: %s", cli->id, pcap_geterr(pcap));
         return;
       }
     } else if (fds[1].revents & (POLLHUP | POLLERR)) {
-      ylog_error("pcapcli%d: pcapfd closed unexpectedly", cli->id);
+      ylog_error("pcapcli%u: pcapfd closed unexpectedly", cli->id);
       return;
     }
   }
@@ -126,64 +130,64 @@ static void *pcapcli_main(void *arg) {
    * with unbuffered code. */
   io_init(&io, fileno(cli->fp));
   if (io_recvfd(&io, &dumpfd) != IO_OK) {
-    ylog_error("pcapcli%d: io_recvfd: %s", cli->id, io_strerror(&io));
+    ylog_error("pcapcli%u: io_recvfd: %s", cli->id, io_strerror(&io));
     goto end;
   } else if ((dumpf = fdopen(dumpfd, "w")) == NULL) {
-    ylog_error("pcapcli%d: fdopen: %s", cli->id, strerror(errno));
+    ylog_error("pcapcli%u: fdopen: %s", cli->id, strerror(errno));
     goto end;
   }
   dumpfd = -1; /* dumpf takes ownership of dumpfd */
 
   if ((ret = fio_readns(cli->fp, iface, sizeof(iface))) != FIO_OK) {
-    ylog_error("pcapcli%d: iface: %s", cli->id, fio_strerror(ret));
+    ylog_error("pcapcli%u: iface: %s", cli->id, fio_strerror(ret));
     goto end;
   }
 
   if ((ret = fio_readnsa(cli->fp, MAX_FILTERSZ, &filter, &filtersz)) !=
       FIO_OK) {
-    ylog_error("pcapcli%d: filter: %s", cli->id, fio_strerror(ret));
+    ylog_error("pcapcli%u: filter: %s", cli->id, fio_strerror(ret));
   }
 
-  ylog_info("pcapcli%d: starting iface:\"%s\" filtersz:%zuB",
+  ylog_info("pcapcli%u: starting iface:\"%s\" filtersz:%zuB",
       cli->id, iface, filtersz);
 
   errbuf[0] = '\0';
   if ((pcap = pcap_open_live(iface, SNAPLEN, 0, PCAP_TO_MS, errbuf)) == NULL) {
-    ylog_error("pcapcli%d: pcap_open_live: %s", cli->id, errbuf);
+    ylog_error("pcapcli%u: pcap_open_live: %s", cli->id, errbuf);
     goto end;
   } else if (errbuf[0] != '\0') {
-    ylog_info("pcapcli%d: pcap_open_live warning: %s", cli->id, errbuf);
+    ylog_info("pcapcli%u: pcap_open_live warning: %s", cli->id, errbuf);
   }
 
   if (filtersz > 0) {
     if (pcap_compile(pcap, &bpf, filter, 1, PCAP_NETMASK_UNKNOWN) < 0) {
-      ylog_error("pcapcli%d: pcap_compile: %s", cli->id, pcap_geterr(pcap));
+      ylog_error("pcapcli%u: pcap_compile: %s", cli->id, pcap_geterr(pcap));
       goto end;
     }
     ret = pcap_setfilter(pcap, &bpf);
     pcap_freecode(&bpf);
     if (ret < 0) {
-      ylog_error("pcapcli%d: pcap_setfilter: %s", cli->id, pcap_geterr(pcap));
+      ylog_error("pcapcli%u: pcap_setfilter: %s", cli->id, pcap_geterr(pcap));
       goto end;
     }
   }
 
   if ((dumper = pcap_dump_fopen(pcap, dumpf)) == NULL) {
-    ylog_error("pcapcli%d: pcap_dump_fopen: %s", cli->id, pcap_geterr(pcap));
+    ylog_error("pcapcli%u: pcap_dump_fopen: %s", cli->id, pcap_geterr(pcap));
     goto end;
   }
   dumpf = NULL; /* dumper has ownership over dumpf, and will clear it on
                  * pcap_dump_close */
 
   if (pcap_setnonblock(pcap, 1, errbuf) < 0) {
-    ylog_error("pcapcli%d: pcap_setnonblock: %s", cli->id, errbuf);
+    ylog_error("pcapcli%u: pcap_setnonblock: %s", cli->id, errbuf);
     goto end;
   }
 
   pcapcli_loop(cli, pcap, dumper);
 
 end:
-  ylog_info("pcapcli%d: ended", cli->id);
+  ylog_info("pcapcli%u: ended", cli->id);
   if (dumper != NULL) {
     pcap_dump_close(dumper);
   }
@@ -209,7 +213,7 @@ static pcapcli_t *pcapcli_new(FILE *fp, int id) {
   int ret;
 
   if ((ret = pthread_attr_init(&attrs)) != 0) {
-    ylog_error("pcapcli%d: pthread_attr_init: %s", id, strerror(ret));
+    ylog_error("pcapcli%u: pthread_attr_init: %s", id, strerror(ret));
     return NULL;
   }
 
@@ -217,7 +221,7 @@ static pcapcli_t *pcapcli_new(FILE *fp, int id) {
    * released on thread completion and not on explicit join */
   if ((ret = pthread_attr_setdetachstate(&attrs,
       PTHREAD_CREATE_DETACHED)) != 0) {
-    ylog_error("pcapcli%d: pthread_attr_setdetachstate: %s", id,
+    ylog_error("pcapcli%u: pthread_attr_setdetachstate: %s", id,
         strerror(ret));
     pthread_attr_destroy(&attrs);
     return NULL;
@@ -225,14 +229,14 @@ static pcapcli_t *pcapcli_new(FILE *fp, int id) {
 
   /* set a predictable, relatively low stack size */
   if ((ret = pthread_attr_setstacksize(&attrs, PCAPD_STACKSZ)) != 0) {
-    ylog_error("pcapcli%d: pthread_attr_setstacksize: %s", id,
+    ylog_error("pcapcli%u: pthread_attr_setstacksize: %s", id,
         strerror(ret));
     pthread_attr_destroy(&attrs);
     return NULL;
   }
 
   if ((cli = malloc(sizeof(pcapcli_t))) == NULL) {
-    ylog_error("pcapcli%d: malloc: %s", id, strerror(errno));
+    ylog_error("pcapcli%u: malloc: %s", id, strerror(errno));
     pthread_attr_destroy(&attrs);
     return NULL;
   }
@@ -242,7 +246,7 @@ static pcapcli_t *pcapcli_new(FILE *fp, int id) {
   pthread_attr_destroy(&attrs);
   if (ret != 0) {
     free(cli);
-    ylog_error("pcapcli%d: pthread_create: %s", id, strerror(ret));
+    ylog_error("pcapcli%u: pthread_create: %s", id, strerror(ret));
     return NULL;
   }
   return cli;
@@ -272,11 +276,287 @@ static void accept_loop(io_t *listener) {
       /* pcapcli_new does logging of errors */
       fclose(fp);
     } else {
-      ylog_info("pcapcli%d: connected", id_counter);
+      ylog_info("pcapcli%u: connected", id_counter);
     }
     id_counter++;
   }
   ylog_error("accept: maximum number of retries reached");
+}
+
+#endif
+
+struct listener {
+  io_t io;
+  struct event_base *base;
+  struct event *lev;
+  int aretries;
+  unsigned int id_counter;
+};
+
+struct client {
+  io_t io;
+  unsigned int id;
+  FILE *dumpf;
+  buf_t cmdbuf;
+  struct listener *listener;
+  struct event *toevent;
+  struct event *revent;
+  struct event *pcapevent;
+  pcap_t *pcap;
+  pcap_dumper_t *dumper;
+};
+
+void client_close(struct client *cli) {
+  io_close(&cli->io);
+  buf_cleanup(&cli->cmdbuf);
+  if (cli->dumpf != NULL) {
+    fclose(cli->dumpf);
+  }
+  if (cli->toevent != NULL) {
+    evtimer_del(cli->toevent);
+    event_free(cli->toevent);
+  }
+  if (cli->revent != NULL) {
+    event_del(cli->revent);
+    event_free(cli->revent);
+  }
+  if (cli->pcapevent != NULL) {
+    event_del(cli->pcapevent);
+    event_free(cli->pcapevent);
+  }
+  if (cli->pcap != NULL) {
+    pcap_close(cli->pcap);
+  }
+  if (cli->dumper != NULL) {
+    pcap_dump_close(cli->dumper);
+  }
+  free(cli);
+}
+
+static void do_recvpcap(int fd, short ev, void *arg) {
+  struct client *cli = arg;
+  if (pcap_dispatch(cli->pcap, PCAP_DISPATCH_CNT, pcap_dump,
+      (u_char*)cli->dumper) < 0) {
+    ylog_error("pcapcli%u: pcap_dispatch: %s", cli->id,
+        pcap_geterr(cli->pcap));
+    client_close(cli);
+  }
+}
+
+static void do_recvclose(int fd, short ev, void *arg) {
+  struct client *cli = arg;
+  ylog_error("pcapcli%u: ended", cli->id);
+  client_close(cli);
+}
+
+static void do_recvcmd(int fd, short ev, void *arg) {
+  struct client *cli = arg;
+  char *iface;
+  char *filter = NULL;
+  char *end;
+  char *curr;
+  size_t filtersz;
+  int ret;
+  int pcapfd;
+  char errbuf[PCAP_ERRBUF_SIZE];
+  struct bpf_program bpf;
+
+  if (io_readbuf(&cli->io, &cli->cmdbuf, NULL) != IO_OK) {
+    ylog_error("pcapcli%u: io_readbuf: %s", cli->id, io_strerror(&cli->io));
+    goto fail;
+  }
+
+  ret = netstring_parse(&iface, NULL, cli->cmdbuf.data, cli->cmdbuf.len);
+  if (ret != NETSTRING_OK) {
+    if (ret == NETSTRING_ERRINCOMPLETE) {
+      if (cli->cmdbuf.len >= MAX_CMDSZ) {
+        ylog_error("pcapcli%u: maximum command size exceeded", cli->id);
+        client_close(cli);
+      }
+      return;
+    } else {
+      ylog_error("pcapcli%u: netstring_parse: %s", cli->id,
+          netstring_strerror(ret));
+      client_close(cli);
+      return;
+    }
+  }
+
+  for(curr = iface, end = cli->cmdbuf.data + cli->cmdbuf.len - 1;
+      curr < end;
+      curr++) {
+    if (*curr == '\0') {
+      filter = curr+1;
+      break;
+    }
+  }
+
+  if (filter == NULL) {
+    ylog_error("pcapcli%u: malformed command string", cli->id);
+    goto fail;
+  }
+
+  filtersz = strlen(filter);
+  ylog_info("pcapcli%u: iface:\"%s\" filterlen:\"%zu\"", cli->id, iface,
+      strlen(filter));
+
+  errbuf[0] = '\0';
+  if ((cli->pcap = pcap_open_live(iface, SNAPLEN, 0, PCAP_TO_MS,
+      errbuf)) == NULL) {
+    ylog_error("pcapcli%u: pcap_open_live: %s", cli->id, errbuf);
+    goto fail;
+  } else if (errbuf[0] != '\0') {
+    ylog_info("pcapcli%u: pcap_open_live warning: %s", cli->id, errbuf);
+  }
+
+  if (filtersz > 0) {
+    if (pcap_compile(cli->pcap, &bpf, filter, 1, PCAP_NETMASK_UNKNOWN) < 0) {
+      ylog_error("pcapcli%u: pcap_compile: %s", cli->id,
+          pcap_geterr(cli->pcap));
+      goto fail;
+    }
+    ret = pcap_setfilter(cli->pcap, &bpf);
+    pcap_freecode(&bpf);
+    if (ret < 0) {
+      ylog_error("pcapcli%u: pcap_setfilter: %s", cli->id,
+          pcap_geterr(cli->pcap));
+      goto fail;
+    }
+  }
+
+  if ((cli->dumper = pcap_dump_fopen(cli->pcap, cli->dumpf)) == NULL) {
+    ylog_error("pcapcli%u: pcap_dump_fopen: %s", cli->id,
+        pcap_geterr(cli->pcap));
+    goto fail;
+  }
+  cli->dumpf = NULL; /* cli->dumper has ownership over cli->dumpf, and will
+                      * clear it on pcap_dump_close */
+  if (pcap_setnonblock(cli->pcap, 1, errbuf) < 0) {
+    ylog_error("pcapcli%u: pcap_setnonblock: %s", cli->id, errbuf);
+    goto fail;
+  }
+
+  event_del(cli->revent);
+  event_free(cli->revent);
+  cli->revent = event_new(cli->listener->base, IO_FILENO(&cli->io),
+      EV_READ|EV_PERSIST, do_recvclose, cli);
+  if (cli->revent == NULL) {
+    ylog_perror("do_recvfd event_new");
+    goto fail;
+  }
+
+  if ((pcapfd = pcap_get_selectable_fd(cli->pcap)) < 0) {
+    ylog_error("pcapcli%u: pcap_get_selectable_fd failure", cli->id);
+    goto fail;
+  }
+
+  cli->pcapevent = event_new(cli->listener->base, pcapfd, EV_READ|EV_PERSIST,
+      do_recvpcap, cli);
+  if (cli->pcapevent == NULL) {
+    ylog_perror("do_recvfd event_new pcapevent");
+    goto fail;
+  }
+
+  event_add(cli->revent, NULL);
+  event_add(cli->pcapevent, NULL);
+
+
+  return;
+fail:
+  client_close(cli);
+  return;
+}
+
+static void do_recvfd(int fd, short ev, void *arg) {
+  struct client *cli = arg;
+  int rfd;
+  FILE *fp;
+  if (io_recvfd(&cli->io, &rfd) != IO_OK) {
+    ylog_error("pcapcli%u: io_recvfd: %s", cli->id, io_strerror(&cli->io));
+    client_close(cli);
+    return;
+  }
+
+  if ((fp = fdopen(rfd, "w")) == NULL) {
+    ylog_error("pcapcli%u: fdopen: %s", cli->id, io_strerror(&cli->io));
+    client_close(cli);
+    return;
+  }
+  cli->dumpf = fp;
+
+  event_del(cli->revent);
+  event_free(cli->revent);
+  cli->revent = event_new(cli->listener->base, IO_FILENO(&cli->io),
+      EV_READ|EV_PERSIST, do_recvcmd, cli);
+  if (cli->revent == NULL) {
+    ylog_perror("do_recvfd event_new");
+    client_close(cli);
+    return;
+  }
+  event_add(cli->revent, NULL);
+}
+
+static void do_readto(int fd, short ev, void *arg) {
+  struct client *cli = arg;
+  ylog_error("pcapcli%u: read timeout", cli->id);
+  client_close(cli);
+}
+
+static void do_accept(int fd, short ev, void *arg) {
+  struct listener *listener = arg;
+  struct client *cli;
+  struct timeval tv;
+  io_t client;
+
+  if (io_accept(&listener->io, &client) != IO_OK) {
+    listener->aretries++;
+    ylog_error("io_accept: %s", io_strerror(&listener->io));
+    if (listener->aretries >= MAX_ACCEPT_RETRIES) {
+      event_base_loopexit(listener->base, NULL);
+    }
+    return;
+  }
+
+  if ((cli = malloc(sizeof(struct client))) == NULL) {
+    ylog_perror("do_accept malloc");
+    io_close(&client);
+    return;
+  }
+  IO_INIT(&cli->io, IO_FILENO(&client));
+  cli->dumpf = NULL;
+  cli->pcap = NULL;
+  cli->dumper = NULL;
+  cli->pcapevent = NULL;
+  cli->listener = listener;
+  cli->id = listener->id_counter++;
+
+  cli->toevent = evtimer_new(listener->base, do_readto, cli);
+  if (cli->toevent == NULL) {
+    ylog_perror("do_accept evtimer_new");
+    io_close(&client);
+    free(cli);
+    return;
+  }
+  cli->revent = event_new(listener->base, IO_FILENO(&client),
+      EV_READ|EV_PERSIST, do_recvfd, cli);
+  if (cli->revent == NULL) {
+    ylog_perror("do_accept event_new");
+    event_free(cli->toevent);
+    io_close(&client);
+    free(cli);
+    return;
+  }
+
+  tv.tv_sec = READCMD_TIMEO_S;
+  tv.tv_usec = 0;
+  evtimer_add(cli->toevent, &tv);
+  event_add(cli->revent, NULL);
+  if (buf_init(&cli->cmdbuf, CMDBUFINITSZ) == NULL) {
+    client_close(cli);
+  }
+
+  listener->aretries = 0;
+  ylog_info("pcapcli%u: connected", cli->id);
 }
 
 struct pcapd_opts {
@@ -361,9 +641,9 @@ static int parse_args_or_die(struct pcapd_opts *opts, int argc, char **argv) {
 }
 
 int main(int argc, char *argv[]) {
+  struct listener listener;
   struct pcapd_opts opts;
   os_t os;
-  io_t io;
 
   signal(SIGPIPE, SIG_IGN);
   parse_args_or_die(&opts, argc, argv);
@@ -438,14 +718,30 @@ int main(int argc, char *argv[]) {
 #endif
   }
 
-  if (io_listen_unix(&io, DAEMON_SOCK) != IO_OK) {
-    ylog_error("io_listen_unix: %s", io_strerror(&io));
-  } else {
-    ylog_info("started");
-    accept_loop(&io);
+  if (io_listen_unix(&listener.io, DAEMON_SOCK) != IO_OK) {
+    ylog_error("io_listen_unix: %s", io_strerror(&listener.io));
+    goto end;
   }
 
-  io_close(&io);
+  io_setnonblock(&listener.io, 1);
+  listener.aretries = 0;
+  listener.id_counter = 0;
+  listener.base = event_base_new();
+  listener.lev = event_new(listener.base, IO_FILENO(&listener.io),
+      EV_READ|EV_PERSIST, do_accept, &listener);
+  if (listener.lev == NULL) {
+    ylog_error("listener event_new failure");
+    io_close(&listener.io);
+    goto end;
+  }
+
+  event_add(listener.lev, NULL);
+  ylog_info("started");
+  event_base_dispatch(listener.base);
+  ylog_error("accept: maximum number of retries reached");
+  event_free(listener.lev);
+  event_base_free(listener.base);
+  io_close(&listener.io);
 end:
   return EXIT_FAILURE;
 }

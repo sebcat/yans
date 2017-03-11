@@ -56,7 +56,9 @@ int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen) {
       }
       src[i+len] = '\0';
       *out = src + i;
-      *outlen = len;
+      if (outlen != NULL) {
+        *outlen = len;
+      }
       return NETSTRING_OK;
     }
   }

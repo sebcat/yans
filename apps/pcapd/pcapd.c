@@ -436,6 +436,10 @@ static void do_recvcmd(int fd, short ev, void *arg) {
     goto fail;
   }
 
+  event_del(cli->toevent);
+  event_free(cli->toevent);
+  cli->toevent = NULL;
+
   event_del(cli->revent);
   event_free(cli->revent);
   cli->revent = event_new(cli->listener->base, IO_FILENO(&cli->io),

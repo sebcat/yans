@@ -97,7 +97,7 @@ ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
   }
 
   do {
-    ret = send(sender->fd, data, len, MSG_NOSIGNAL);
+    ret = write(sender->fd, data, len);
   } while(ret == -1 && errno == EINTR);
   return ret;
 }

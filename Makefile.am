@@ -5,7 +5,7 @@ endif
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror
+AM_CFLAGS = -Wall -Werror -Wno-strict-aliasing -fno-strict-aliasing
 
 TESTS = \
     lib_net_url_test \
@@ -27,7 +27,8 @@ check_PROGRAMS = \
 
 bin_PROGRAMS = \
     yans \
-    pcapd
+    pcapd \
+    ping
 
 pcapd_SOURCES = \
     lib/util/buf.c \
@@ -62,6 +63,14 @@ yans_LDADD = \
     3rd_party/liblinenoise.a \
     3rd_party/liblpeg.a \
     3rd_party/liblua.a
+
+ping_SOURCES = \
+    lib/net/eth.c \
+    lib/net/etherframe.c \
+    apps/ping/ping.c
+
+ping_LDADD = \
+    $(PCAPLIB)
 
 lib_util_netstring_test_SOURCES = \
     lib/util/netstring.c \

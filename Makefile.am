@@ -5,6 +5,7 @@ endif
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
+# ethframe code causes problems with strict aliasing
 AM_CFLAGS = -Wall -Werror -Wno-strict-aliasing -fno-strict-aliasing
 
 TESTS = \

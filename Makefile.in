@@ -612,6 +612,7 @@ top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
+# ethframe code causes problems with strict aliasing
 AM_CFLAGS = -Wall -Werror -Wno-strict-aliasing -fno-strict-aliasing
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans

@@ -5,12 +5,12 @@ endif
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-# ethframe code causes problems with strict aliasing
-AM_CFLAGS = -Wall -Werror -Wno-strict-aliasing -fno-strict-aliasing
+AM_CFLAGS = -std=c11 -Wall -Werror
 
 TESTS = \
     lib_net_url_test \
     lib_net_punycode_test \
+    lib_net_ethframe_test \
     lib_util_u8_test \
     lib_util_netstring_test \
     apps/yans/tests/url_test.yans \
@@ -22,6 +22,7 @@ YANS_LOG_COMPILER = ./yans
 check_PROGRAMS = \
     lib_net_url_test \
     lib_net_punycode_test \
+    lib_net_ethframe_test \
     lib_util_u8_test \
     lib_util_netstring_test \
     yans
@@ -67,7 +68,7 @@ yans_LDADD = \
 
 ping_SOURCES = \
     lib/net/eth.c \
-    lib/net/etherframe.c \
+    lib/net/ethframe.c \
     apps/ping/ping.c
 
 ping_LDADD = \
@@ -94,4 +95,8 @@ lib_net_url_test_SOURCES = \
     lib/net/punycode.c \
     lib/util/u8.c \
     lib/util/buf.c
+
+lib_net_ethframe_test_SOURCES = \
+    lib/net/ethframe.c \
+    lib/net/ethframe_test.c
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include <lib/net/eth.h>
-#include <lib/net/etherframe.h>
+#include <lib/net/ethframe.h>
 
 int main() {
   eth_sender_t *sender;

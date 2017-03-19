@@ -90,11 +90,13 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
-	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
-	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
+	lib_net_ethframe_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
+	lib_util_netstring_test$(EXEEXT) apps/yans/tests/url_test.yans \
+	apps/yans/tests/ip_test.yans
 check_PROGRAMS = lib_net_url_test$(EXEEXT) \
-	lib_net_punycode_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
-	lib_util_netstring_test$(EXEEXT) yans$(EXEEXT)
+	lib_net_punycode_test$(EXEEXT) lib_net_ethframe_test$(EXEEXT) \
+	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
+	yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT) pcapd$(EXEEXT) ping$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -114,15 +116,19 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
+am_lib_net_ethframe_test_OBJECTS = lib/net/ethframe.$(OBJEXT) \
+	lib/net/ethframe_test.$(OBJEXT)
+lib_net_ethframe_test_OBJECTS = $(am_lib_net_ethframe_test_OBJECTS)
+lib_net_ethframe_test_LDADD = $(LDADD)
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
 am_lib_net_punycode_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/buf.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/punycode_test.$(OBJEXT)
 lib_net_punycode_test_OBJECTS = $(am_lib_net_punycode_test_OBJECTS)
 lib_net_punycode_test_LDADD = $(LDADD)
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
 am_lib_net_url_test_OBJECTS = lib/net/url.$(OBJEXT) \
 	lib/net/url_test.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT)
@@ -144,7 +150,7 @@ pcapd_OBJECTS = $(am_pcapd_OBJECTS)
 am__DEPENDENCIES_1 =
 pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
-am_ping_OBJECTS = lib/net/eth.$(OBJEXT) lib/net/etherframe.$(OBJEXT) \
+am_ping_OBJECTS = lib/net/eth.$(OBJEXT) lib/net/ethframe.$(OBJEXT) \
 	apps/ping/ping.$(OBJEXT)
 ping_OBJECTS = $(am_ping_OBJECTS)
 ping_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -191,13 +197,14 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
+SOURCES = $(lib_net_ethframe_test_SOURCES) \
+	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
 	$(pcapd_SOURCES) $(ping_SOURCES) $(yans_SOURCES)
-DIST_SOURCES = $(lib_net_punycode_test_SOURCES) \
-	$(lib_net_url_test_SOURCES) $(lib_util_netstring_test_SOURCES) \
-	$(lib_util_u8_test_SOURCES) $(pcapd_SOURCES) $(ping_SOURCES) \
-	$(yans_SOURCES)
+DIST_SOURCES = $(lib_net_ethframe_test_SOURCES) \
+	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
+	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
+	$(pcapd_SOURCES) $(ping_SOURCES) $(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -612,8 +619,7 @@ top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
-# ethframe code causes problems with strict aliasing
-AM_CFLAGS = -Wall -Werror -Wno-strict-aliasing -fno-strict-aliasing
+AM_CFLAGS = -std=c11 -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
 pcapd_SOURCES = \
@@ -652,7 +658,7 @@ yans_LDADD = \
 
 ping_SOURCES = \
     lib/net/eth.c \
-    lib/net/etherframe.c \
+    lib/net/ethframe.c \
     apps/ping/ping.c
 
 ping_LDADD = \
@@ -679,6 +685,10 @@ lib_net_url_test_SOURCES = \
     lib/net/punycode.c \
     lib/util/u8.c \
     lib/util/buf.c
+
+lib_net_ethframe_test_SOURCES = \
+    lib/net/ethframe.c \
+    lib/net/ethframe_test.c
 
 all: all-recursive
 
@@ -775,6 +785,20 @@ clean-checkPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+lib/net/$(am__dirstamp):
+	@$(MKDIR_P) lib/net
+	@: > lib/net/$(am__dirstamp)
+lib/net/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/net/$(DEPDIR)
+	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/ethframe.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/ethframe_test.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+
+lib_net_ethframe_test$(EXEEXT): $(lib_net_ethframe_test_OBJECTS) $(lib_net_ethframe_test_DEPENDENCIES) $(EXTRA_lib_net_ethframe_test_DEPENDENCIES) 
+	@rm -f lib_net_ethframe_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib_net_ethframe_test_OBJECTS) $(lib_net_ethframe_test_LDADD) $(LIBS)
 lib/util/$(am__dirstamp):
 	@$(MKDIR_P) lib/util
 	@: > lib/util/$(am__dirstamp)
@@ -785,12 +809,6 @@ lib/util/u8.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/net/$(am__dirstamp):
-	@$(MKDIR_P) lib/net
-	@: > lib/net/$(am__dirstamp)
-lib/net/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/net/$(DEPDIR)
-	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/punycode.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/punycode_test.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -840,8 +858,6 @@ pcapd$(EXEEXT): $(pcapd_OBJECTS) $(pcapd_DEPENDENCIES) $(EXTRA_pcapd_DEPENDENCIE
 	@rm -f pcapd$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(pcapd_OBJECTS) $(pcapd_LDADD) $(LIBS)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
-lib/net/etherframe.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 apps/ping/$(am__dirstamp):
 	@$(MKDIR_P) apps/ping
@@ -903,7 +919,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/etherframe.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode_test.Po@am__quote@
@@ -1209,6 +1226,13 @@ lib_net_url_test.log: lib_net_url_test$(EXEEXT)
 lib_net_punycode_test.log: lib_net_punycode_test$(EXEEXT)
 	@p='lib_net_punycode_test$(EXEEXT)'; \
 	b='lib_net_punycode_test'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+lib_net_ethframe_test.log: lib_net_ethframe_test$(EXEEXT)
+	@p='lib_net_ethframe_test$(EXEEXT)'; \
+	b='lib_net_ethframe_test'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

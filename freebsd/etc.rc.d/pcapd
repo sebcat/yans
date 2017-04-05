@@ -43,7 +43,7 @@ pcapd_precmd()
     return 1
   fi
 
-  case "${pcapd_devfs_ruleset}" in
+  case ${pcapd_devfs_ruleset} in
     ''|*[!0-9]*)
       warn "pcapd_devfs_ruleset must be a number"
       return 1

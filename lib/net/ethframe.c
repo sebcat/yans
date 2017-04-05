@@ -148,6 +148,77 @@
       *(curr_+1) = ~((sum_&0xffff)+(sum_>>16));                           \
     } while(0);
 
+#define ETHFRAME_SSDP4 \
+    0x90, 0x83,  /* source port */                                          \
+    0x07, 0x6c,  /* dst port: 1900 */                                       \
+    0x00, 0x94,  /* length: 148 */                                          \
+    0xaa, 0x78,  /* checksum */                                             \
+    /* payload:                                                             \
+         M-SEARCH * HTTP/1.1                                                \
+         HOST: 239.255.255.250:1900                                         \
+         MAN: ssdp:discover                                                 \
+         MX: 10                                                             \
+         ST: ssdp:all                                                       \
+         User-Agent: DinMammaOchDanHarmon/1.0 UPnP/1.1 */                   \
+    0x4d, 0x2d, 0x53, 0x45, 0x41, 0x52, 0x43, 0x48, 0x20, 0x2a, 0x20, 0x48, \
+    0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0x0d, 0x0a, 0x48, 0x4f, 0x53, \
+    0x54, 0x3a, 0x20, 0x32, 0x33, 0x39, 0x2e, 0x32, 0x35, 0x35, 0x2e, 0x32, \
+    0x35, 0x35, 0x2e, 0x32, 0x35, 0x30, 0x3a, 0x31, 0x39, 0x30, 0x30, 0x0d, \
+    0x0a, 0x4d, 0x41, 0x4e, 0x3a, 0x20, 0x73, 0x73, 0x64, 0x70, 0x3a, 0x64, \
+    0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x0d, 0x0a, 0x4d, 0x58, 0x3a, \
+    0x20, 0x31, 0x30, 0x0d, 0x0a, 0x53, 0x54, 0x3a, 0x20, 0x73, 0x73, 0x64, \
+    0x70, 0x3a, 0x61, 0x6c, 0x6c, 0x0d, 0x0a, 0x55, 0x73, 0x65, 0x72, 0x2d, \
+    0x41, 0x67, 0x65, 0x6e, 0x74, 0x3a, 0x20, 0x44, 0x69, 0x6e, 0x4d, 0x61, \
+    0x6d, 0x6d, 0x61, 0x4f, 0x63, 0x68, 0x44, 0x61, 0x6e, 0x48, 0x61, 0x72, \
+    0x6d, 0x6f, 0x6e, 0x2f, 0x31, 0x2e, 0x30, 0x20, 0x55, 0x50, 0x6e, 0x50, \
+    0x2f, 0x31, 0x2e, 0x31, 0x0d, 0x0a, 0x0d, 0x0a
+
+#define ETHFRAME_MDNS4 \
+    0x14, 0xe9,  /* src port: 5353 */                 \
+    0x14, 0xe9,  /* dst port: 5353 */                 \
+    0x00, 0x30,  /* length: 48 */                     \
+    0x00, 0x00,  /* csum */                           \
+    /* MDNS query */                                  \
+    0x00, 0x00,  /* transaction ID */                 \
+    0x00, 0x00,  /* flags (TODO: maybe set some?) */  \
+    0x00, 0x01,  /* # questions: 1 */                 \
+    0x00, 0x00,  /* answer RRs: 0 */                  \
+    0x00, 0x00,  /* auth RRs: 0 */                    \
+    0x00, 0x00,  /* additional RRs: 0 */              \
+    /* TODO: support multiple names, e.g., 
+     *         - _services._dns-sd._udp.local
+     *         - */
+static const uint8_t ethframe_udp4_mdns_frame[] = {
+
+};
+
+static const uint8_t ethframe_udp4_ssdp_frame[] = {
+  ETHFRAME_ETHER,
+  ETHFRAME_IPV4,
+  ETHFRAME_SSDP4
+};
+
+/* TODO: opts, checksum */
+void ethframe_udp4_ssdp_init(struct ethframe *f) {
+  uint32_t ip_src = 0x1200a8c0;
+  uint32_t ip_dst = 0xfaffffef; /* 239.255.255.250 */
+
+  f->len = sizeof(ethframe_udp4_ssdp_frame);
+  memcpy(f->buf, ethframe_udp4_ssdp_frame, sizeof(ethframe_udp4_ssdp_frame));
+  /* ipv4 mcast 7f:ff:fa */
+  memcpy(f->buf + ETHFRAME_ETHDSTOFF, "\x01\x00\x5e\x7f\xff\xfa", 6);
+  memcpy(f->buf + ETHFRAME_ETHSRCOFF, "\x00\x24\xd7\x17\x9c\x38", 6);
+  ETHFRAME_SETETHTYPE(f, 0x0800); /* IPv4 */
+
+  ETHFRAME_SETIPV4LEN(f, ETHFRAME_ETHERSZ,
+      sizeof(ethframe_udp4_ssdp_frame) - ETHFRAME_ETHERSZ);
+  ETHFRAME_SETIPV4TTL(f, ETHFRAME_ETHERSZ, 1);
+  ETHFRAME_SETIPV4PROTO(f, ETHFRAME_ETHERSZ, 17); /* UDP */
+  ETHFRAME_SETIPV4SRC(f, ETHFRAME_ETHERSZ, &ip_src);
+  ETHFRAME_SETIPV4DST(f, ETHFRAME_ETHERSZ, &ip_dst);
+  ETHFRAME_SETIPV4CSUM(f, ETHFRAME_ETHERSZ);
+}
+
 static const uint8_t ethframe_icmp4_ereq_frame[] = {
   ETHFRAME_ETHER,
   ETHFRAME_IPV4,

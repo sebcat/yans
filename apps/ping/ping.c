@@ -39,6 +39,8 @@ int main() {
   eth_sender_send(sender, frame.buf, frame.len);
   ethframe_icmp6_ereq_init(&frame, &opts_icmp6);
   eth_sender_send(sender, frame.buf, frame.len);
+  ethframe_udp4_ssdp_init(&frame);
+  eth_sender_send(sender, frame.buf, frame.len);
   eth_sender_free(sender);
   return EXIT_SUCCESS;
 }

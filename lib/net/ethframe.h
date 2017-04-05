@@ -34,4 +34,6 @@ void ethframe_icmp4_ereq_init(struct ethframe *f,
 void ethframe_icmp6_ereq_init(struct ethframe *f,
     const struct ethframe_icmp6_ereq_opts *opts);
 
+void ethframe_udp4_ssdp_init(struct ethframe *f);
+
 #endif /* ETHERFRAME_H_ */

@@ -144,14 +144,13 @@ static int url_parse_auth(const char *s, struct url_parts *out) {
 }
 
 int url_parse(url_ctx_t *ctx, const char *s, struct url_parts *out) {
-  regmatch_t m[URLRE_NGROUPS];
+  regmatch_t m[URLRE_NGROUPS] = {{0}};
 
   memset(out, 0, sizeof(*out));
   if (s == NULL || *s == '\0') {
     return 0;
   }
 
-  memset(&m, 0, sizeof(m));
   if (regexec(&ctx->re_parse, s, URLRE_NGROUPS, m, 0) != 0) {
     return -1;
   }

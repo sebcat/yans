@@ -49,14 +49,13 @@ int io_open(io_t *io, const char *path, int flags, ...) {
 }
 
 int io_listen_unix(io_t *io, const char *path) {
-  struct sockaddr_un saddr;
+  struct sockaddr_un saddr = {0};
   int fd = -1;
 
   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     IO_PERROR(io, "socket");
     return IO_ERR;
   }
-  memset(&saddr, 0, sizeof(saddr));
   saddr.sun_family = AF_UNIX;
   snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", path);
   unlink(saddr.sun_path);
@@ -75,7 +74,7 @@ fail_close:
 }
 
 int io_connect_unix(io_t *io, const char *path) {
-  struct sockaddr_un saddr;
+  struct sockaddr_un saddr = {0};
   int fd = -1;
 
   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
@@ -255,9 +254,8 @@ int io_sendfd(io_t *io, int fd) {
   union {
     char buf[CMSG_SPACE(sizeof(int))];
     struct cmsghdr align;
-  } u;
+  } u = {{0}};
 
-  memset(&u, 0, sizeof(u));
   iov.iov_base = &m;
   iov.iov_len = sizeof(m);
   mhdr.msg_iov = &iov;

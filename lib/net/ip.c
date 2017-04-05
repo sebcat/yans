@@ -16,7 +16,7 @@
 
 
 int ip_addr(ip_addr_t *addr, const char *s, int *err) {
-  struct addrinfo hints;
+  struct addrinfo hints = {0};
   struct addrinfo *curr, *ai;
   char addrbuf[YANS_IP_ADDR_MAXLEN], *start, *end;
   int ret;
@@ -34,7 +34,6 @@ int ip_addr(ip_addr_t *addr, const char *s, int *err) {
     *end = '\0';
   }
 
-  memset(&hints, 0, sizeof(hints));
   hints.ai_flags = AI_NUMERICHOST|AI_NUMERICSERV;
   if ((ret = getaddrinfo(start, NULL, &hints, &ai)) != 0) {
     if (err != NULL) {

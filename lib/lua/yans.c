@@ -226,6 +226,19 @@ static int l_ipaddr_sub(lua_State *L) {
   return 1;
 }
 
+static int l_ethaddr(lua_State *L) {
+  struct eth_addr *eth;
+  size_t len;
+  const char *addr = luaL_checklstring(L, 1, &len);
+  if (len != 6) {
+    return luaL_error(L, "EthAddr: invalid address length (%zu)", len);
+  }
+  eth = l_newethaddr(L);
+  eth_addr_init_bytes(eth, addr);
+  return 1;
+}
+
+
 static int l_ethaddr_tostring(lua_State *L) {
   char addr[ETH_STRSZ];
   struct eth_addr *eth = checkethaddr(L, 1);
@@ -315,8 +328,6 @@ static int l_ipblock_contains(lua_State *L) {
   lua_pushboolean(L, ret);
   return 1;
 }
-
-int ip_block_contains(ip_block_t *blk, ip_addr_t *addr, int *err);
 
 /* returns the number of device addresses, and if > 0 a table on TOS */
 static lua_Integer l_device_addrs(lua_State*L, pcap_addr_t *addrs) {
@@ -699,6 +710,7 @@ static const struct luaL_Reg yansurlbuilder_m[] = {
 
 static const struct luaL_Reg yans_f[] = {
   {"IPAddr", l_ipaddr},
+  {"EthAddr", l_ethaddr},
   {"IPBlock", l_ipblock},
   {"URLBuilder", l_urlbuilder},
   {"devices", l_devices},

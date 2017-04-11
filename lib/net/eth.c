@@ -47,6 +47,11 @@ int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   return ETHERR_OK;
 }
 
+void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
+  memset(eth, 0, sizeof(*eth));
+  memcpy(eth->addr, data, ETH_ALEN);
+}
+
 struct eth_sender_t {
   int fd;
 };

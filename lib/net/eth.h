@@ -32,6 +32,7 @@ typedef struct eth_sender_t eth_sender_t;
 
 int eth_addr_valid(const struct sockaddr *saddr);
 int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr);
+void eth_addr_init_bytes(struct eth_addr *eth, const char *data);
 int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len);
 
 eth_sender_t *eth_sender_new(const char *iface);

@@ -1,0 +1,33 @@
+_M = {}
+
+local function decode_ipv4(data, res)
+  -- TODO: Implement
+end
+
+local function decode_ipv6(data, res)
+  -- TODO: Implement
+end
+
+local eth_decoders = {
+  ["\x08\x00"] = decode_ipv4,
+  ["\x86\xdd"] = decode_ipv6,
+}
+
+function _M.decode(frame)
+  if #frame < 14 then return end
+  local res = {
+    eth_dst = yans.EthAddr(string.sub(frame, 1, 6)),
+    eth_src = yans.EthAddr(string.sub(frame, 7, 12)),
+    eth_typ = string.sub(frame, 13, 14),
+  }
+  local rest = string.sub(frame, 15)
+  if #rest > 0 then
+    local dec = eth_decoders[res.eth_typ]
+    if dec then
+      dec(rest, res)
+    end
+  end
+  return res
+end
+
+return _M

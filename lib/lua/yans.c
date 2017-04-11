@@ -402,8 +402,16 @@ static int l_urlbuilder(lua_State *L) {
   int flags = 0;
 
   if (lua_type(L, 1) == LUA_TTABLE) {
-    if(lua_getfield(L, 1, "flags") == LUA_TNUMBER) {
-      flags = lua_tointeger(L, -1);
+    if(lua_getfield(L, 1, "remove_empty_query") == LUA_TBOOLEAN) {
+      if (lua_toboolean(L, -1)) {
+        flags |= URLFL_REMOVE_EMPTY_QUERY;
+      }
+    }
+    lua_pop(L, 1);
+    if(lua_getfield(L, 1, "remove_empty_fragment") == LUA_TBOOLEAN) {
+      if (lua_toboolean(L, -1)) {
+        flags |= URLFL_REMOVE_EMPTY_FRAGMENT;
+      }
     }
     lua_pop(L, 1);
   }
@@ -730,14 +738,6 @@ int luaopen_yans(lua_State *L) {
     {MTNAME_URLBUILDER, yansurlbuilder_m},
     {NULL, NULL},
   };
-  struct {
-    const char *name;
-    int value;
-  } constants[] = {
-    {"URLFL_REMOVE_EMPTY_QUERY", URLFL_REMOVE_EMPTY_QUERY},
-    {"URLFL_REMOVE_EMPTY_FRAGMENT", URLFL_REMOVE_EMPTY_FRAGMENT},
-    {NULL, 0},
-  };
   size_t i;
 
   for(i=0; types[i].mt != NULL; i++) {
@@ -748,10 +748,5 @@ int luaopen_yans(lua_State *L) {
   }
 
   luaL_newlib(L, yans_f);
-  for(i=0; constants[i].name != NULL; i++) {
-    lua_pushinteger(L, constants[i].value);
-    lua_setfield(L, -2, constants[i].name);
-  }
-
   return 1;
 }

@@ -86,8 +86,8 @@ static int l_ypcap_start(lua_State *L) {
   return 0;
 }
 
-static int l_ypcap_next(lua_State *L) {
-  ypcap_t *ypcap = checkypcap(L, 1);
+static int l_ypcap_next_iter(lua_State *L) {
+  ypcap_t *ypcap = checkypcap(L, lua_upvalueindex(1));
   int ret;
   struct pcap_pkthdr *pkthdr;
   const u_char *pktdata;
@@ -104,13 +104,18 @@ static int l_ypcap_next(lua_State *L) {
     return 3;
   } else if (ret == 0 || ret == -2) {
     /* timeout if live capture, end of file if reading from savefile */
-    lua_pushnil(L);
-    return 1;
+    return 0;
   } else if (ret == -1) {
     return luaL_error(L, "pcap_next_ex: %s", pcap_geterr(ypcap->pcap));
   } else {
     return luaL_error(L, "pcap_next_ex: unexpected return value (%d)", ret);
   }
+}
+
+static int l_ypcap_next(lua_State *L) {
+  checkypcap(L, 1);
+  lua_pushcclosure(L, l_ypcap_next_iter, 1);
+  return 1;
 }
 
 static int l_ypcap_gc(lua_State *L) {

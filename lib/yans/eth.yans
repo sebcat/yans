@@ -1,16 +1,49 @@
 _M = {}
 
-local function decode_ipv4(data, res)
-  -- TODO: Implement
+local function decode_tcp(data, res)
+  if #data < 20 then return end
+  local off_flags, doff
+  res.tcp_src, res.tcp_dst, res.tcp_seq, res.tcp_ack, off_flags, res.tcp_win =
+      string.unpack(">I2I2I4I4I2I2xxxx", data)
+  res.flags = off_flags & 0x01ff
+  doff = (off_flags >> 10) & 0x3c
+  if doff < #data then
+    res.tcp_data = string.sub(data, doff)
+  end
 end
 
-local function decode_ipv6(data, res)
+local function decode_udp(data, res)
+  if #data < 8 then return end
+  res.udp_src, res.udp_dst = string.unpack(">I2I2", data)
+  if #data > 8 then
+    res.udp_data = string.sub(data, 9)
+  end
+end
+
+local ip4_decoders = {
+  [6]  = decode_tcp,
+  [17] = decode_udp,
+}
+
+local function decode_ip4(data, res)
+  if #data < 20 then return end
+  local ver_ihl
+  ver_ihl, res.ip4_ttl, res.ip4_proto, res.ip4_src, res.ip4_dst =
+      string.unpack(">BxxxxxxxBBxxI4I4", data)
+  local dec = ip4_decoders[res.ip4_proto]
+  if dec then
+    local rest = string.sub(data, ((ver_ihl & 0x0f) << 2) + 1)
+    dec(rest, res)
+  end
+end
+
+local function decode_ip6(data, res)
   -- TODO: Implement
 end
 
 local eth_decoders = {
-  ["\x08\x00"] = decode_ipv4,
-  ["\x86\xdd"] = decode_ipv6,
+  ["\x08\x00"] = decode_ip4,
+  ["\x86\xdd"] = decode_ip6,
 }
 
 function _M.decode(frame)
@@ -20,12 +53,10 @@ function _M.decode(frame)
     eth_src = yans.EthAddr(string.sub(frame, 7, 12)),
     eth_typ = string.sub(frame, 13, 14),
   }
-  local rest = string.sub(frame, 15)
-  if #rest > 0 then
-    local dec = eth_decoders[res.eth_typ]
-    if dec then
-      dec(rest, res)
-    end
+  local dec = eth_decoders[res.eth_typ]
+  if dec then
+    local rest = string.sub(frame, 15)
+    dec(rest, res)
   end
   return res
 end

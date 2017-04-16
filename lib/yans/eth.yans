@@ -1,4 +1,4 @@
-_M = {}
+local _M = {}
 
 local function decode_tcp(data, res)
   if #data < 20 then return end
@@ -8,7 +8,7 @@ local function decode_tcp(data, res)
   res.flags = off_flags & 0x01ff
   doff = (off_flags >> 10) & 0x3c
   if doff < #data then
-    res.tcp_data = string.sub(data, doff)
+    res.tcp_data = string.sub(data, doff+1)
   end
 end
 

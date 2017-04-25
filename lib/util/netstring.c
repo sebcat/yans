@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <lib/util/netstring.h>
 
@@ -97,3 +98,33 @@ fail:
   return failcode;
 }
 
+int netstring_next_pair(struct netstring_pair *res, char **data,
+    size_t *datalen) {
+  int ret;
+  size_t next_off;
+
+  if (*datalen == 0) {
+    return NETSTRING_ERRINCOMPLETE;
+  }
+
+  ret = netstring_parse(&res->key, &res->keylen, *data, *datalen);
+  if (ret != NETSTRING_OK) {
+    return ret;
+  }
+
+  next_off = (res->key + res->keylen + 1) - *data;
+  if (next_off >= *datalen) {
+    return NETSTRING_ERRINCOMPLETE;
+  }
+
+  ret = netstring_parse(&res->value, &res->valuelen, *data + next_off,
+      *datalen - next_off);
+  if (ret != NETSTRING_OK) {
+    return NETSTRING_ERRINCOMPLETE;
+  }
+
+  next_off = (res->value + res->valuelen + 1) - *data;
+  *data = *data + next_off;
+  *datalen = *datalen - next_off;
+  return NETSTRING_OK;
+}

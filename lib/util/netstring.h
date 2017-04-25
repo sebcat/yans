@@ -11,8 +11,17 @@
 #define NETSTRING_ERRINCOMPLETE -3
 #define NETSTRING_ERRMEM        -4
 
+struct netstring_pair {
+	char *key;
+	size_t keylen;
+	char *value;
+	size_t valuelen;
+};
+
 const char *netstring_strerror(int code);
 int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen);
 int netstring_append_buf(buf_t *buf, const char *str, size_t len);
+int netstring_next_pair(struct netstring_pair *res, char **data,
+    size_t *datalen);
 
 #endif /* NETSTRING_H_ */

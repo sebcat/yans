@@ -390,10 +390,74 @@ static int parse_args_or_die(struct pcapd_opts *opts, int argc, char **argv) {
   return 0;
 }
 
+void chroot_or_die(struct pcapd_opts *opts) {
+  os_t os;
+  struct os_chrootd_opts chroot_opts;
+
+  /* for Linux: Set the "keep capabilities" flag to 1 and drop the permitted,
+   * inheritable and effective capabilities to only include the ones needed
+   * to set up the chroot, as well as CAP_NET_RAW. */
+#ifdef __linux__
+  do {
+    cap_t caps;
+    cap_value_t newcaps[] = {
+      CAP_NET_RAW,
+      CAP_CHOWN,
+      CAP_FOWNER,
+      CAP_DAC_OVERRIDE,
+      CAP_SETGID,
+      CAP_SETUID,
+      CAP_SYS_CHROOT,
+    };
+    prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+    caps = cap_init(); /* cap_init == all flags cleared */
+    cap_set_flag(caps, CAP_PERMITTED, sizeof(newcaps)/sizeof(cap_value_t),
+        newcaps, CAP_SET);
+    cap_set_flag(caps, CAP_EFFECTIVE, sizeof(newcaps)/sizeof(cap_value_t),
+        newcaps, CAP_SET);
+    cap_set_flag(caps, CAP_INHERITABLE, sizeof(newcaps)/sizeof(cap_value_t),
+        newcaps, CAP_SET);
+    if (cap_set_proc(caps) < 0) {
+      cap_free(caps);
+      ylog_error("cap_set_proc pre-chroot: %s", strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+    cap_free(caps);
+  } while(0);
+#endif
+
+  chroot_opts.name = DAEMON_NAME;
+  chroot_opts.path = opts->basepath;
+  chroot_opts.uid = opts->uid;
+  chroot_opts.gid = opts->gid;
+  chroot_opts.nagroups = 0;
+  if (os_chrootd(&os, &chroot_opts) != OS_OK) {
+    ylog_error("%s", os_strerror(&os));
+    exit(EXIT_FAILURE);
+  }
+  /* For Linux: After chrooting, drop the capabilities that was needed to
+   * establish the chroot from the permitted set while keeping CAP_NET_RAW.
+   * Set CAP_NET_RAW in the effecive set which was cleared on setuid() */
+#ifdef __linux__
+  do {
+    cap_t caps;
+    cap_value_t newcaps[] = {CAP_NET_RAW};
+    caps = cap_init();
+    cap_set_flag(caps, CAP_PERMITTED, 1, newcaps, CAP_SET);
+    cap_set_flag(caps, CAP_EFFECTIVE, 1, newcaps, CAP_SET);
+    if (cap_set_proc(caps) < 0) {
+      cap_free(caps);
+      ylog_error("cap_set_proc post-chroot: %s", strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+    cap_free(caps);
+  } while(0);
+#endif
+}
+
 int main(int argc, char *argv[]) {
   struct listener listener;
   struct pcapd_opts opts;
-  os_t os;
 
   signal(SIGPIPE, SIG_IGN);
   parse_args_or_die(&opts, argc, argv);
@@ -404,68 +468,8 @@ int main(int argc, char *argv[]) {
       goto end;
     }
   } else {
-    struct os_chrootd_opts chroot_opts;
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
-
-    /* for Linux: Set the "keep capabilities" flag to 1 and drop the permitted,
-     * inheritable and effective capabilities to only include the ones needed
-     * to set up the chroot, as well as CAP_NET_RAW. */
-#ifdef __linux__
-    do {
-      cap_t caps;
-      cap_value_t newcaps[] = {
-        CAP_NET_RAW,
-        CAP_CHOWN,
-        CAP_FOWNER,
-        CAP_DAC_OVERRIDE,
-        CAP_SETGID,
-        CAP_SETUID,
-        CAP_SYS_CHROOT,
-      };
-      prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-      caps = cap_init(); /* cap_init == all flags cleared */
-      cap_set_flag(caps, CAP_PERMITTED, sizeof(newcaps)/sizeof(cap_value_t),
-          newcaps, CAP_SET);
-      cap_set_flag(caps, CAP_EFFECTIVE, sizeof(newcaps)/sizeof(cap_value_t),
-          newcaps, CAP_SET);
-      cap_set_flag(caps, CAP_INHERITABLE, sizeof(newcaps)/sizeof(cap_value_t),
-          newcaps, CAP_SET);
-      if (cap_set_proc(caps) < 0) {
-        cap_free(caps);
-        ylog_error("cap_set_proc pre-chroot: %s", strerror(errno));
-        goto end;
-      }
-      cap_free(caps);
-    } while(0);
-#endif
-
-    chroot_opts.name = DAEMON_NAME;
-    chroot_opts.path = opts.basepath;
-    chroot_opts.uid = opts.uid;
-    chroot_opts.gid = opts.gid;
-    chroot_opts.nagroups = 0;
-    if (os_chrootd(&os, &chroot_opts) != OS_OK) {
-      ylog_error("%s", os_strerror(&os));
-      goto end;
-    }
-    /* For Linux: After chrooting, drop the capabilities that was needed to
-     * establish the chroot from the permitted set while keeping CAP_NET_RAW.
-     * Set CAP_NET_RAW in the effecive set which was cleared on setuid() */
-#ifdef __linux__
-    do {
-      cap_t caps;
-      cap_value_t newcaps[] = {CAP_NET_RAW};
-      caps = cap_init();
-      cap_set_flag(caps, CAP_PERMITTED, 1, newcaps, CAP_SET);
-      cap_set_flag(caps, CAP_EFFECTIVE, 1, newcaps, CAP_SET);
-      if (cap_set_proc(caps) < 0) {
-        cap_free(caps);
-        ylog_error("cap_set_proc post-chroot: %s", strerror(errno));
-        goto end;
-      }
-      cap_free(caps);
-    } while(0);
-#endif
+    chroot_or_die(&opts);
   }
 
   if (io_listen_unix(&listener.io, DAEMON_SOCK) != IO_OK) {

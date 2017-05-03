@@ -11,4 +11,4 @@ config.status
 *_test
 libtool
 /yans
-/pcapd
+/ethd

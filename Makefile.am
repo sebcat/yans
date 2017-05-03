@@ -29,19 +29,19 @@ check_PROGRAMS = \
 
 bin_PROGRAMS = \
     yans \
-    pcapd \
+    ethd \
     ping
 
-pcapd_SOURCES = \
+ethd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
-    apps/pcapd/pcapd.c \
-    apps/pcapd/main.c
+    apps/ethd/pcapd.c \
+    apps/ethd/main.c
 
-pcapd_LDADD = \
+ethd_LDADD = \
     $(CAPLIB) \
     $(PCAPLIB) \
     $(EVENTLIB)

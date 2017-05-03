@@ -11,7 +11,7 @@
 #include <lib/util/ylog.h>
 #include <lib/util/netstring.h>
 
-#include <apps/pcapd/pcapd.h>
+#include <apps/ethd/pcapd.h>
 
 #define MAX_ACCEPT_RETRIES 3
 #define READCMD_TIMEO_S 5 /* timeout for reading iface name, filter */

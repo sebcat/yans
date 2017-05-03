@@ -97,7 +97,7 @@ check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_net_punycode_test$(EXEEXT) lib_net_ethframe_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
 	yans$(EXEEXT)
-bin_PROGRAMS = yans$(EXEEXT) pcapd$(EXEEXT) ping$(EXEEXT)
+bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ping$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -116,14 +116,22 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
-am_lib_net_ethframe_test_OBJECTS = lib/net/ethframe.$(OBJEXT) \
-	lib/net/ethframe_test.$(OBJEXT)
-lib_net_ethframe_test_OBJECTS = $(am_lib_net_ethframe_test_OBJECTS)
-lib_net_ethframe_test_LDADD = $(LDADD)
+am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
+	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) apps/ethd/pcapd.$(OBJEXT) \
+	apps/ethd/main.$(OBJEXT)
+ethd_OBJECTS = $(am_ethd_OBJECTS)
+am__DEPENDENCIES_1 =
+ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am_lib_net_ethframe_test_OBJECTS = lib/net/ethframe.$(OBJEXT) \
+	lib/net/ethframe_test.$(OBJEXT)
+lib_net_ethframe_test_OBJECTS = $(am_lib_net_ethframe_test_OBJECTS)
+lib_net_ethframe_test_LDADD = $(LDADD)
 am_lib_net_punycode_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/buf.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/punycode_test.$(OBJEXT)
@@ -143,14 +151,6 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
-am_pcapd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
-	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) apps/pcapd/pcapd.$(OBJEXT) \
-	apps/pcapd/main.$(OBJEXT)
-pcapd_OBJECTS = $(am_pcapd_OBJECTS)
-am__DEPENDENCIES_1 =
-pcapd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
 am_ping_OBJECTS = lib/net/eth.$(OBJEXT) lib/net/ethframe.$(OBJEXT) \
 	apps/ping/ping.$(OBJEXT)
 ping_OBJECTS = $(am_ping_OBJECTS)
@@ -198,14 +198,14 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(lib_net_ethframe_test_SOURCES) \
+SOURCES = $(ethd_SOURCES) $(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(pcapd_SOURCES) $(ping_SOURCES) $(yans_SOURCES)
-DIST_SOURCES = $(lib_net_ethframe_test_SOURCES) \
+	$(ping_SOURCES) $(yans_SOURCES)
+DIST_SOURCES = $(ethd_SOURCES) $(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(pcapd_SOURCES) $(ping_SOURCES) $(yans_SOURCES)
+	$(ping_SOURCES) $(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -623,16 +623,16 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -std=c11 -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
-pcapd_SOURCES = \
+ethd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
-    apps/pcapd/pcapd.c \
-    apps/pcapd/main.c
+    apps/ethd/pcapd.c \
+    apps/ethd/main.c
 
-pcapd_LDADD = \
+ethd_LDADD = \
     $(CAPLIB) \
     $(PCAPLIB) \
     $(EVENTLIB)
@@ -787,6 +787,36 @@ clean-checkPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+lib/util/$(am__dirstamp):
+	@$(MKDIR_P) lib/util
+	@: > lib/util/$(am__dirstamp)
+lib/util/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/util/$(DEPDIR)
+	@: > lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+apps/ethd/$(am__dirstamp):
+	@$(MKDIR_P) apps/ethd
+	@: > apps/ethd/$(am__dirstamp)
+apps/ethd/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) apps/ethd/$(DEPDIR)
+	@: > apps/ethd/$(DEPDIR)/$(am__dirstamp)
+apps/ethd/pcapd.$(OBJEXT): apps/ethd/$(am__dirstamp) \
+	apps/ethd/$(DEPDIR)/$(am__dirstamp)
+apps/ethd/main.$(OBJEXT): apps/ethd/$(am__dirstamp) \
+	apps/ethd/$(DEPDIR)/$(am__dirstamp)
+
+ethd$(EXEEXT): $(ethd_OBJECTS) $(ethd_DEPENDENCIES) $(EXTRA_ethd_DEPENDENCIES) 
+	@rm -f ethd$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ethd_OBJECTS) $(ethd_LDADD) $(LIBS)
 lib/net/$(am__dirstamp):
 	@$(MKDIR_P) lib/net
 	@: > lib/net/$(am__dirstamp)
@@ -801,15 +831,7 @@ lib/net/ethframe_test.$(OBJEXT): lib/net/$(am__dirstamp) \
 lib_net_ethframe_test$(EXEEXT): $(lib_net_ethframe_test_OBJECTS) $(lib_net_ethframe_test_DEPENDENCIES) $(EXTRA_lib_net_ethframe_test_DEPENDENCIES) 
 	@rm -f lib_net_ethframe_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_net_ethframe_test_OBJECTS) $(lib_net_ethframe_test_LDADD) $(LIBS)
-lib/util/$(am__dirstamp):
-	@$(MKDIR_P) lib/util
-	@: > lib/util/$(am__dirstamp)
-lib/util/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/util/$(DEPDIR)
-	@: > lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/u8.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/punycode.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
@@ -827,8 +849,6 @@ lib/net/url_test.$(OBJEXT): lib/net/$(am__dirstamp) \
 lib_net_url_test$(EXEEXT): $(lib_net_url_test_OBJECTS) $(lib_net_url_test_DEPENDENCIES) $(EXTRA_lib_net_url_test_DEPENDENCIES) 
 	@rm -f lib_net_url_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_net_url_test_OBJECTS) $(lib_net_url_test_LDADD) $(LIBS)
-lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/netstring_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 
@@ -841,26 +861,6 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
-lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-apps/pcapd/$(am__dirstamp):
-	@$(MKDIR_P) apps/pcapd
-	@: > apps/pcapd/$(am__dirstamp)
-apps/pcapd/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) apps/pcapd/$(DEPDIR)
-	@: > apps/pcapd/$(DEPDIR)/$(am__dirstamp)
-apps/pcapd/pcapd.$(OBJEXT): apps/pcapd/$(am__dirstamp) \
-	apps/pcapd/$(DEPDIR)/$(am__dirstamp)
-apps/pcapd/main.$(OBJEXT): apps/pcapd/$(am__dirstamp) \
-	apps/pcapd/$(DEPDIR)/$(am__dirstamp)
-
-pcapd$(EXEEXT): $(pcapd_OBJECTS) $(pcapd_DEPENDENCIES) $(EXTRA_pcapd_DEPENDENCIES) 
-	@rm -f pcapd$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(pcapd_OBJECTS) $(pcapd_LDADD) $(LIBS)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 apps/ping/$(am__dirstamp):
@@ -906,7 +906,7 @@ yans$(EXEEXT): $(yans_OBJECTS) $(yans_DEPENDENCIES) $(EXTRA_yans_DEPENDENCIES)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f apps/pcapd/*.$(OBJEXT)
+	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/ping/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
@@ -916,8 +916,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@apps/pcapd/$(DEPDIR)/main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@apps/pcapd/$(DEPDIR)/pcapd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
@@ -1498,8 +1498,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f apps/pcapd/$(DEPDIR)/$(am__dirstamp)
-	-rm -f apps/pcapd/$(am__dirstamp)
+	-rm -f apps/ethd/$(DEPDIR)/$(am__dirstamp)
+	-rm -f apps/ethd/$(am__dirstamp)
 	-rm -f apps/ping/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/ping/$(am__dirstamp)
 	-rm -f apps/yans/$(DEPDIR)/$(am__dirstamp)
@@ -1521,7 +1521,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf apps/pcapd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -1569,7 +1569,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf apps/pcapd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

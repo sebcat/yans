@@ -17,7 +17,7 @@
 #include <lib/util/os.h>
 #include <lib/util/ylog.h>
 
-#include <apps/pcapd/pcapd.h>
+#include <apps/ethd/pcapd.h>
 
 #define DAEMON_NAME "ethd"
 #define PCAPD_SOCKNAME "pcapd.sock"

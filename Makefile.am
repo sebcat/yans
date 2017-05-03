@@ -38,6 +38,7 @@ pcapd_SOURCES = \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
+    apps/pcapd/pcapd.c \
     apps/pcapd/main.c
 
 pcapd_LDADD = \

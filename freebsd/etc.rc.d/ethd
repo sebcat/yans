@@ -1,0 +1,93 @@
+#!/bin/sh
+# PROVIDE: ethd
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the group and user:
+#   pw groupadd ethd
+#   pw useradd ethd -d /var/ethd -g ethd -s /user/sbin/nologin
+#
+# The daemon drops user privs itself, which is why ethd_user, ethd_group
+# is not used
+: ${ethd_duser:="ethd"}
+: ${ethd_dgroup:="ethd"}
+
+
+
+# devfs needs to be mounted inside the chroot of ethd so that
+# it is possible for ethd to access the bpf device. The ID
+# of this ruleset must be set in /etc/rc.conf.
+#
+# NB: if the ruleset is set but the ID does not exist in /etc/devfs.rules
+#     a new one will be used, with no hidden devices. This is bad.
+#
+# example ruleset:
+#   [ethdrules=67]
+#   add hide
+#   add path bpf mode 660 unhide
+: ${ethd_devfs_ruleset:=""}
+
+name="ethd"
+rcvar="ethd_enable"
+command="/usr/bin/ethd"
+command_args="-u ${ethd_duser} -g ${ethd_dgroup} -b /var/ethd"
+start_precmd="ethd_precmd"
+pidfile="/var/ethd/ethd.pid"
+
+ethd_precmd()
+{
+  if [ -z "${ethd_devfs_ruleset}" ]; then
+    warn "ethd_devfs_ruleset is not set"
+    return 1
+  fi
+
+  case ${ethd_devfs_ruleset} in
+    ''|*[!0-9]*)
+      warn "ethd_devfs_ruleset must be a number"
+      return 1
+      ;;
+  esac
+
+  if [ -d /var/ethd/dev ]; then
+    umount /var/ethd/dev 2>/dev/null
+  fi
+
+  if [ -d /var/ethd ]; then
+    rm -rf /var/ethd
+  fi
+
+  mkdir /var/ethd || {
+    warn "Unable to create /var/ethd"
+    return 1
+  }
+
+  chmod 770 /var/ethd || {
+    warn "Failed to set correct permissions of /var/ethd"
+    return 1
+  }
+
+  chown "${ethd_duser}:${ethd_dgroup}" /var/ethd || {
+    warn "Failed to set correct ownership of /var/ethd"
+    return 1
+  }
+
+  # mount devfs in chroot
+  mkdir /var/ethd/dev
+  mount -t devfs -o ruleset=${ethd_devfs_ruleset} devfs /var/ethd/dev || {
+    warn "Failed to mount ethd devfs"
+    return 1
+  }
+
+  # Set correct owner:group for bpf device
+  chown "${ethd_duser}:${ethd_dgroup}" /var/ethd/dev/bpf || {
+    warn "Failed to chown bpf device for ethd"
+    return 1
+  }
+
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

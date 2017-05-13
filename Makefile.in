@@ -118,7 +118,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) apps/ethd/pcapd.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
 	apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -629,7 +629,7 @@ ethd_SOURCES = \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
-    apps/ethd/pcapd.c \
+    apps/ethd/pcap.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -809,7 +809,7 @@ apps/ethd/$(am__dirstamp):
 apps/ethd/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) apps/ethd/$(DEPDIR)
 	@: > apps/ethd/$(DEPDIR)/$(am__dirstamp)
-apps/ethd/pcapd.$(OBJEXT): apps/ethd/$(am__dirstamp) \
+apps/ethd/pcap.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/main.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
@@ -917,7 +917,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcapd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@

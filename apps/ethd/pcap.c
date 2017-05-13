@@ -11,7 +11,7 @@
 #include <lib/util/ylog.h>
 #include <lib/util/netstring.h>
 
-#include <apps/ethd/pcapd.h>
+#include <apps/ethd/pcap.h>
 
 #define MAX_ACCEPT_RETRIES 3
 #define READCMD_TIMEO_S 5 /* timeout for reading iface name, filter */
@@ -21,7 +21,7 @@
 #define PCAP_TO_MS 1000
 #define PCAP_DISPATCH_CNT 64
 
-struct pcapd_listener {
+struct pcap_listener {
   io_t io;
   struct event_base *base;
   struct event *lev;
@@ -34,7 +34,7 @@ struct client {
   unsigned int id;
   FILE *dumpf;
   buf_t cmdbuf;
-  struct pcapd_listener *listener;
+  struct pcap_listener *listener;
   struct event *toevent;
   struct event *revent;
   struct event *pcapevent;
@@ -243,7 +243,7 @@ static void do_readto(int fd, short ev, void *arg) {
 }
 
 static void do_accept(int fd, short ev, void *arg) {
-  struct pcapd_listener *listener = arg;
+  struct pcap_listener *listener = arg;
   struct client *cli;
   struct timeval tv;
   io_t client;
@@ -300,7 +300,7 @@ static void do_accept(int fd, short ev, void *arg) {
   ylog_info("pcapcli%u: connected", cli->id);
 }
 
-void free_pcapd_listener(pcapd_listener_t *listener) {
+void free_pcap_listener(pcap_listener_t *listener) {
   if (listener != NULL) {
     io_close(&listener->io);
     if (listener->lev != NULL) {
@@ -310,15 +310,15 @@ void free_pcapd_listener(pcapd_listener_t *listener) {
   }
 }
 
-pcapd_listener_t *create_pcapd_listener(struct event_base *base, char *path) {
-  struct pcapd_listener *listener = NULL;
+pcap_listener_t *create_pcap_listener(struct event_base *base, char *path) {
+  struct pcap_listener *listener = NULL;
 
-  if ((listener = malloc(sizeof(struct pcapd_listener))) == NULL) {
+  if ((listener = malloc(sizeof(struct pcap_listener))) == NULL) {
     ylog_error("malloc: %s", strerror(errno));
     goto fail;
   }
 
-  memset(listener, 0, sizeof(struct pcapd_listener));
+  memset(listener, 0, sizeof(struct pcap_listener));
 
   if (io_listen_unix(&listener->io, path) != IO_OK) {
     ylog_error("io_listen_unix: %s", io_strerror(&listener->io));

@@ -17,10 +17,10 @@
 #include <lib/util/os.h>
 #include <lib/util/ylog.h>
 
-#include <apps/ethd/pcapd.h>
+#include <apps/ethd/pcap.h>
 
 #define DAEMON_NAME "ethd"
-#define PCAPD_SOCKNAME "pcapd.sock"
+#define PCAPD_SOCKNAME "pcap.sock"
 
 struct opts {
   const char *basepath;
@@ -32,9 +32,9 @@ struct opts {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  pcapd -u user -g group -b basepath\n"
-      "  pcapd -n -b basepath\n"
-      "  pcapd -h\n"
+      "  ethd -u user -g group -b basepath\n"
+      "  ethd -n -b basepath\n"
+      "  ethd -h\n"
       "\n"
       "options:\n"
       "  -u, --user:      daemon user\n"
@@ -169,7 +169,7 @@ void chroot_or_die(struct opts *opts) {
 }
 
 int main(int argc, char *argv[]) {
-  pcapd_listener_t *pcapd_listener = NULL;
+  pcap_listener_t *pcap_listener = NULL;
   struct opts opts;
   struct event_base *base = NULL;
 
@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
   }
 
   base = event_base_new();
-  if ((pcapd_listener = create_pcapd_listener(base, PCAPD_SOCKNAME)) == NULL) {
+  if ((pcap_listener = create_pcap_listener(base, PCAPD_SOCKNAME)) == NULL) {
     goto end;
   }
 
@@ -196,8 +196,8 @@ int main(int argc, char *argv[]) {
   ylog_error("accept: maximum number of retries reached");
 
 end:
-  if (pcapd_listener != NULL) {
-    free_pcapd_listener(pcapd_listener);
+  if (pcap_listener != NULL) {
+    free_pcap_listener(pcap_listener);
   }
   if (base != NULL) {
     event_base_free(base);

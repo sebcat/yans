@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include <lib/util/netstring.h>
 
@@ -98,6 +100,29 @@ fail:
   return failcode;
 }
 
+int netstring_append_pair(buf_t *buf, const char *str0, size_t len0,
+    const char *str1, size_t len1) {
+  size_t oldlen;
+  int ret;
+
+  oldlen = buf->len;
+  ret = netstring_append_buf(buf, str0, len0);
+  if (ret != NETSTRING_OK) {
+    goto fail;
+  }
+
+  ret = netstring_append_buf(buf, str1, len1);
+  if (ret != NETSTRING_OK) {
+    goto fail;
+  }
+
+  return NETSTRING_OK;
+
+fail:
+  buf->len = oldlen;
+  return ret;
+}
+
 int netstring_next_pair(struct netstring_pair *res, char **data,
     size_t *datalen) {
   int ret;
@@ -127,4 +152,48 @@ int netstring_next_pair(struct netstring_pair *res, char **data,
   *data = *data + next_off;
   *datalen = *datalen - next_off;
   return NETSTRING_OK;
+}
+
+int netstring_serialize(void *data, struct netstring_map *map, buf_t *out) {
+  char **value;
+  int ret = NETSTRING_OK;
+  buf_t tmp; /* it would be nice to avoid this temporary allocation */
+
+  buf_init(&tmp, 1024);
+  while (map->key != NULL) {
+    /* XXX: the offset *must* be divisable by the size of a char pointer.
+     *      for this to happen, the struct fields must be properly aligned.
+            Ideally the struct should only consist of char pointer fields */
+    assert((map->offset & (sizeof(char*)-1)) == 0);
+
+    value = data;
+    value += map->offset / sizeof(char*);
+    if (*value == NULL) {
+      /* serialize empty fields as empty strings to be non-ambiguous */
+      ret = netstring_append_pair(&tmp, map->key, strlen(map->key),
+          "", 0);
+      if (ret != NETSTRING_OK) {
+        goto done;
+      }
+    } else {
+      ret = netstring_append_pair(&tmp, map->key, strlen(map->key),
+          *value, strlen(*value));
+      if (ret != NETSTRING_OK) {
+        goto done;
+      }
+    }
+
+    map++;
+  }
+
+  ret = netstring_append_buf(out, tmp.data, tmp.len);
+done:
+  buf_cleanup(&tmp);
+  return ret;
+}
+
+int netstring_deserialize(void *data, struct netstring_map *map, char *in,
+    size_t inlen) {
+  /* TODO: Implement */
+  return NETSTRING_ERRINCOMPLETE;
 }

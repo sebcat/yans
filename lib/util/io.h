@@ -18,7 +18,7 @@
 #define IO_OK             0
 #define IO_ERR           -1
 
-#define IO_ERRBUFSZ 256
+#define IO_ERRBUFSZ 128
 
 typedef struct {
   int fd;

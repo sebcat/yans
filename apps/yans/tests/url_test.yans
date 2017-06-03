@@ -1,3 +1,4 @@
+#!/usr/bin/env lua
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
 function test_url_parse(builder, urlstr, expected)

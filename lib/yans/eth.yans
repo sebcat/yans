@@ -1,3 +1,6 @@
+#!/usr/bin/env lua
+-- vim: shiftwidth=2 tabstop=2 expandtab
+
 local _M = {}
 
 local function decode_tcp(data, res)

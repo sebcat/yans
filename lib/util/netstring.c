@@ -163,19 +163,12 @@ int netstring_serialize(void *data, struct netstring_map *map, buf_t *out) {
   while (map->key != NULL) {
     /* XXX: the offset *must* be divisable by the size of a char pointer.
      *      for this to happen, the struct fields must be properly aligned.
-            Ideally the struct should only consist of char pointer fields */
+     *      Ideally the struct should only consist of char pointer fields */
     assert((map->offset & (sizeof(char*)-1)) == 0);
-
     value = data;
     value += map->offset / sizeof(char*);
-    if (*value == NULL) {
-      /* serialize empty fields as empty strings to be non-ambiguous */
-      ret = netstring_append_pair(&tmp, map->key, strlen(map->key),
-          "", 0);
-      if (ret != NETSTRING_OK) {
-        goto done;
-      }
-    } else {
+    /* serialize empty strings to NULL for non-ambiguity */
+    if (*value != NULL && **value != '\0') {
       ret = netstring_append_pair(&tmp, map->key, strlen(map->key),
           *value, strlen(*value));
       if (ret != NETSTRING_OK) {
@@ -194,6 +187,42 @@ done:
 
 int netstring_deserialize(void *data, struct netstring_map *map, char *in,
     size_t inlen) {
-  /* TODO: Implement */
-  return NETSTRING_ERRINCOMPLETE;
+  int ret = NETSTRING_OK;
+  char *curr;
+  char **value;
+  size_t len;
+  struct netstring_pair pair;
+  struct netstring_map *mcurr, *mnext;
+
+  if (map->key == NULL) {
+    goto done;
+  }
+
+  ret = netstring_parse(&curr, &len, in, inlen);
+  if (ret != NETSTRING_OK) {
+    goto done;
+  }
+
+  mcurr = map;
+  while (netstring_next_pair(&pair, &curr, &len) == NETSTRING_OK) {
+    mnext = mcurr;
+    do {
+      if (strcmp(mnext->key, pair.key) == 0) {
+        assert((mnext->offset & (sizeof(char*)-1)) == 0);
+        value = data;
+        value += mnext->offset / sizeof(char*);
+        *value = pair.value;
+        mcurr = mnext;
+        break;
+      }
+
+      mnext++;
+      if (mnext->key == NULL) {
+        mnext = map;
+      }
+    } while (mnext != mcurr);
+  }
+
+done:
+  return ret;
 }

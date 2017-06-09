@@ -337,7 +337,7 @@ int io_setnonblock(io_t *io, int val) {
     flags = flags | O_NONBLOCK;
   }
 
-  if (fcntl(io->fd, flags) == -1) {
+  if (fcntl(io->fd, F_SETFL, flags) == -1) {
     IO_PERROR(io, "fcntl");
     return IO_ERR;
   } else {

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <lib/util/netstring.h>
 
@@ -170,6 +171,243 @@ fail:
   return EXIT_FAILURE;
 }
 
+struct t {
+  const char *foo;
+  const char *bar;
+  const char *baz;
+};
+
+struct netstring_map tm[] = {
+  NETSTRING_MENTRY(struct t, foo),
+  NETSTRING_MENTRY(struct t, bar),
+  NETSTRING_MENTRY(struct t, baz),
+  NETSTRING_MENTRY_END,
+};
+
+static bool cmpteq(size_t i, struct t *expected, struct t *actual) {
+
+  if (expected->foo == NULL && actual->foo != NULL) {
+    fprintf(stderr, "foo input: %zu expected NULL, was non-NULL\n", i);
+    return false;
+  } else if (expected->foo != NULL && actual->foo == NULL) {
+    fprintf(stderr, "foo input: %zu expected NULL, was non-NULL\n", i);
+    return false;
+  } else if (strcmp(expected->foo, actual->foo) != 0) {
+    fprintf(stderr, "foo input: %zu expected \"%s\" was \"%s\"\n",
+      i, expected->foo, actual->foo);
+    return false;
+  }
+
+  if (expected->bar == NULL && actual->bar != NULL) {
+    fprintf(stderr, "bar input: %zu expected NULL, was non-NULL\n", i);
+    return false;
+  } else if (expected->bar != NULL && actual->bar == NULL) {
+    fprintf(stderr, "bar input: %zu expected NULL, was non-NULL\n", i);
+    return false;
+  } else if (strcmp(expected->bar, actual->bar) != 0) {
+    fprintf(stderr, "bar input: %zu expected \"%s\" was \"%s\"\n",
+      i, expected->bar, actual->bar);
+    return false;
+  }
+
+  if (expected->baz == NULL && actual->baz != NULL) {
+    fprintf(stderr, "baz input: %zu expected NULL, was non-NULL\n", i);
+    return false;
+  } else if (expected->baz != NULL && actual->baz == NULL) {
+    fprintf(stderr, "baz input: %zu expected NULL, was non-NULL\n", i);
+    return false;
+  } else if (strcmp(expected->baz, actual->baz) != 0) {
+    fprintf(stderr, "baz input: %zu expected \"%s\" was \"%s\"\n",
+      i, expected->baz, actual->baz);
+    return false;
+  }
+
+  return true;
+}
+
+int test_serialize() {
+  size_t i;
+  int ret;
+  buf_t buf;
+  struct {
+    struct t data;
+    const char *expected;
+  } inputs[] = {
+    {
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = NULL,
+      },
+      "0:,"
+    },
+    {
+      {
+        .foo = "",
+        .bar = NULL,
+        .baz = NULL,
+      },
+      "0:,"
+    },
+    {
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = "",
+      },
+      "0:,"
+    },
+    {
+      {
+        .foo = "",
+        .bar = "",
+        .baz = "",
+      },
+      "0:,"
+    },
+    {
+      {
+        .foo = "bar",
+        .bar = NULL,
+        .baz = NULL,
+      },
+      "12:3:foo,3:bar,,"
+    },
+    {
+      {
+        .foo = NULL,
+        .bar = "bar",
+        .baz = NULL,
+      },
+      "12:3:bar,3:bar,,"
+    },
+    {
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = "bar",
+      },
+      "12:3:baz,3:bar,,"
+    },
+    {
+      {
+        .foo = "a",
+        .bar = "b",
+        .baz = "c",
+      },
+      "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,"
+    },
+    {{0}, NULL},
+  };
+
+  buf_init(&buf, 256);
+  for (i = 0; inputs[i].expected != NULL; i++) {
+    ret = netstring_serialize(&inputs[i].data, tm, &buf);
+    if (ret != NETSTRING_OK) {
+      fprintf(stderr, "input: %zu netstring_serialize failure: %s\n",
+          i, netstring_strerror(ret));
+      goto fail;
+    }
+    buf_achar(&buf, '\0');
+    if (strcmp(buf.data, inputs[i].expected) != 0) {
+      fprintf(stderr, "input: %zu expected:\"%s\" was:\"%s\"\n",
+          i, inputs[i].expected, buf.data);
+      goto fail;
+    }
+    buf_clear(&buf);
+  }
+
+  buf_cleanup(&buf);
+  return EXIT_SUCCESS;
+fail:
+  buf_cleanup(&buf);
+  return EXIT_FAILURE;
+}
+
+int test_deserialize() {
+  size_t i;
+  int ret;
+  buf_t buf;
+  struct t actual;
+  struct {
+    const char *data;
+    struct t expected;
+  } inputs[] = {
+    {
+      "0:,",
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = NULL,
+      },
+    },
+    {
+      "9:3:foo,0:,,",
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = NULL,
+      },
+    },
+    {
+      "12:3:foo,3:bar,,",
+      {
+        .foo = "bar",
+        .bar = NULL,
+        .baz = NULL,
+      },
+    },
+    {
+      "12:3:bar,3:bar,,",
+      {
+        .foo = NULL,
+        .bar = "bar",
+        .baz = NULL,
+      },
+    },
+    {
+      "12:3:baz,3:bar,,",
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = "bar",
+      },
+    },
+    {
+      "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,",
+      {
+        .foo = "a",
+        .bar = "b",
+        .baz = "c",
+      },
+    },
+    {NULL, {0}},
+  };
+
+  buf_init(&buf, 256);
+  for (i = 0; inputs[i].data != NULL; i++) {
+    buf_adata(&buf, inputs[i].data, strlen(inputs[i].data));
+    buf_achar(&buf, '\0');
+    memset(&actual, 0, sizeof(actual));
+    ret = netstring_deserialize(&actual, tm, buf.data, buf.len);
+    if (ret != NETSTRING_OK) {
+      fprintf(stderr, "input: %zu netstring_deserialize failure: %s\n",
+          i, netstring_strerror(ret));
+      goto fail;
+    }
+    if (!cmpteq(i, &inputs[i].expected, &actual)) {
+      goto fail;
+    }
+    buf_clear(&buf);
+  }
+
+  buf_cleanup(&buf);
+  return EXIT_SUCCESS;
+fail:
+  buf_cleanup(&buf);
+  return EXIT_FAILURE;
+}
+
 int main() {
   size_t i;
   struct {
@@ -178,6 +416,8 @@ int main() {
   } tests[] = {
     {"parse", test_parse},
     {"next_pair", test_next_pair},
+    {"serialize", test_serialize},
+    {"deserialize", test_deserialize},
     {NULL, NULL},
   };
 

@@ -208,10 +208,12 @@ int netstring_deserialize(void *data, struct netstring_map *map, char *in,
     mnext = mcurr;
     do {
       if (strcmp(mnext->key, pair.key) == 0) {
-        assert((mnext->offset & (sizeof(char*)-1)) == 0);
-        value = data;
-        value += mnext->offset / sizeof(char*);
-        *value = pair.value;
+        if (pair.value && *pair.value != '\0') {
+          assert((mnext->offset & (sizeof(char*)-1)) == 0);
+          value = data;
+          value += mnext->offset / sizeof(char*);
+          *value = pair.value;
+        }
         mcurr = mnext;
         break;
       }

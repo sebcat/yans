@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 #include <3rd_party/linenoise.h>
 #include <3rd_party/lua.h>
@@ -177,6 +178,8 @@ int main(int argc, char *argv[]) {
     {"shell", cmd_shell},
 
   };
+
+  signal(SIGPIPE, SIG_IGN);
 
   if (argc < 2 || (argv[1][0] == '-' &&argv[1][1] == 'h')) {
     usage();

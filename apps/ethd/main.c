@@ -1,29 +1,26 @@
 /* vim: set tabstop=2 shiftwidth=2 expandtab ai: */
 #include <stdlib.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <string.h>
-#include <stdio.h>
-#include <errno.h>
 #include <signal.h>
+#include <errno.h>
 
 #ifdef __linux__
 #include <sys/prctl.h>
 #include <sys/capability.h>
 #endif
 
-#include <event2/event.h>
-
 #include <lib/util/os.h>
 #include <lib/util/ylog.h>
+#include <lib/util/eds.h>
 
 #include <apps/ethd/pcap.h>
 
-#define DAEMON_NAME "ethd"
-#define PCAPD_SOCKNAME "pcap.sock"
+#define DAEMON_NAME       "ethd"
 
 struct opts {
   const char *basepath;
+  const char *single;
   uid_t uid;
   gid_t gid;
   int no_daemon;
@@ -32,8 +29,8 @@ struct opts {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  ethd -u user -g group -b basepath\n"
-      "  ethd -n -b basepath\n"
+      "  ethd [-s <name>] -u <user> -g <group> -b <basepath>\n"
+      "  ethd [-s <name>] -n -b <basepath>\n"
       "  ethd -h\n"
       "\n"
       "options:\n"
@@ -41,6 +38,7 @@ static void usage() {
       "  -g, --group:     daemon group\n"
       "  -b, --basepath:  chroot basepath\n"
       "  -n, --no-daemon: do not daemonize\n"
+      "  -s, --single:    start a single service, indicated by name\n"
       "  -h, --help:      this text\n");
   exit(EXIT_FAILURE);
 }
@@ -48,18 +46,20 @@ static void usage() {
 static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nh";
+  static const char *optstr = "u:g:b:ns:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
     {"basepath", required_argument, NULL, 'b'},
     {"no-daemon", no_argument, NULL, 'n'},
+    {"single", required_argument, NULL, 's'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
 
   /* init default values */
   opts->basepath = NULL;
+  opts->single = NULL;
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
@@ -83,6 +83,9 @@ static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'n':
         opts->no_daemon = 1;
+        break;
+      case 's':
+        opts->single = optarg;
         break;
       case 'h':
       default:
@@ -124,11 +127,11 @@ void chroot_or_die(struct opts *opts) {
     };
     prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
     caps = cap_init(); /* cap_init == all flags cleared */
-    cap_set_flag(caps, CAP_PERMITTED, sizeof(newcaps)/sizeof(cap_value_t),
+    cap_set_flag(caps, CAP_PERMITTED, sizeof(newcaps) / sizeof(cap_value_t),
         newcaps, CAP_SET);
-    cap_set_flag(caps, CAP_EFFECTIVE, sizeof(newcaps)/sizeof(cap_value_t),
+    cap_set_flag(caps, CAP_EFFECTIVE, sizeof(newcaps) / sizeof(cap_value_t),
         newcaps, CAP_SET);
-    cap_set_flag(caps, CAP_INHERITABLE, sizeof(newcaps)/sizeof(cap_value_t),
+    cap_set_flag(caps, CAP_INHERITABLE, sizeof(newcaps) / sizeof(cap_value_t),
         newcaps, CAP_SET);
     if (cap_set_proc(caps) < 0) {
       cap_free(caps);
@@ -168,39 +171,77 @@ void chroot_or_die(struct opts *opts) {
 #endif
 }
 
-int main(int argc, char *argv[]) {
-  pcap_listener_t *pcap_listener = NULL;
-  struct opts opts;
-  struct event_base *base = NULL;
+static void on_svc_error(struct eds_service *svc, const char *err) {
+  ylog_error("%s", err);
+}
 
-  signal(SIGPIPE, SIG_IGN);
+static struct eds_service *g_service;
+
+static void shutdown_single(int sig) {
+  eds_service_stop(g_service);
+}
+
+static int start_single_service(struct eds_service *svcs, const char *name) {
+  struct eds_service *svc;
+  struct sigaction sa = {{0}};
+
+  for (svc = svcs; svc->name != NULL; svc++) {
+    if (strcmp(svc->name, name) == 0) {
+      g_service = svc;
+      sa.sa_handler = shutdown_single;
+      sigaction(SIGHUP, &sa, NULL);
+      sigaction(SIGINT, &sa, NULL);
+      sigaction(SIGTERM, &sa, NULL);
+      return eds_serve_single(svc);
+    }
+  }
+
+  ylog_error("service \"%s\" not found", name);
+  return -1;
+}
+
+int main(int argc, char *argv[]) {
+  static struct eds_service services[] = {
+    {
+      .name = "pcap",
+      .path = "pcap.sock",
+      .udata_size = sizeof(struct pcap_client),
+      .actions = {
+        .on_readable = pcap_on_readable,
+        .on_done = pcap_on_done,
+      },
+      .nprocs = 2,
+      .nfds = 256,
+      .on_svc_error = on_svc_error,
+    },
+    {0},
+  };
+  struct opts opts;
+  int status = EXIT_SUCCESS;
+
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {
       ylog_error("chdir %s: %s", opts.basepath, strerror(errno));
-      goto end;
+      return EXIT_FAILURE;
     }
   } else {
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
     chroot_or_die(&opts);
   }
 
-  base = event_base_new();
-  if ((pcap_listener = create_pcap_listener(base, PCAPD_SOCKNAME)) == NULL) {
-    goto end;
+  if (opts.single != NULL) {
+    if (start_single_service(services, opts.single) < 0) {
+      ylog_error("eds_serve_single: failed");
+      status = EXIT_FAILURE;
+    }
+  } else {
+    if (eds_serve(services) < 0) {
+      ylog_error("eds_serve: failed");
+      status = EXIT_FAILURE;
+    }
   }
 
-  ylog_info("started");
-  event_base_dispatch(base);
-  ylog_error("accept: maximum number of retries reached");
-
-end:
-  if (pcap_listener != NULL) {
-    free_pcap_listener(pcap_listener);
-  }
-  if (base != NULL) {
-    event_base_free(base);
-  }
-  return EXIT_FAILURE;
+  return status;
 }

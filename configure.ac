@@ -45,10 +45,6 @@ AC_CHECK_LIB([pcap], [pcap_create], [PCAPLIB=-lpcap],
   [AC_MSG_ERROR([libpcap missing])])
 AC_SUBST([PCAPLIB])
 
-AC_CHECK_LIB([event], [event_base_dispatch], [EVENTLIB=-levent],
-  [AC_MSG_ERROR([libevent2 missing])])
-AC_SUBST([EVENTLIB])
-
 # Linux only: libcap
 AC_CHECK_LIB([cap], [cap_set_flag], [CAPLIB=-lcap], [CAPLIB=])
 AC_SUBST([CAPLIB])

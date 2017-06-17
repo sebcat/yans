@@ -5,6 +5,8 @@
 #include <lib/util/fio.h>
 #include <lib/lua/pcapd.h>
 
+#include <proto/pcap.h>
+
 #define MTNAME_PCAPD "pcapd.pcapd"
 
 #define checkpcapd(L, i) \
@@ -50,24 +52,15 @@ static int l_pcapd_open(lua_State *L) {
   io_t cli;
   io_t dumpfile;
   int ret;
-  size_t ifacelen;
-  size_t filterlen;
-  size_t cmdlen;
-  luaL_Buffer b;
+  struct p_pcap_cmd cmd;
   struct pcapd *pcapd = checkpcapd(L, 1);
   const char *dumppath = luaL_checkstring(L, 2);
-  const char *iface = luaL_checklstring(L, 3, &ifacelen);
-  const char *filter = lua_tolstring(L, 4, &filterlen);
-  const char *cmd;
-  
+  const char *iface = luaL_checklstring(L, 3, NULL);
+  const char *filter = lua_tolstring(L, 4, NULL);
+  buf_t buf;
 
   if (pcapd->fio == NULL) {
-    return luaL_error(L, "attempted to open a closed session");
-  }
-
-  if (filter == NULL) {
-    filter = "";
-    filterlen = 0;
+    return luaL_error(L, "attempted to open a disconnected session");
   }
 
   if (io_open(&dumpfile, dumppath, O_WRONLY|O_CREAT|O_TRUNC, 0660) != IO_OK) {
@@ -81,14 +74,18 @@ static int l_pcapd_open(lua_State *L) {
     return luaL_error(L, "sendfd: %s", io_strerror(&cli));
   }
 
-  luaL_buffinit(L, &b);
-  luaL_addlstring(&b, iface, ifacelen);
-  luaL_addlstring(&b, "", 1);
-  luaL_addlstring(&b, filter, filterlen);
-  luaL_pushresult(&b);
-  cmd = luaL_checklstring(L, -1, &cmdlen);
-  if ((ret = fio_writens(pcapd->fio, cmd, cmdlen)) != FIO_OK) {
-    return luaL_error(L, "unable to send command: %s", fio_strerror(ret));
+  buf_init(&buf, 1024);
+  cmd.iface = iface;
+  cmd.filter = filter;
+  if (p_pcap_cmd_serialize(&cmd, &buf) != PROTO_OK) {
+    buf_cleanup(&buf);
+    return luaL_error(L, "unable to serialize pcap cmd");
+  }
+
+  ret = io_writeall(&cli, buf.data, buf.len);
+  buf_cleanup(&buf);
+  if (ret != IO_OK) {
+    return luaL_error(L, "unable to send command: %s", io_strerror(&cli));
   }
 
   return 0;

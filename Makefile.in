@@ -118,12 +118,12 @@ PROGRAMS = $(bin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
+	proto/pcap.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
 	apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
-ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -157,8 +157,9 @@ ping_OBJECTS = $(am_ping_OBJECTS)
 ping_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/util/io.$(OBJEXT) lib/util/fio.$(OBJEXT) \
-	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
-	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
+	lib/net/eth.$(OBJEXT) lib/net/ip.$(OBJEXT) \
+	lib/net/url.$(OBJEXT) proto/pcap.$(OBJEXT) \
 	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
 	lib/lua/pcapd.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
@@ -519,7 +520,6 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
-EVENTLIB = @EVENTLIB@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -629,23 +629,26 @@ ethd_SOURCES = \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
+    lib/util/eds.c \
+    proto/pcap.c \
     apps/ethd/pcap.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
     $(CAPLIB) \
-    $(PCAPLIB) \
-    $(EVENTLIB)
+    $(PCAPLIB)
 
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \
     lib/util/io.c \
     lib/util/fio.c \
+    lib/util/netstring.c \
     lib/net/punycode.c \
     lib/net/eth.c \
     lib/net/ip.c \
     lib/net/url.c \
+    proto/pcap.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
     lib/lua/pcapd.c \
@@ -803,6 +806,16 @@ lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/eds.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+proto/$(am__dirstamp):
+	@$(MKDIR_P) proto
+	@: > proto/$(am__dirstamp)
+proto/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) proto/$(DEPDIR)
+	@: > proto/$(DEPDIR)/$(am__dirstamp)
+proto/pcap.$(OBJEXT): proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/$(am__dirstamp):
 	@$(MKDIR_P) apps/ethd
 	@: > apps/ethd/$(am__dirstamp)
@@ -912,6 +925,7 @@ mostlyclean-compile:
 	-rm -f lib/lua/*.$(OBJEXT)
 	-rm -f lib/net/*.$(OBJEXT)
 	-rm -f lib/util/*.$(OBJEXT)
+	-rm -f proto/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -932,6 +946,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/eds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/fio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/netstring.Po@am__quote@
@@ -940,6 +955,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1510,6 +1526,8 @@ distclean-generic:
 	-rm -f lib/net/$(am__dirstamp)
 	-rm -f lib/util/$(DEPDIR)/$(am__dirstamp)
 	-rm -f lib/util/$(am__dirstamp)
+	-rm -f proto/$(DEPDIR)/$(am__dirstamp)
+	-rm -f proto/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -1521,7 +1539,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -1569,7 +1587,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR)
+	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

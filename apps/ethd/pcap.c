@@ -1,11 +1,9 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <assert.h>
 
 #include <unistd.h>
-
-#include <event2/event.h>
-#include <pcap/pcap.h>
 
 #include <lib/util/io.h>
 #include <lib/util/ylog.h>
@@ -13,338 +11,185 @@
 
 #include <apps/ethd/pcap.h>
 
-#define MAX_ACCEPT_RETRIES 3
-#define READCMD_TIMEO_S 5 /* timeout for reading iface name, filter */
-#define CMDBUFINITSZ 1024
-#define MAX_CMDSZ (1 << 20)
-#define SNAPLEN 2048
-#define PCAP_TO_MS 1000
-#define PCAP_DISPATCH_CNT 64
+#define CMDBUFINITSZ 1024     /* initial size of allocated cmd buffer */
+#define MAX_CMDSZ (1 << 20)   /* maximum size of cmd request */
+#define SNAPLEN 2048          /* pcap_open_live snapshot length */
+#define PCAP_TO_MS 1000       /* pcap_open_live timeout, in ms */
+#define PCAP_DISPATCH_CNT 64  /* pcap_dispatch dispatch count */
 
-struct pcap_listener {
-  io_t io;
-  struct event_base *base;
-  struct event *lev;
-  int aretries;
-  unsigned int id_counter;
-};
+#define PCAP_CLIENT(cli__) \
+  (struct pcap_client *)((cli__)->udata)
 
-struct client {
-  io_t io;
-  unsigned int id;
-  FILE *dumpf;
-  buf_t cmdbuf;
-  struct pcap_listener *listener;
-  struct event *toevent;
-  struct event *revent;
-  struct event *pcapevent;
-  pcap_t *pcap;
-  pcap_dumper_t *dumper;
-};
+static eds_action_result on_gotpkg(struct eds_client *cli, int fd) {
+  struct eds_client *parentcli;
+  struct pcap_client *pcapcli;
+  int cmdfd = eds_client_get_fd(cli);
 
-static void client_close(struct client *cli) {
-  io_close(&cli->io);
-  buf_cleanup(&cli->cmdbuf);
-  if (cli->dumpf != NULL) {
-    fclose(cli->dumpf);
+  /* copy the parent client with memcpy to prevent strict aliasing breakage */
+  memcpy(&parentcli, cli->udata, sizeof(struct eds_client *));
+  pcapcli = PCAP_CLIENT(parentcli);
+
+  if (pcap_dispatch(pcapcli->pcap, PCAP_DISPATCH_CNT, pcap_dump,
+      (u_char*)pcapcli->dumper) < 0) {
+    ylog_error("pcapcli%d: pcap_dispatch: %s", cmdfd,
+        pcap_geterr(pcapcli->pcap));
+
+    /* remove the parent client from the pool; this will also close the
+     * pcap handle and it's file descriptor */
+    eds_service_remove_client(cli->svc, parentcli);
+    return EDS_DONE;
   }
-  if (cli->toevent != NULL) {
-    evtimer_del(cli->toevent);
-    event_free(cli->toevent);
-  }
-  if (cli->revent != NULL) {
-    event_del(cli->revent);
-    event_free(cli->revent);
-  }
-  if (cli->pcapevent != NULL) {
-    event_del(cli->pcapevent);
-    event_free(cli->pcapevent);
-  }
-  if (cli->pcap != NULL) {
-    pcap_close(cli->pcap);
-  }
-  if (cli->dumper != NULL) {
-    pcap_dump_close(cli->dumper);
-  }
-  free(cli);
+
+  return EDS_CONTINUE;
 }
 
-static void do_recvpcap(int fd, short ev, void *arg) {
-  struct client *cli = arg;
-  if (pcap_dispatch(cli->pcap, PCAP_DISPATCH_CNT, pcap_dump,
-      (u_char*)cli->dumper) < 0) {
-    ylog_error("pcapcli%u: pcap_dispatch: %s", cli->id,
-        pcap_geterr(cli->pcap));
-    client_close(cli);
-  }
+static eds_action_result on_terminate(struct eds_client *cli, int fd) {
+  return EDS_DONE;
 }
 
-static void do_recvclose(int fd, short ev, void *arg) {
-  struct client *cli = arg;
-  ylog_info("pcapcli%u: ended", cli->id);
-  client_close(cli);
-}
-
-static void do_recvcmd(int fd, short ev, void *arg) {
-  struct client *cli = arg;
-  char *iface;
-  char *filter = NULL;
-  char *end;
-  char *curr;
-  size_t filtersz;
-  int ret;
-  int pcapfd;
+static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  struct eds_client *dumpcli;
+  struct eds_client_actions acts = {0};
   char errbuf[PCAP_ERRBUF_SIZE];
   struct bpf_program bpf;
+  int ret;
+  int pcapfd;
+  io_t io;
 
-  if (io_readbuf(&cli->io, &cli->cmdbuf, NULL) != IO_OK) {
-    ylog_error("pcapcli%u: io_readbuf: %s", cli->id, io_strerror(&cli->io));
+  IO_INIT(&io, fd);
+
+  if (io_readbuf(&io, &pcapcli->cmdbuf, NULL) != IO_OK) {
+    ylog_error("pcapcli%d: io_readbuf: %s", fd, io_strerror(&io));
     goto fail;
   }
 
-  ret = netstring_parse(&iface, NULL, cli->cmdbuf.data, cli->cmdbuf.len);
-  if (ret != NETSTRING_OK) {
-    if (ret == NETSTRING_ERRINCOMPLETE) {
-      if (cli->cmdbuf.len >= MAX_CMDSZ) {
-        ylog_error("pcapcli%u: maximum command size exceeded", cli->id);
-        client_close(cli);
-      }
-      return;
-    } else {
-      ylog_error("pcapcli%u: netstring_parse: %s", cli->id,
-          netstring_strerror(ret));
-      client_close(cli);
-      return;
-    }
-  }
-
-  for(curr = iface, end = cli->cmdbuf.data + cli->cmdbuf.len - 1;
-      curr < end;
-      curr++) {
-    if (*curr == '\0') {
-      filter = curr+1;
-      break;
-    }
-  }
-
-  if (filter == NULL) {
-    ylog_error("pcapcli%u: malformed command string", cli->id);
+  if (pcapcli->cmdbuf.len >= MAX_CMDSZ) {
+    ylog_error("pcapcli%d: maximum command size exceeded", fd);
     goto fail;
   }
 
-  filtersz = strlen(filter);
-  ylog_info("pcapcli%u: iface:\"%s\" filterlen:\"%zu\"", cli->id, iface,
-      strlen(filter));
+  ret = p_pcap_cmd_deserialize(&pcapcli->cmd, pcapcli->cmdbuf.data,
+      pcapcli->cmdbuf.len);
+  if (ret == PROTO_ERRINCOMPLETE) {
+    return EDS_CONTINUE;
+  } else if (ret != PROTO_OK) {
+    ylog_error("pcapcli%d: p_pcapd_cmd_deserialize: %s", fd,
+        proto_strerror(ret));
+    goto fail;
+  }
+
+  if (pcapcli->cmd.iface == NULL) {
+    ylog_error("pcapcli%d: iface not set", fd);
+    goto fail;
+  }
+
+  ylog_info("pcapcli%d: iface:\"%s\" %s filter", fd, pcapcli->cmd.iface,
+      pcapcli->cmd.filter == NULL ? "without" : "with");
 
   errbuf[0] = '\0';
-  if ((cli->pcap = pcap_open_live(iface, SNAPLEN, 0, PCAP_TO_MS,
-      errbuf)) == NULL) {
-    ylog_error("pcapcli%u: pcap_open_live: %s", cli->id, errbuf);
+  if ((pcapcli->pcap = pcap_open_live(pcapcli->cmd.iface, SNAPLEN, 0,
+      PCAP_TO_MS, errbuf)) == NULL) {
+    ylog_error("pcapcli%d: pcap_open_live: %s", fd, errbuf);
     goto fail;
   } else if (errbuf[0] != '\0') {
-    ylog_info("pcapcli%u: pcap_open_live warning: %s", cli->id, errbuf);
+    ylog_info("pcapcli%d: pcap_open_live warning: %s", fd, errbuf);
   }
 
-  if (filtersz > 0) {
-    if (pcap_compile(cli->pcap, &bpf, filter, 1, PCAP_NETMASK_UNKNOWN) < 0) {
-      ylog_error("pcapcli%u: pcap_compile: %s", cli->id,
-          pcap_geterr(cli->pcap));
+  if (pcapcli->cmd.filter != NULL) {
+    if (pcap_compile(pcapcli->pcap, &bpf, pcapcli->cmd.filter, 1,
+        PCAP_NETMASK_UNKNOWN) < 0) {
+      ylog_error("pcapcli%d: pcap_compile: %s", fd,
+          pcap_geterr(pcapcli->pcap));
       goto fail;
     }
-    ret = pcap_setfilter(cli->pcap, &bpf);
+    ret = pcap_setfilter(pcapcli->pcap, &bpf);
     pcap_freecode(&bpf);
     if (ret < 0) {
-      ylog_error("pcapcli%u: pcap_setfilter: %s", cli->id,
-          pcap_geterr(cli->pcap));
+      ylog_error("pcapcli%d: pcap_setfilter: %s", fd,
+          pcap_geterr(pcapcli->pcap));
       goto fail;
     }
   }
 
-  if ((cli->dumper = pcap_dump_fopen(cli->pcap, cli->dumpf)) == NULL) {
-    ylog_error("pcapcli%u: pcap_dump_fopen: %s", cli->id,
-        pcap_geterr(cli->pcap));
-    goto fail;
-  }
-  cli->dumpf = NULL; /* cli->dumper has ownership over cli->dumpf, and will
-                      * clear it on pcap_dump_close */
-  if (pcap_setnonblock(cli->pcap, 1, errbuf) < 0) {
-    ylog_error("pcapcli%u: pcap_setnonblock: %s", cli->id, errbuf);
+  if ((pcapcli->dumper = pcap_dump_fopen(pcapcli->pcap,
+      pcapcli->dumpf)) == NULL) {
+    ylog_error("pcapcli%d: pcap_dump_fopen: %s", fd,
+        pcap_geterr(pcapcli->pcap));
     goto fail;
   }
 
-  event_del(cli->toevent);
-  event_free(cli->toevent);
-  cli->toevent = NULL;
-
-  event_del(cli->revent);
-  event_free(cli->revent);
-  cli->revent = event_new(cli->listener->base, IO_FILENO(&cli->io),
-      EV_READ|EV_PERSIST, do_recvclose, cli);
-  if (cli->revent == NULL) {
-    ylog_perror("do_recvfd event_new");
+  pcapcli->dumpf = NULL; /* cli->dumper has ownership over cli->dumpf, and will
+                          * clear it on pcap_dump_close */
+  if (pcap_setnonblock(pcapcli->pcap, 1, errbuf) < 0) {
+    ylog_error("pcapcli%d: pcap_setnonblock: %s", fd, errbuf);
     goto fail;
   }
 
-  if ((pcapfd = pcap_get_selectable_fd(cli->pcap)) < 0) {
-    ylog_error("pcapcli%u: pcap_get_selectable_fd failure", cli->id);
+  if ((pcapfd = pcap_get_selectable_fd(pcapcli->pcap)) < 0) {
+    ylog_error("pcapcli%d: pcap_get_selectable_fd failure", fd);
     goto fail;
   }
 
-  cli->pcapevent = event_new(cli->listener->base, pcapfd, EV_READ|EV_PERSIST,
-      do_recvpcap, cli);
-  if (cli->pcapevent == NULL) {
-    ylog_perror("do_recvfd event_new pcapevent");
+  acts.on_readable = on_gotpkg;
+  if ((dumpcli = eds_service_add_client(cli->svc, pcapfd, &acts, &cli,
+      sizeof(cli))) == NULL) {
+    ylog_error("pcapcli%d: eds_service_add_client failure", fd);
     goto fail;
   }
 
-  event_add(cli->revent, NULL);
-  event_add(cli->pcapevent, NULL);
+  eds_client_set_externalfd(dumpcli);
+  pcapcli->dumpcli = dumpcli;
 
+  /* close the client when it becomes readable again (hopefully when the
+   * remote end closes it's connection) */
+  eds_client_set_on_readable(cli, on_terminate);
+  return EDS_CONTINUE;
 
-  return;
 fail:
-  client_close(cli);
-  return;
+  return EDS_DONE;
 }
 
-static void do_recvfd(int fd, short ev, void *arg) {
-  struct client *cli = arg;
-  int rfd;
+/* initial on_readable event */
+eds_action_result pcap_on_readable(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  io_t io;
+  int pcapfd;
   FILE *fp;
-  if (io_recvfd(&cli->io, &rfd) != IO_OK) {
-    ylog_error("pcapcli%u: io_recvfd: %s", cli->id, io_strerror(&cli->io));
-    client_close(cli);
-    return;
+
+  IO_INIT(&io, fd);
+  if (io_recvfd(&io, &pcapfd) != IO_OK) {
+    ylog_error("pcapcli%d: io_recvfd: %s", fd, io_strerror(&io));
+    return EDS_DONE;
   }
 
-  if ((fp = fdopen(rfd, "w")) == NULL) {
-    ylog_error("pcapcli%u: fdopen: %s", cli->id, io_strerror(&cli->io));
-    client_close(cli);
-    return;
+  fp = fdopen(pcapfd, "w");
+  if (fp == NULL) {
+    ylog_error("pcapcli%d: fdopen: %s", fd, strerror(errno));
+    close(pcapfd);
+    return EDS_DONE;
   }
-  cli->dumpf = fp;
 
-  event_del(cli->revent);
-  event_free(cli->revent);
-  cli->revent = event_new(cli->listener->base, IO_FILENO(&cli->io),
-      EV_READ|EV_PERSIST, do_recvcmd, cli);
-  if (cli->revent == NULL) {
-    ylog_perror("do_recvfd event_new");
-    client_close(cli);
-    return;
-  }
-  event_add(cli->revent, NULL);
+  pcapcli->dumpf = fp;
+  buf_init(&pcapcli->cmdbuf, CMDBUFINITSZ);
+  eds_client_set_on_readable(cli, on_readcmd);
+  return EDS_CONTINUE;
 }
 
-static void do_readto(int fd, short ev, void *arg) {
-  struct client *cli = arg;
-  ylog_error("pcapcli%u: read timeout", cli->id);
-  client_close(cli);
-}
+void pcap_on_done(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
 
-static void do_accept(int fd, short ev, void *arg) {
-  struct pcap_listener *listener = arg;
-  struct client *cli;
-  struct timeval tv;
-  io_t client;
-
-  printf("%d\n", listener->io.fd);
-  if (io_accept(&listener->io, &client) != IO_OK) {
-    listener->aretries++;
-    ylog_error("io_accept: %s", io_strerror(&listener->io));
-    if (listener->aretries >= MAX_ACCEPT_RETRIES) {
-      event_base_loopexit(listener->base, NULL);
-    }
-    return;
+  buf_cleanup(&pcapcli->cmdbuf);
+  if (pcapcli->dumpf != NULL) {
+    fclose(pcapcli->dumpf);
   }
-
-  if ((cli = malloc(sizeof(struct client))) == NULL) {
-    ylog_perror("do_accept malloc");
-    io_close(&client);
-    return;
+  if (pcapcli->pcap != NULL) {
+    pcap_close(pcapcli->pcap);
   }
-  IO_INIT(&cli->io, IO_FILENO(&client));
-  cli->dumpf = NULL;
-  cli->pcap = NULL;
-  cli->dumper = NULL;
-  cli->pcapevent = NULL;
-  cli->listener = listener;
-  cli->id = listener->id_counter++;
-
-  cli->toevent = evtimer_new(listener->base, do_readto, cli);
-  if (cli->toevent == NULL) {
-    ylog_perror("do_accept evtimer_new");
-    io_close(&client);
-    free(cli);
-    return;
+  if (pcapcli->dumper != NULL) {
+    pcap_dump_close(pcapcli->dumper);
   }
-  cli->revent = event_new(listener->base, IO_FILENO(&client),
-      EV_READ|EV_PERSIST, do_recvfd, cli);
-  if (cli->revent == NULL) {
-    ylog_perror("do_accept event_new");
-    event_free(cli->toevent);
-    io_close(&client);
-    free(cli);
-    return;
+  if (pcapcli->dumpcli != NULL) {
+    eds_service_remove_client(cli->svc, pcapcli->dumpcli);
   }
-
-  tv.tv_sec = READCMD_TIMEO_S;
-  tv.tv_usec = 0;
-  evtimer_add(cli->toevent, &tv);
-  event_add(cli->revent, NULL);
-  if (buf_init(&cli->cmdbuf, CMDBUFINITSZ) == NULL) {
-    client_close(cli);
-  }
-
-  listener->aretries = 0;
-  ylog_info("pcapcli%u: connected", cli->id);
-}
-
-void free_pcap_listener(pcap_listener_t *listener) {
-  if (listener != NULL) {
-    io_close(&listener->io);
-    if (listener->lev != NULL) {
-      event_free(listener->lev);
-    }
-    free(listener);
-  }
-}
-
-pcap_listener_t *create_pcap_listener(struct event_base *base, char *path) {
-  struct pcap_listener *listener = NULL;
-
-  if ((listener = malloc(sizeof(struct pcap_listener))) == NULL) {
-    ylog_error("malloc: %s", strerror(errno));
-    goto fail;
-  }
-
-  memset(listener, 0, sizeof(struct pcap_listener));
-
-  if (io_listen_unix(&listener->io, path) != IO_OK) {
-    ylog_error("io_listen_unix: %s", io_strerror(&listener->io));
-    goto fail;
-  }
-
-  io_setnonblock(&listener->io, 1);
-  listener->base = base;
-  listener->lev = event_new(listener->base, IO_FILENO(&listener->io),
-      EV_READ|EV_PERSIST, do_accept, listener);
-  if (listener->lev == NULL) {
-    ylog_error("listener event_new failure");
-    io_close(&listener->io);
-    goto fail;
-  }
-
-  event_add(listener->lev, NULL);
-  return listener;
-
-fail:
-  if (listener == NULL) {
-    if (listener->lev != NULL) {
-      event_free(listener->lev);
-    }
-    free(listener);
-  }
-
-  return NULL;
 }

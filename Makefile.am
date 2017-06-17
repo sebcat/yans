@@ -38,23 +38,26 @@ ethd_SOURCES = \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
+    lib/util/eds.c \
+    proto/pcap.c \
     apps/ethd/pcap.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
     $(CAPLIB) \
-    $(PCAPLIB) \
-    $(EVENTLIB)
+    $(PCAPLIB)
 
 yans_SOURCES = \
     lib/util/u8.c \
     lib/util/buf.c \
     lib/util/io.c \
     lib/util/fio.c \
+    lib/util/netstring.c \
     lib/net/punycode.c \
     lib/net/eth.c \
     lib/net/ip.c \
     lib/net/url.c \
+    proto/pcap.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
     lib/lua/pcapd.c \

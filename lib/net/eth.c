@@ -52,18 +52,9 @@ void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
   memcpy(eth->addr, data, ETH_ALEN);
 }
 
-struct eth_sender_t {
-  int fd;
-};
-
-eth_sender_t *eth_sender_new(const char *iface) {
+int eth_sender_init(struct eth_sender *eth, const char *iface) {
   int fd = -1;
   struct ifreq ifr;
-  eth_sender_t *sender = NULL;
-
-  if ((sender = calloc(1, sizeof(eth_sender_t))) == NULL) {
-    goto fail;
-  }
 
   if (( fd = open("/dev/bpf", O_WRONLY)) < 0) {
     goto fail;
@@ -74,27 +65,24 @@ eth_sender_t *eth_sender_new(const char *iface) {
     goto fail;
   }
 
-  sender->fd = fd;
-  return sender;
+  eth->fd = fd;
+  return 0;
 
 fail:
-  if (sender != NULL) {
-    free(sender);
-  }
   if (fd != -1) {
     close(fd);
   }
-  return NULL;
+  return -1;
 }
 
-void eth_sender_free(eth_sender_t *sender) {
-  if (sender != NULL) {
-    close(sender->fd);
-    free(sender);
+void eth_sender_cleanup(struct eth_sender *eth) {
+  if (eth != NULL) {
+    close(eth->fd);
+    eth->fd = -1;
   }
 }
 
-ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
+ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
   ssize_t ret;
 
   if (len < ETHFRAME_MINSZ) {
@@ -102,7 +90,7 @@ ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
   }
 
   do {
-    ret = write(sender->fd, data, len);
+    ret = write(eth->fd, data, len);
   } while(ret == -1 && errno == EINTR);
   return ret;
 }
@@ -133,19 +121,9 @@ int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   return ETHERR_OK;
 }
 
-struct eth_sender_t {
-  int fd;
-  int ifindex;
-};
-
-eth_sender_t *eth_sender_new(const char *iface) {
+int eth_sender_init(struct eth_sender *eth, const char *iface) {
   int fd = -1;
   struct ifreq ifr;
-  eth_sender_t *sender = NULL;
-
-  if ((sender = calloc(1, sizeof(eth_sender_t))) == NULL) {
-    goto fail;
-  }
 
   if ((fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
     goto fail;
@@ -156,28 +134,25 @@ eth_sender_t *eth_sender_new(const char *iface) {
     goto fail;
   }
 
-  sender->fd = fd;
-  sender->ifindex = ifr.ifr_ifindex;
-  return sender;
+  eth->fd = fd;
+  eth->index = ifr.ifr_ifindex;
+  return 0;
 
 fail:
-  if (sender != NULL) {
-    free(sender);
-  }
   if (fd != -1) {
     close(fd);
   }
-  return NULL;
+  return -1;
 }
 
-void eth_sender_free(eth_sender_t *sender) {
-  if (sender != NULL) {
-    close(sender->fd);
-    free(sender);
+void eth_sender_cleanup(struct eth_sender *eth) {
+  if (eth != NULL) {
+    close(eth->fd);
+    eth->fd = -1;
   }
 }
 
-ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
+ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
   ssize_t ret;
   struct sockaddr_ll lladdr;
 
@@ -187,11 +162,11 @@ ssize_t eth_sender_send(eth_sender_t *sender, void *data, size_t len) {
 
   memset(&lladdr, 0, sizeof(lladdr));
   lladdr.sll_family = AF_PACKET;
-  lladdr.sll_ifindex = sender->ifindex;
+  lladdr.sll_ifindex = eth->index;
   memcpy(lladdr.sll_addr, data, ETH_ALEN);
 
   do {
-    ret = sendto(sender->fd, data, len, MSG_NOSIGNAL,
+    ret = sendto(eth->fd, data, len, MSG_NOSIGNAL,
         (struct sockaddr*)&lladdr, sizeof(lladdr));
   } while(ret == -1 && errno == EINTR);
   return ret;

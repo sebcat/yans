@@ -5,7 +5,7 @@
 #include <lib/net/ethframe.h>
 
 int main() {
-  eth_sender_t *sender;
+  struct eth_sender eth;
   struct ethframe frame;
 
   static const struct ethframe_icmp4_ereq_opts opts_icmp4 = {
@@ -30,17 +30,17 @@ int main() {
     .ip_hoplim = 64,
   };
 
-  if ((sender = eth_sender_new("wlan0")) == NULL) {
-    perror("eth_sender_new");
+  if (eth_sender_init(&eth, "wlan0") < 0) {
+    perror("eth_sender_init");
     return EXIT_FAILURE;
   }
 
   ethframe_icmp4_ereq_init(&frame, &opts_icmp4);
-  eth_sender_send(sender, frame.buf, frame.len);
+  eth_sender_write(&eth, frame.buf, frame.len);
   ethframe_icmp6_ereq_init(&frame, &opts_icmp6);
-  eth_sender_send(sender, frame.buf, frame.len);
+  eth_sender_write(&eth, frame.buf, frame.len);
   ethframe_udp4_ssdp_init(&frame);
-  eth_sender_send(sender, frame.buf, frame.len);
-  eth_sender_free(sender);
+  eth_sender_write(&eth, frame.buf, frame.len);
+  eth_sender_cleanup(&eth);
   return EXIT_SUCCESS;
 }

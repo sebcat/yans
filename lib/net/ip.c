@@ -1,6 +1,9 @@
 /* vim: set tabstop=2 shiftwidth=2 expandtab ai: */
-
+#define _GNU_SOURCE /* for getaddrinfo and s6_addr32 on linux */
+#include <netinet/in.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netdb.h>
 #include <assert.h>
 #include <stdio.h>

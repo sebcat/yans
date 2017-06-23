@@ -232,19 +232,6 @@ int io_close(io_t *io) {
   return ret;
 }
 
-int io_tofp(io_t *io, const char *mode, FILE **out) {
-  FILE *fp;
-
-  if ((fp = fdopen(io->fd, mode)) == NULL) {
-    IO_PERROR(io, "fdopen");
-    return IO_ERR;
-  }
-
-  io->fd = -1;
-  *out = fp;
-  return IO_OK;
-}
-
 int io_sendfd(io_t *io, int fd) {
   struct iovec iov;
   struct msghdr mhdr = {0};

@@ -188,9 +188,12 @@
     /* TODO: support multiple names, e.g., 
      *         - _services._dns-sd._udp.local
      *         - */
+
+#if 0 /* TODO: Implement */
 static const uint8_t ethframe_udp4_mdns_frame[] = {
 
 };
+#endif
 
 static const uint8_t ethframe_udp4_ssdp_frame[] = {
   ETHFRAME_ETHER,

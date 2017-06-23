@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -13,6 +14,7 @@
 #endif /* defined(__FreeBSD__) */
 
 #if defined(__linux__)
+#include <linux/if.h>
 #include <linux/if_packet.h>
 #include <netinet/ether.h>
 #endif /* defined(__linux__)*/
@@ -119,6 +121,11 @@ int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
   eth->index = ll->sll_ifindex;
   memcpy(eth->addr, ll->sll_addr, ETH_ALEN);
   return ETHERR_OK;
+}
+
+void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
+  memset(eth, 0, sizeof(*eth));
+  memcpy(eth->addr, data, ETH_ALEN);
 }
 
 int eth_sender_init(struct eth_sender *eth, const char *iface) {

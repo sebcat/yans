@@ -102,7 +102,7 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
   struct eds_client *ecli;
   fd_set rfds;
   fd_set wfds;
-  int ret;
+  int num_fds;
   int i;
   int j;
   int fd;
@@ -129,8 +129,8 @@ select:
 
   rfds = l->rfds;
   wfds = l->wfds;
-  ret = select(l->maxfd + 1, &rfds, &wfds, NULL, NULL);
-  if (ret < 0) {
+  num_fds = select(l->maxfd + 1, &rfds, &wfds, NULL, NULL);
+  if (num_fds < 0) {
     if (errno == EINTR) {
       goto select;
     } else {
@@ -158,6 +158,7 @@ select:
     }
 
     FD_CLR(svc->cmdfd, &rfds); /* So we don't treat it as a client below */
+    num_fds--;
   }
 
   /* XXX
@@ -173,21 +174,26 @@ select:
        "fd_set size does no correlate with FD_SETSIZE");
 
   /* iterate over all possible file descriptors, call callbacks and cleanup
-   * if needed */
-  for (i = 0; i < FD_SETSIZE / (sizeof(unsigned long) * 8); i++) {
+   * if needed. First check an unsigned long at a time, then if any bit is
+   * set within the unsigned long chunk, check the individual bits */
+  for(i = 0;
+      num_fds > 0 && i < FD_SETSIZE / (sizeof(unsigned long) * 8);
+      i++) {
     if (((unsigned long *)&rfds)[i] == 0 &&
         ((unsigned long *)&wfds)[i] == 0) {
       /* no readable or writable fds within this unsigned long chunk */
       continue;
     }
 
-    for (j = 0; j < sizeof(unsigned long) * 8; j++) {
+    for (j = 0; num_fds > 0 && j < sizeof(unsigned long) * 8; j++) {
       fd = sizeof(unsigned long) * 8 * i + j;
       if (!FD_ISSET(fd, &rfds) && !FD_ISSET(fd, &wfds)) {
         /* no action on this fd */
         continue;
       }
 
+      /* There is an action on this fd */
+      num_fds--;
       ecli = eds_service_client_from_fd(svc, fd);
       is_done = 0;
       if (FD_ISSET(fd, &rfds) &&

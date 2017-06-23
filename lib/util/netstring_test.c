@@ -175,6 +175,9 @@ struct t {
   const char *foo;
   const char *bar;
   const char *baz;
+  size_t foolen;
+  size_t barlen;
+  size_t bazlen;
 };
 
 struct netstring_map tm[] = {
@@ -238,6 +241,9 @@ int test_serialize() {
         .foo = NULL,
         .bar = NULL,
         .baz = NULL,
+        .foolen = 0,
+        .barlen = 0,
+        .bazlen = 0,
       },
       "0:,"
     },
@@ -246,6 +252,9 @@ int test_serialize() {
         .foo = "",
         .bar = NULL,
         .baz = NULL,
+        .foolen = 0,
+        .barlen = 0,
+        .bazlen = 0,
       },
       "0:,"
     },
@@ -254,6 +263,9 @@ int test_serialize() {
         .foo = NULL,
         .bar = NULL,
         .baz = "",
+        .foolen = 0,
+        .barlen = 0,
+        .bazlen = 0,
       },
       "0:,"
     },
@@ -262,6 +274,9 @@ int test_serialize() {
         .foo = "",
         .bar = "",
         .baz = "",
+        .foolen = 0,
+        .barlen = 0,
+        .bazlen = 0,
       },
       "0:,"
     },
@@ -270,22 +285,31 @@ int test_serialize() {
         .foo = "bar",
         .bar = NULL,
         .baz = NULL,
+        .foolen = 3,
+        .barlen = 0,
+        .bazlen = 0,
       },
       "12:3:foo,3:bar,,"
     },
     {
       {
         .foo = NULL,
-        .bar = "bar",
+        .bar = "bara",
         .baz = NULL,
+        .foolen = 0,
+        .barlen = 4,
+        .bazlen = 0,
       },
-      "12:3:bar,3:bar,,"
+      "13:3:bar,4:bara,,"
     },
     {
       {
         .foo = NULL,
         .bar = NULL,
         .baz = "bar",
+        .foolen = 0,
+        .barlen = 0,
+        .bazlen = 3,
       },
       "12:3:baz,3:bar,,"
     },
@@ -294,6 +318,9 @@ int test_serialize() {
         .foo = "a",
         .bar = "b",
         .baz = "c",
+        .foolen = 1,
+        .barlen = 1,
+        .bazlen = 1,
       },
       "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,"
     },

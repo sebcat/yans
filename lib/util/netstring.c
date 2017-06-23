@@ -156,21 +156,18 @@ int netstring_next_pair(struct netstring_pair *res, char **data,
 
 int netstring_serialize(void *data, struct netstring_map *map, buf_t *out) {
   char **value;
+  size_t *valuelen;
   int ret = NETSTRING_OK;
   buf_t tmp; /* it would be nice to avoid this temporary allocation */
 
   buf_init(&tmp, 1024);
   while (map->key != NULL) {
-    /* XXX: the offset *must* be divisable by the size of a char pointer.
-     *      for this to happen, the struct fields must be properly aligned.
-     *      Ideally the struct should only consist of char pointer fields */
-    assert((map->offset & (sizeof(char*)-1)) == 0);
-    value = data;
-    value += map->offset / sizeof(char*);
+    value = (char**)((char*)data + map->voff);
     /* serialize empty strings to NULL for non-ambiguity */
     if (*value != NULL && **value != '\0') {
+      valuelen = (size_t*)((char*)data + map->loff);
       ret = netstring_append_pair(&tmp, map->key, strlen(map->key),
-          *value, strlen(*value));
+          *value, *valuelen);
       if (ret != NETSTRING_OK) {
         goto done;
       }
@@ -189,7 +186,8 @@ int netstring_deserialize(void *data, struct netstring_map *map, char *in,
     size_t inlen) {
   int ret = NETSTRING_OK;
   char *curr;
-  char **value;
+  char **outval;
+  size_t *outlen;
   size_t len;
   struct netstring_pair pair;
   struct netstring_map *mcurr, *mnext;
@@ -209,10 +207,10 @@ int netstring_deserialize(void *data, struct netstring_map *map, char *in,
     do {
       if (strcmp(mnext->key, pair.key) == 0) {
         if (pair.value && *pair.value != '\0') {
-          assert((mnext->offset & (sizeof(char*)-1)) == 0);
-          value = data;
-          value += mnext->offset / sizeof(char*);
-          *value = pair.value;
+          outval = (char**)((char*)data + mnext->voff);
+          outlen = (size_t*)((char*)data + mnext->loff);
+          *outval = pair.value;
+          *outlen = pair.valuelen;
         }
         mcurr = mnext;
         break;

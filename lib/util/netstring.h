@@ -12,8 +12,10 @@
 #define NETSTRING_ERRMEM        -4
 
 /* macro for defining netstring_map entries */
-#define NETSTRING_MENTRY(__type, __member) \
-  {.key = #__member, .offset = offsetof(__type, __member)}
+#define NETSTRING_MENTRY(__type, __member)     \
+  {.key = #__member,                           \
+   .voff = offsetof(__type, __member),         \
+   .loff = offsetof(__type, __member ## len) } \
 
 /* macro for defining the end of a netstring_map table */
 #define NETSTRING_MENTRY_END {0}
@@ -24,8 +26,11 @@
 
   struct mystruct {
     char *a_val;
+    size_t a_vallen;
     char *b_val;
+    size_t b_vallen;
     char *c_val;
+    size_t c_vallen;
   };
 
   struct netstring_map m[] = {
@@ -47,7 +52,8 @@ struct netstring_pair {
 /* type representing a struct serialization mapping */
 struct netstring_map {
   char *key;
-  size_t offset;
+  size_t voff; /* value offset */
+  size_t loff; /* length offset*/
 };
 
 const char *netstring_strerror(int code);

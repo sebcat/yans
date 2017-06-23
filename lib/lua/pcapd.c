@@ -55,9 +55,10 @@ static int l_pcapd_open(lua_State *L) {
   struct p_pcap_cmd cmd;
   struct pcapd *pcapd = checkpcapd(L, 1);
   const char *dumppath = luaL_checkstring(L, 2);
-  const char *iface = luaL_checklstring(L, 3, NULL);
-  const char *filter = lua_tolstring(L, 4, NULL);
   buf_t buf;
+
+  cmd.iface = luaL_checklstring(L, 3, &cmd.ifacelen);
+  cmd.filter = lua_tolstring(L, 4, &cmd.filterlen);
 
   if (pcapd->fio == NULL) {
     return luaL_error(L, "attempted to open a disconnected session");
@@ -75,8 +76,6 @@ static int l_pcapd_open(lua_State *L) {
   }
 
   buf_init(&buf, 1024);
-  cmd.iface = iface;
-  cmd.filter = filter;
   if (p_pcap_cmd_serialize(&cmd, &buf) != PROTO_OK) {
     buf_cleanup(&buf);
     return luaL_error(L, "unable to serialize pcap cmd");

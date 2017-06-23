@@ -52,7 +52,7 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
   struct eds_client *dumpcli;
   struct eds_client_actions acts = {0};
   char errbuf[PCAP_ERRBUF_SIZE];
-  struct bpf_program bpf;
+  struct bpf_program bpf = {0};
   int ret;
   int pcapfd;
   io_t io;
@@ -179,6 +179,7 @@ eds_action_result pcap_on_readable(struct eds_client *cli, int fd) {
 void pcap_on_done(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
 
+  ylog_info("pcapcli%d: done", fd);
   buf_cleanup(&pcapcli->cmdbuf);
   if (pcapcli->dumpf != NULL) {
     fclose(pcapcli->dumpf);

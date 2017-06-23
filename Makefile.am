@@ -13,6 +13,7 @@ TESTS = \
     lib_net_ethframe_test \
     lib_util_u8_test \
     lib_util_netstring_test \
+    lib_util_conf_test \
     apps/yans/tests/url_test.yans \
     apps/yans/tests/ip_test.yans
 
@@ -25,6 +26,7 @@ check_PROGRAMS = \
     lib_net_ethframe_test \
     lib_util_u8_test \
     lib_util_netstring_test \
+    lib_util_conf_test \
     yans
 
 bin_PROGRAMS = \
@@ -86,6 +88,10 @@ lib_util_netstring_test_SOURCES = \
 lib_util_u8_test_SOURCES = \
     lib/util/u8.c \
     lib/util/u8_test.c
+
+lib_util_conf_test_SOURCES = \
+    lib/util/conf.c \
+    lib/util/conf_test.c
 
 lib_net_punycode_test_SOURCES = \
     lib/util/u8.c \

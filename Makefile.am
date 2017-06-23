@@ -5,7 +5,7 @@ endif
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -std=c11 -Wall -Werror
+AM_CFLAGS = -Wall -Werror
 
 TESTS = \
     lib_net_url_test \

@@ -70,6 +70,71 @@ int test_parse() {
   return status;
 }
 
+#define MAX_TEST_NEXT 8
+
+int test_next() {
+  int ret;
+  size_t i;
+  size_t j;
+  static struct {
+    char *data;
+    size_t noutputs;
+    char *outputs[MAX_TEST_NEXT + 1];
+  } inputs[] = {
+    {
+      .data = "",
+      .noutputs = 0,
+    },
+    {
+      .data = "3:foo,",
+      .noutputs = 1,
+      .outputs = {"foo", NULL},
+    },
+    {
+      .data = "3:foo,3:bar,",
+      .noutputs = 2,
+      .outputs = {"foo", "bar", NULL},
+    },
+    {0},
+  };
+
+  for (i = 0; inputs[i].data != NULL; i++) {
+    size_t tdatalen = strlen(inputs[i].data);
+    char *tdata = strdup(inputs[i].data);
+    char *curr = tdata;
+    char *res;
+    size_t reslen;
+    for (j = 0; j < inputs[i].noutputs; j++) {
+      ret = netstring_next(&res, &reslen, &curr, &tdatalen);
+      if (ret != NETSTRING_OK) {
+        fprintf(stderr, "input %zu, ns %zu: %s\n", i, j,
+            netstring_strerror(ret));
+        free(tdata);
+        return EXIT_FAILURE;
+      }
+
+      if (strcmp(res, inputs[i].outputs[j]) != 0) {
+        fprintf(stderr, "input:%zu ns:%zu expected:\"%s\" actual:\"%s\"\n",
+            i, j, inputs[i].outputs[j], res);
+        free(tdata);
+        return EXIT_FAILURE;
+      }
+    }
+
+    ret = netstring_next(&res, &reslen, &curr, &tdatalen);
+    if (ret != NETSTRING_ERRINCOMPLETE) {
+      fprintf(stderr, "input:%zu expected NETSTRING_ERRINCOMPLETE, got %d\n",
+          i, ret);
+      free(tdata);
+      return EXIT_FAILURE;
+    }
+
+    free(tdata);
+  }
+
+  return EXIT_SUCCESS;
+}
+
 #define MAX_TEST_PAIRS 8
 
 int test_next_pair() {
@@ -442,6 +507,7 @@ int main() {
     int (*callback)(void);
   } tests[] = {
     {"parse", test_parse},
+    {"next", test_next},
     {"next_pair", test_next_pair},
     {"serialize", test_serialize},
     {"deserialize", test_deserialize},

@@ -123,10 +123,37 @@ fail:
   return ret;
 }
 
+int netstring_next(char **out, size_t *outlen, char **data, size_t *datalen) {
+  int ret;
+  size_t next_off;
+
+  if (*datalen == 0) {
+    return NETSTRING_ERRINCOMPLETE;
+  }
+
+  ret = netstring_parse(out, outlen, *data, *datalen);
+  if (ret != NETSTRING_OK) {
+    return ret;
+  }
+
+  next_off = (*out + *outlen + 1) - *data;
+  if (next_off > *datalen) {
+    return NETSTRING_ERRINCOMPLETE;
+  }
+
+  *data = *data + next_off;
+  *datalen = *datalen - next_off;
+  return NETSTRING_OK;
+}
+
 int netstring_next_pair(struct netstring_pair *res, char **data,
     size_t *datalen) {
   int ret;
   size_t next_off;
+
+  /* There's some similarities with netstring_next here, the difference being
+   * that data and datalen is only updated on a successfully read pair, while
+   * netstring_next updates data and datalen for every read string */
 
   if (*datalen == 0) {
     return NETSTRING_ERRINCOMPLETE;

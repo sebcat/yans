@@ -61,6 +61,7 @@ int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen);
 int netstring_append_buf(buf_t *buf, const char *str, size_t len);
 int netstring_append_pair(buf_t *buf, const char *str0, size_t len0,
     const char *str1, size_t len1);
+int netstring_next(char **out, size_t *outlen, char **data, size_t *datalen);
 int netstring_next_pair(struct netstring_pair *res, char **data,
     size_t *datalen);
 

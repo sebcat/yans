@@ -41,8 +41,11 @@ ethd_SOURCES = \
     lib/util/ylog.c \
     lib/util/netstring.c \
     lib/util/eds.c \
-    proto/pcap.c \
+    lib/net/eth.c \
+    proto/pcap_req.c \
+    proto/ethframe_req.c \
     apps/ethd/pcap.c \
+    apps/ethd/ethframe.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -59,7 +62,7 @@ yans_SOURCES = \
     lib/net/eth.c \
     lib/net/ip.c \
     lib/net/url.c \
-    proto/pcap.c \
+    proto/pcap_req.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
     lib/lua/pcapd.c \

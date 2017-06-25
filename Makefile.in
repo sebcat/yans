@@ -91,12 +91,12 @@ host_triplet = @host@
 target_triplet = @target@
 TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
 	lib_net_ethframe_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
-	lib_util_netstring_test$(EXEEXT) apps/yans/tests/url_test.yans \
-	apps/yans/tests/ip_test.yans
+	lib_util_netstring_test$(EXEEXT) lib_util_conf_test$(EXEEXT) \
+	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
 check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_net_punycode_test$(EXEEXT) lib_net_ethframe_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
-	yans$(EXEEXT)
+	lib_util_conf_test$(EXEEXT) yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ping$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -119,8 +119,9 @@ am__dirstamp = $(am__leading_dot)dirstamp
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
-	proto/pcap.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
-	apps/ethd/main.$(OBJEXT)
+	lib/net/eth.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
+	proto/ethframe_req.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
+	apps/ethd/ethframe.$(OBJEXT) apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
 ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -142,6 +143,10 @@ am_lib_net_url_test_OBJECTS = lib/net/url.$(OBJEXT) \
 	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT)
 lib_net_url_test_OBJECTS = $(am_lib_net_url_test_OBJECTS)
 lib_net_url_test_LDADD = $(LDADD)
+am_lib_util_conf_test_OBJECTS = lib/util/conf.$(OBJEXT) \
+	lib/util/conf_test.$(OBJEXT)
+lib_util_conf_test_OBJECTS = $(am_lib_util_conf_test_OBJECTS)
+lib_util_conf_test_LDADD = $(LDADD)
 am_lib_util_netstring_test_OBJECTS = lib/util/netstring.$(OBJEXT) \
 	lib/util/buf.$(OBJEXT) lib/util/netstring_test.$(OBJEXT)
 lib_util_netstring_test_OBJECTS =  \
@@ -159,7 +164,7 @@ am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/util/io.$(OBJEXT) lib/util/fio.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) lib/net/ip.$(OBJEXT) \
-	lib/net/url.$(OBJEXT) proto/pcap.$(OBJEXT) \
+	lib/net/url.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
 	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
 	lib/lua/pcapd.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
@@ -201,10 +206,12 @@ am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(ethd_SOURCES) $(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
+	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
 	$(ping_SOURCES) $(yans_SOURCES)
 DIST_SOURCES = $(ethd_SOURCES) $(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
+	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
 	$(ping_SOURCES) $(yans_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
@@ -620,7 +627,7 @@ top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
 SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -std=c11 -Wall -Werror
+AM_CFLAGS = -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
 ethd_SOURCES = \
@@ -630,8 +637,11 @@ ethd_SOURCES = \
     lib/util/ylog.c \
     lib/util/netstring.c \
     lib/util/eds.c \
-    proto/pcap.c \
+    lib/net/eth.c \
+    proto/pcap_req.c \
+    proto/ethframe_req.c \
     apps/ethd/pcap.c \
+    apps/ethd/ethframe.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -648,7 +658,7 @@ yans_SOURCES = \
     lib/net/eth.c \
     lib/net/ip.c \
     lib/net/url.c \
-    proto/pcap.c \
+    proto/pcap_req.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
     lib/lua/pcapd.c \
@@ -677,6 +687,10 @@ lib_util_netstring_test_SOURCES = \
 lib_util_u8_test_SOURCES = \
     lib/util/u8.c \
     lib/util/u8_test.c
+
+lib_util_conf_test_SOURCES = \
+    lib/util/conf.c \
+    lib/util/conf_test.c
 
 lib_net_punycode_test_SOURCES = \
     lib/util/u8.c \
@@ -808,13 +822,23 @@ lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/eds.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/net/$(am__dirstamp):
+	@$(MKDIR_P) lib/net
+	@: > lib/net/$(am__dirstamp)
+lib/net/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/net/$(DEPDIR)
+	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 proto/$(am__dirstamp):
 	@$(MKDIR_P) proto
 	@: > proto/$(am__dirstamp)
 proto/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) proto/$(DEPDIR)
 	@: > proto/$(DEPDIR)/$(am__dirstamp)
-proto/pcap.$(OBJEXT): proto/$(am__dirstamp) \
+proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
+proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/$(am__dirstamp):
 	@$(MKDIR_P) apps/ethd
@@ -824,18 +848,14 @@ apps/ethd/$(DEPDIR)/$(am__dirstamp):
 	@: > apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/pcap.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
+apps/ethd/ethframe.$(OBJEXT): apps/ethd/$(am__dirstamp) \
+	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/main.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 
 ethd$(EXEEXT): $(ethd_OBJECTS) $(ethd_DEPENDENCIES) $(EXTRA_ethd_DEPENDENCIES) 
 	@rm -f ethd$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(ethd_OBJECTS) $(ethd_LDADD) $(LIBS)
-lib/net/$(am__dirstamp):
-	@$(MKDIR_P) lib/net
-	@: > lib/net/$(am__dirstamp)
-lib/net/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/net/$(DEPDIR)
-	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ethframe.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ethframe_test.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -862,6 +882,14 @@ lib/net/url_test.$(OBJEXT): lib/net/$(am__dirstamp) \
 lib_net_url_test$(EXEEXT): $(lib_net_url_test_OBJECTS) $(lib_net_url_test_DEPENDENCIES) $(EXTRA_lib_net_url_test_DEPENDENCIES) 
 	@rm -f lib_net_url_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_net_url_test_OBJECTS) $(lib_net_url_test_LDADD) $(LIBS)
+lib/util/conf.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/conf_test.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+
+lib_util_conf_test$(EXEEXT): $(lib_util_conf_test_OBJECTS) $(lib_util_conf_test_DEPENDENCIES) $(EXTRA_lib_util_conf_test_DEPENDENCIES) 
+	@rm -f lib_util_conf_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib_util_conf_test_OBJECTS) $(lib_util_conf_test_LDADD) $(LIBS)
 lib/util/netstring_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 
@@ -874,8 +902,6 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
-lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
 apps/ping/$(am__dirstamp):
 	@$(MKDIR_P) apps/ping
 	@: > apps/ping/$(am__dirstamp)
@@ -930,6 +956,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
@@ -946,6 +973,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/conf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/conf_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/eds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/fio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
@@ -955,7 +984,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/ethframe_req.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1268,6 +1298,13 @@ lib_util_u8_test.log: lib_util_u8_test$(EXEEXT)
 lib_util_netstring_test.log: lib_util_netstring_test$(EXEEXT)
 	@p='lib_util_netstring_test$(EXEEXT)'; \
 	b='lib_util_netstring_test'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+lib_util_conf_test.log: lib_util_conf_test$(EXEEXT)
+	@p='lib_util_conf_test$(EXEEXT)'; \
+	b='lib_util_conf_test'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

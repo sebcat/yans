@@ -347,8 +347,14 @@ int io_readbuf(io_t *io, buf_t *buf, size_t *nread) {
     ret = read(io->fd, buf->data + buf->len, bufsz);
   } while (ret < 0 && errno == EINTR);
   if (ret < 0) {
-    IO_PERROR(io, "read");
-    return IO_ERR;
+    if (errno == EAGAIN ||
+        errno == EWOULDBLOCK ||
+        errno == EINPROGRESS) {
+      return IO_AGAIN;
+    } else {
+      IO_PERROR(io, "read");
+      return IO_ERR;
+    }
   }
 
   buf->len += (size_t)ret;

@@ -23,7 +23,10 @@ static eds_action_result on_read_req(struct eds_client *cli, int fd) {
   size_t framelen;
 
   IO_INIT(&io, fd);
-  if (io_readbuf(&io, &ecli->buf, NULL) != IO_OK) {
+  ret = io_readbuf(&io, &ecli->buf, NULL);
+  if (ret == IO_AGAIN) {
+    return EDS_CONTINUE;
+  } else if (ret != IO_OK) {
     ylog_error("ethframecli%d: io_readbuf: %s", fd, io_strerror(&io));
     goto fail;
   }

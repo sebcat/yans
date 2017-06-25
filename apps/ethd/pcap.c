@@ -59,7 +59,10 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
 
   IO_INIT(&io, fd);
 
-  if (io_readbuf(&io, &pcapcli->cmdbuf, NULL) != IO_OK) {
+  ret = io_readbuf(&io, &pcapcli->cmdbuf, NULL);
+  if (ret == IO_AGAIN) {
+    return EDS_CONTINUE;
+  } else if (ret != IO_OK) {
     ylog_error("pcapcli%d: io_readbuf: %s", fd, io_strerror(&io));
     goto fail;
   }
@@ -78,6 +81,9 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
         proto_strerror(ret));
     goto fail;
   }
+
+  /* TODO: check for trailing data in receive buffer, which would indicate
+   *       a termination; no need to continue */
 
   if (pcapcli->cmd.iface == NULL) {
     ylog_error("pcapcli%d: iface not set", fd);
@@ -173,7 +179,7 @@ eds_action_result pcap_on_readable(struct eds_client *cli, int fd) {
   pcapcli->dumpf = fp;
   buf_init(&pcapcli->cmdbuf, CMDBUFINITSZ);
   eds_client_set_on_readable(cli, on_readcmd);
-  return EDS_CONTINUE;
+  return on_readcmd(cli, fd);
 }
 
 void pcap_on_done(struct eds_client *cli, int fd) {

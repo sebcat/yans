@@ -119,8 +119,8 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  pcapcli->dumpf = NULL; /* cli->dumper has ownership over cli->dumpf, and will
-                          * clear it on pcap_dump_close */
+  pcapcli->dumpf = NULL; /* pcapcli->dumper has ownership over pcapcli->dumpf,
+                          * and will clear it on pcap_dump_close */
   if (pcap_setnonblock(pcapcli->pcap, 1, errbuf) < 0) {
     ylog_error("pcapcli%d: pcap_setnonblock: %s", fd, errbuf);
     goto fail;

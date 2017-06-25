@@ -5,7 +5,7 @@
 #include <lib/util/fio.h>
 #include <lib/lua/pcapd.h>
 
-#include <proto/pcap.h>
+#include <proto/pcap_req.h>
 
 #define MTNAME_PCAPD "pcapd.pcapd"
 
@@ -52,7 +52,7 @@ static int l_pcapd_open(lua_State *L) {
   io_t cli;
   io_t dumpfile;
   int ret;
-  struct p_pcap_cmd cmd;
+  struct p_pcap_req cmd;
   struct pcapd *pcapd = checkpcapd(L, 1);
   const char *dumppath = luaL_checkstring(L, 2);
   buf_t buf;
@@ -76,7 +76,7 @@ static int l_pcapd_open(lua_State *L) {
   }
 
   buf_init(&buf, 1024);
-  if (p_pcap_cmd_serialize(&cmd, &buf) != PROTO_OK) {
+  if (p_pcap_req_serialize(&cmd, &buf) != PROTO_OK) {
     buf_cleanup(&buf);
     return luaL_error(L, "unable to serialize pcap cmd");
   }

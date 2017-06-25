@@ -8,14 +8,14 @@
 #include <lib/util/buf.h>
 #include <lib/util/eds.h>
 
-#include <proto/pcap.h>
+#include <proto/pcap_req.h>
 
 /* defined here so the main application knows it's size, but shouldn't be
  * used externally from pcap.c */
 struct pcap_client {
   FILE *dumpf;
   buf_t cmdbuf;
-  struct p_pcap_cmd cmd;
+  struct p_pcap_req cmd;
   pcap_t *pcap;
   pcap_dumper_t *dumper;
   struct eds_client *dumpcli;

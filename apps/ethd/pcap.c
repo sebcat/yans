@@ -69,7 +69,7 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  ret = p_pcap_cmd_deserialize(&pcapcli->cmd, pcapcli->cmdbuf.data,
+  ret = p_pcap_req_deserialize(&pcapcli->cmd, pcapcli->cmdbuf.data,
       pcapcli->cmdbuf.len);
   if (ret == PROTO_ERRINCOMPLETE) {
     return EDS_CONTINUE;

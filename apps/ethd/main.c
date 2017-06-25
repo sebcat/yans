@@ -15,6 +15,7 @@
 #include <lib/util/eds.h>
 
 #include <apps/ethd/pcap.h>
+#include <apps/ethd/ethframe.h>
 
 #define DAEMON_NAME       "ethd"
 
@@ -214,6 +215,18 @@ int main(int argc, char *argv[]) {
       .nfds = 256,
       .on_svc_error = on_svc_error,
     },
+    {
+      .name = "ethframe",
+      .path = "ethframe.sock",
+      .udata_size = sizeof(struct ethframe_client),
+      .actions = {
+        .on_readable = ethframe_on_readable,
+        .on_done = ethframe_on_done,
+      },
+      .nprocs = 1,
+      .nfds = 256,
+      .on_svc_error = on_svc_error,
+    },
     {0},
   };
   struct opts opts;
@@ -232,11 +245,13 @@ int main(int argc, char *argv[]) {
   }
 
   if (opts.single != NULL) {
+    ylog_info("Starting service: %s", opts.single);
     if (start_single_service(services, opts.single) < 0) {
       ylog_error("eds_serve_single: failed");
       status = EXIT_FAILURE;
     }
   } else {
+    ylog_info("Starting ethd services");
     if (eds_serve(services) < 0) {
       ylog_error("eds_serve: failed");
       status = EXIT_FAILURE;

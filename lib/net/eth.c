@@ -56,7 +56,7 @@ void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
 
 int eth_sender_init(struct eth_sender *eth, const char *iface) {
   int fd = -1;
-  struct ifreq ifr;
+  struct ifreq ifr = {0};
 
   if (( fd = open("/dev/bpf", O_WRONLY)) < 0) {
     goto fail;
@@ -68,9 +68,11 @@ int eth_sender_init(struct eth_sender *eth, const char *iface) {
   }
 
   eth->fd = fd;
+  eth->lasterr = 0;
   return 0;
 
 fail:
+  eth->lasterr = errno;
   if (fd != -1) {
     close(fd);
   }
@@ -88,12 +90,18 @@ ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
   ssize_t ret;
 
   if (len < ETHFRAME_MINSZ) {
+    errno = EINVAL;
     return -1;
   }
 
   do {
     ret = write(eth->fd, data, len);
   } while(ret == -1 && errno == EINTR);
+
+  if (ret < 0) {
+    eth->lasterr = errno;
+  }
+
   return ret;
 }
 
@@ -141,11 +149,13 @@ int eth_sender_init(struct eth_sender *eth, const char *iface) {
     goto fail;
   }
 
+  eth->lasterr = 0;
   eth->fd = fd;
   eth->index = ifr.ifr_ifindex;
   return 0;
 
 fail:
+  eth->lasterr = errno;
   if (fd != -1) {
     close(fd);
   }
@@ -164,6 +174,7 @@ ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
   struct sockaddr_ll lladdr;
 
   if (len < ETHFRAME_MINSZ) {
+    eth->lasterr = EINVAL;
     return -1;
   }
 
@@ -176,6 +187,11 @@ ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
     ret = sendto(eth->fd, data, len, MSG_NOSIGNAL,
         (struct sockaddr*)&lladdr, sizeof(lladdr));
   } while(ret == -1 && errno == EINTR);
+
+  if (ret < 0) {
+    eth->lasterr = errno;
+  }
+
   return ret;
 }
 
@@ -190,4 +206,13 @@ int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len) {
       (unsigned int)eth->addr[3],
       (unsigned int)eth->addr[4],
       (unsigned int)eth->addr[5]);
+}
+
+
+const char *eth_sender_strerror(struct eth_sender *eth) {
+  if (eth->lasterr != 0) {
+    return strerror(eth->lasterr);
+  } else {
+    return "unknown error";
+  }
 }

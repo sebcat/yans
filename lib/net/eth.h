@@ -29,8 +29,10 @@ struct eth_addr {
 #define ETHERR_INVALID_IF   -1
 
 struct eth_sender {
+  /* -- internal fields -- */
   int fd;
-  int index;
+  int index; /* XXX: platform dependent */
+  int lasterr;
 };
 
 int eth_addr_valid(const struct sockaddr *saddr);
@@ -41,5 +43,6 @@ int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len);
 int eth_sender_init(struct eth_sender *eth, const char *iface);
 void eth_sender_cleanup(struct eth_sender *eth);
 ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len);
+const char *eth_sender_strerror(struct eth_sender *eth);
 
 #endif

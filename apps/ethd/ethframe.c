@@ -36,7 +36,7 @@ static eds_action_result on_read_req(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  ret = p_ethframe_req_deserialize(&req, ecli->buf.data, ecli->buf.len);
+  ret = p_ethframe_req_deserialize(&req, ecli->buf.data, ecli->buf.len, NULL);
   if (ret == PROTO_ERRINCOMPLETE) {
     return EDS_CONTINUE;
   } else if (ret != PROTO_OK) {

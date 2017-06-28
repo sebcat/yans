@@ -210,7 +210,7 @@ done:
 }
 
 int netstring_deserialize(void *data, struct netstring_map *map, char *in,
-    size_t inlen) {
+    size_t inlen, size_t *left) {
   int ret = NETSTRING_OK;
   char *curr;
   char **outval;
@@ -226,6 +226,10 @@ int netstring_deserialize(void *data, struct netstring_map *map, char *in,
   ret = netstring_parse(&curr, &len, in, inlen);
   if (ret != NETSTRING_OK) {
     goto done;
+  }
+
+  if (left != NULL) {
+    *left = inlen - ((curr + len + 1) - in);
   }
 
   mcurr = map;

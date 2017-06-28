@@ -11,6 +11,7 @@ struct p_ethframe_req {
 };
 
 int p_ethframe_req_serialize(struct p_ethframe_req *data, buf_t *out);
-int p_ethframe_req_deserialize(struct p_ethframe_req *data, char *in, size_t inlen);
+int p_ethframe_req_deserialize(struct p_ethframe_req *data,
+    char *in, size_t inlen, size_t *left);
 
 #endif /* PROTO_ETHFRAME_REQ_H__ */

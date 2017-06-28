@@ -67,7 +67,7 @@ int netstring_next_pair(struct netstring_pair *res, char **data,
 
 int netstring_serialize(void *data, struct netstring_map *map, buf_t *out);
 int netstring_deserialize(void *data, struct netstring_map *map, char *in,
-    size_t inlen);
+    size_t inlen, size_t *left);
 
 
 #endif /* NETSTRING_H_ */

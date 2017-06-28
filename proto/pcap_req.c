@@ -11,7 +11,7 @@ int p_pcap_req_serialize(struct p_pcap_req *data, buf_t *out) {
   return netstring_serialize(data, pcap_req_m, out);
 }
 
-int p_pcap_req_deserialize(struct p_pcap_req *data, char *in, size_t inlen) {
+int p_pcap_req_deserialize(struct p_pcap_req *data, char *in, size_t inlen, size_t *left) {
   memset(data, 0, sizeof(struct p_pcap_req));
-  return netstring_deserialize(data, pcap_req_m, in, inlen);
+  return netstring_deserialize(data, pcap_req_m, in, inlen, left);
 }

@@ -11,6 +11,6 @@ struct p_pcap_req {
 };
 
 int p_pcap_req_serialize(struct p_pcap_req *data, buf_t *out);
-int p_pcap_req_deserialize(struct p_pcap_req *data, char *in, size_t inlen);
+int p_pcap_req_deserialize(struct p_pcap_req *data, char *in, size_t inlen, size_t *left);
 
 #endif /* PROTO_PCAP_REQ_H__ */

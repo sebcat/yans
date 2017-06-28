@@ -56,6 +56,7 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
   int ret;
   int pcapfd;
   io_t io;
+  size_t left;
 
   IO_INIT(&io, fd);
 
@@ -73,7 +74,7 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
   }
 
   ret = p_pcap_req_deserialize(&pcapcli->cmd, pcapcli->cmdbuf.data,
-      pcapcli->cmdbuf.len);
+      pcapcli->cmdbuf.len, &left);
   if (ret == PROTO_ERRINCOMPLETE) {
     return EDS_CONTINUE;
   } else if (ret != PROTO_OK) {
@@ -82,8 +83,11 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  /* TODO: check for trailing data in receive buffer, which would indicate
-   *       a termination; no need to continue */
+  /* we have trailing data. Since the only thing we expect more than the
+   * initial request is a termination message, we're done */
+  if (left != 0) {
+    return EDS_DONE;
+  }
 
   if (pcapcli->cmd.iface == NULL) {
     ylog_error("pcapcli%d: iface not set", fd);

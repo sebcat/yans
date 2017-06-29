@@ -10,14 +10,9 @@
 struct eds_client;
 struct eds_service;
 
-typedef enum {
-  EDS_CONTINUE,
-  EDS_DONE,
-} eds_action_result;
-
 struct eds_client_actions {
-  eds_action_result (*on_readable)(struct eds_client *cli, int fd);
-  eds_action_result (*on_writable)(struct eds_client *cli, int fd);
+  void (*on_readable)(struct eds_client *cli, int fd);
+  void (*on_writable)(struct eds_client *cli, int fd);
   void (*on_done)(struct eds_client *cli, int fd);
 };
 
@@ -71,7 +66,7 @@ int eds_client_get_fd(struct eds_client *cli);
 void eds_client_set_externalfd(struct eds_client *cli);
 
 static inline void eds_client_set_on_readable(struct eds_client *cli,
-    eds_action_result (*on_readable)(struct eds_client *cli, int fd)) {
+    void (*on_readable)(struct eds_client *cli, int fd)) {
   cli->actions.on_readable = on_readable;
   if (on_readable == NULL) {
     FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
@@ -81,13 +76,21 @@ static inline void eds_client_set_on_readable(struct eds_client *cli,
 }
 
 static inline void eds_client_set_on_writable(struct eds_client *cli,
-    eds_action_result (*on_writable)(struct eds_client *cli, int fd)) {
+    void (*on_writable)(struct eds_client *cli, int fd)) {
   cli->actions.on_writable = on_writable;
   if (on_writable == NULL) {
     FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
   } else {
     FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
   }
+}
+
+static inline void eds_client_clear_actions(struct eds_client *cli) {
+  int fd = eds_client_get_fd(cli);
+  cli->actions.on_readable = NULL;
+  cli->actions.on_writable = NULL;
+  FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).rfds);
+  FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).wfds);
 }
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,

@@ -21,7 +21,7 @@ struct pcap_client {
   struct eds_client *dumpcli;
 };
 
-eds_action_result pcap_on_readable(struct eds_client *cli, int fd);
+void pcap_on_readable(struct eds_client *cli, int fd);
 void pcap_on_done(struct eds_client *cli, int fd);
 
 #endif

@@ -106,7 +106,6 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
   int i;
   int j;
   int fd;
-  int is_done;
 
   /* init listener fields */
   FD_ZERO(&l->rfds);
@@ -195,17 +194,16 @@ select:
       /* There is an action on this fd */
       num_fds--;
       ecli = eds_service_client_from_fd(svc, fd);
-      is_done = 0;
-      if (FD_ISSET(fd, &rfds) &&
-          ecli->actions.on_readable(ecli, fd) == EDS_DONE) {
-        is_done = 1;
+      if (FD_ISSET(fd, &rfds) && ecli->actions.on_readable != NULL) {
+        ecli->actions.on_readable(ecli, fd);
       }
-      if (FD_ISSET(fd, &wfds) &&
-          ecli->actions.on_writable(ecli, fd) == EDS_DONE) {
-        is_done = 1;
+      if (FD_ISSET(fd, &wfds) && ecli->actions.on_writable != NULL) {
+        ecli->actions.on_writable(ecli, fd);
       }
 
-      if (is_done) {
+      /* no action callbacks after called callbacks indicates termination */
+      if (ecli->actions.on_readable == NULL &&
+          ecli->actions.on_writable == NULL) {
         eds_service_remove_client(svc, ecli);
       }
     }

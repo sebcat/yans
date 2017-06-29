@@ -20,7 +20,7 @@
 #define PCAP_CLIENT(cli__) \
   (struct pcap_client *)((cli__)->udata)
 
-static eds_action_result on_gotpkg(struct eds_client *cli, int fd) {
+static void on_gotpkg(struct eds_client *cli, int fd) {
   struct eds_client *parentcli;
   struct pcap_client *pcapcli;
   int cmdfd = eds_client_get_fd(cli);
@@ -37,17 +37,14 @@ static eds_action_result on_gotpkg(struct eds_client *cli, int fd) {
     /* remove the parent client from the pool; this will also close the
      * pcap handle and it's file descriptor */
     eds_service_remove_client(cli->svc, parentcli);
-    return EDS_DONE;
   }
-
-  return EDS_CONTINUE;
 }
 
-static eds_action_result on_terminate(struct eds_client *cli, int fd) {
-  return EDS_DONE;
+static void on_terminate(struct eds_client *cli, int fd) {
+  eds_client_clear_actions(cli);
 }
 
-static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
+static void on_readcmd(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   struct eds_client *dumpcli;
   struct eds_client_actions acts = {0};
@@ -62,7 +59,7 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
 
   ret = io_readbuf(&io, &pcapcli->cmdbuf, NULL);
   if (ret == IO_AGAIN) {
-    return EDS_CONTINUE;
+    return;
   } else if (ret != IO_OK) {
     ylog_error("pcapcli%d: io_readbuf: %s", fd, io_strerror(&io));
     goto fail;
@@ -76,17 +73,18 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
   ret = p_pcap_req_deserialize(&pcapcli->cmd, pcapcli->cmdbuf.data,
       pcapcli->cmdbuf.len, &left);
   if (ret == PROTO_ERRINCOMPLETE) {
-    return EDS_CONTINUE;
+    return;
   } else if (ret != PROTO_OK) {
     ylog_error("pcapcli%d: p_pcapd_cmd_deserialize: %s", fd,
         proto_strerror(ret));
     goto fail;
   }
 
-  /* we have trailing data. Since the only thing we expect more than the
-   * initial request is a termination message, we're done */
   if (left != 0) {
-    return EDS_DONE;
+    /* we have trailing data. Since the only thing we expect more than the
+     * initial request is a termination message, we're done */
+    eds_client_clear_actions(cli);
+    return;
   }
 
   if (pcapcli->cmd.iface == NULL) {
@@ -154,14 +152,14 @@ static eds_action_result on_readcmd(struct eds_client *cli, int fd) {
   /* close the client when it becomes readable again (hopefully when the
    * remote end closes it's connection) */
   eds_client_set_on_readable(cli, on_terminate);
-  return EDS_CONTINUE;
+  return;
 
 fail:
-  return EDS_DONE;
+  eds_client_clear_actions(cli);
 }
 
 /* initial on_readable event */
-eds_action_result pcap_on_readable(struct eds_client *cli, int fd) {
+void pcap_on_readable(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   io_t io;
   int pcapfd;
@@ -170,20 +168,22 @@ eds_action_result pcap_on_readable(struct eds_client *cli, int fd) {
   IO_INIT(&io, fd);
   if (io_recvfd(&io, &pcapfd) != IO_OK) {
     ylog_error("pcapcli%d: io_recvfd: %s", fd, io_strerror(&io));
-    return EDS_DONE;
+    eds_client_clear_actions(cli);
+    return;
   }
 
   fp = fdopen(pcapfd, "w");
   if (fp == NULL) {
     ylog_error("pcapcli%d: fdopen: %s", fd, strerror(errno));
     close(pcapfd);
-    return EDS_DONE;
+    eds_client_clear_actions(cli);
+    return;
   }
 
   pcapcli->dumpf = fp;
   buf_init(&pcapcli->cmdbuf, CMDBUFINITSZ);
   eds_client_set_on_readable(cli, on_readcmd);
-  return on_readcmd(cli, fd);
+  on_readcmd(cli, fd);
 }
 
 void pcap_on_done(struct eds_client *cli, int fd) {

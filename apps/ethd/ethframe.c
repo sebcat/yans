@@ -12,7 +12,7 @@
 #define ETHFRAME_CLIENT(cli__) \
   ((struct ethframe_client *)((cli__)->udata))
 
-static eds_action_result on_read_req(struct eds_client *cli, int fd) {
+static void on_read_req(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   struct eth_sender sender;
   struct p_ethframe_req req;
@@ -25,34 +25,34 @@ static eds_action_result on_read_req(struct eds_client *cli, int fd) {
   IO_INIT(&io, fd);
   ret = io_readbuf(&io, &ecli->buf, NULL);
   if (ret == IO_AGAIN) {
-    return EDS_CONTINUE;
+    return;
   } else if (ret != IO_OK) {
     ylog_error("ethframecli%d: io_readbuf: %s", fd, io_strerror(&io));
-    goto fail;
+    goto done;
   }
 
   if (ecli->buf.len >= MAX_CMDSZ) {
     ylog_error("ethframecli%d: maximum command size exceeded", fd);
-    goto fail;
+    goto done;
   }
 
   ret = p_ethframe_req_deserialize(&req, ecli->buf.data, ecli->buf.len, NULL);
   if (ret == PROTO_ERRINCOMPLETE) {
-    return EDS_CONTINUE;
+    return;
   } else if (ret != PROTO_OK) {
     ylog_error("ethframecli%d: p_pcapd_cmd_deserialize: %s", fd,
         proto_strerror(ret));
-    goto fail;
+    goto done;
   }
 
   if (req.iface == NULL) {
     ylog_error("ethframecli%d: no iface set", fd);
-    goto fail;
+    goto done;
   }
 
   if (req.frameslen == 0) {
     ylog_error("ethframecli%d: no frames set", fd);
-    goto fail;
+    goto done;
   }
 
   ylog_info("ethframecli%d: iface:\"%s\" frameslen:%zu", fd, req.iface,
@@ -66,7 +66,7 @@ static eds_action_result on_read_req(struct eds_client *cli, int fd) {
   if (eth_sender_init(&sender, req.iface) < 0) {
     ylog_error("ethframecli%d: eth_sender_init: %s",
       fd, eth_sender_strerror(&sender));
-    goto fail;
+    goto done;
   }
 
   frames = (char*)req.frames; /* XXX: casting away const, should be OK */
@@ -76,29 +76,28 @@ static eds_action_result on_read_req(struct eds_client *cli, int fd) {
       ylog_error("ethframecli%d: netstring_next: %s", fd,
           netstring_strerror(ret));
       eth_sender_cleanup(&sender);
-      goto fail;
+      goto done;
     }
 
     if (eth_sender_write(&sender, frame, framelen) < 0) {
       ylog_error("ethframecli%d: eth_sender_write: %s", fd,
           eth_sender_strerror(&sender));
       eth_sender_cleanup(&sender);
-      goto fail;
+      goto done;
     }
   }
   eth_sender_cleanup(&sender);
-  return EDS_DONE;
 
-fail:
-  return EDS_DONE;
+done:
+  eds_client_clear_actions(cli);
 }
 
-eds_action_result ethframe_on_readable(struct eds_client *cli, int fd) {
+void ethframe_on_readable(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
 
   buf_init(&ecli->buf, INITREQBUFSZ);
   eds_client_set_on_readable(cli, on_read_req);
-  return on_read_req(cli, fd);
+  on_read_req(cli, fd);
 }
 
 void ethframe_on_done(struct eds_client *cli, int fd) {

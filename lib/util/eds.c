@@ -35,8 +35,7 @@ static void svcerr(struct eds_service *svc, const char *fmt, ...) {
 }
 
 static inline struct eds_client *eds_service_client_from_fd(
-    struct eds_service *svc,
-    int fd) {
+    struct eds_service *svc, int fd) {
   struct eds_service_listener *l = &EDS_SERVICE_LISTENER(svc);
 
   return (struct eds_client*)(((char*)l->cdata) +
@@ -51,6 +50,56 @@ int eds_client_get_fd(struct eds_client *cli) {
 
 void eds_client_set_externalfd(struct eds_client *cli) {
   cli->flags |= EDS_CLIENT_FEXTERNALFD;
+}
+
+static void on_eds_client_send(struct eds_client *cli, int fd) {
+  ssize_t ret;
+
+  if (cli->wrdatalen == 0) {
+    goto completed;
+  }
+
+  do {
+    ret = write(fd, cli->wrdata, cli->wrdatalen);
+  } while (ret < 0 && errno == EINTR);
+
+  if (ret < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+      return;
+    }
+
+    EDS_SERVE_ERR(cli->svc, "%s: fd %d write error: %s", cli->svc->name, fd,
+        strerror(errno));
+    eds_client_clear_actions(cli);
+    return;
+  }
+
+  cli->wrdata += ret;
+  cli->wrdatalen -= ret;
+  if (cli->wrdatalen > 0) {
+    return;
+  }
+
+completed:
+  eds_client_clear_actions(cli);
+  if (cli->trans.flags & EDS_TFLREAD) {
+    eds_client_set_on_readable(cli, cli->trans.on_readable);
+    cli->trans.flags &= ~EDS_TFLREAD;
+  }
+
+  if (cli->trans.flags & EDS_TFLWRITE) {
+    eds_client_set_on_writable(cli, cli->trans.on_writable);
+    cli->trans.flags &= ~EDS_TFLWRITE;
+  }
+}
+
+void eds_client_send(struct eds_client *cli, const char *data, size_t len,
+    struct eds_transition *next) {
+  cli->wrdata = data;
+  cli->wrdatalen = len;
+  cli->trans = *next;
+  eds_client_set_on_writable(cli, on_eds_client_send);
+  on_eds_client_send(cli, eds_client_get_fd(cli));
 }
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,

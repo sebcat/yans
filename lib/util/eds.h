@@ -16,10 +16,29 @@ struct eds_client_actions {
   void (*on_done)(struct eds_client *cli, int fd);
 };
 
+/* eds transition flags */
+#define EDS_TFLREAD  (1 << 0)
+#define EDS_TFLWRITE (1 << 1)
+
+/* for eds functions that needs a transition to another state when done
+ * e.g., eds_client_send, the eds_transition struct holds the callbacks
+ * that shall be used on a successful transition */
+struct eds_transition {
+  int flags;
+  void (*on_readable)(struct eds_client *cli, int fd);
+  void (*on_writable)(struct eds_client *cli, int fd);
+};
+
 struct eds_client {
   int flags;
   struct eds_service *svc;
   struct eds_client_actions actions;
+
+  /* eds_client_send (and possibly others) state */
+  struct eds_transition trans;
+  const char *wrdata;
+  size_t wrdatalen;
+
   char udata[]; /* service-specific user data, initialized to zero */
 };
 
@@ -64,6 +83,11 @@ int eds_client_get_fd(struct eds_client *cli);
 
 /* mark the client fd as external, i.e., not closed when client is done */
 void eds_client_set_externalfd(struct eds_client *cli);
+
+/* send a piece of data, and transition to the next state on success. On write
+ * failure, log an error and remove the client */
+void eds_client_send(struct eds_client *cli, const char *data, size_t len,
+    struct eds_transition *next);
 
 static inline void eds_client_set_on_readable(struct eds_client *cli,
     void (*on_readable)(struct eds_client *cli, int fd)) {

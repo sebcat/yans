@@ -9,6 +9,8 @@
 #include <lib/util/ylog.h>
 #include <lib/util/netstring.h>
 
+#include <proto/status_resp.h>
+
 #include <apps/ethd/pcap.h>
 
 #define CMDBUFINITSZ 1024     /* initial size of allocated cmd buffer */
@@ -20,28 +22,69 @@
 #define PCAP_CLIENT(cli__) \
   (struct pcap_client *)((cli__)->udata)
 
+static void on_terminate(struct eds_client *cli, int fd) {
+  eds_client_clear_actions(cli);
+}
+
+enum resptype {
+  RESPTYPE_OK,
+  RESPTYPE_ERR,
+};
+
+static void sendresp(struct eds_client *cli, enum resptype t,
+    const char *msg) {
+  struct p_status_resp resp = {0};
+  struct eds_transition trans;
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  int ret;
+
+  /* XXX: It's *very* important that the eds_client here is a pcap_client
+   *      and not the dumper client. maybe assert a magic number here */
+
+  /* empty messages are not allowed */
+  assert(msg != NULL && *msg != '\0');
+
+  /* set the transition and response fields */
+  if (t == RESPTYPE_OK) {
+    trans.flags = EDS_TFLWRITE;
+    trans.on_writable = NULL;
+    resp.okmsg = msg;
+    resp.okmsglen = strlen(msg);
+  } else {
+    eds_client_set_on_readable(cli, NULL); /* stop any reader routines */
+    trans.flags = EDS_TFLREAD | EDS_TFLWRITE;
+    trans.on_readable = NULL;
+    trans.on_writable = NULL;
+    resp.errmsg = msg;
+    resp.errmsglen = strlen(msg);
+  }
+
+  /* serialize the response */
+  buf_clear(&pcapcli->cmdbuf); /* reuse cmdbuf for responses */
+  ret = p_status_resp_serialize(&resp, &pcapcli->cmdbuf);
+  if (ret != PROTO_OK) {
+    ylog_error("pcapcli%d: senderr serialization error: %s",
+        eds_client_get_fd(cli), proto_strerror(ret));
+    eds_client_clear_actions(cli);
+    return;
+  }
+
+  eds_client_send(cli, pcapcli->cmdbuf.data, pcapcli->cmdbuf.len, &trans);
+}
+
 static void on_gotpkg(struct eds_client *cli, int fd) {
   struct eds_client *parentcli;
   struct pcap_client *pcapcli;
-  int cmdfd = eds_client_get_fd(cli);
 
-  /* copy the parent client with memcpy to prevent strict aliasing breakage */
   memcpy(&parentcli, cli->udata, sizeof(struct eds_client *));
   pcapcli = PCAP_CLIENT(parentcli);
-
   if (pcap_dispatch(pcapcli->pcap, PCAP_DISPATCH_CNT, pcap_dump,
       (u_char*)pcapcli->dumper) < 0) {
-    ylog_error("pcapcli%d: pcap_dispatch: %s", cmdfd,
+    ylog_error("pcapcli%d: pcap_dispatch: %s", eds_client_get_fd(parentcli),
         pcap_geterr(pcapcli->pcap));
-
-    /* remove the parent client from the pool; this will also close the
-     * pcap handle and it's file descriptor */
-    eds_service_remove_client(cli->svc, parentcli);
+    eds_client_clear_actions(parentcli);
+    return;
   }
-}
-
-static void on_terminate(struct eds_client *cli, int fd) {
-  eds_client_clear_actions(cli);
 }
 
 static void on_readcmd(struct eds_client *cli, int fd) {
@@ -54,6 +97,8 @@ static void on_readcmd(struct eds_client *cli, int fd) {
   int pcapfd;
   io_t io;
   size_t left;
+  struct p_pcap_req cmd;
+  const char *errmsg = "an internal error occurred";
 
   IO_INIT(&io, fd);
 
@@ -67,10 +112,11 @@ static void on_readcmd(struct eds_client *cli, int fd) {
 
   if (pcapcli->cmdbuf.len >= MAX_CMDSZ) {
     ylog_error("pcapcli%d: maximum command size exceeded", fd);
+    errmsg = "request too large";
     goto fail;
   }
 
-  ret = p_pcap_req_deserialize(&pcapcli->cmd, pcapcli->cmdbuf.data,
+  ret = p_pcap_req_deserialize(&cmd, pcapcli->cmdbuf.data,
       pcapcli->cmdbuf.len, &left);
   if (ret == PROTO_ERRINCOMPLETE) {
     return;
@@ -87,28 +133,32 @@ static void on_readcmd(struct eds_client *cli, int fd) {
     return;
   }
 
-  if (pcapcli->cmd.iface == NULL) {
+  if (cmd.iface == NULL) {
     ylog_error("pcapcli%d: iface not set", fd);
+    errmsg = "no interface specified";
     goto fail;
   }
 
-  ylog_info("pcapcli%d: iface:\"%s\" %s filter", fd, pcapcli->cmd.iface,
-      pcapcli->cmd.filter == NULL ? "without" : "with");
+  ylog_info("pcapcli%d: iface:\"%s\" %s filter", fd, cmd.iface,
+      cmd.filter == NULL ? "without" : "with");
 
   errbuf[0] = '\0';
-  if ((pcapcli->pcap = pcap_open_live(pcapcli->cmd.iface, SNAPLEN, 0,
+  if ((pcapcli->pcap = pcap_open_live(cmd.iface, SNAPLEN, 0,
       PCAP_TO_MS, errbuf)) == NULL) {
     ylog_error("pcapcli%d: pcap_open_live: %s", fd, errbuf);
+    snprintf(pcapcli->msg, sizeof(pcapcli->msg), "%s", errbuf);
+    errmsg = pcapcli->msg;
     goto fail;
   } else if (errbuf[0] != '\0') {
     ylog_info("pcapcli%d: pcap_open_live warning: %s", fd, errbuf);
   }
 
-  if (pcapcli->cmd.filter != NULL) {
-    if (pcap_compile(pcapcli->pcap, &bpf, pcapcli->cmd.filter, 1,
+  if (cmd.filter != NULL) {
+    if (pcap_compile(pcapcli->pcap, &bpf, cmd.filter, 1,
         PCAP_NETMASK_UNKNOWN) < 0) {
       ylog_error("pcapcli%d: pcap_compile: %s", fd,
           pcap_geterr(pcapcli->pcap));
+      errmsg = "filter compilation failure";
       goto fail;
     }
     ret = pcap_setfilter(pcapcli->pcap, &bpf);
@@ -149,13 +199,14 @@ static void on_readcmd(struct eds_client *cli, int fd) {
   eds_client_set_externalfd(dumpcli);
   pcapcli->dumpcli = dumpcli;
 
-  /* close the client when it becomes readable again (hopefully when the
-   * remote end closes it's connection) */
+  /* send OK response and terminate the client whenever we get data */
+  sendresp(cli, RESPTYPE_OK, "started");
   eds_client_set_on_readable(cli, on_terminate);
   return;
 
 fail:
   eds_client_clear_actions(cli);
+  sendresp(cli, RESPTYPE_ERR, errmsg);
 }
 
 /* initial on_readable event */

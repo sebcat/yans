@@ -120,8 +120,9 @@ am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/ethframe_req.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
-	apps/ethd/ethframe.$(OBJEXT) apps/ethd/main.$(OBJEXT)
+	proto/ethframe_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
+	apps/ethd/pcap.$(OBJEXT) apps/ethd/ethframe.$(OBJEXT) \
+	apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
 ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -165,8 +166,9 @@ am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) lib/net/ip.$(OBJEXT) \
 	lib/net/url.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
-	lib/lua/pcapd.$(OBJEXT) apps/yans/yans.$(OBJEXT)
+	proto/status_resp.$(OBJEXT) lib/lua/yans.$(OBJEXT) \
+	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
+	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) 3rd_party/liblinenoise.a \
 	3rd_party/liblpeg.a 3rd_party/liblua.a
@@ -640,6 +642,7 @@ ethd_SOURCES = \
     lib/net/eth.c \
     proto/pcap_req.c \
     proto/ethframe_req.c \
+    proto/status_resp.c \
     apps/ethd/pcap.c \
     apps/ethd/ethframe.c \
     apps/ethd/main.c
@@ -659,6 +662,7 @@ yans_SOURCES = \
     lib/net/ip.c \
     lib/net/url.c \
     proto/pcap_req.c \
+    proto/status_resp.c \
     lib/lua/yans.c \
     lib/lua/ypcap.c \
     lib/lua/pcapd.c \
@@ -840,6 +844,8 @@ proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
+proto/status_resp.$(OBJEXT): proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/$(am__dirstamp):
 	@$(MKDIR_P) apps/ethd
 	@: > apps/ethd/$(am__dirstamp)
@@ -986,6 +992,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/ethframe_req.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/status_resp.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\

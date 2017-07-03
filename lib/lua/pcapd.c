@@ -6,6 +6,7 @@
 #include <lib/lua/pcapd.h>
 
 #include <proto/pcap_req.h>
+#include <proto/status_resp.h>
 
 #define MTNAME_PCAPD "pcapd.pcapd"
 
@@ -53,9 +54,11 @@ static int l_pcapd_open(lua_State *L) {
   io_t dumpfile;
   int ret;
   struct p_pcap_req cmd;
+  struct p_status_resp resp;
   struct pcapd *pcapd = checkpcapd(L, 1);
   const char *dumppath = luaL_checkstring(L, 2);
   buf_t buf;
+  char errbuf[256];
 
   cmd.iface = luaL_checklstring(L, 3, &cmd.ifacelen);
   cmd.filter = lua_tolstring(L, 4, &cmd.filterlen);
@@ -82,9 +85,27 @@ static int l_pcapd_open(lua_State *L) {
   }
 
   ret = io_writeall(&cli, buf.data, buf.len);
-  buf_cleanup(&buf);
   if (ret != IO_OK) {
+    buf_cleanup(&buf);
     return luaL_error(L, "unable to send command: %s", io_strerror(&cli));
+  }
+
+  /* TODO: read response message */
+  buf_clear(&buf);
+  do {
+    ret = io_readbuf(&cli, &buf, NULL);
+    if (ret != IO_OK) {
+      buf_cleanup(&buf);
+      return luaL_error(L, "error reading response: %s", io_strerror(&cli));
+    }
+  } while ((ret = p_status_resp_deserialize(&resp, buf.data, buf.len, NULL)) ==
+        PROTO_ERRINCOMPLETE);
+  if (resp.errmsg != NULL) {
+    /* copy resp.errmsg to the stack, since it's a part of buf, which we
+     * want to cleanup before luaL_error */
+    snprintf(errbuf, sizeof(errbuf), "%s", resp.errmsg);
+    buf_cleanup(&buf);
+    luaL_error(L, "%s", errbuf);
   }
 
   return 0;

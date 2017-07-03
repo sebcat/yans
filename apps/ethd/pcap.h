@@ -15,10 +15,10 @@
 struct pcap_client {
   FILE *dumpf;
   buf_t cmdbuf;
-  struct p_pcap_req cmd;
   pcap_t *pcap;
   pcap_dumper_t *dumper;
   struct eds_client *dumpcli;
+  char msg[128];
 };
 
 void pcap_on_readable(struct eds_client *cli, int fd);

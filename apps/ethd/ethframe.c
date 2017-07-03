@@ -1,8 +1,11 @@
+#include <string.h>
+
 #include <lib/util/netstring.h>
 #include <lib/util/ylog.h>
 #include <lib/util/io.h>
 
 #include <proto/ethframe_req.h>
+#include <proto/status_resp.h>
 
 #include <apps/ethd/ethframe.h>
 
@@ -21,38 +24,47 @@ static void on_read_req(struct eds_client *cli, int fd) {
   char *frame;
   char *frames;
   size_t framelen;
+  const char *errmsg = "an internal error occurred";
+  struct p_status_resp resp = {0};
+  char errbuf[128];
+  struct eds_transition trans = {
+    .flags = EDS_TFLREAD | EDS_TFLWRITE,
+    .on_readable = NULL,
+    .on_writable = NULL,
+  };
 
   IO_INIT(&io, fd);
   ret = io_readbuf(&io, &ecli->buf, NULL);
   if (ret == IO_AGAIN) {
     return;
   } else if (ret != IO_OK) {
-    ylog_error("ethframecli%d: io_readbuf: %s", fd, io_strerror(&io));
-    goto done;
+    errmsg = io_strerror(&io);
+    goto fail;
   }
 
   if (ecli->buf.len >= MAX_CMDSZ) {
-    ylog_error("ethframecli%d: maximum command size exceeded", fd);
-    goto done;
+    errmsg = "maximum command size exceeded";
+    goto fail;
   }
 
   ret = p_ethframe_req_deserialize(&req, ecli->buf.data, ecli->buf.len, NULL);
   if (ret == PROTO_ERRINCOMPLETE) {
     return;
   } else if (ret != PROTO_OK) {
-    ylog_error("ethframecli%d: p_pcapd_cmd_deserialize: %s", fd,
+    snprintf(errbuf, sizeof(errbuf), "request error: %s",
         proto_strerror(ret));
-    goto done;
+    errmsg = errbuf;
+    goto fail;
   }
 
   if (req.iface == NULL) {
-    ylog_error("ethframecli%d: no iface set", fd);
-    goto done;
+    errmsg = "no iface set";
+    goto fail;
   }
 
   if (req.frameslen == 0) {
-    ylog_error("ethframecli%d: no frames set", fd);
-    goto done;
+    errmsg = "no frames set";
+    goto fail;
   }
 
   ylog_info("ethframecli%d: iface:\"%s\" frameslen:%zu", fd, req.iface,
@@ -64,32 +76,59 @@ static void on_read_req(struct eds_client *cli, int fd) {
    *      sending the frames, but only if the added complexity leads to a
    *      measurable, meaningful improvement */
   if (eth_sender_init(&sender, req.iface) < 0) {
-    ylog_error("ethframecli%d: eth_sender_init: %s",
-      fd, eth_sender_strerror(&sender));
-    goto done;
+    snprintf(errbuf, sizeof(errbuf), "sender init error: iface:\"%s\" %s",
+        req.iface, eth_sender_strerror(&sender));
+    errmsg = errbuf;
+    goto fail;
   }
 
-  frames = (char*)req.frames; /* XXX: casting away const, should be OK */
+  /* XXX: casting away const, should be OK in this context */
+  frames = (char*)req.frames;
   while (req.frameslen > 0) {
     ret = netstring_next(&frame, &framelen, &frames, &req.frameslen);
     if (ret != NETSTRING_OK) {
-      ylog_error("ethframecli%d: netstring_next: %s", fd,
-          netstring_strerror(ret));
+      errmsg = "invalid frame sent";
       eth_sender_cleanup(&sender);
-      goto done;
+      goto fail;
     }
 
     if (eth_sender_write(&sender, frame, framelen) < 0) {
-      ylog_error("ethframecli%d: eth_sender_write: %s", fd,
+      snprintf(errbuf, sizeof(errbuf), "frame send error: %s",
           eth_sender_strerror(&sender));
+      errmsg = errbuf;
       eth_sender_cleanup(&sender);
-      goto done;
+      goto fail;
     }
   }
   eth_sender_cleanup(&sender);
-
-done:
   eds_client_clear_actions(cli);
+  buf_clear(&ecli->buf);
+  resp.okmsg = "ok";
+  resp.okmsglen = sizeof("ok")-1;
+  ret = p_status_resp_serialize(&resp, &ecli->buf);
+  if (ret != PROTO_OK) {
+    ylog_error("ethframecli%d: error response serialization error: %s", fd,
+        proto_strerror(ret));
+    return;
+  }
+
+  eds_client_send(cli, ecli->buf.data, ecli->buf.len, &trans);
+  return;
+
+fail:
+  ylog_error("ethframecli%d: %s", fd, errmsg);
+  eds_client_clear_actions(cli);
+  buf_clear(&ecli->buf);
+  resp.errmsg = errmsg;
+  resp.errmsglen = strlen(errmsg);
+  ret = p_status_resp_serialize(&resp, &ecli->buf);
+  if (ret != PROTO_OK) {
+    ylog_error("ethframecli%d: OK response serialization error: %s", fd,
+        proto_strerror(ret));
+    return;
+  }
+
+  eds_client_send(cli, ecli->buf.data, ecli->buf.len, &trans);
 }
 
 void ethframe_on_readable(struct eds_client *cli, int fd) {

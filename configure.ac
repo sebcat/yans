@@ -52,6 +52,6 @@ AC_SUBST([CAPLIB])
 AM_CONDITIONAL([FREEBSD_OPT], [
   case "$target_os" in freebsd*) true; ;;  *) false; ;; esac])
 
-AC_CONFIG_FILES([Makefile 3rd_party/Makefile freebsd/Makefile])
+AC_CONFIG_FILES([Makefile freebsd/Makefile])
 
 AC_OUTPUT

@@ -16,6 +16,9 @@ $ ls -sh a.out
 /*
 luaconf.h	lua.h	llimits.h	lobject.h	ltm.h	lmem.h	lzio.h	lstate.h	ldebug.h	lgc.h	lapi.h	ldo.h	lparser.h	lctype.h	lualib.h	lundump.h	lvm.h	ltable.h	llex.h	lopcodes.h	lcode.h	lstring.h	lfunc.h	lauxlib.h
 */
+
+#define LUA_USE_POSIX
+
 #include <sys/types.h>
 #include <string.h>
 #include <errno.h>

@@ -2,7 +2,7 @@ if FREEBSD_OPT
   MAYBE_FREEBSD = freebsd
 endif
 
-SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
+SUBDIRS = $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror
@@ -54,6 +54,9 @@ ethd_LDADD = \
     $(PCAPLIB)
 
 yans_SOURCES = \
+    3rd_party/linenoise.c \
+    3rd_party/lpeg.c \
+    3rd_party/lua.c \
     lib/util/u8.c \
     lib/util/buf.c \
     lib/util/io.c \
@@ -72,10 +75,7 @@ yans_SOURCES = \
 
 yans_LDADD = \
     $(PCAPLIB) \
-    -lm \
-    3rd_party/liblinenoise.a \
-    3rd_party/liblpeg.a \
-    3rd_party/liblua.a
+    -lm
 
 ping_SOURCES = \
     lib/net/eth.c \

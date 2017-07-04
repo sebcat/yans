@@ -14,6 +14,8 @@
 
 @SET_MAKE@
 
+
+
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -107,15 +109,51 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
-	$(am__configure_deps) $(am__DIST_COMMON)
+	$(am__configure_deps) $(include_HEADERS) $(am__DIST_COMMON)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)"
-PROGRAMS = $(bin_PROGRAMS)
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(includedir)"
+LTLIBRARIES = $(lib_LTLIBRARIES)
+libycl_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
+am_libycl_la_OBJECTS = lib/ycl/ycl.lo
+libycl_la_OBJECTS = $(am_libycl_la_OBJECTS)
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
+PROGRAMS = $(bin_PROGRAMS)
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
@@ -126,10 +164,6 @@ am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
 ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
 am_lib_net_ethframe_test_OBJECTS = lib/net/ethframe.$(OBJEXT) \
 	lib/net/ethframe_test.$(OBJEXT)
 lib_net_ethframe_test_OBJECTS = $(am_lib_net_ethframe_test_OBJECTS)
@@ -161,7 +195,9 @@ am_ping_OBJECTS = lib/net/eth.$(OBJEXT) lib/net/ethframe.$(OBJEXT) \
 	apps/ping/ping.$(OBJEXT)
 ping_OBJECTS = $(am_ping_OBJECTS)
 ping_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
+am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
+	3rd_party/lpeg.$(OBJEXT) 3rd_party/lua.$(OBJEXT) \
+	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/util/io.$(OBJEXT) lib/util/fio.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) lib/net/ip.$(OBJEXT) \
@@ -170,8 +206,7 @@ am_yans_OBJECTS = lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
-yans_DEPENDENCIES = $(am__DEPENDENCIES_1) 3rd_party/liblinenoise.a \
-	3rd_party/liblpeg.a 3rd_party/liblua.a
+yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -206,12 +241,14 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(ethd_SOURCES) $(lib_net_ethframe_test_SOURCES) \
+SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) \
+	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
 	$(ping_SOURCES) $(yans_SOURCES)
-DIST_SOURCES = $(ethd_SOURCES) $(lib_net_ethframe_test_SOURCES) \
+DIST_SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) \
+	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
@@ -229,6 +266,7 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+HEADERS = $(include_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -279,33 +317,6 @@ am__tty_colors = { \
     std='[m'; \
   fi; \
 }
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__uninstall_files_from_dir = { \
-  test -z "$$files" \
-    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
-    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
-         $(am__cd) "$$dir" && rm -f $$files; }; \
-  }
 am__recheck_rx = ^[ 	]*:recheck:[ 	]*
 am__global_test_result_rx = ^[ 	]*:global-test-result:[ 	]*
 am__copy_in_global_log_rx = ^[ 	]*:copy-in-global-log:[ 	]*
@@ -459,7 +470,7 @@ TEST_LOGS = $(am__test_logs2:.yans.log=.log)
 YANS_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
 	$(YANS_LOG_FLAGS)
-DIST_SUBDIRS = 3rd_party freebsd
+DIST_SUBDIRS = freebsd
 am__DIST_COMMON = $(srcdir)/Makefile.in README TODO ar-lib compile \
 	config.guess config.sub depcomp install-sh ltmain.sh missing \
 	test-driver
@@ -627,11 +638,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
-SUBDIRS = 3rd_party $(MAYBE_FREEBSD)
+SUBDIRS = $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = -Wall -Werror
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
+lib_LTLIBRARIES = libycl.la
+include_HEADERS = \
+    lib/ycl/ycl.h
+
 ethd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
@@ -652,6 +667,9 @@ ethd_LDADD = \
     $(PCAPLIB)
 
 yans_SOURCES = \
+    3rd_party/linenoise.c \
+    3rd_party/lpeg.c \
+    3rd_party/lua.c \
     lib/util/u8.c \
     lib/util/buf.c \
     lib/util/io.c \
@@ -670,10 +688,7 @@ yans_SOURCES = \
 
 yans_LDADD = \
     $(PCAPLIB) \
-    -lm \
-    3rd_party/liblinenoise.a \
-    3rd_party/liblpeg.a \
-    3rd_party/liblua.a
+    -lm
 
 ping_SOURCES = \
     lib/net/eth.c \
@@ -682,6 +697,9 @@ ping_SOURCES = \
 
 ping_LDADD = \
     $(PCAPLIB)
+
+libycl_la_SOURCES = \
+    lib/ycl/ycl.c
 
 lib_util_netstring_test_SOURCES = \
     lib/util/netstring.c \
@@ -750,6 +768,52 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 $(am__aclocal_m4_deps):
+
+install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+	@$(NORMAL_INSTALL)
+	@list='$(lib_LTLIBRARIES)'; test -n "$(libdir)" || list=; \
+	list2=; for p in $$list; do \
+	  if test -f $$p; then \
+	    list2="$$list2 $$p"; \
+	  else :; fi; \
+	done; \
+	test -z "$$list2" || { \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(libdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(libdir)" || exit 1; \
+	  echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 '$(DESTDIR)$(libdir)'"; \
+	  $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 "$(DESTDIR)$(libdir)"; \
+	}
+
+uninstall-libLTLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	@list='$(lib_LTLIBRARIES)'; test -n "$(libdir)" || list=; \
+	for p in $$list; do \
+	  $(am__strip_dir) \
+	  echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f '$(DESTDIR)$(libdir)/$$f'"; \
+	  $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f "$(DESTDIR)$(libdir)/$$f"; \
+	done
+
+clean-libLTLIBRARIES:
+	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
+	@list='$(lib_LTLIBRARIES)'; \
+	locs=`for p in $$list; do echo $$p; done | \
+	      sed 's|^[^/]*$$|.|; s|/[^/]*$$||; s|$$|/so_locations|' | \
+	      sort -u`; \
+	test -z "$$locs" || { \
+	  echo rm -f $${locs}; \
+	  rm -f $${locs}; \
+	}
+lib/ycl/$(am__dirstamp):
+	@$(MKDIR_P) lib/ycl
+	@: > lib/ycl/$(am__dirstamp)
+lib/ycl/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/ycl/$(DEPDIR)
+	@: > lib/ycl/$(DEPDIR)/$(am__dirstamp)
+lib/ycl/ycl.lo: lib/ycl/$(am__dirstamp) \
+	lib/ycl/$(DEPDIR)/$(am__dirstamp)
+
+libycl.la: $(libycl_la_OBJECTS) $(libycl_la_DEPENDENCIES) $(EXTRA_libycl_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libycl_la_OBJECTS) $(libycl_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
@@ -920,6 +984,18 @@ apps/ping/ping.$(OBJEXT): apps/ping/$(am__dirstamp) \
 ping$(EXEEXT): $(ping_OBJECTS) $(ping_DEPENDENCIES) $(EXTRA_ping_DEPENDENCIES) 
 	@rm -f ping$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(ping_OBJECTS) $(ping_LDADD) $(LIBS)
+3rd_party/$(am__dirstamp):
+	@$(MKDIR_P) 3rd_party
+	@: > 3rd_party/$(am__dirstamp)
+3rd_party/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) 3rd_party/$(DEPDIR)
+	@: > 3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/linenoise.$(OBJEXT): 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/lpeg.$(OBJEXT): 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/lua.$(OBJEXT): 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
 lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -951,17 +1027,23 @@ yans$(EXEEXT): $(yans_OBJECTS) $(yans_DEPENDENCIES) $(EXTRA_yans_DEPENDENCIES)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f 3rd_party/*.$(OBJEXT)
 	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/ping/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
 	-rm -f lib/net/*.$(OBJEXT)
 	-rm -f lib/util/*.$(OBJEXT)
+	-rm -f lib/ycl/*.$(OBJEXT)
+	-rm -f lib/ycl/*.lo
 	-rm -f proto/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/linenoise.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/lpeg.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/lua.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
@@ -990,6 +1072,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/ycl/$(DEPDIR)/ycl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/ethframe_req.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/status_resp.Po@am__quote@
@@ -1023,9 +1106,31 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+	-rm -rf lib/ycl/.libs lib/ycl/_libs
 
 distclean-libtool:
 	-rm -f libtool config.lt
+install-includeHEADERS: $(include_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(includedir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(includedir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
+	done
+
+uninstall-includeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(includedir)'; $(am__uninstall_files_from_dir)
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -1523,10 +1628,12 @@ check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-recursive
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(HEADERS)
+install-binPROGRAMS: install-libLTLIBRARIES
+
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -1558,6 +1665,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f 3rd_party/$(DEPDIR)/$(am__dirstamp)
+	-rm -f 3rd_party/$(am__dirstamp)
 	-rm -f apps/ethd/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/ethd/$(am__dirstamp)
 	-rm -f apps/ping/$(DEPDIR)/$(am__dirstamp)
@@ -1570,6 +1679,8 @@ distclean-generic:
 	-rm -f lib/net/$(am__dirstamp)
 	-rm -f lib/util/$(DEPDIR)/$(am__dirstamp)
 	-rm -f lib/util/$(am__dirstamp)
+	-rm -f lib/ycl/$(DEPDIR)/$(am__dirstamp)
+	-rm -f lib/ycl/$(am__dirstamp)
 	-rm -f proto/$(DEPDIR)/$(am__dirstamp)
 	-rm -f proto/$(am__dirstamp)
 
@@ -1579,11 +1690,11 @@ maintainer-clean-generic:
 clean: clean-recursive
 
 clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
-	clean-libtool mostlyclean-am
+	clean-libLTLIBRARIES clean-libtool mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -1600,13 +1711,13 @@ info: info-recursive
 
 info-am:
 
-install-data-am:
+install-data-am: install-includeHEADERS
 
 install-dvi: install-dvi-recursive
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS
+install-exec-am: install-binPROGRAMS install-libLTLIBRARIES
 
 install-html: install-html-recursive
 
@@ -1631,7 +1742,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -1648,28 +1759,31 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS
+uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
+	uninstall-libLTLIBRARIES
 
 .MAKE: $(am__recursive_targets) check-am install-am install-strip
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
 	am--refresh check check-TESTS check-am clean clean-binPROGRAMS \
-	clean-checkPROGRAMS clean-cscope clean-generic clean-libtool \
-	cscope cscopelist-am ctags ctags-am dist dist-all dist-bzip2 \
-	dist-gzip dist-lzip dist-shar dist-tarZ dist-xz dist-zip \
-	distcheck distclean distclean-compile distclean-generic \
-	distclean-libtool distclean-tags distcleancheck distdir \
-	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-binPROGRAMS install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	recheck tags tags-am uninstall uninstall-am \
-	uninstall-binPROGRAMS
+	clean-checkPROGRAMS clean-cscope clean-generic \
+	clean-libLTLIBRARIES clean-libtool cscope cscopelist-am ctags \
+	ctags-am dist dist-all dist-bzip2 dist-gzip dist-lzip \
+	dist-shar dist-tarZ dist-xz dist-zip distcheck distclean \
+	distclean-compile distclean-generic distclean-libtool \
+	distclean-tags distcleancheck distdir distuninstallcheck dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-binPROGRAMS install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-includeHEADERS install-info \
+	install-info-am install-libLTLIBRARIES install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs installdirs-am \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am recheck tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-includeHEADERS \
+	uninstall-libLTLIBRARIES
 
 .PRECIOUS: Makefile
 

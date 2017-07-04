@@ -421,9 +421,11 @@ int test_deserialize() {
   int ret;
   buf_t buf;
   struct t actual;
+  size_t actual_left;
   struct {
     const char *data;
     struct t expected;
+    size_t expected_left;
   } inputs[] = {
     {
       "0:,",
@@ -432,6 +434,16 @@ int test_deserialize() {
         .bar = NULL,
         .baz = NULL,
       },
+      0,
+    },
+    {
+      "0:,z",
+      {
+        .foo = NULL,
+        .bar = NULL,
+        .baz = NULL,
+      },
+      1,
     },
     {
       "9:3:foo,0:,,",
@@ -440,6 +452,7 @@ int test_deserialize() {
         .bar = NULL,
         .baz = NULL,
       },
+      0,
     },
     {
       "12:3:foo,3:bar,,",
@@ -448,6 +461,7 @@ int test_deserialize() {
         .bar = NULL,
         .baz = NULL,
       },
+      0,
     },
     {
       "12:3:bar,3:bar,,",
@@ -456,6 +470,7 @@ int test_deserialize() {
         .bar = "bar",
         .baz = NULL,
       },
+      0,
     },
     {
       "12:3:baz,3:bar,,",
@@ -464,6 +479,7 @@ int test_deserialize() {
         .bar = NULL,
         .baz = "bar",
       },
+      0,
     },
     {
       "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,",
@@ -472,6 +488,16 @@ int test_deserialize() {
         .bar = "b",
         .baz = "c",
       },
+      0,
+    },
+    {
+      "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,topkek",
+      {
+        .foo = "a",
+        .bar = "b",
+        .baz = "c",
+      },
+      6,
     },
     {NULL, {0}},
   };
@@ -479,15 +505,19 @@ int test_deserialize() {
   buf_init(&buf, 256);
   for (i = 0; inputs[i].data != NULL; i++) {
     buf_adata(&buf, inputs[i].data, strlen(inputs[i].data));
-    buf_achar(&buf, '\0');
     memset(&actual, 0, sizeof(actual));
-    ret = netstring_deserialize(&actual, tm, buf.data, buf.len);
+    ret = netstring_deserialize(&actual, tm, buf.data, buf.len, &actual_left);
     if (ret != NETSTRING_OK) {
       fprintf(stderr, "input: %zu netstring_deserialize failure: %s\n",
           i, netstring_strerror(ret));
       goto fail;
     }
     if (!cmpteq(i, &inputs[i].expected, &actual)) {
+      goto fail;
+    }
+    if (inputs[i].expected_left != actual_left) {
+      fprintf(stderr, "input: %zu expected_left: %zu actual_left: %zu\n",
+          i, inputs[i].expected_left, actual_left);
       goto fail;
     }
     buf_clear(&buf);

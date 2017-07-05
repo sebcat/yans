@@ -2,8 +2,11 @@
 *.log
 *.trs
 *.a
+*.lo
+*.la
 autom4te.cache/
 .deps/
+.libs/
 .dirstamp
 Makefile
 Makefile.in
@@ -12,3 +15,5 @@ config.status
 libtool
 /yans
 /ethd
+/libycl.la
+/ping

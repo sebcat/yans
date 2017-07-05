@@ -34,6 +34,11 @@ bin_PROGRAMS = \
     ethd \
     ping
 
+lib_LTLIBRARIES = libycl.la
+
+pkginclude_HEADERS = \
+    lib/ycl/ycl.h
+
 ethd_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
@@ -84,6 +89,17 @@ ping_SOURCES = \
 
 ping_LDADD = \
     $(PCAPLIB)
+
+libycl_la_SOURCES = \
+    lib/util/buf.c \
+    lib/util/io.c \
+    lib/ycl/ycl.c
+
+libycl_la_CFLAGS = $(AM_CFLAGS)
+
+libycl_la_LDFLAGS = \
+    -version-info 1:0:0 \
+    -fvisibility=hidden
 
 lib_util_netstring_test_SOURCES = \
     lib/util/netstring.c \

@@ -27,7 +27,8 @@ static bool teq(struct myconf *expected, struct myconf *actual) {
     return false;
   } else if (expected->str_val != NULL && actual->str_val == NULL) {
     return false;
-  } else if (strcmp(expected->str_val, actual->str_val) != 0) {
+  } else if (expected->str_val && actual->str_val &&
+      strcmp(expected->str_val, actual->str_val) != 0) {
     return false;
   }
 
@@ -39,7 +40,8 @@ static bool teq(struct myconf *expected, struct myconf *actual) {
     return false;
   } else if (expected->another_str != NULL && actual->another_str == NULL) {
     return false;
-  } else if (strcmp(expected->another_str, actual->another_str) != 0) {
+  } else if (expected->another_str && actual->another_str &&
+      strcmp(expected->another_str, actual->another_str) != 0) {
     return false;
   }
 

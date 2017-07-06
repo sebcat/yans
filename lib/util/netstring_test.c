@@ -17,7 +17,7 @@ int test_parse() {
   size_t j;
   int ret;
   int status = EXIT_SUCCESS;
-  struct {
+  static struct {
     const char *in;
     char *expected_strs[MAX_EXPECTED];
     int expected_rets[MAX_EXPECTED];
@@ -144,7 +144,7 @@ int test_next_pair() {
   char *duped = NULL;
   char *data;
   size_t datalen;
-  struct {
+  static struct {
     char *data;
     size_t npairs;
     struct netstring_pair pairs[MAX_TEST_PAIRS];
@@ -260,7 +260,8 @@ static bool cmpteq(size_t i, struct t *expected, struct t *actual) {
   } else if (expected->foo != NULL && actual->foo == NULL) {
     fprintf(stderr, "foo input: %zu expected NULL, was non-NULL\n", i);
     return false;
-  } else if (strcmp(expected->foo, actual->foo) != 0) {
+  } else if (expected->foo && actual->foo &&
+      strcmp(expected->foo, actual->foo) != 0) {
     fprintf(stderr, "foo input: %zu expected \"%s\" was \"%s\"\n",
       i, expected->foo, actual->foo);
     return false;
@@ -272,7 +273,8 @@ static bool cmpteq(size_t i, struct t *expected, struct t *actual) {
   } else if (expected->bar != NULL && actual->bar == NULL) {
     fprintf(stderr, "bar input: %zu expected NULL, was non-NULL\n", i);
     return false;
-  } else if (strcmp(expected->bar, actual->bar) != 0) {
+  } else if (expected->bar && actual->bar &&
+      strcmp(expected->bar, actual->bar) != 0) {
     fprintf(stderr, "bar input: %zu expected \"%s\" was \"%s\"\n",
       i, expected->bar, actual->bar);
     return false;
@@ -284,7 +286,8 @@ static bool cmpteq(size_t i, struct t *expected, struct t *actual) {
   } else if (expected->baz != NULL && actual->baz == NULL) {
     fprintf(stderr, "baz input: %zu expected NULL, was non-NULL\n", i);
     return false;
-  } else if (strcmp(expected->baz, actual->baz) != 0) {
+  } else if (expected->baz && actual->baz &&
+      strcmp(expected->baz, actual->baz) != 0) {
     fprintf(stderr, "baz input: %zu expected \"%s\" was \"%s\"\n",
       i, expected->baz, actual->baz);
     return false;
@@ -297,7 +300,7 @@ int test_serialize() {
   size_t i;
   int ret;
   buf_t buf;
-  struct {
+  static struct {
     struct t data;
     const char *expected;
   } inputs[] = {
@@ -422,7 +425,7 @@ int test_deserialize() {
   buf_t buf;
   struct t actual;
   size_t actual_left;
-  struct {
+  static struct {
     const char *data;
     struct t expected;
     size_t expected_left;
@@ -512,6 +515,7 @@ int test_deserialize() {
           i, netstring_strerror(ret));
       goto fail;
     }
+    fprintf(stderr, "%p %p\n", inputs[i].expected.foo, actual.foo);
     if (!cmpteq(i, &inputs[i].expected, &actual)) {
       goto fail;
     }
@@ -532,7 +536,7 @@ fail:
 
 int main() {
   size_t i;
-  struct {
+  static struct {
     char *name;
     int (*callback)(void);
   } tests[] = {

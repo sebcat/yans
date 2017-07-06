@@ -5,7 +5,7 @@ endif
 SUBDIRS = $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror
+AM_CFLAGS = -Wall -Werror -fvisibility=hidden
 
 TESTS = \
     lib_net_url_test \
@@ -93,6 +93,7 @@ ping_LDADD = \
 libycl_la_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
+    lib/util/netstring.c \
     lib/ycl/ycl.c
 
 libycl_la_CFLAGS = $(AM_CFLAGS)

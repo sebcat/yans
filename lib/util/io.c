@@ -258,6 +258,11 @@ int io_sendfd(io_t *io, int fd) {
     ret = sendmsg(io->fd, &mhdr, MSG_NOSIGNAL);
   } while (ret < 0 && errno == EINTR);
   if (ret < 0) {
+    if (errno == EAGAIN ||
+        errno == EWOULDBLOCK ||
+        errno == EINPROGRESS) {
+      return IO_AGAIN;
+    }
     IO_PERROR(io, "sendmsg");
     return IO_ERR;
   }
@@ -286,6 +291,11 @@ int io_recvfd(io_t *io, int *out) {
     ret = recvmsg(io->fd, &mhdr, MSG_NOSIGNAL);
   } while (ret < 0 && errno == EINTR);
   if (ret < 0) {
+    if (errno == EAGAIN ||
+        errno == EWOULDBLOCK ||
+        errno == EINPROGRESS) {
+      return IO_AGAIN;
+    }
     IO_PERROR(io, "recvmsg");
     return IO_ERR;
   }

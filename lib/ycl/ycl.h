@@ -42,6 +42,9 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
     const char *filter);
 int ycl_msg_create_pcap_close(struct ycl_msg *msg);
 
+int ycl_msg_create_ethframe_req(struct ycl_msg *msg, const char *iface,
+    size_t nframes, const char **frames, size_t *frameslen);
+
 int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,
     const char **errmsg);
 

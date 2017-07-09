@@ -7,6 +7,7 @@
 #include <lib/util/netstring.h>
 
 #include <proto/pcap_req.h>
+#include <proto/ethframe_req.h>
 #include <proto/status_resp.h>
 
 #include <lib/ycl/ycl.h>
@@ -187,6 +188,36 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
   return YCL_OK;
 }
 
+int ycl_msg_create_ethframe_req(struct ycl_msg *msg, const char *iface,
+    size_t nframes, const char **frames, size_t *frameslen) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  struct p_ethframe_req req = {0};
+  int ret;
+  buf_t tmpbuf;
+
+  if (buf_init(&tmpbuf, 2048) == NULL) {
+    return YCL_ERR;
+  } else if (netstring_append_list(&tmpbuf, nframes, frames, frameslen) !=
+      NETSTRING_OK) {
+    return YCL_ERR;
+  }
+
+  req.frames = tmpbuf.data;
+  req.frameslen = tmpbuf.len;
+  if (iface != NULL) {
+    req.iface = iface;
+    req.ifacelen = strlen(iface);
+  }
+
+  ycl_msg_reset(msg);
+  ret = p_ethframe_req_serialize(&req, &m->buf);
+  buf_cleanup(&tmpbuf);
+  if (ret != PROTO_OK) {
+    return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
 
 int ycl_msg_create_pcap_close(struct ycl_msg *msg) {
   struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);

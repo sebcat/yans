@@ -6,6 +6,9 @@
 #include <lib/util/io.h>
 #include <lib/util/netstring.h>
 
+#include <proto/pcap_req.h>
+#include <proto/status_resp.h>
+
 #include <lib/ycl/ycl.h>
 
 #define SETERR(ycl, ...) \
@@ -70,6 +73,10 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   size_t left;
   ssize_t ret;
 
+  /* this function is written with re-entrancy for non-blocking I/O in mind
+   * , where msg holds the message state. ycl_msg_reset should be called
+   * on an init-ed message before each new message passed to this function */
+
   left = m->buf.len - m->off;
   data = m->buf.data + m->off;
   while (left > 0) {
@@ -98,6 +105,10 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   io_t io;
   int ret;
 
+  /* this function is written with re-entrancy for non-blocking I/O in mind
+   * , where msg holds the message state. ycl_msg_reset should be called
+   * on an init-ed message before each new message passed to this function */
+
   IO_INIT(&io, ycl->fd);
   while (m->buf.len == 0 ||
       (ret = netstring_tryparse(m->buf.data, m->buf.len)) ==
@@ -114,6 +125,94 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   if (ret != NETSTRING_OK) {
     SETERR(ycl, "message parse error: %s", netstring_strerror(ret));
     return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
+
+int ycl_sendfd(struct ycl_ctx *ycl, int fd) {
+  io_t io;
+  int ret;
+
+  IO_INIT(&io, ycl->fd);
+  ret = io_sendfd(&io, fd);
+  if (ret != IO_OK) {
+    SETERR(ycl, "%s", io_strerror(&io));
+    return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
+
+int ycl_msg_init(struct ycl_msg *msg) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  if (buf_init(&m->buf, 1024) == NULL) {
+    return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
+
+void ycl_msg_reset(struct ycl_msg *msg) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  buf_clear(&m->buf);
+  m->off = 0;
+}
+
+void ycl_msg_cleanup(struct ycl_msg *msg) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  buf_cleanup(&m->buf);
+}
+
+int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
+    const char *filter) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  struct p_pcap_req req = {0};
+
+  if (iface != NULL) {
+    req.iface = iface;
+    req.ifacelen = strlen(iface);
+  }
+
+  if (filter != NULL) {
+    req.filter = filter;
+    req.filterlen = strlen(filter);
+  }
+
+  ycl_msg_reset(msg);
+  if (p_pcap_req_serialize(&req, &m->buf) != PROTO_OK) {
+    return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
+
+
+int ycl_msg_create_pcap_close(struct ycl_msg *msg) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  ycl_msg_reset(msg);
+  if (buf_adata(&m->buf, "0:,", 3) < 0) {
+    return YCL_ERR;
+  }
+  return YCL_OK;
+}
+
+int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,
+    const char **errmsg) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  struct p_status_resp resp = {0};
+
+  if (p_status_resp_deserialize(&resp, m->buf.data, m->buf.len, NULL) !=
+      PROTO_OK) {
+    return YCL_ERR;
+  }
+
+  if (okmsg != NULL) {
+    *okmsg = resp.okmsg;
+  }
+
+  if (errmsg != NULL) {
+    *errmsg = resp.errmsg;
   }
 
   return YCL_OK;

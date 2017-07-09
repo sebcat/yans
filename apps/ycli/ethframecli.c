@@ -114,10 +114,11 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
   static const struct option ps[] = {
     {"iface", required_argument, NULL, 'i'},
     {"sock", required_argument, NULL, 's'},
+    {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
 
-  while ((ch = getopt_long(argc, argv, "i:s:", ps, NULL)) != -1) {
+  while ((ch = getopt_long(argc, argv, "i:s:h", ps, NULL)) != -1) {
     switch(ch) {
     case 'i':
       opts->iface = optarg;
@@ -125,17 +126,15 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
     case 's':
       opts->sock = optarg;
       break;
+    case 'h':
     default:
-      fprintf(stderr, "usage: [-s|--sock <sock>] -i|--iface <iface>"
-        " <frame0> ... <frameN>\n"
-        "frames must be hex encoded\n");
-      return -1;
+      goto usage;
     }
   }
 
   if (opts->iface == NULL) {
     fprintf(stderr, "no iface set\n");
-    return -1;
+    goto usage;
   }
 
   if (opts->sock == NULL) {
@@ -148,6 +147,11 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
   }
 
   return 0;
+usage:
+  fprintf(stderr, "usage: [-s|--sock <sock>] -i|--iface <iface>"
+    " <frame0> ... <frameN>\n"
+    "frames must be hex encoded\n");
+  return -1;
 }
 
 static int ethframecli_run(struct ethframe_opts *opts) {

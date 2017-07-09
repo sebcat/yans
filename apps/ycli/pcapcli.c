@@ -28,10 +28,11 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
     {"filter", required_argument, NULL, 'f'},
     {"output", required_argument, NULL, 'o'},
     {"sock", required_argument, NULL, 's'},
+    {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
 
-  while ((ch = getopt_long(argc, argv, "i:f:o:s:", opts, NULL)) != -1) {
+  while ((ch = getopt_long(argc, argv, "i:f:o:s:h", opts, NULL)) != -1) {
     switch(ch) {
     case 'i':
       res->iface = optarg;
@@ -45,21 +46,20 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
     case 's':
       res->sock = optarg;
       break;
+    case 'h':
     default:
-      fprintf(stderr, "usage: pcap --iface|-i <iface> --filter|-f <filter> "
-          "--output|-o <path>");
-      return -1;
+      goto usage;
     }
   }
 
   if (res->iface == NULL) {
     fprintf(stderr, "no iface specified\n");
-    return -1;
+    goto usage;
   }
 
   if (res->output == NULL) {
     fprintf(stderr, "no output specified\n");
-    return -1;
+    goto usage;
   }
 
   if (res->sock == NULL) {
@@ -67,6 +67,11 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
   }
 
   return 0;
+
+usage:
+  fprintf(stderr, "usage: pcap --iface|-i <iface> --filter|-f <filter> "
+      "--output|-o <path>\n");
+  return -1;
 }
 
 static volatile sig_atomic_t got_shutdown_sig = 0;

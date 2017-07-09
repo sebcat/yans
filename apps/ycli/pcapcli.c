@@ -10,6 +10,8 @@
 
 #include <lib/ycl/ycl.h>
 
+#include <apps/ycli/pcapcli.h>
+
 #define DEFAULT_SOCK "/var/ethd/pcap.sock"
 
 struct pcapcli_opts {

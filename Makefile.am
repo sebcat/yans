@@ -90,7 +90,8 @@ ping_SOURCES = \
 
 ycli_SOURCES = \
     apps/ycli/ycli.c \
-    apps/ycli/pcapcli.c
+    apps/ycli/pcapcli.c \
+    apps/ycli/ethframecli.c
 
 ycli_LDADD = \
     libycl.la

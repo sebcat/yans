@@ -213,7 +213,8 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_ycli_OBJECTS = apps/ycli/ycli.$(OBJEXT) apps/ycli/pcapcli.$(OBJEXT)
+am_ycli_OBJECTS = apps/ycli/ycli.$(OBJEXT) apps/ycli/pcapcli.$(OBJEXT) \
+	apps/ycli/ethframecli.$(OBJEXT)
 ycli_OBJECTS = $(am_ycli_OBJECTS)
 ycli_DEPENDENCIES = libycl.la
 AM_V_P = $(am__v_P_@AM_V@)
@@ -706,7 +707,8 @@ ping_SOURCES = \
 
 ycli_SOURCES = \
     apps/ycli/ycli.c \
-    apps/ycli/pcapcli.c
+    apps/ycli/pcapcli.c \
+    apps/ycli/ethframecli.c
 
 ycli_LDADD = \
     libycl.la
@@ -1073,6 +1075,8 @@ apps/ycli/ycli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/pcapcli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
+apps/ycli/ethframecli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
+	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 
 ycli$(EXEEXT): $(ycli_OBJECTS) $(ycli_DEPENDENCIES) $(EXTRA_ycli_DEPENDENCIES) 
 	@rm -f ycli$(EXEEXT)
@@ -1105,6 +1109,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ethframecli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@

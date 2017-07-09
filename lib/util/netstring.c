@@ -92,7 +92,6 @@ int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen) {
   return ret;
 }
 
-
 int netstring_append_buf(buf_t *buf, const char *str, size_t len) {
   char szbuf[32];
   int ret;
@@ -123,6 +122,26 @@ int netstring_append_buf(buf_t *buf, const char *str, size_t len) {
 fail:
   buf->len = oldlen;
   return failcode;
+}
+
+int netstring_append_list(buf_t *buf, size_t nelems, const char **elems,
+    size_t *lens) {
+  size_t i;
+  size_t oldlen;
+  int ret;
+
+  oldlen = buf->len;
+  for (i = 0; i < nelems; i++) {
+    ret = netstring_append_buf(buf, elems[i], lens[i]);
+    if (ret != NETSTRING_OK) {
+      goto fail;
+    }
+  }
+
+  return NETSTRING_OK;
+fail:
+  buf->len = oldlen;
+  return ret;
 }
 
 int netstring_append_pair(buf_t *buf, const char *str0, size_t len0,

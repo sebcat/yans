@@ -99,7 +99,7 @@ check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_net_punycode_test$(EXEEXT) lib_net_ethframe_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
 	lib_util_conf_test$(EXEEXT) yans$(EXEEXT)
-bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ping$(EXEEXT)
+bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ping$(EXEEXT) ycli$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -149,7 +149,8 @@ libycl_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libycl_la_OBJECTS = lib/util/libycl_la-buf.lo \
 	lib/util/libycl_la-io.lo lib/util/libycl_la-netstring.lo \
-	lib/ycl/libycl_la-ycl.lo
+	proto/libycl_la-pcap_req.lo proto/libycl_la-ethframe_req.lo \
+	proto/libycl_la-status_resp.lo lib/ycl/libycl_la-ycl.lo
 libycl_la_OBJECTS = $(am_libycl_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -212,6 +213,9 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am_ycli_OBJECTS = apps/ycli/ycli.$(OBJEXT) apps/ycli/pcapcli.$(OBJEXT)
+ycli_OBJECTS = $(am_ycli_OBJECTS)
+ycli_DEPENDENCIES = libycl.la
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -251,13 +255,13 @@ SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(ping_SOURCES) $(yans_SOURCES)
+	$(ping_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
 DIST_SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) \
 	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_u8_test_SOURCES) \
-	$(ping_SOURCES) $(yans_SOURCES)
+	$(ping_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -700,6 +704,13 @@ ping_SOURCES = \
     lib/net/ethframe.c \
     apps/ping/ping.c
 
+ycli_SOURCES = \
+    apps/ycli/ycli.c \
+    apps/ycli/pcapcli.c
+
+ycli_LDADD = \
+    libycl.la
+
 ping_LDADD = \
     $(PCAPLIB)
 
@@ -707,6 +718,9 @@ libycl_la_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
     lib/util/netstring.c \
+    proto/pcap_req.c \
+    proto/ethframe_req.c \
+    proto/status_resp.c \
     lib/ycl/ycl.c
 
 libycl_la_CFLAGS = $(AM_CFLAGS)
@@ -828,6 +842,18 @@ lib/util/libycl_la-io.lo: lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/libycl_la-netstring.lo: lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+proto/$(am__dirstamp):
+	@$(MKDIR_P) proto
+	@: > proto/$(am__dirstamp)
+proto/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) proto/$(DEPDIR)
+	@: > proto/$(DEPDIR)/$(am__dirstamp)
+proto/libycl_la-pcap_req.lo: proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
+proto/libycl_la-ethframe_req.lo: proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
+proto/libycl_la-status_resp.lo: proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
 lib/ycl/$(am__dirstamp):
 	@$(MKDIR_P) lib/ycl
 	@: > lib/ycl/$(am__dirstamp)
@@ -917,12 +943,6 @@ lib/net/$(DEPDIR)/$(am__dirstamp):
 	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
-proto/$(am__dirstamp):
-	@$(MKDIR_P) proto
-	@: > proto/$(am__dirstamp)
-proto/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) proto/$(DEPDIR)
-	@: > proto/$(DEPDIR)/$(am__dirstamp)
 proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
@@ -1043,6 +1063,20 @@ apps/yans/yans.$(OBJEXT): apps/yans/$(am__dirstamp) \
 yans$(EXEEXT): $(yans_OBJECTS) $(yans_DEPENDENCIES) $(EXTRA_yans_DEPENDENCIES) 
 	@rm -f yans$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(yans_OBJECTS) $(yans_LDADD) $(LIBS)
+apps/ycli/$(am__dirstamp):
+	@$(MKDIR_P) apps/ycli
+	@: > apps/ycli/$(am__dirstamp)
+apps/ycli/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) apps/ycli/$(DEPDIR)
+	@: > apps/ycli/$(DEPDIR)/$(am__dirstamp)
+apps/ycli/ycli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
+	apps/ycli/$(DEPDIR)/$(am__dirstamp)
+apps/ycli/pcapcli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
+	apps/ycli/$(DEPDIR)/$(am__dirstamp)
+
+ycli$(EXEEXT): $(ycli_OBJECTS) $(ycli_DEPENDENCIES) $(EXTRA_ycli_DEPENDENCIES) 
+	@rm -f ycli$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ycli_OBJECTS) $(ycli_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -1050,6 +1084,7 @@ mostlyclean-compile:
 	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/ping/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
+	-rm -f apps/ycli/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
 	-rm -f lib/net/*.$(OBJEXT)
 	-rm -f lib/util/*.$(OBJEXT)
@@ -1057,6 +1092,7 @@ mostlyclean-compile:
 	-rm -f lib/ycl/*.$(OBJEXT)
 	-rm -f lib/ycl/*.lo
 	-rm -f proto/*.$(OBJEXT)
+	-rm -f proto/*.lo
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1069,6 +1105,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
@@ -1097,6 +1135,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/ycl/$(DEPDIR)/libycl_la-ycl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/ethframe_req.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-ethframe_req.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-pcap_req.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-status_resp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/status_resp.Po@am__quote@
 
@@ -1145,6 +1186,27 @@ lib/util/libycl_la-netstring.lo: lib/util/netstring.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/util/libycl_la-netstring.lo `test -f 'lib/util/netstring.c' || echo '$(srcdir)/'`lib/util/netstring.c
 
+proto/libycl_la-pcap_req.lo: proto/pcap_req.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-pcap_req.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-pcap_req.Tpo -c -o proto/libycl_la-pcap_req.lo `test -f 'proto/pcap_req.c' || echo '$(srcdir)/'`proto/pcap_req.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-pcap_req.Tpo proto/$(DEPDIR)/libycl_la-pcap_req.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/pcap_req.c' object='proto/libycl_la-pcap_req.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-pcap_req.lo `test -f 'proto/pcap_req.c' || echo '$(srcdir)/'`proto/pcap_req.c
+
+proto/libycl_la-ethframe_req.lo: proto/ethframe_req.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-ethframe_req.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-ethframe_req.Tpo -c -o proto/libycl_la-ethframe_req.lo `test -f 'proto/ethframe_req.c' || echo '$(srcdir)/'`proto/ethframe_req.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-ethframe_req.Tpo proto/$(DEPDIR)/libycl_la-ethframe_req.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/ethframe_req.c' object='proto/libycl_la-ethframe_req.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-ethframe_req.lo `test -f 'proto/ethframe_req.c' || echo '$(srcdir)/'`proto/ethframe_req.c
+
+proto/libycl_la-status_resp.lo: proto/status_resp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-status_resp.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-status_resp.Tpo -c -o proto/libycl_la-status_resp.lo `test -f 'proto/status_resp.c' || echo '$(srcdir)/'`proto/status_resp.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-status_resp.Tpo proto/$(DEPDIR)/libycl_la-status_resp.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/status_resp.c' object='proto/libycl_la-status_resp.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-status_resp.lo `test -f 'proto/status_resp.c' || echo '$(srcdir)/'`proto/status_resp.c
+
 lib/ycl/libycl_la-ycl.lo: lib/ycl/ycl.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/ycl/libycl_la-ycl.lo -MD -MP -MF lib/ycl/$(DEPDIR)/libycl_la-ycl.Tpo -c -o lib/ycl/libycl_la-ycl.lo `test -f 'lib/ycl/ycl.c' || echo '$(srcdir)/'`lib/ycl/ycl.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/ycl/$(DEPDIR)/libycl_la-ycl.Tpo lib/ycl/$(DEPDIR)/libycl_la-ycl.Plo
@@ -1159,6 +1221,7 @@ clean-libtool:
 	-rm -rf .libs _libs
 	-rm -rf lib/util/.libs lib/util/_libs
 	-rm -rf lib/ycl/.libs lib/ycl/_libs
+	-rm -rf proto/.libs proto/_libs
 
 distclean-libtool:
 	-rm -f libtool config.lt
@@ -1725,6 +1788,8 @@ distclean-generic:
 	-rm -f apps/ping/$(am__dirstamp)
 	-rm -f apps/yans/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/yans/$(am__dirstamp)
+	-rm -f apps/ycli/$(DEPDIR)/$(am__dirstamp)
+	-rm -f apps/ycli/$(am__dirstamp)
 	-rm -f lib/lua/$(DEPDIR)/$(am__dirstamp)
 	-rm -f lib/lua/$(am__dirstamp)
 	-rm -f lib/net/$(DEPDIR)/$(am__dirstamp)
@@ -1746,7 +1811,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -1794,7 +1859,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

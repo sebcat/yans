@@ -32,7 +32,8 @@ check_PROGRAMS = \
 bin_PROGRAMS = \
     yans \
     ethd \
-    ping
+    ping \
+    ycli
 
 lib_LTLIBRARIES = libycl.la
 
@@ -87,6 +88,13 @@ ping_SOURCES = \
     lib/net/ethframe.c \
     apps/ping/ping.c
 
+ycli_SOURCES = \
+    apps/ycli/ycli.c \
+    apps/ycli/pcapcli.c
+
+ycli_LDADD = \
+    libycl.la
+
 ping_LDADD = \
     $(PCAPLIB)
 
@@ -94,6 +102,9 @@ libycl_la_SOURCES = \
     lib/util/buf.c \
     lib/util/io.c \
     lib/util/netstring.c \
+    proto/pcap_req.c \
+    proto/ethframe_req.c \
+    proto/status_resp.c \
     lib/ycl/ycl.c
 
 libycl_la_CFLAGS = $(AM_CFLAGS)

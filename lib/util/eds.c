@@ -156,6 +156,12 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
   int j;
   int fd;
 
+  /* NB: masking out SIGPIPE may be better if it's handled higher up in the
+         call stack, but it's done here so that we always get a consistent
+         behavior for eds. It could be a setting in the eds_service struct if
+         a caller wants to override SIGPIPE behavior */
+  signal(SIGPIPE, SIG_IGN);
+
   /* init listener fields */
   FD_ZERO(&l->rfds);
   FD_ZERO(&l->wfds);
@@ -500,7 +506,6 @@ int eds_serve(struct eds_service *svcs) {
   sigaction(SIGHUP, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
-  signal(SIGPIPE, SIG_IGN);
 
   for(svc = svcs; svc->name != NULL; svc++) {
     if (eds_service_init(svc) < 0) {

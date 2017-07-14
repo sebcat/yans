@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -142,8 +143,60 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
   return ecli;
 }
 
+int eds_client_set_ticker(struct eds_client *cli,
+    void (*ticker)(struct eds_client *)) {
+  struct eds_service_listener *l = &EDS_SERVICE_LISTENER(cli->svc);
+
+  if (cli->svc->tick_slice_us == 0) {
+    EDS_SERVE_ERR(cli->svc, "%s: fd %d: ticker set with zero tick_slice_us",
+        cli->svc->name, eds_client_get_fd(cli));
+    return -1;
+  }
+
+  if (cli->ticker == NULL && ticker != NULL) {
+    /* adding a new ticker */
+    l->ntickers++;
+  } else if (cli->ticker != NULL && ticker == NULL) {
+    /* clearing an existing ticker */
+    l->ntickers--;
+  }
+
+  cli->ticker = ticker;
+  return 0;
+}
+
 void eds_service_stop(struct eds_service *svc) {
   svc->flags |= EDS_SERVICE_STOPPED;
+}
+
+/* returns the delta, in microseconds, between to timespecs */
+static long timespec_delta_us(struct timespec *start, struct timespec *end) {
+  struct timespec tmp;
+
+  if (end->tv_nsec < start->tv_nsec) {
+    tmp.tv_sec = end->tv_sec - start->tv_sec - 1;
+    tmp.tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+  } else {
+    tmp.tv_sec = end->tv_sec - start->tv_sec;
+    tmp.tv_nsec = end->tv_nsec - start->tv_nsec;
+  }
+
+  return tmp.tv_sec*1000000 + tmp.tv_nsec/1000;
+}
+
+static void run_tickers(struct eds_service *svc,
+    struct eds_service_listener *l) {
+  int ntickers;
+  int i;
+  struct eds_client *cli;
+
+  for (ntickers = l->ntickers, i = 0; ntickers > 0 && i < svc->nfds; i++) {
+    cli = eds_service_client_from_fd(svc, i);
+    if (cli->ticker != NULL) {
+      cli->ticker(cli);
+      ntickers--;
+    }
+  }
 }
 
 static int eds_serve_single_mainloop(struct eds_service *svc) {
@@ -155,6 +208,12 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
   int i;
   int j;
   int fd;
+  struct timeval tv;
+  struct timeval *tvp;
+  struct timespec last;
+  struct timespec now;
+  long expired_us;
+  long left_us;
 
   /* NB: masking out SIGPIPE may be better if it's handled higher up in the
          call stack, but it's done here so that we always get a consistent
@@ -173,8 +232,14 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
     return -1;
   }
 
+  /* add the listening socket to the rfds set */
   FD_SET(svc->cmdfd, &l->rfds);
   l->maxfd = svc->cmdfd;
+
+  /* select timeout is used for tickers. Initially, no tickers exists, so
+   * we initialize the select timeout to NULL (meaning no timeout) */
+  tvp = NULL;
+  clock_gettime(CLOCK_MONOTONIC, &last);
 
 select:
   if (svc->flags & EDS_SERVICE_STOPPED) {
@@ -183,7 +248,7 @@ select:
 
   rfds = l->rfds;
   wfds = l->wfds;
-  num_fds = select(l->maxfd + 1, &rfds, &wfds, NULL, NULL);
+  num_fds = select(l->maxfd + 1, &rfds, &wfds, NULL, tvp);
   if (num_fds < 0) {
     if (errno == EINTR) {
       goto select;
@@ -263,6 +328,25 @@ select:
       }
     }
   }
+
+  if (l->ntickers > 0) {
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    expired_us = timespec_delta_us(&last, &now);
+    if (expired_us >= svc->tick_slice_us) {
+      run_tickers(svc, l);
+      last = now;
+      tv.tv_sec = svc->tick_slice_us / 1000000;
+      tv.tv_usec = svc->tick_slice_us % 1000000;
+    } else {
+      left_us = svc->tick_slice_us - expired_us;
+      tv.tv_sec = left_us / 1000000;
+      tv.tv_usec = left_us % 1000000;
+    }
+    tvp = &tv;
+  } else {
+    tvp = NULL; /* no tickers, set select timeout to NULL */
+  }
+
   goto select;
 }
 
@@ -273,6 +357,11 @@ void eds_service_remove_client(struct eds_service *svc,
 
   if (cli->actions.on_done != NULL) {
     cli->actions.on_done(cli, fd);
+  }
+
+  if (cli->ticker != NULL) {
+    l->ntickers--;
+    cli->ticker = NULL;
   }
 
   if (!(cli->flags & EDS_CLIENT_FEXTERNALFD)) {

@@ -39,6 +39,9 @@ struct eds_client {
   const char *wrdata;
   size_t wrdatalen;
 
+  /* ticker (if any) */
+  void (*ticker)(struct eds_client *);
+
   char udata[]; /* service-specific user data, initialized to zero */
 };
 
@@ -49,10 +52,11 @@ struct eds_service_supervisor {
 
 /* --- internal type representing a service process */
 struct eds_service_listener {
-  int maxfd;   /* highest file descriptor */
-  fd_set rfds; /* readable file descriptor set */
-  fd_set wfds; /* writable file descriptor set */
-  void *cdata; /* array of struct eds_client w/ udata of udata_size */
+  int ntickers; /* number of currently set tickers */
+  int maxfd;    /* highest file descriptor */
+  fd_set rfds;  /* readable file descriptor set */
+  fd_set wfds;  /* writable file descriptor set */
+  void *cdata;  /* array of struct eds_client w/ udata of udata_size */
 };
 
 struct eds_service {
@@ -63,6 +67,7 @@ struct eds_service {
   struct eds_client_actions actions; /* initial client actions */
   unsigned int nprocs; /* number of processes for handling clients */
   unsigned int nfds; /* number of fds in the client fd set */
+  unsigned int tick_slice_us; /* tick time slice, in microseconds */
   /* callback called on service error with string describing the error */
   void (*on_svc_error)(struct eds_service *svc, const char *err);
 
@@ -119,6 +124,9 @@ static inline void eds_client_clear_actions(struct eds_client *cli) {
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
     struct eds_client_actions *acts, void *udata, size_t udata_size);
+
+int eds_client_set_ticker(struct eds_client *cli,
+    void (*ticker)(struct eds_client *));
 
 void eds_service_remove_client(struct eds_service *svc,
     struct eds_client *cli);

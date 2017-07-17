@@ -19,6 +19,11 @@ struct ycl_msg {
   char idata[YCL_IDATASIZ];
 }; /* TODO: Align? */
 
+struct ycl_msg_sweeper_req {
+  char *arp;
+  char *addrs;
+};
+
 /* accessor macros for struct ycl_ctx, use these instead of accessing the
  * fields directly */
 #define ycl_fd(ycl) \
@@ -44,6 +49,9 @@ int ycl_msg_create_pcap_close(struct ycl_msg *msg);
 
 int ycl_msg_create_ethframe_req(struct ycl_msg *msg, const char *iface,
     size_t nframes, const char **frames, size_t *frameslen);
+
+int ycl_msg_create_sweeper_req(struct ycl_msg *msg,
+    struct ycl_msg_sweeper_req *args);
 
 int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,
     const char **errmsg);

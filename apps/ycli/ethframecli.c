@@ -200,7 +200,6 @@ fail:
   ycl_msg_cleanup(&msg);
   ycl_close(&ycl);
   return -1;
-  return -1;
 }
 
 int ethframecli_main(int argc, char *argv[]) {

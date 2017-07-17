@@ -16,6 +16,7 @@
 
 #include <apps/ethd/pcap.h>
 #include <apps/ethd/ethframe.h>
+#include <apps/ethd/sweeper.h>
 
 #define DAEMON_NAME       "ethd"
 
@@ -222,6 +223,18 @@ int main(int argc, char *argv[]) {
       .actions = {
         .on_readable = ethframe_on_readable,
         .on_done = ethframe_on_done,
+      },
+      .nprocs = 1,
+      .nfds = 256,
+      .on_svc_error = on_svc_error,
+    },
+    {
+      .name = "sweeper",
+      .path = "sweeper.sock",
+      .udata_size = sizeof(struct sweeper_client),
+      .actions = {
+        .on_readable = sweeper_on_readable,
+        .on_done = sweeper_on_done,
       },
       .nprocs = 1,
       .nfds = 256,

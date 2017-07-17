@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <apps/ycli/pcapcli.h>
+#include <apps/ycli/sweepercli.h>
 #include <apps/ycli/ethframecli.h>
 
 int main(int argc, char *argv[]) {
@@ -15,6 +16,7 @@ int main(int argc, char *argv[]) {
   } cmds[] = {
     {"pcap", pcapcli_main},
     {"ethframe", ethframecli_main},
+    {"sweeper", sweepercli_main},
     {0},
   };
 

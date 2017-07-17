@@ -150,7 +150,8 @@ am__dirstamp = $(am__leading_dot)dirstamp
 am_libycl_la_OBJECTS = lib/util/libycl_la-buf.lo \
 	lib/util/libycl_la-io.lo lib/util/libycl_la-netstring.lo \
 	proto/libycl_la-pcap_req.lo proto/libycl_la-ethframe_req.lo \
-	proto/libycl_la-status_resp.lo lib/ycl/libycl_la-ycl.lo
+	proto/libycl_la-sweeper_req.lo proto/libycl_la-status_resp.lo \
+	lib/ycl/libycl_la-ycl.lo
 libycl_la_OBJECTS = $(am_libycl_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -164,8 +165,9 @@ am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/ethframe_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
-	apps/ethd/pcap.$(OBJEXT) apps/ethd/ethframe.$(OBJEXT) \
+	proto/ethframe_req.$(OBJEXT) proto/sweeper_req.$(OBJEXT) \
+	proto/status_resp.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
+	apps/ethd/ethframe.$(OBJEXT) apps/ethd/sweeper.$(OBJEXT) \
 	apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -214,7 +216,7 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_ycli_OBJECTS = apps/ycli/ycli.$(OBJEXT) apps/ycli/pcapcli.$(OBJEXT) \
-	apps/ycli/ethframecli.$(OBJEXT)
+	apps/ycli/ethframecli.$(OBJEXT) apps/ycli/sweepercli.$(OBJEXT)
 ycli_OBJECTS = $(am_ycli_OBJECTS)
 ycli_DEPENDENCIES = libycl.la
 AM_V_P = $(am__v_P_@AM_V@)
@@ -667,9 +669,11 @@ ethd_SOURCES = \
     lib/net/eth.c \
     proto/pcap_req.c \
     proto/ethframe_req.c \
+    proto/sweeper_req.c \
     proto/status_resp.c \
     apps/ethd/pcap.c \
     apps/ethd/ethframe.c \
+    apps/ethd/sweeper.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -708,7 +712,8 @@ ping_SOURCES = \
 ycli_SOURCES = \
     apps/ycli/ycli.c \
     apps/ycli/pcapcli.c \
-    apps/ycli/ethframecli.c
+    apps/ycli/ethframecli.c \
+    apps/ycli/sweepercli.c
 
 ycli_LDADD = \
     libycl.la
@@ -722,6 +727,7 @@ libycl_la_SOURCES = \
     lib/util/netstring.c \
     proto/pcap_req.c \
     proto/ethframe_req.c \
+    proto/sweeper_req.c \
     proto/status_resp.c \
     lib/ycl/ycl.c
 
@@ -854,6 +860,8 @@ proto/libycl_la-pcap_req.lo: proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/libycl_la-ethframe_req.lo: proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
+proto/libycl_la-sweeper_req.lo: proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
 proto/libycl_la-status_resp.lo: proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 lib/ycl/$(am__dirstamp):
@@ -949,6 +957,8 @@ proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
+proto/sweeper_req.$(OBJEXT): proto/$(am__dirstamp) \
+	proto/$(DEPDIR)/$(am__dirstamp)
 proto/status_resp.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/$(am__dirstamp):
@@ -960,6 +970,8 @@ apps/ethd/$(DEPDIR)/$(am__dirstamp):
 apps/ethd/pcap.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/ethframe.$(OBJEXT): apps/ethd/$(am__dirstamp) \
+	apps/ethd/$(DEPDIR)/$(am__dirstamp)
+apps/ethd/sweeper.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/main.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
@@ -1077,6 +1089,8 @@ apps/ycli/pcapcli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/ethframecli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
+apps/ycli/sweepercli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
+	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 
 ycli$(EXEEXT): $(ycli_OBJECTS) $(ycli_DEPENDENCIES) $(EXTRA_ycli_DEPENDENCIES) 
 	@rm -f ycli$(EXEEXT)
@@ -1107,10 +1121,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/sweeper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ethframecli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/sweepercli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
@@ -1143,8 +1159,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-ethframe_req.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-pcap_req.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-status_resp.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-sweeper_req.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/status_resp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/sweeper_req.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1204,6 +1222,13 @@ proto/libycl_la-ethframe_req.lo: proto/ethframe_req.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/ethframe_req.c' object='proto/libycl_la-ethframe_req.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-ethframe_req.lo `test -f 'proto/ethframe_req.c' || echo '$(srcdir)/'`proto/ethframe_req.c
+
+proto/libycl_la-sweeper_req.lo: proto/sweeper_req.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-sweeper_req.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-sweeper_req.Tpo -c -o proto/libycl_la-sweeper_req.lo `test -f 'proto/sweeper_req.c' || echo '$(srcdir)/'`proto/sweeper_req.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-sweeper_req.Tpo proto/$(DEPDIR)/libycl_la-sweeper_req.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/sweeper_req.c' object='proto/libycl_la-sweeper_req.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-sweeper_req.lo `test -f 'proto/sweeper_req.c' || echo '$(srcdir)/'`proto/sweeper_req.c
 
 proto/libycl_la-status_resp.lo: proto/status_resp.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-status_resp.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-status_resp.Tpo -c -o proto/libycl_la-status_resp.lo `test -f 'proto/status_resp.c' || echo '$(srcdir)/'`proto/status_resp.c

@@ -50,9 +50,11 @@ ethd_SOURCES = \
     lib/net/eth.c \
     proto/pcap_req.c \
     proto/ethframe_req.c \
+    proto/sweeper_req.c \
     proto/status_resp.c \
     apps/ethd/pcap.c \
     apps/ethd/ethframe.c \
+    apps/ethd/sweeper.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -91,7 +93,8 @@ ping_SOURCES = \
 ycli_SOURCES = \
     apps/ycli/ycli.c \
     apps/ycli/pcapcli.c \
-    apps/ycli/ethframecli.c
+    apps/ycli/ethframecli.c \
+    apps/ycli/sweepercli.c
 
 ycli_LDADD = \
     libycl.la
@@ -105,6 +108,7 @@ libycl_la_SOURCES = \
     lib/util/netstring.c \
     proto/pcap_req.c \
     proto/ethframe_req.c \
+    proto/sweeper_req.c \
     proto/status_resp.c \
     lib/ycl/ycl.c
 

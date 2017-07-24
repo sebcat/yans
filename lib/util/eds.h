@@ -40,7 +40,7 @@ struct eds_client {
   size_t wrdatalen;
 
   /* ticker (if any) */
-  void (*ticker)(struct eds_client *);
+  void (*ticker)(struct eds_client *, int);
 
   char udata[]; /* service-specific user data, initialized to zero */
 };
@@ -126,7 +126,7 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
     struct eds_client_actions *acts, void *udata, size_t udata_size);
 
 int eds_client_set_ticker(struct eds_client *cli,
-    void (*ticker)(struct eds_client *));
+    void (*ticker)(struct eds_client *, int));
 
 void eds_service_remove_client(struct eds_service *svc,
     struct eds_client *cli);

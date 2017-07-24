@@ -12,6 +12,30 @@
 #define SWEEPER_CLIENT(cli__) \
   ((struct sweeper_client *)((cli__)->udata))
 
+static void on_tick(struct eds_client *cli, int fd) {
+  struct sweeper_client *scli;
+  struct p_status_resp resp = {0};
+  int ret;
+
+  scli = SWEEPER_CLIENT(cli);
+  eds_client_set_ticker(cli, NULL);
+  buf_clear(&scli->buf);
+  resp.okmsg = "done";
+  resp.okmsglen = 4;
+  ret = p_status_resp_serialize(&resp, &scli->buf);
+  if (ret != PROTO_OK) {
+    ylog_error("sweepercli%d: OK response serialization error: %s", fd,
+        proto_strerror(ret));
+    return;
+  }
+  eds_client_send(cli, scli->buf.data, scli->buf.len, NULL);
+
+}
+
+static void on_term(struct eds_client *cli, int fd) {
+  eds_client_clear_actions(cli);
+}
+
 static void on_read_req(struct eds_client *cli, int fd) {
   io_t io;
   int ret;
@@ -56,18 +80,8 @@ static void on_read_req(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  /* TODO: setup ticker */
-
-  buf_clear(&scli->buf);
-  resp.okmsg = "done";
-  resp.okmsglen = 4;
-  ret = p_status_resp_serialize(&resp, &scli->buf);
-  if (ret != PROTO_OK) {
-    ylog_error("sweepercli%d: OK response serialization error: %s", fd,
-        proto_strerror(ret));
-    return;
-  }
-  eds_client_send(cli, scli->buf.data, scli->buf.len, &trans);
+  eds_client_set_ticker(cli, on_tick);
+  eds_client_set_on_readable(cli, on_term);
   return;
 
 fail:

@@ -92,13 +92,25 @@ completed:
     eds_client_set_on_writable(cli, cli->trans.on_writable);
     cli->trans.flags &= ~EDS_TFLWRITE;
   }
+
+  /* remove the client if no actions are registered */
+  if (cli->actions.on_readable == NULL &&
+      cli->actions.on_writable == NULL) {
+    eds_service_remove_client(cli->svc, cli);
+  }
 }
 
 void eds_client_send(struct eds_client *cli, const char *data, size_t len,
     struct eds_transition *next) {
   cli->wrdata = data;
   cli->wrdatalen = len;
-  cli->trans = *next;
+  if (next != NULL) {
+    cli->trans = *next;
+  } else {
+    cli->trans.flags = EDS_TFLREAD | EDS_TFLWRITE;
+    cli->trans.on_readable = NULL;
+    cli->trans.on_writable = NULL;
+  }
   eds_client_set_on_writable(cli, on_eds_client_send);
   on_eds_client_send(cli, eds_client_get_fd(cli));
 }
@@ -144,7 +156,7 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
 }
 
 int eds_client_set_ticker(struct eds_client *cli,
-    void (*ticker)(struct eds_client *)) {
+    void (*ticker)(struct eds_client *, int)) {
   struct eds_service_listener *l = &EDS_SERVICE_LISTENER(cli->svc);
 
   if (cli->svc->tick_slice_us == 0) {
@@ -193,7 +205,7 @@ static void run_tickers(struct eds_service *svc,
   for (ntickers = l->ntickers, i = 0; ntickers > 0 && i < svc->nfds; i++) {
     cli = eds_service_client_from_fd(svc, i);
     if (cli->ticker != NULL) {
-      cli->ticker(cli);
+      cli->ticker(cli, i);
       ntickers--;
     }
   }

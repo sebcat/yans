@@ -238,6 +238,7 @@ int main(int argc, char *argv[]) {
       },
       .nprocs = 1,
       .nfds = 256,
+      .tick_slice_us = 50000,
       .on_svc_error = on_svc_error,
     },
     {0},

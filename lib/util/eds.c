@@ -244,6 +244,14 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
     return -1;
   }
 
+  /* call mod_init, if any. Should be done after udata allocation */
+  if (svc->mod_init != NULL) {
+    if (svc->mod_init(svc) < 0) {
+      EDS_SERVE_ERR(svc, "%s: mod_init failure", svc->name);
+      return -1;
+    }
+  }
+
   /* add the listening socket to the rfds set */
   FD_SET(svc->cmdfd, &l->rfds);
   l->maxfd = svc->cmdfd;
@@ -384,6 +392,7 @@ void eds_service_remove_client(struct eds_service *svc,
   FD_SET(svc->cmdfd, &l->rfds);
 }
 
+/* initializes an eds_service struct. Called pre-fork on eds_serve */
 static int eds_service_init(struct eds_service *svc) {
   io_t io;
 
@@ -413,6 +422,10 @@ static void eds_service_cleanup(struct eds_service *svc) {
   struct eds_client *cli;
   int i;
 
+  /* call mod_fini, if any */
+  if (svc->mod_fini != NULL) {
+    svc->mod_fini(svc);
+  }
 
   /* cleanup connected clients */
   for (i = 0; i < FD_SETSIZE; i++) {

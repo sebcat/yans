@@ -71,6 +71,10 @@ struct eds_service {
   /* callback called on service error with string describing the error */
   void (*on_svc_error)(struct eds_service *svc, const char *err);
 
+  /* init, fini routines, if any. Called once per process  */
+  int (*mod_init)(struct eds_service *svc); /* ret < 0 means failure */
+  void (*mod_fini)(struct eds_service *svc);
+
 
   /* --- fields that should be considered internal to the module --- */
   int cmdfd;

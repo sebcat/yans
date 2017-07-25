@@ -10,6 +10,9 @@ struct ethframe_client {
   buf_t buf;
 };
 
+int ethframe_init(struct eds_service *svc);
+void ethframe_fini(struct eds_service *svc);
+
 void ethframe_on_readable(struct eds_client *cli, int fd);
 void ethframe_on_done(struct eds_client *cli, int fd);
 

@@ -55,6 +55,8 @@ ethd_SOURCES = \
     lib/util/eds.h \
     lib/net/eth.c \
     lib/net/eth.h \
+    lib/net/iface.c \
+    lib/net/iface.h \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \

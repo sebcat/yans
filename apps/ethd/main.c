@@ -220,6 +220,8 @@ int main(int argc, char *argv[]) {
     {
       .name = "ethframe",
       .path = "ethframe.sock",
+      .mod_init = ethframe_init,
+      .mod_fini = ethframe_fini,
       .udata_size = sizeof(struct ethframe_client),
       .actions = {
         .on_readable = ethframe_on_readable,

@@ -164,11 +164,12 @@ PROGRAMS = $(bin_PROGRAMS)
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
-	lib/net/eth.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/ethframe_req.$(OBJEXT) proto/sweeper_req.$(OBJEXT) \
-	proto/status_resp.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
-	apps/ethd/ethframe.$(OBJEXT) apps/ethd/sweeper.$(OBJEXT) \
-	apps/ethd/sender.$(OBJEXT) apps/ethd/main.$(OBJEXT)
+	lib/net/eth.$(OBJEXT) lib/net/iface.$(OBJEXT) \
+	proto/pcap_req.$(OBJEXT) proto/ethframe_req.$(OBJEXT) \
+	proto/sweeper_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
+	apps/ethd/pcap.$(OBJEXT) apps/ethd/ethframe.$(OBJEXT) \
+	apps/ethd/sweeper.$(OBJEXT) apps/ethd/sender.$(OBJEXT) \
+	apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
 ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -675,6 +676,8 @@ ethd_SOURCES = \
     lib/util/eds.h \
     lib/net/eth.c \
     lib/net/eth.h \
+    lib/net/iface.c \
+    lib/net/iface.h \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \
@@ -1018,6 +1021,8 @@ lib/net/$(DEPDIR)/$(am__dirstamp):
 	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/iface.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
@@ -1144,8 +1149,6 @@ apps/yans/yans.$(OBJEXT): apps/yans/$(am__dirstamp) \
 yans$(EXEEXT): $(yans_OBJECTS) $(yans_DEPENDENCIES) $(EXTRA_yans_DEPENDENCIES) 
 	@rm -f yans$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(yans_OBJECTS) $(yans_LDADD) $(LIBS)
-lib/net/iface.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/$(am__dirstamp):
 	@$(MKDIR_P) apps/ycli
 	@: > apps/ycli/$(am__dirstamp)

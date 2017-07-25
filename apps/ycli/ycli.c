@@ -22,7 +22,8 @@ int main(int argc, char *argv[]) {
     {0},
   };
 
-  if (argc < 2 || argv[1] == NULL) {
+  if (argc < 2 || strcmp(argv[1], "-h") == 0 ||
+      strcmp(argv[1], "--help") == 0) {
     fprintf(stderr, "usage: %s [subcmd]\n  subcmds: ",
         argv[0] != NULL ? argv[0] : "ycli");
     for (i = 0; cmds[i].name != NULL; i++) {

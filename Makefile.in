@@ -168,7 +168,7 @@ am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	proto/ethframe_req.$(OBJEXT) proto/sweeper_req.$(OBJEXT) \
 	proto/status_resp.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
 	apps/ethd/ethframe.$(OBJEXT) apps/ethd/sweeper.$(OBJEXT) \
-	apps/ethd/main.$(OBJEXT)
+	apps/ethd/sender.$(OBJEXT) apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
 ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -674,6 +674,7 @@ ethd_SOURCES = \
     apps/ethd/pcap.c \
     apps/ethd/ethframe.c \
     apps/ethd/sweeper.c \
+    apps/ethd/sender.c \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -973,6 +974,8 @@ apps/ethd/ethframe.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/sweeper.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
+apps/ethd/sender.$(OBJEXT): apps/ethd/$(am__dirstamp) \
+	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/main.$(OBJEXT): apps/ethd/$(am__dirstamp) \
 	apps/ethd/$(DEPDIR)/$(am__dirstamp)
 
@@ -1121,6 +1124,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/sender.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/sweeper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@

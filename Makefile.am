@@ -55,6 +55,7 @@ ethd_SOURCES = \
     apps/ethd/pcap.c \
     apps/ethd/ethframe.c \
     apps/ethd/sweeper.c \
+    apps/ethd/sender.c \
     apps/ethd/main.c
 
 ethd_LDADD = \

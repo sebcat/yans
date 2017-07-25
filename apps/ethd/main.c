@@ -17,6 +17,7 @@
 #include <apps/ethd/pcap.h>
 #include <apps/ethd/ethframe.h>
 #include <apps/ethd/sweeper.h>
+#include <apps/ethd/sender.h>
 
 #define DAEMON_NAME       "ethd"
 
@@ -239,6 +240,17 @@ int main(int argc, char *argv[]) {
       .nprocs = 1,
       .nfds = 256,
       .tick_slice_us = 50000,
+      .on_svc_error = on_svc_error,
+    },
+    {
+      .name = "sender",
+      .path = "sender.sock",
+      .mod_init = sender_init,
+      .mod_fini = sender_fini,
+      .actions = {
+        .on_readable = sender_on_readable,
+        .on_done = sender_on_done,
+      },
       .on_svc_error = on_svc_error,
     },
     {0},

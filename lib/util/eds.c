@@ -377,6 +377,7 @@ void eds_service_remove_client(struct eds_service *svc,
 
   if (cli->actions.on_done != NULL) {
     cli->actions.on_done(cli, fd);
+    cli->actions.on_done = NULL;
   }
 
   if (cli->ticker != NULL) {
@@ -386,6 +387,9 @@ void eds_service_remove_client(struct eds_service *svc,
 
   if (!(cli->flags & EDS_CLIENT_FEXTERNALFD)) {
     close(fd);
+    /* set the fd as external to avoid closing it again if
+     * eds_service_remove_client is called multiple times */
+    eds_client_set_externalfd(cli);
   }
   FD_CLR(fd, &l->rfds);
   FD_CLR(fd, &l->wfds);

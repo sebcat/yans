@@ -55,7 +55,7 @@ static int parse_frame(int index, char *frame, size_t *len) {
     if (frame[i] >= '0' && frame[i] <= '9') {
       frame[i>>1] = (frame[i] - '0') << 4;
     } else if (frame[i] >= 'a' && frame[i] <= 'f') {
-      frame[i>>1] = (frame[i] - 'a') << 4;
+      frame[i>>1] = (frame[i] - 'a' + 10) << 4;
     } else {
       fprintf(stderr, "frame %d offset %zu: invalid character\n",
           index, i);
@@ -65,7 +65,7 @@ static int parse_frame(int index, char *frame, size_t *len) {
     if (frame[i+1] >= '0' && frame[i+1] <= '9') {
       frame[i>>1] |= (frame[i+1] - '0') & 0x0f;
     } else if (frame[i+1] >= 'a' && frame[i+1] <= 'f') {
-      frame[i>>1] |= (frame[i+1] - 'a') & 0x0f;
+      frame[i>>1] |= (frame[i+1] - 'a' + 10) & 0x0f;
     } else {
       fprintf(stderr, "frame %d offset %zu: invalid character\n",
           index, i+1);

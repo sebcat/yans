@@ -215,8 +215,9 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_ycli_OBJECTS = apps/ycli/ycli.$(OBJEXT) apps/ycli/pcapcli.$(OBJEXT) \
-	apps/ycli/ethframecli.$(OBJEXT) apps/ycli/sweepercli.$(OBJEXT)
+am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
+	apps/ycli/pcapcli.$(OBJEXT) apps/ycli/ethframecli.$(OBJEXT) \
+	apps/ycli/sweepercli.$(OBJEXT) apps/ycli/ycli.$(OBJEXT)
 ycli_OBJECTS = $(am_ycli_OBJECTS)
 ycli_DEPENDENCIES = libycl.la
 AM_V_P = $(am__v_P_@AM_V@)
@@ -711,10 +712,12 @@ ping_SOURCES = \
     apps/ping/ping.c
 
 ycli_SOURCES = \
-    apps/ycli/ycli.c \
+    lib/net/iface.c \
+    apps/ycli/iflist.c \
     apps/ycli/pcapcli.c \
     apps/ycli/ethframecli.c \
-    apps/ycli/sweepercli.c
+    apps/ycli/sweepercli.c \
+    apps/ycli/ycli.c
 
 ycli_LDADD = \
     libycl.la
@@ -1080,19 +1083,23 @@ apps/yans/yans.$(OBJEXT): apps/yans/$(am__dirstamp) \
 yans$(EXEEXT): $(yans_OBJECTS) $(yans_DEPENDENCIES) $(EXTRA_yans_DEPENDENCIES) 
 	@rm -f yans$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(yans_OBJECTS) $(yans_LDADD) $(LIBS)
+lib/net/iface.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/$(am__dirstamp):
 	@$(MKDIR_P) apps/ycli
 	@: > apps/ycli/$(am__dirstamp)
 apps/ycli/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) apps/ycli/$(DEPDIR)
 	@: > apps/ycli/$(DEPDIR)/$(am__dirstamp)
-apps/ycli/ycli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
+apps/ycli/iflist.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/pcapcli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/ethframecli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 apps/ycli/sweepercli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
+	apps/ycli/$(DEPDIR)/$(am__dirstamp)
+apps/ycli/ycli.$(OBJEXT): apps/ycli/$(am__dirstamp) \
 	apps/ycli/$(DEPDIR)/$(am__dirstamp)
 
 ycli$(EXEEXT): $(ycli_OBJECTS) $(ycli_DEPENDENCIES) $(EXTRA_ycli_DEPENDENCIES) 
@@ -1129,6 +1136,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ethframecli.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/iflist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/sweepercli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
@@ -1138,6 +1146,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/iface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode_test.Po@am__quote@

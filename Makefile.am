@@ -92,10 +92,12 @@ ping_SOURCES = \
     apps/ping/ping.c
 
 ycli_SOURCES = \
-    apps/ycli/ycli.c \
+    lib/net/iface.c \
+    apps/ycli/iflist.c \
     apps/ycli/pcapcli.c \
     apps/ycli/ethframecli.c \
-    apps/ycli/sweepercli.c
+    apps/ycli/sweepercli.c \
+    apps/ycli/ycli.c
 
 ycli_LDADD = \
     libycl.la

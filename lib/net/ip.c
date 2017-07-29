@@ -154,7 +154,7 @@ static void ip6_netmask(ip_addr_t *addr, uint32_t prefixlen) {
   }
 }
 
-/* clears  the lower bits of an IPv6 address based on an IPv6 netmask */
+/* clears the lower bits of an IPv6 address based on an IPv6 netmask */
 static inline void ip6_clearbits(ip_addr_t *addr, ip_addr_t *mask) {
   int i;
 
@@ -164,7 +164,7 @@ static inline void ip6_clearbits(ip_addr_t *addr, ip_addr_t *mask) {
   }
 }
 
-/* sets  the lower bits of an IPv6 address based on an IPv6 netmask */
+/* sets the lower bits of an IPv6 address based on an IPv6 netmask */
 static inline void ip6_setbits(ip_addr_t *addr, ip_addr_t *mask) {
   int i;
 
@@ -242,6 +242,10 @@ static int ip_block_cidr(ip_block_t *block, const char *addrstr,
     if (err != NULL) *err = EAI_NONAME;
     return -1;
   }
+
+  /* NB: it's important that prefixlen is checked for large values before this
+   *     cast. */
+  block->prefixlen = (int)prefixlen;
   return 0;
 }
 
@@ -272,18 +276,26 @@ static int ip_block_range(ip_block_t *block, const char *first,
 int ip_block(ip_block_t *blk, const char *s, int *err) {
   char *cptr;
   char addrbuf[YANS_IP_ADDR_MAXLEN];
+  int ret = -1;
 
+  blk->prefixlen = -1; /* -1 means that prefixlen is not applicable */
   snprintf(addrbuf, sizeof(addrbuf), "%s", s);
   if ((cptr = strchr(addrbuf, '/')) != NULL) {
+    /* addr/prefixlen form */
     *cptr = 0;
-    return ip_block_cidr(blk, addrbuf, cptr+1, err);
+    ret = ip_block_cidr(blk, addrbuf, cptr+1, err);
   } else if ((cptr = strchr(addrbuf, '-')) != NULL) {
+    /* first-last form */
     *cptr = 0;
-    return ip_block_range(blk, addrbuf, cptr+1, err);
+    ret = ip_block_range(blk, addrbuf, cptr+1, err);
   } else {
-    if (err != NULL) *err = EAI_NONAME;
-    return -1;
+    /* assume single address form */
+    if (ip_addr(&blk->first, addrbuf, err) < 0) return -1;
+    memcpy(&blk->last, &blk->first, sizeof(ip_addr_t));
+    ret = 0;
   }
+
+  return ret;
 }
 
 int ip_block_netmask(ip_block_t *blk, ip_addr_t * addr, ip_addr_t *netmask,
@@ -305,40 +317,225 @@ int ip_block_netmask(ip_block_t *blk, ip_addr_t * addr, ip_addr_t *netmask,
   }
 }
 
-/* returns 1 if the block contains the address, 0 of not, -1 on error */
-int ip_block_contains(ip_block_t *blk, ip_addr_t *addr, int *err) {
-  if (!ip_addr_eqtype(&blk->first, &blk->last) ||
-      !ip_addr_eqtype(&blk->first, addr)) {
-    if (err != NULL) *err = EAI_FAMILY;
-    return -1;
-  }
-  if (ip_addr_cmp(addr, &blk->last, NULL) <= 0 &&
+/* returns 1 if the block contains the address, 0 if not */
+int ip_block_contains(ip_block_t *blk, ip_addr_t *addr) {
+  if (ip_addr_eqtype(&blk->first, &blk->last) &&
+      ip_addr_eqtype(&blk->first, addr) &&
+      ip_addr_cmp(addr, &blk->last, NULL) <= 0 &&
       ip_addr_cmp(addr, &blk->first, NULL) >= 0) {
     return 1;
-  } else {
-    return 0;
   }
+
+  return 0;
 }
 
 int ip_block_str(ip_block_t *blk, char *dst, size_t dstlen, int *err) {
   char *cptr;
-  size_t len, left;
+  size_t len;
+  size_t left;
+  size_t numlen;
+  char num[8];
 
   if (ip_addr_str(&blk->first, dst, dstlen, err) < 0) {
     return -1;
   }
 
+  if (ip_addr_cmp(&blk->first, &blk->last, err) == 0) {
+    /* block consisting of only one address; we're done */
+    return 0;
+  }
+
   len = strlen(dst);
   left = dstlen - len;
-  if (left < 2) {
-    if (err != NULL) *err = EAI_OVERFLOW;
+
+  if (blk->prefixlen < 0) {
+    /* first-last form */
+    if (left < 2) {
+      if (err != NULL) *err = EAI_OVERFLOW;
+      return -1;
+    }
+    cptr = dst+len;
+    *cptr = '-';
+    cptr++;
+    if (ip_addr_str(&blk->last, cptr, left-1, err) < 0) {
+      return -1;
+    }
+  } else {
+    /* addr/prefixlen form */
+    snprintf(num, sizeof(num), "%d", blk->prefixlen);
+    numlen = strlen(num);
+    if (left < 2 + numlen) {
+      if (err != NULL) *err = EAI_OVERFLOW;
+      return -1;
+    }
+    cptr = dst + len;
+    *cptr = '/';
+    cptr++;
+    snprintf(cptr, left-1, "%d", blk->prefixlen);
+  }
+
+  return 0;
+}
+
+#define IS_IP_BLOCKS_SEP(x) \
+    ((x) == '\r' ||         \
+     (x) == '\n' ||         \
+     (x) == '\t' ||         \
+     (x) == ' '  ||         \
+     (x) == ',')
+
+
+static int cons_block(struct ip_blocks *blks, const char *s, size_t start,
+    size_t end, int *err) {
+  size_t len;
+  char buf[256];
+  ip_block_t blk = {0};
+  void *tmp;
+
+  len = end - start;
+  if (len >= sizeof(buf)) {
+    len = sizeof(buf) - 1;
+  }
+  memcpy(buf, s + start, len);
+  buf[len] = '\0';
+  if (ip_block(&blk, buf, err) < 0) {
     return -1;
   }
-  cptr = dst+len;
-  *cptr = '-';
-  cptr++;
-  if (ip_addr_str(&blk->last, cptr, left-1, err) < 0) {
+
+  tmp = realloc(blks->blocks, sizeof(*blks->blocks) * (blks->nblocks + 1));
+  if (tmp == NULL) {
+    if (err != NULL) {
+      *err = EAI_MEMORY;
+    }
     return -1;
+  }
+
+  blks->blocks = tmp;
+  memcpy(blks->blocks + blks->nblocks, &blk, sizeof(blk));
+  blks->nblocks++;
+  return 0;
+}
+
+int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
+  size_t pos;
+  size_t end;
+  size_t addrstart;
+
+  enum {
+    BLKS_FINDSTART = 0,
+    BLKS_FINDEND,
+  } S = BLKS_FINDSTART;
+
+  blks->curr = 0;
+  blks->nblocks = 0;
+  blks->blocks = NULL;
+  if (s == NULL) {
+    return 0;
+  }
+
+  for (pos = 0, end = strlen(s); pos < end; pos++) {
+    switch(S) {
+      case BLKS_FINDSTART:
+        if (!IS_IP_BLOCKS_SEP(s[pos])) {
+          addrstart = pos;
+          S = BLKS_FINDEND;
+        }
+        break;
+      case BLKS_FINDEND:
+        if (IS_IP_BLOCKS_SEP(s[pos])) {
+          if (cons_block(blks, s, addrstart, pos, err) < 0) {
+            return -1;
+          }
+          S = BLKS_FINDSTART;
+        }
+        break;
+    }
+  }
+
+  /* check last element, if any */
+  if (S == BLKS_FINDEND) {
+    if (cons_block(blks, s, addrstart, pos, err) < 0) {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+void ip_blocks_cleanup(struct ip_blocks *blks) {
+  if (blks && blks->blocks) {
+    free(blks->blocks);
+  }
+  blks->nblocks = 0;
+}
+
+int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {
+  size_t i;
+  char ipbuf[128];
+
+  buf_clear(buf);
+  if (blks == NULL || blks->curr >= blks->nblocks) {
+    goto success;
+  }
+
+  if (ip_block_str(&blks->blocks[blks->curr], ipbuf, sizeof(ipbuf), err) < 0) {
+    return -1;
+  }
+
+  if (buf_adata(buf, ipbuf, strlen(ipbuf)) < 0) {
+    goto memfail;
+  }
+
+  for(i = blks->curr + 1; i < blks->nblocks; i++) {
+    if (ip_block_str(&blks->blocks[i], ipbuf, sizeof(ipbuf), err) < 0) {
+      return -1;
+    }
+
+    buf_achar(buf, ' ');
+    if (buf_adata(buf, ipbuf, strlen(ipbuf)) < 0) {
+      goto memfail;
+    }
+  }
+
+success:
+  /* NB: no trailing null byte added, the caller is expected to do that if
+   *     the caller wants it */
+  return 0;
+
+memfail:
+  if (err != NULL) {
+    *err = EAI_MEMORY;
+  }
+  return -1;
+}
+
+int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr, int *err) {
+  ip_block_t *blk;
+
+  /* check if we've reached the end of all blocks */
+  if (blks->curr >= blks->nblocks) {
+    return 0;
+  }
+
+  blk = &blks->blocks[blks->curr];
+  blk->prefixlen = -1; /* if we next ::/n, n is no longer valid */
+  memcpy(addr, &blk->first, sizeof(ip_addr_t));
+  ip_addr_add(&blk->first, 1);
+  if (ip_addr_cmp(&blk->first, &blk->last, NULL) > 0) {
+    blks->curr++;
+  }
+  return 1;
+}
+
+int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr) {
+  size_t i;
+  int ret;
+
+  for (i = blks->curr; i < blks->nblocks; i++) {
+    ret = ip_block_contains(&blks->blocks[i], addr);
+    if (ret != 0) {
+      return ret;
+    }
   }
 
   return 0;
@@ -349,5 +546,9 @@ const char *ip_addr_strerror(int code) {
 }
 
 const char *ip_block_strerror(int code) {
+  return gai_strerror(code);
+}
+
+const char *ip_blocks_strerror(int code) {
   return gai_strerror(code);
 }

@@ -12,6 +12,7 @@
 #define MTNAME_IPADDR     "yans.IPAddr"
 #define MTNAME_ETHADDR    "yans.EthAddr"
 #define MTNAME_BLOCK      "yans.IPBlock"
+#define MTNAME_BLOCKS     "yans.IPBlocks"
 #define MTNAME_URLBUILDER "yans.URLBuilder"
 
 #define checkipaddr(L, i) \
@@ -22,6 +23,9 @@
 
 #define checkblock(L, i) \
     ((ip_block_t*)luaL_checkudata(L, (i), MTNAME_BLOCK))
+
+#define checkblocks(L, i) \
+    ((struct ip_blocks *)luaL_checkudata(L, (i), MTNAME_BLOCKS))
 
 #define checkurlbuilder(L, i) \
     (*(url_ctx_t**)luaL_checkudata(L, (i), MTNAME_URLBUILDER))
@@ -49,6 +53,14 @@ static inline ip_block_t *l_newipblock(lua_State *L) {
   blk = lua_newuserdata(L, sizeof(ip_block_t));
   luaL_setmetatable(L, MTNAME_BLOCK);
   return blk;
+}
+
+static inline struct ip_blocks *l_newipblocks(lua_State *L) {
+  struct ip_blocks *blks;
+
+  blks = lua_newuserdata(L, sizeof(struct ip_blocks));
+  luaL_setmetatable(L, MTNAME_BLOCKS);
+  return blks;
 }
 
 static inline ip_addr_t *l_pushipaddr(lua_State *L, struct sockaddr *saddr) {
@@ -317,14 +329,103 @@ static int l_ipblock_last(lua_State *L) {
 static int l_ipblock_contains(lua_State *L) {
   ip_block_t *blk;
   ip_addr_t *addr;
+  ip_addr_t a1;
+  const char *s;
   int ret;
 
   blk = checkblock(L, 1);
-  addr = checkipaddr(L, 2);
-  if ((ret = ip_block_contains(blk, addr, NULL)) < 0) {
-    luaL_error(L, "contains: incompatible address types");
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    s = luaL_checklstring(L, 2, NULL);
+    if (ip_addr(&a1, s, NULL) < 0) {
+      return luaL_error(L, "unable to parse address \"%s\"", s);
+    }
+    addr = &a1;
+  } else {
+    addr = checkipaddr(L, 2);
+  }
+  ret = ip_block_contains(blk, addr);
+  lua_pushboolean(L, ret);
+  return 1;
+}
+
+static int l_ipblocks(lua_State *L) {
+  struct ip_blocks *blks;
+  const char *s;
+  int err = 0;
+
+  s = luaL_checkstring(L, 1);
+  blks = l_newipblocks(L);
+  if (ip_blocks_init(blks, s, &err) < 0) {
+    if (err != 0) {
+      luaL_error(L, "IPBlock: %s, block \"%s\"", ip_block_strerror(err), s);
+    } else {
+      luaL_error(L, "IPBlock: parse error \"%s\"", s);
+    }
+  }
+  return 1;
+}
+
+static int l_ipblocks_gc(lua_State *L) {
+  struct ip_blocks *blks = checkblocks(L, 1);
+  ip_blocks_cleanup(blks);
+  return 0;
+}
+
+static int l_ipblocks_tostring(lua_State *L) {
+  buf_t buf;
+  int err = 0;
+  struct ip_blocks *blks = checkblocks(L, 1);
+  buf_init(&buf, 1024);
+  if (ip_blocks_to_buf(blks, &buf, &err) < 0) {
+    buf_cleanup(&buf);
+    return luaL_error(L, "IPBlocks: %s", ip_blocks_strerror(err));
+  }
+  lua_pushlstring(L, buf.data, buf.len);
+  buf_cleanup(&buf);
+  return 1;
+}
+
+static int l_ipblocks_next_iter(lua_State *L) {
+  struct ip_blocks *blks = checkblocks(L, lua_upvalueindex(1));
+  int ret;
+  int err = 0;
+  ip_addr_t *addr;
+
+  addr = l_newipaddr(L);
+  ret = ip_blocks_next(blks, addr, &err);
+  if (ret < 0) {
+    return luaL_error(L, "IPBlocks: %s", ip_blocks_strerror(err));
+  } else if (ret == 0) {
+    return 0;
+  }
+  return 1;
+}
+
+static int l_ipblocks_next(lua_State *L) {
+  checkblocks(L, 1);
+  lua_pushcclosure(L, l_ipblocks_next_iter, 1);
+  return 1;
+}
+
+static int l_ipblocks_contains(lua_State *L) {
+  struct ip_blocks *blks;
+  ip_addr_t *addr;
+  ip_addr_t a1;
+  const char *s;
+  int ret;
+
+  blks = checkblocks(L, 1);
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    s = luaL_checklstring(L, 2, NULL);
+    if (ip_addr(&a1, s, NULL) < 0) {
+      return luaL_error(L, "unable to parse address \"%s\"", s);
+    }
+    addr = &a1;
+  } else {
+    addr = checkipaddr(L, 2);
   }
 
+  ret = ip_blocks_contains(blks, addr);
   lua_pushboolean(L, ret);
   return 1;
 }
@@ -707,6 +808,14 @@ static const struct luaL_Reg yansblock_m[] = {
   {NULL, NULL}
 };
 
+static const struct luaL_Reg yansblocks_m[] = {
+  {"__tostring", l_ipblocks_tostring},
+  {"__gc", l_ipblocks_gc},
+  {"next", l_ipblocks_next},
+  {"contains", l_ipblocks_contains},
+  {NULL, NULL},
+};
+
 static const struct luaL_Reg yansurlbuilder_m[] = {
   {"parse", l_urlbuilder_parse},
   {"build", l_urlbuilder_build},
@@ -720,6 +829,7 @@ static const struct luaL_Reg yans_f[] = {
   {"IPAddr", l_ipaddr},
   {"EthAddr", l_ethaddr},
   {"IPBlock", l_ipblock},
+  {"IPBlocks", l_ipblocks},
   {"URLBuilder", l_urlbuilder},
   {"devices", l_devices},
   /* TODO: - network(str): CIDR handling for networks. return table with
@@ -735,6 +845,7 @@ int luaopen_yans(lua_State *L) {
     {MTNAME_IPADDR, yansipaddr_m},
     {MTNAME_ETHADDR, yansethaddr_m},
     {MTNAME_BLOCK, yansblock_m},
+    {MTNAME_BLOCKS, yansblocks_m},
     {MTNAME_URLBUILDER, yansurlbuilder_m},
     {NULL, NULL},
   };

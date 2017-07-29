@@ -181,7 +181,11 @@ int main(int argc, char *argv[]) {
 
   signal(SIGPIPE, SIG_IGN);
 
-  if (argc < 2 || (argv[1][0] == '-' &&argv[1][1] == 'h')) {
+  if (argc == 1) {
+    /* default to REPL */
+    return cmd_shell(argc-1, argv+1);
+  } else if (argv[1][0] == '-' &&argv[1][1] == 'h') {
+    /* check -h */
     usage();
   }
 

@@ -94,7 +94,8 @@ target_triplet = @target@
 TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
 	lib_net_ethframe_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
 	lib_util_netstring_test$(EXEEXT) lib_util_conf_test$(EXEEXT) \
-	apps/yans/tests/url_test.yans apps/yans/tests/ip_test.yans
+	apps/yans/tests/url_test.yans apps/yans/tests/json_test.yans \
+	apps/yans/tests/ip_test.yans
 check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_net_punycode_test$(EXEEXT) lib_net_ethframe_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \

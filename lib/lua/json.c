@@ -1,149 +1,34 @@
 #include <3rd_party/jansson.h>
 #include <lib/lua/json.h>
 
-/* TODO: 3rd_party/jansson has it's own hash table, string buffers and
- *       internal data structures. It would be nice if we could skip the
- *       step going from json_t to Lua values by integrating it tighter
- *       with Lua, if possible. */
+#define MTNAME_JSONT "json.T"
 
-/* maximum JSON nesting. Maybe too conservative, we'll see. Each level of JSON
- * nesting increases affects the Lua stack by at least a factor of three.
- * lua_next has table, key, value for every level. */
-#define MAXDEPTH 32
+#define checkjson(L, i) \
+    (*(json_t**)luaL_checkudata(L, (i), MTNAME_JSONT))
 
-/* calculates the length of the Lua array at TOS, or returns -1 if it's not
- * a valid lua array. Currently, if all keys are integers, we say it's an
- * "array" which doesn't really hold up, but sane alternatives appears to be
- * lacking */
-static lua_Integer array_length(lua_State *L) {
-  lua_Integer len = 0;
+static inline int newjson(lua_State *L, json_t *root) {
+  json_t **json;
 
-  if (!lua_istable(L, -1)) {
-    return -1;
-  }
-
-  lua_pushnil(L);  /* first key */
-  while (lua_next(L, -2) != 0) {
-    /* uses 'key' (at index -2) and 'value' (at index -1) */
-    if (!lua_isinteger(L, -2)) {
-      lua_pop(L, 2);
-      return -1;
-    }
-
-    len++;
-    lua_pop(L, 1); /* pop the value */
-  }
-
-  return len;
+  json = lua_newuserdata(L, sizeof(json_t*));
+  luaL_setmetatable(L, MTNAME_JSONT);
+  *json = root;
+  return 1;
 }
 
-static json_t *l_encode_json(lua_State *L, int depth);
+static int l_from_str(lua_State *L) {
+  const char *s;
+  json_t *root;
+  json_error_t err;
+  size_t slen;
 
-/* XXX: This solution does not properly handle nil elements
- *      (they are not included). We *could* check the key indices and pad with
- *      JSON null's on gaps, but that could blow up in other ways. */
-static json_t *l_encode_array(lua_State *L, int depth) {
-  json_t *node;
-  json_t *val;
-
-  if (!lua_istable(L, -1)) {
-    return NULL;
+  s = luaL_checklstring(L, 1, &slen);
+  root = json_loadb(s, slen, JSON_REJECT_DUPLICATES, &err);
+  if (root == NULL) {
+    return luaL_error(L, "json: error on line %d: %s", err.line,
+        err.text);
   }
 
-  node = json_array();
-  lua_pushnil(L);
-  while (lua_next(L, -2) != 0) {
-    val = l_encode_json(L, depth);
-    if (val != NULL) {
-      json_array_append_new(node, val);
-    }
-    lua_pop(L, 1);
-  }
-
-  return node;
-}
-
-static json_t *l_encode_object(lua_State *L, int depth) {
-  json_t *node;
-  json_t *val;
-  const char *key;
-  char buf[32];
-
-  if (!lua_istable(L, -1)) {
-    return NULL;
-  }
-
-  node = json_object();
-  lua_pushnil(L);
-  while (lua_next(L, -2) != 0) {
-    if (lua_isstring(L, -2)) {
-      key = lua_tostring(L, -2);
-    } else if (lua_isnumber(L, -2)) {
-      snprintf(buf, sizeof(buf), "%lld", (long long)lua_tonumber(L, -2));
-      key = buf;
-    } else {
-      /* silent failure */
-      lua_pop(L, 1);
-      continue;
-    }
-
-    val = l_encode_json(L, depth);
-    if (val != NULL) {
-      json_object_set_new(node, key, val);
-    }
-    lua_pop(L, 1);
-  }
-
-  return node;
-}
-
-static json_t *l_encode_json(lua_State *L, int depth) {
-  json_t *node = NULL;
-  size_t len = 0;
-  const char *str;
-  lua_Integer arrlen;
-
-  switch (lua_type(L, -1)) {
-  case LUA_TNIL:
-    node = json_null();
-    break;
-  case LUA_TNUMBER:
-    if (lua_isinteger(L, -1)) {
-      node = json_integer(lua_tointeger(L, -1));
-    } else if (lua_isnumber(L, -1)) {
-      node = json_real(lua_tonumber(L, -1));
-    }
-    break;
-  case LUA_TBOOLEAN:
-    node = json_boolean(lua_toboolean(L, -1));
-    break;
-  case LUA_TSTRING:
-    str = lua_tolstring(L, -1, &len);
-    node = json_stringn_nocheck(str, len);
-    break;
-  case LUA_TTABLE:
-    if (depth >= MAXDEPTH) {
-      /* XXX: node memleak, pass root along and call json_decref on it */
-      luaL_error(L, "json: nested too deeply (maxdepth: %d)", MAXDEPTH);
-    }
-    arrlen = array_length(L);
-    if (arrlen < 0) {
-      /* treat table as JSON object */
-      node = l_encode_object(L, depth + 1);
-    } else if (arrlen == 0) {
-      /* we have an empty table, we don't know if it represents a JSON
-       * object or a JSON array. Set it to null */
-      node = json_null();
-    } else {
-      node = l_encode_array(L, depth + 1);
-    }
-    break;
-  default:
-    /* XXX: node memleak, pass root along and call json_decref on it */
-    luaL_error(L, "invalid type: %s", lua_typename(L, 1));
-  }
-
-  return node;
+  return newjson(L, root);
 }
 
 static int write_json(const char *buffer, size_t size, void *data) {
@@ -152,77 +37,44 @@ static int write_json(const char *buffer, size_t size, void *data) {
   return 0;
 }
 
-static int l_encode(lua_State *L) {
-  json_t *node = NULL;
-  int ret;
+static int l_tostring(lua_State *L) {
   luaL_Buffer b;
+  json_t *json = checkjson(L, 1);
 
-  node = l_encode_json(L, 0);
-  if (node != NULL) {
-    luaL_buffinit(L, &b);
-    ret = json_dump_callback(node, write_json, &b, JSON_COMPACT |
-        JSON_ENCODE_ANY | JSON_ENSURE_ASCII);
-    luaL_pushresult(&b);
-    json_decref(node);
-    if (ret == 0) {
-      return 1;
-    }
+  luaL_buffinit(L, &b);
+  json_dump_callback(json, write_json, &b, JSON_COMPACT | JSON_ENSURE_ASCII);
+  luaL_pushresult(&b);
+  return 1;
+}
+
+static int l_gc(lua_State *L) {
+  json_t *json = checkjson(L, 1);
+  if (json != NULL) {
+    json_decref(json);
   }
   return 0;
 }
 
-static int l_decode_json(lua_State *L, json_t *node, int depth);
-
-static int l_decode_object(lua_State *L, json_t *node, int depth) {
-  const char *key;
-  json_t *value;
-
-  lua_createtable(L, 0, json_object_size(node));
-  json_object_foreach(node, key, value) {
-    l_decode_json(L, value, depth);
-    lua_setfield(L, -2, key);
+static int l_push_value(lua_State *L, json_t *val) {
+  if (val == NULL) {
+    lua_pushnil(L);
+    return 1;
   }
 
-  return 1;
-}
-
-static int l_decode_array(lua_State *L, json_t *node, int depth) {
-  size_t index;
-  json_t *value;
-
-  lua_createtable(L, json_array_size(node), 0);
-  json_array_foreach(node, index, value) {
-    l_decode_json(L, value, depth);
-    lua_seti(L, -2, (lua_Integer)index+1);
-  }
-
-  return 1;
-}
-
-static int l_decode_json(lua_State *L, json_t *node, int depth) {
-  switch(json_typeof(node)) {
-  case JSON_OBJECT:
-    if (depth >= MAXDEPTH) {
-      /* XXX: node memleak, pass root along and call json_decref on it */
-      luaL_error(L, "json: nested too deeply (maxdepth: %d)", MAXDEPTH);
-    }
-    l_decode_object(L, node, depth + 1);
-    break;
+  switch (json_typeof(val)) {
+  case JSON_OBJECT: /* fall-through */
   case JSON_ARRAY:
-    if (depth >= MAXDEPTH) {
-      /* XXX: node memleak, pass root along and call json_decref on it */
-      luaL_error(L, "json: nested too deeply (maxdepth: %d)", MAXDEPTH);
-    }
-    l_decode_array(L, node, depth + 1);
+    newjson(L, val);
+    json_incref(val);
     break;
   case JSON_STRING:
-    lua_pushlstring(L, json_string_value(node), json_string_length(node));
+    lua_pushlstring(L, json_string_value(val), json_string_length(val));
     break;
   case JSON_INTEGER:
-    lua_pushinteger(L, (lua_Integer)json_integer_value(node));
+    lua_pushinteger(L, json_integer_value(val));
     break;
   case JSON_REAL:
-    lua_pushnumber(L, (lua_Number)json_real_value(node));
+    lua_pushnumber(L, json_real_value(val));
     break;
   case JSON_TRUE:
     lua_pushboolean(L, 1);
@@ -234,43 +86,152 @@ static int l_decode_json(lua_State *L, json_t *node, int depth) {
     lua_pushnil(L);
     break;
   default:
-    /* XXX: node memleak, pass root along and call json_decref on it */
-    return luaL_error(L, "invalid JSON type (%d)", json_typeof(node));
+    return luaL_error(L, "unknown json value type: %d", json_typeof(val));
   }
-
   return 1;
 }
 
-static int l_decode(lua_State *L) {
-  const char *s;
-  json_t *root;
-  json_error_t err;
-  size_t slen;
+static int l_index(lua_State *L) {
+  int typ;
+  json_t *json = checkjson(L, 1);
+  json_t *val;
+  size_t index;
 
-  s = luaL_checklstring(L, 1, &slen);
-  root = json_loadb(s, slen, JSON_REJECT_DUPLICATES | JSON_DECODE_ANY |
-      JSON_DISABLE_EOF_CHECK | JSON_ALLOW_NUL, &err);
-  if (root == NULL) {
-    return luaL_error(L, "json: error on line %d: %s\n", err.line,
-        err.text);
+  typ = json_typeof(json);
+  if (typ == JSON_OBJECT) {
+    if (!lua_isstring(L, 2)) {
+      return luaL_error(L, "indexing of JSON object with a non-string key");
+    }
+    val = json_object_get(json, lua_tostring(L, 2));
+    return l_push_value(L, val);
+  } else if (typ == JSON_ARRAY) {
+    if (!lua_isinteger(L, 2)) {
+      return luaL_error(L, "indexing of JSON array with a non-integer key");
+    }
+    /* subtract 1 from index to conform with Lua's 1-indexing */
+    index = (size_t)lua_tointeger(L, 2) - 1;
+    val = json_array_get(json, index);
+    return l_push_value(L, val);
+  } else {
+    lua_pushnil(L);
+    return 1;
+  }
+}
+
+static json_t *l_to_json(lua_State *L, int index) {
+  int typ = lua_type(L, index);
+  const char *v;
+  size_t len;
+
+  /* LUA_TTABLE is ambiguous and should not be converted */
+  switch(typ) {
+    case LUA_TNIL:
+      return json_null();
+    case LUA_TBOOLEAN:
+      return lua_toboolean(L, index) ? json_true() : json_false();
+    case LUA_TNUMBER:
+      if (lua_isinteger(L, index)) {
+        return json_integer(lua_tointeger(L, index));
+      } else {
+        return json_real(lua_tonumber(L, index));
+      }
+    case LUA_TSTRING:
+      v = lua_tolstring(L, index, &len);
+      return json_stringn(v, len);
+    case LUA_TUSERDATA:
+      return json_deep_copy(checkjson(L, index));
   }
 
-  l_decode_json(L, root, 0);
-  json_decref(root);
-  /* TODO: return trailing data, e.g., {"foo":"bar"}{"k":"v"} should return
-           {"k":"v"} as the first object as a Lua table and the second object
-           as a string. This allows for streaming objects from a buffer */
+  luaL_error(L, "invalid type in assignment: %s", lua_typename(L, typ));
+  return NULL;
+}
+
+static int l_newindex(lua_State *L) {
+  int typ;
+  json_t *json = checkjson(L, 1);
+  json_t *val;
+  const char *strkey;
+  size_t index;
+  int ret;
+
+  typ = json_typeof(json);
+  if (typ == JSON_OBJECT) {
+    if (!lua_isstring(L, 2)) {
+      return luaL_error(L, "indexing of JSON object with a non-string key");
+    }
+    strkey = lua_tostring(L, 2);
+    val = l_to_json(L, -1);
+    ret = json_object_set_new(json, strkey, val);
+    if (ret < 0) {
+      return luaL_error(L, "set operation failed");
+    }
+  } else if (typ == JSON_ARRAY) {
+    if (!lua_isinteger(L, 2)) {
+      return luaL_error(L, "indexing of JSON array with a non-integer key");
+    }
+    /* subtract one from index to conform with Lua's 1-indexing */
+    index = (size_t)lua_tointeger(L, 2) - 1;
+    if (index > (json_array_size(json) - 1)) {
+      return luaL_error(L, "array index out-of-bounds");
+    }
+    val = l_to_json(L, -1);
+    ret = json_array_set_new(json, index, val);
+    if (ret < 0) {
+      return luaL_error(L, "set operation failed");
+    }
+  }
+
+  return 0;
+}
+
+static int l_append(lua_State *L) {
+  json_t *json = checkjson(L, 1);
+
+  if (json_typeof(json) != JSON_ARRAY) {
+    return luaL_error(L, "attempt to append to invalid JSON array");
+  }
+
+  json_array_append_new(json, l_to_json(L, 2));
+  lua_pop(L, 1);
   return 1;
 }
+
+static const struct luaL_Reg jsont_m[] = {
+  {"__tostring", l_tostring},
+  {"__gc", l_gc},
+  {"__index", l_index},
+  {"__newindex", l_newindex},
+  {"__shl", l_append},
+  {NULL, NULL}
+};
 
 static const struct luaL_Reg json_f[] = {
-  {"encode", l_encode},
-  {"decode", l_decode},
+  {"from_str", l_from_str},
   {NULL, NULL}
 };
 
 int luaopen_json(lua_State *L) {
-  json_object_seed(0); /* 0 == seed from /dev/[u]random, or time+pid */
+  struct {
+    const char *mt;
+    const struct luaL_Reg *reg;
+  } types[] = {
+    {MTNAME_JSONT, jsont_m},
+    {NULL, NULL},
+  };
+  size_t i;
+
+  /* seed JSON hashtable, 0 == seed from /dev/[u]random, or time+pid */
+  json_object_seed(0);
+
+  /* create metatable(s) */
+  for(i=0; types[i].mt != NULL; i++) {
+    luaL_newmetatable(L, types[i].mt);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "__index");
+    luaL_setfuncs(L, types[i].reg, 0);
+  }
+
+  /* register library */
   luaL_newlib(L, json_f);
   return 1;
 }

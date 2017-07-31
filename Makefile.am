@@ -15,6 +15,7 @@ TESTS = \
     lib_util_netstring_test \
     lib_util_conf_test \
     apps/yans/tests/url_test.yans \
+    apps/yans/tests/json_test.yans \
     apps/yans/tests/ip_test.yans
 
 TEST_EXTENSIONS = .yans

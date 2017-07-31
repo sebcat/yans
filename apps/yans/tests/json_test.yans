@@ -1,0 +1,53 @@
+#!/usr/bin/env lua
+-- vim: shiftwidth=2 tabstop=2 expandtab
+
+function decenc(str, args)
+  local actual = json.encode(json.decode(str))
+  for _, v in pairs(args) do
+    if actual == v then return end
+  end
+  error(string.format("str: \"%s\" actual: \"%s\"", str, actual))
+end
+
+local testargs = {
+  -- decenc("", {""}) -- FIXME
+  "true", {"true"},
+  "false", {"false"},
+  "null", {"null"},
+  "1", {"1"},
+  "1.0", {"1.0"},
+  "\"true\"", {"\"true\""},
+  "\"false\"", {"\"false\""},
+  "\"null\"", {"\"null\""},
+  "\"1\"", {"\"1\""},
+  "\"1.0\"", {"\"1.0\""},
+  "[1,2,3]", {"[1,2,3]"},
+  "[3,2,1]", {"[3,2,1]"},
+  "[3,\"foo\",1]", {"[3,\"foo\",1]"},
+  "[1,\"foo\",3]", {"[1,\"foo\",3]"},
+  "[[[[1,2,3]]]]", {"[[[[1,2,3]]]]"},
+  "[[[[1],2],3],4]", {"[[[[1],2],3],4]"},
+  "[1,[2,[3,[4],2],3],4]", {"[1,[2,[3,[4],2],3],4]"},
+  "{\"foo\":true}", {"{\"foo\":true}"},
+  "{\"foo\":\"bar\"}", {"{\"foo\":\"bar\"}"},
+  "{\"foo\":\"bar\",\"wiie\":\"baz\"}", {"{\"foo\":\"bar\",\"wiie\":\"baz\"}",
+      "{\"wiie\":\"baz\",\"foo\":\"bar\"}"},
+
+  -- nonstandard stuff caused by the inability to map JSON to Lua tables
+  -- we could try to be smart about these mapping errors, but it's likely to
+  -- bite in other ways. The only way to map JSON <-> Lua correctly is to use
+  -- uservalues instead of tables. We could also just avoid using null and
+  -- empty JSON objects/arrays.
+
+  -- json.encode can't know if an empty table is a JSON array or a JSON object
+  -- so serialization of an empty table is done to null
+  "{}", {"null"},
+  "[]", {"null"},
+  "{\"foo\":null}", {"null"}, -- {} (nil values are not inserted) -> null
+  "[null]", {"null"},
+  "[1,null,2]", {"[1,2]"},
+  "[1,null,2,null,4]", {"[1,2,4]"},
+}
+for i = 1, #testargs, 2 do
+  decenc(testargs[i], testargs[i+1])
+end

@@ -467,6 +467,7 @@ void ip_blocks_cleanup(struct ip_blocks *blks) {
     free(blks->blocks);
   }
   blks->nblocks = 0;
+  blks->curr = 0;
 }
 
 int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {
@@ -509,7 +510,7 @@ memfail:
   return -1;
 }
 
-int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr, int *err) {
+int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr) {
   ip_block_t *blk;
 
   /* check if we've reached the end of all blocks */

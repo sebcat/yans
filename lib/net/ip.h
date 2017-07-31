@@ -55,7 +55,7 @@ int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err);
 
 /* Takes the first address from blks, puts it in addr and removes it from blks.
  * Returns -1 on error, 0 when blks is empty, 1 when addr is properly set */
-int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr, int *err);
+int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr);
 
 int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr);
 

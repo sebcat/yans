@@ -387,18 +387,10 @@ static int l_ipblocks_tostring(lua_State *L) {
 
 static int l_ipblocks_next_iter(lua_State *L) {
   struct ip_blocks *blks = checkblocks(L, lua_upvalueindex(1));
-  int ret;
-  int err = 0;
   ip_addr_t *addr;
 
   addr = l_newipaddr(L);
-  ret = ip_blocks_next(blks, addr, &err);
-  if (ret < 0) {
-    return luaL_error(L, "IPBlocks: %s", ip_blocks_strerror(err));
-  } else if (ret == 0) {
-    return 0;
-  }
-  return 1;
+  return ip_blocks_next(blks, addr);
 }
 
 static int l_ipblocks_next(lua_State *L) {

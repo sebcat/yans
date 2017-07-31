@@ -8,6 +8,8 @@
 #define YCL_OK      0
 #define YCL_ERR    -1
 
+#include <stdint.h>
+
 struct ycl_ctx {
   /* -- internal -- */
   int fd;
@@ -47,8 +49,18 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
     const char *filter);
 int ycl_msg_create_pcap_close(struct ycl_msg *msg);
 
-int ycl_msg_create_ethframe_req(struct ycl_msg *msg, const char *iface,
-    size_t nframes, const char **frames, size_t *frameslen);
+struct ycl_ethframe_req {
+  const char *iface;
+  size_t nframes;
+  const char **frames;
+  size_t *frameslen;
+  const char *arpreq_addrs;
+  const char *arpreq_sha;
+  uint32_t arpreq_spa;
+};
+
+int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
+    struct ycl_ethframe_req *fields);
 
 int ycl_msg_create_sweeper_req(struct ycl_msg *msg,
     struct ycl_msg_sweeper_req *args);

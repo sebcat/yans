@@ -3,26 +3,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
 
 #include <lib/ycl/ycl.h>
 
 #define DEFAULT_SOCK "/var/ethd/ethframe.sock"
 
 struct ethframe_opts {
-  const char *iface;
+  struct ycl_ethframe_req req;
   const char *sock;
-  size_t nframes;
-  size_t *frameslen;
-  char **frames;
 };
 
 static void clean_opts(struct ethframe_opts *opts) {
-  if (opts->frames != NULL) {
-    free(opts->frames);
+  if (opts->req.frames != NULL) {
+    free(opts->req.frames);
   }
 
-  if (opts->frameslen != NULL) {
-    free(opts->frameslen);
+  if (opts->req.frameslen != NULL) {
+    free(opts->req.frameslen);
   }
 }
 
@@ -85,25 +84,25 @@ static int parse_frames(struct ethframe_opts *opts, int nframes,
     return 0;
   }
 
-  opts->frames = calloc(opts->nframes, sizeof(char*));
-  if (opts->frames == NULL) {
+  opts->req.frames = calloc(opts->req.nframes, sizeof(char*));
+  if (opts->req.frames == NULL) {
     fprintf(stderr, "frames: %s\n", strerror(errno));
     return -1;
   }
 
-  opts->frameslen = calloc(opts->nframes, sizeof(size_t));
-  if (opts->frameslen == NULL) {
+  opts->req.frameslen = calloc(opts->req.nframes, sizeof(size_t));
+  if (opts->req.frameslen == NULL) {
     fprintf(stderr, "frameslen: %s\n", strerror(errno));
-    free(opts->frames);
+    free(opts->req.frames);
     return -1;
   }
 
-  opts->nframes = (size_t)nframes;
+  opts->req.nframes = (size_t)nframes;
   for (i = 0; i < nframes; i++) {
-    if (parse_frame(i, frames[i], &opts->frameslen[i]) < 0) {
+    if (parse_frame(i, frames[i], &opts->req.frameslen[i]) < 0) {
       return -1;
     }
-    opts->frames[i] = frames[i];
+    opts->req.frames[i] = frames[i];
   }
 
   return 0;
@@ -111,20 +110,45 @@ static int parse_frames(struct ethframe_opts *opts, int nframes,
 
 static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
   int ch;
+  int ret;
+  struct in_addr addr;
+  static unsigned char hwa[6];
   static const struct option ps[] = {
     {"iface", required_argument, NULL, 'i'},
     {"sock", required_argument, NULL, 's'},
+    {"arpreqs", required_argument, NULL, 'a'},
+    {"spa", required_argument, NULL, 'p'},
+    {"sha", required_argument, NULL, 'e'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
 
-  while ((ch = getopt_long(argc, argv, "i:s:h", ps, NULL)) != -1) {
+  while ((ch = getopt_long(argc, argv, "i:s:a:p:e:h", ps, NULL)) != -1) {
     switch(ch) {
     case 'i':
-      opts->iface = optarg;
+      opts->req.iface = optarg;
       break;
     case 's':
       opts->sock = optarg;
+      break;
+    case 'a':
+      opts->req.arpreq_addrs = optarg;
+      break;
+    case 'p':
+      if (!inet_aton(optarg, &addr)) {
+        fprintf(stderr, "invalid SPA\n");
+        goto usage;
+      }
+      opts->req.arpreq_spa = addr.s_addr;
+      break;
+    case 'e':
+      ret = sscanf(optarg, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &hwa[0], &hwa[1],
+          &hwa[2], &hwa[3], &hwa[4], &hwa[5]);
+      if (ret != 6) {
+        fprintf(stderr, "unable to parse ethernet address: \"%s\"", optarg);
+        goto usage;
+      }
+      opts->req.arpreq_sha = (char*)hwa;
       break;
     case 'h':
     default:
@@ -132,7 +156,7 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
     }
   }
 
-  if (opts->iface == NULL) {
+  if (opts->req.iface == NULL) {
     fprintf(stderr, "no iface set\n");
     goto usage;
   }
@@ -148,8 +172,13 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
 
   return 0;
 usage:
-  fprintf(stderr, "usage: [-s|--sock <sock>] -i|--iface <iface>"
-    " <frame0> ... <frameN>\n"
+  fprintf(stderr, "usage: <flags> <frame0> ... <frameN>\n"
+    "flags:\n"
+    "  -s|--sock <sock>         - path to ethframe socket\n"
+    "  -i|--iface <iface>       - sender interface (required)\n"
+    "  -a|--arpreqs <addrspec>  - addrspec for ARP requests\n"
+    "  -p|--spa <ip4 addr>      - ARP SPA\n"
+    "  -e|--sha <eth addr>      - ARP SHA\n"
     "frames must be hex encoded\n");
   return -1;
 }
@@ -159,6 +188,7 @@ static int ethframecli_run(struct ethframe_opts *opts) {
   struct ycl_msg msg = {0};
   const char *okmsg = NULL;
   const char *errmsg = NULL;
+  int ret = -1;
 
   if (ycl_connect(&ycl, opts->sock) != YCL_OK) {
     fprintf(stderr, "%s\n", ycl_strerror(&ycl));
@@ -166,55 +196,53 @@ static int ethframecli_run(struct ethframe_opts *opts) {
   }
 
   ycl_msg_init(&msg);
-  if (ycl_msg_create_ethframe_req(&msg, opts->iface, opts->nframes,
-      (const char**)opts->frames, opts->frameslen) != YCL_OK) {
+  if (ycl_msg_create_ethframe_req(&msg, &opts->req) != YCL_OK) {
     fprintf(stderr, "unable to create pcap request\n");
-    goto fail;
+    goto done;
   }
 
   if (ycl_sendmsg(&ycl, &msg) < 0) {
     fprintf(stderr, "%s\n", ycl_strerror(&ycl));
-    goto fail;
+    goto done;
   }
 
   ycl_msg_reset(&msg);
   if (ycl_recvmsg(&ycl, &msg) != YCL_OK) {
     fprintf(stderr, "%s\n", ycl_strerror(&ycl));
-    goto fail;
+    goto done;
   }
 
   if (ycl_msg_parse_status_resp(&msg, &okmsg, &errmsg) != YCL_OK) {
     fprintf(stderr, "unable to parse pcap status response\n");
-    goto fail;
+    goto done;
   }
 
   if (errmsg != NULL) {
     fprintf(stderr, "%s\n", errmsg);
-    goto fail;
+    goto done;
   }
 
+  ret = 0;
+done:
   ycl_msg_cleanup(&msg);
   ycl_close(&ycl);
-  return 0;
-fail:
-  ycl_msg_cleanup(&msg);
-  ycl_close(&ycl);
-  return -1;
+  return ret;
 }
 
 int ethframecli_main(int argc, char *argv[]) {
   struct ethframe_opts opts = {0};
+  int ret = EXIT_FAILURE;
+
   if (parse_opts(&opts, argc, argv) < 0) {
-    return EXIT_FAILURE;
+    goto done;
   }
 
   if (ethframecli_run(&opts) < 0) {
-    goto fail;
+    goto done;
   }
 
+  ret = EXIT_SUCCESS;
+done:
   clean_opts(&opts);
-  return EXIT_SUCCESS;
-fail:
-  clean_opts(&opts);
-  return EXIT_FAILURE;
+  return ret;
 }

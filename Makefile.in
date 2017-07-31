@@ -165,11 +165,11 @@ am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) lib/net/iface.$(OBJEXT) \
-	proto/pcap_req.$(OBJEXT) proto/ethframe_req.$(OBJEXT) \
-	proto/sweeper_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
-	apps/ethd/pcap.$(OBJEXT) apps/ethd/ethframe.$(OBJEXT) \
-	apps/ethd/sweeper.$(OBJEXT) apps/ethd/sender.$(OBJEXT) \
-	apps/ethd/main.$(OBJEXT)
+	lib/net/ip.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
+	proto/ethframe_req.$(OBJEXT) proto/sweeper_req.$(OBJEXT) \
+	proto/status_resp.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
+	apps/ethd/ethframe.$(OBJEXT) apps/ethd/sweeper.$(OBJEXT) \
+	apps/ethd/sender.$(OBJEXT) apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
 ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -206,13 +206,14 @@ ping_OBJECTS = $(am_ping_OBJECTS)
 ping_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	3rd_party/lpeg.$(OBJEXT) 3rd_party/lua.$(OBJEXT) \
-	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
-	lib/util/io.$(OBJEXT) lib/util/fio.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
-	lib/net/eth.$(OBJEXT) lib/net/ip.$(OBJEXT) \
-	lib/net/url.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/status_resp.$(OBJEXT) lib/lua/yans.$(OBJEXT) \
-	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
+	3rd_party/jansson.$(OBJEXT) lib/util/u8.$(OBJEXT) \
+	lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
+	lib/util/fio.$(OBJEXT) lib/util/netstring.$(OBJEXT) \
+	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
+	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
+	proto/pcap_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
+	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
+	lib/lua/pcapd.$(OBJEXT) lib/lua/json.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -678,6 +679,8 @@ ethd_SOURCES = \
     lib/net/eth.h \
     lib/net/iface.c \
     lib/net/iface.h \
+    lib/net/ip.h \
+    lib/net/ip.c \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \
@@ -708,6 +711,8 @@ yans_SOURCES = \
     3rd_party/lpeg.h \
     3rd_party/lua.c \
     3rd_party/lua.h \
+    3rd_party/jansson.h \
+    3rd_party/jansson.c \
     lib/util/u8.c \
     lib/util/u8.h \
     lib/util/buf.c \
@@ -737,6 +742,8 @@ yans_SOURCES = \
     lib/lua/ypcap.h \
     lib/lua/pcapd.c \
     lib/lua/pcapd.h \
+    lib/lua/json.h \
+    lib/lua/json.c \
     apps/yans/yans.c
 
 yans_LDADD = \
@@ -1023,6 +1030,8 @@ lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/iface.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
@@ -1121,10 +1130,10 @@ ping$(EXEEXT): $(ping_OBJECTS) $(ping_DEPENDENCIES) $(EXTRA_ping_DEPENDENCIES)
 	3rd_party/$(DEPDIR)/$(am__dirstamp)
 3rd_party/lua.$(OBJEXT): 3rd_party/$(am__dirstamp) \
 	3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/jansson.$(OBJEXT): 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
 lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/lua/$(am__dirstamp):
 	@$(MKDIR_P) lib/lua
 	@: > lib/lua/$(am__dirstamp)
@@ -1136,6 +1145,8 @@ lib/lua/yans.$(OBJEXT): lib/lua/$(am__dirstamp) \
 lib/lua/ypcap.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/pcapd.$(OBJEXT): lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/json.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 apps/yans/$(am__dirstamp):
 	@$(MKDIR_P) apps/yans
@@ -1189,6 +1200,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/jansson.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/linenoise.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/lpeg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/lua.Po@am__quote@
@@ -1204,6 +1216,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/sweepercli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/json.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@

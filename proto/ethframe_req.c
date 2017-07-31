@@ -5,6 +5,9 @@
 static struct netstring_map ethframe_req_m[] = {
   NETSTRING_MENTRY(struct p_ethframe_req, iface),
   NETSTRING_MENTRY(struct p_ethframe_req, frames),
+  NETSTRING_MENTRY(struct p_ethframe_req, arpreq_addrs),
+  NETSTRING_MENTRY(struct p_ethframe_req, arpreq_sha),
+  NETSTRING_MENTRY(struct p_ethframe_req, arpreq_spa),
   NETSTRING_MENTRY_END,
 };
 int p_ethframe_req_serialize(struct p_ethframe_req *data, buf_t *out) {

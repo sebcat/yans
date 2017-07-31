@@ -57,6 +57,8 @@ ethd_SOURCES = \
     lib/net/eth.h \
     lib/net/iface.c \
     lib/net/iface.h \
+    lib/net/ip.h \
+    lib/net/ip.c \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \
@@ -87,6 +89,8 @@ yans_SOURCES = \
     3rd_party/lpeg.h \
     3rd_party/lua.c \
     3rd_party/lua.h \
+    3rd_party/jansson.h \
+    3rd_party/jansson.c \
     lib/util/u8.c \
     lib/util/u8.h \
     lib/util/buf.c \
@@ -116,6 +120,8 @@ yans_SOURCES = \
     lib/lua/ypcap.h \
     lib/lua/pcapd.c \
     lib/lua/pcapd.h \
+    lib/lua/json.h \
+    lib/lua/json.c \
     apps/yans/yans.c
 
 yans_LDADD = \

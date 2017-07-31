@@ -212,8 +212,8 @@ int ycl_msg_create_sweeper_req(struct ycl_msg *msg,
   return YCL_OK;
 }
 
-int ycl_msg_create_ethframe_req(struct ycl_msg *msg, const char *iface,
-    size_t nframes, const char **frames, size_t *frameslen) {
+int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
+    struct ycl_ethframe_req *fields) {
   struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   struct p_ethframe_req req = {0};
   int ret;
@@ -221,16 +221,29 @@ int ycl_msg_create_ethframe_req(struct ycl_msg *msg, const char *iface,
 
   if (buf_init(&tmpbuf, 2048) == NULL) {
     return YCL_ERR;
-  } else if (netstring_append_list(&tmpbuf, nframes, frames, frameslen) !=
-      NETSTRING_OK) {
+  } else if (netstring_append_list(&tmpbuf, fields->nframes, fields->frames,
+      fields->frameslen) != NETSTRING_OK) {
     return YCL_ERR;
   }
 
   req.frames = tmpbuf.data;
   req.frameslen = tmpbuf.len;
-  if (iface != NULL) {
-    req.iface = iface;
-    req.ifacelen = strlen(iface);
+  if (fields->iface != NULL) {
+    req.iface = fields->iface;
+    req.ifacelen = strlen(fields->iface);
+  }
+
+  if (fields->arpreq_addrs != NULL) {
+    req.arpreq_addrs = fields->arpreq_addrs;
+    req.arpreq_addrslen = strlen(fields->arpreq_addrs);
+
+    if (fields->arpreq_sha != NULL) {
+      req.arpreq_sha = fields->arpreq_sha;
+      req.arpreq_shalen = 6; /* implicit */
+    }
+
+    req.arpreq_spa = (const char*)&fields->arpreq_spa;
+    req.arpreq_spalen = sizeof(fields->arpreq_spa);
   }
 
   ycl_msg_reset(msg);

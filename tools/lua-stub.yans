@@ -128,7 +128,7 @@ $ ls -sh a.out
 
 ]])
   print("/*")
-  print(unpack(sorted_headers))
+  print(table.unpack(sorted_headers))
   print("*/")
   for inc, _ in pairs(includes) do
     io.write(inc, "\n")

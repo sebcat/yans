@@ -23,8 +23,14 @@ AC_SUBST([PCAPLIB])
 AC_CHECK_LIB([cap], [cap_set_flag], [CAPLIB=-lcap], [CAPLIB=])
 AC_SUBST([CAPLIB])
 
-AM_CONDITIONAL([FREEBSD_OPT], [
-  case "$target_os" in freebsd*) true; ;;  *) false; ;; esac])
+# install freebsd-rc if asked for
+AC_ARG_WITH([freebsd-rc],
+  [AS_HELP_STRING(
+    [--with-freebsd-rc],
+    [install FreeBSD rc files (default: no)])],
+  [with_freebsd_rc=$withval],
+  [with_freebsd_rc=no])
+AM_CONDITIONAL([FREEBSD_OPT], [test x"$with_freebsd_rc" = "xyes"])
 
 AC_CONFIG_FILES([Makefile freebsd/Makefile])
 

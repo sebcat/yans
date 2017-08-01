@@ -769,6 +769,7 @@ with_aix_soname
 with_gnu_ld
 with_sysroot
 enable_libtool_lock
+with_freebsd_rc
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1422,6 +1423,7 @@ Optional Packages:
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
   --with-sysroot[=DIR]    Search for dependent libraries within DIR (or the
                           compiler's sysroot if not specified).
+  --with-freebsd-rc       install FreeBSD rc files (default: no)
 
 Some influential environment variables:
   CC          C compiler command
@@ -12943,8 +12945,16 @@ fi
 
 
 
- if
-  case "$target_os" in freebsd*) true; ;;  *) false; ;; esac; then
+# install freebsd-rc if asked for
+
+# Check whether --with-freebsd-rc was given.
+if test "${with_freebsd_rc+set}" = set; then :
+  withval=$with_freebsd_rc; with_freebsd_rc=$withval
+else
+  with_freebsd_rc=no
+fi
+
+ if test x"$with_freebsd_rc" = "xyes"; then
   FREEBSD_OPT_TRUE=
   FREEBSD_OPT_FALSE='#'
 else

@@ -10,7 +10,8 @@
 #include <3rd_party/lua.h>
 #include <3rd_party/lpeg.h>
 
-#include <lib/lua/yans.h>
+#include <lib/lua/net.h>
+#include <lib/lua/http.h>
 #include <lib/lua/ypcap.h>
 #include <lib/lua/pcapd.h>
 #include <lib/lua/json.h>
@@ -115,7 +116,9 @@ static lua_State * state_or_die() {
   }
 
   luaL_openlibs(L);
-  luaL_requiref(L, "yans", luaopen_yans, 1);
+  luaL_requiref(L, "ip", luaopen_ip, 1);
+  luaL_requiref(L, "eth", luaopen_eth, 1);
+  luaL_requiref(L, "http", luaopen_http, 1);
   luaL_requiref(L, "ypcap", luaopen_ypcap, 1);
   luaL_requiref(L, "pcapd", luaopen_pcapd, 1);
   luaL_requiref(L, "lpeg", luaopen_lpeg, 1);

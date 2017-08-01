@@ -1,9 +1,9 @@
 #!/usr/bin/env lua
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
-IPAddr = yans.IPAddr
-IPBlock = yans.IPBlock
-IPBlocks = yans.IPBlocks
+IPAddr = ip.addr
+IPBlock = ip.block
+IPBlocks = ip.addrs
 
 local function test_addr_tostring_self(str)
 	addr = IPAddr(str)
@@ -111,7 +111,7 @@ addr_sub("::1:0:0:0:0", 1, "::ffff:ffff:ffff:ffff")
 addr_sub("ff02::1", -1, "ff02::2")
 addr_sub("::1", 1, "::")
 
--- yans.IPBlock first, last
+-- ip.block first, last
 local function block(s, efirst, elast)
   blk = IPBlock(s)
   afirst, alast = tostring(blk:first()), tostring(blk:last())
@@ -230,11 +230,11 @@ blocks_str("127.0.0.1-127.0.0.2, ::1/32", "127.0.0.1-127.0.0.2 ::/32")
 blocks_str("127.0.0.1-127.0.0.2, ::1/32 \t\r\n,", "127.0.0.1-127.0.0.2 ::/32")
 
 -- assume we have network interfaces
-assert(type(yans.devices()) == "table")
+assert(type(eth.devices()) == "table")
 
 -- print some network information
 do
-  for _, dev in pairs(yans.devices()) do
+  for _, dev in pairs(eth.devices()) do
     print(string.format("interface: %s",dev.name))
     if dev.loopback then print("loopback") end
     if dev.up then print("up") end
@@ -265,7 +265,7 @@ do
 end
 
 local function get_loopback_ifname()
-  for _, dev in pairs(yans.devices()) do
+  for _, dev in pairs(eth.devices()) do
     if dev.loopback then return dev.name end
   end
 end

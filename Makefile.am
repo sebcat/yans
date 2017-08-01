@@ -115,8 +115,10 @@ yans_SOURCES = \
     proto/pcap_req.h \
     proto/status_resp.c \
     proto/status_resp.h \
-    lib/lua/yans.c \
-    lib/lua/yans.h \
+    lib/lua/net.c \
+    lib/lua/net.h \
+    lib/lua/http.c \
+    lib/lua/http.h \
     lib/lua/ypcap.c \
     lib/lua/ypcap.h \
     lib/lua/pcapd.c \

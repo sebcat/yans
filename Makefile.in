@@ -213,9 +213,9 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
 	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
 	proto/pcap_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
-	lib/lua/yans.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
-	lib/lua/pcapd.$(OBJEXT) lib/lua/json.$(OBJEXT) \
-	apps/yans/yans.$(OBJEXT)
+	lib/lua/net.$(OBJEXT) lib/lua/http.$(OBJEXT) \
+	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
+	lib/lua/json.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
@@ -737,8 +737,10 @@ yans_SOURCES = \
     proto/pcap_req.h \
     proto/status_resp.c \
     proto/status_resp.h \
-    lib/lua/yans.c \
-    lib/lua/yans.h \
+    lib/lua/net.c \
+    lib/lua/net.h \
+    lib/lua/http.c \
+    lib/lua/http.h \
     lib/lua/ypcap.c \
     lib/lua/ypcap.h \
     lib/lua/pcapd.c \
@@ -1141,7 +1143,9 @@ lib/lua/$(am__dirstamp):
 lib/lua/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) lib/lua/$(DEPDIR)
 	@: > lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/yans.$(OBJEXT): lib/lua/$(am__dirstamp) \
+lib/lua/net.$(OBJEXT): lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/http.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/ypcap.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
@@ -1217,9 +1221,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/sweepercli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/http.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/json.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/net.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe.Po@am__quote@

@@ -18,3 +18,4 @@ libtool
 /libycl.la
 /ping
 /ycli
+freebsd/etc.rc.d/ethd

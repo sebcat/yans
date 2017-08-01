@@ -31,7 +31,7 @@
 
 name="ethd"
 rcvar="ethd_enable"
-command="/usr/bin/ethd"
+command="@BINDIR@/ethd"
 command_args="-u ${ethd_duser} -g ${ethd_dgroup} -b /var/ethd"
 start_precmd="ethd_precmd"
 pidfile="/var/ethd/ethd.pid"

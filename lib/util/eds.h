@@ -93,30 +93,16 @@ int eds_client_get_fd(struct eds_client *cli);
 /* mark the client fd as external, i.e., not closed when client is done */
 void eds_client_set_externalfd(struct eds_client *cli);
 
+/* set eds_client actions */
+void eds_client_set_on_readable(struct eds_client *cli,
+    void (*on_readable)(struct eds_client *cli, int fd));
+void eds_client_set_on_writable(struct eds_client *cli,
+    void (*on_writable)(struct eds_client *cli, int fd));
+
 /* send a piece of data, and transition to the next state on success. On write
  * failure, log an error and remove the client */
 void eds_client_send(struct eds_client *cli, const char *data, size_t len,
     struct eds_transition *next);
-
-static inline void eds_client_set_on_readable(struct eds_client *cli,
-    void (*on_readable)(struct eds_client *cli, int fd)) {
-  cli->actions.on_readable = on_readable;
-  if (on_readable == NULL) {
-    FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
-  } else {
-    FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
-  }
-}
-
-static inline void eds_client_set_on_writable(struct eds_client *cli,
-    void (*on_writable)(struct eds_client *cli, int fd)) {
-  cli->actions.on_writable = on_writable;
-  if (on_writable == NULL) {
-    FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
-  } else {
-    FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
-  }
-}
 
 static inline void eds_client_clear_actions(struct eds_client *cli) {
   int fd = eds_client_get_fd(cli);

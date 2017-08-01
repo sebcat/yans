@@ -24,6 +24,8 @@
 
 /* internal eds_client flags */
 #define EDS_CLIENT_FEXTERNALFD (1 << 0)
+#define EDS_CLIENT_REMOVED     (1 << 1)
+
 
 static void svcerr(struct eds_service *svc, const char *fmt, ...) {
   char errbuf[256];
@@ -52,6 +54,31 @@ int eds_client_get_fd(struct eds_client *cli) {
 void eds_client_set_externalfd(struct eds_client *cli) {
   cli->flags |= EDS_CLIENT_FEXTERNALFD;
 }
+
+void eds_client_set_on_readable(struct eds_client *cli,
+    void (*on_readable)(struct eds_client *cli, int fd)) {
+  if (!(cli->flags & EDS_CLIENT_REMOVED)) {
+    cli->actions.on_readable = on_readable;
+    if (on_readable == NULL) {
+      FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
+    } else {
+      FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
+    }
+  }
+}
+
+void eds_client_set_on_writable(struct eds_client *cli,
+    void (*on_writable)(struct eds_client *cli, int fd)) {
+  if (!(cli->flags & EDS_CLIENT_REMOVED)) {
+    cli->actions.on_writable = on_writable;
+    if (on_writable == NULL) {
+      FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
+    } else {
+      FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
+    }
+  }
+}
+
 
 static void on_eds_client_send(struct eds_client *cli, int fd) {
   ssize_t ret;
@@ -82,7 +109,11 @@ static void on_eds_client_send(struct eds_client *cli, int fd) {
   }
 
 completed:
-  eds_client_clear_actions(cli);
+  /* XXX: We may be called from the event loop, or from within a
+   *      client action at this point. If we are called from a client
+   *      action, it's important that we don't make any assumptions about
+   *      any actions registered after the call to eds_client_send */
+
   if (cli->trans.flags & EDS_TFLREAD) {
     eds_client_set_on_readable(cli, cli->trans.on_readable);
     cli->trans.flags &= ~EDS_TFLREAD;
@@ -91,12 +122,6 @@ completed:
   if (cli->trans.flags & EDS_TFLWRITE) {
     eds_client_set_on_writable(cli, cli->trans.on_writable);
     cli->trans.flags &= ~EDS_TFLWRITE;
-  }
-
-  /* remove the client if no actions are registered */
-  if (cli->actions.on_readable == NULL &&
-      cli->actions.on_writable == NULL) {
-    eds_service_remove_client(cli->svc, cli);
   }
 }
 
@@ -334,6 +359,19 @@ select:
       /* There is an action on this fd */
       num_fds--;
       ecli = eds_service_client_from_fd(svc, fd);
+
+      /* EDS_CLIENT_REMOVED is set in eds_service_remove_client. We clear
+       * it here to indicate to the on_readable handler that the client is not
+       * removed.
+       *
+       * This is done to prevent eds_client_set_on_readable to re-activate a
+       * client that has been removed. This will occur if the current
+       * on_readable action sets the a new on_readable handler after it has
+       * called eds_service_remove_client, e.g., in a transition in
+       * eds_client_send */
+      ecli->flags &= ~EDS_CLIENT_REMOVED;
+
+      /* call action handlers */
       if (FD_ISSET(fd, &rfds) && ecli->actions.on_readable != NULL) {
         ecli->actions.on_readable(ecli, fd);
       }
@@ -394,6 +432,7 @@ void eds_service_remove_client(struct eds_service *svc,
   FD_CLR(fd, &l->rfds);
   FD_CLR(fd, &l->wfds);
   FD_SET(svc->cmdfd, &l->rfds);
+  cli->flags |= EDS_CLIENT_REMOVED;
 }
 
 /* initializes an eds_service struct. Called pre-fork on eds_serve */

@@ -234,12 +234,27 @@ static int l_ipaddr_sub(lua_State *L) {
 static int l_ethaddr(lua_State *L) {
   struct eth_addr *eth;
   size_t len;
-  const char *addr = luaL_checklstring(L, 1, &len);
-  if (len != 6) {
-    return luaL_error(L, "EthAddr: invalid address length (%zu)", len);
+  const char *addr;
+  char ethbuf[ETH_ALEN];
+  int ret;
+
+  addr = luaL_checklstring(L, 1, &len);
+  if (len < 6) {
+    return luaL_error(L, "EthAddr: ethernet address too short");
+  } else if (len == 6) {
+    /* raw byte format */
+    eth = l_newethaddr(L);
+    eth_addr_init_bytes(eth, addr);
+  } else if (len > 6) {
+    /* assume XX:XX:XX:XX:XX:XX */
+    ret = sscanf(addr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &ethbuf[0],
+        &ethbuf[1], &ethbuf[2], &ethbuf[3], &ethbuf[4], &ethbuf[5]);
+    if (ret != 6) {
+      return luaL_error(L, "EthAddr: invalid ethernet address");
+    }
+    eth = l_newethaddr(L);
+    eth_addr_init_bytes(eth, ethbuf);
   }
-  eth = l_newethaddr(L);
-  eth_addr_init_bytes(eth, addr);
   return 1;
 }
 

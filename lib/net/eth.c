@@ -56,7 +56,7 @@ void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
 
 int eth_sender_init(struct eth_sender *eth, const char *iface) {
   int fd = -1;
-  struct ifreq ifr = {0};
+  struct ifreq ifr = {{0}};
 
   if (( fd = open("/dev/bpf", O_WRONLY)) < 0) {
     goto fail;

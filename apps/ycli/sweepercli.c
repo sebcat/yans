@@ -56,7 +56,7 @@ usage:
 
 static int sweepercli_run(struct sweepercli_opts *opts) {
   struct ycl_ctx ycl;
-  struct ycl_msg msg = {0};
+  struct ycl_msg msg = {{0}};
   const char *okmsg = NULL;
   const char *errmsg = NULL;
   struct ycl_msg_sweeper_req req;

@@ -84,13 +84,13 @@ static int parse_frames(struct ethframe_opts *opts, int nframes,
     return 0;
   }
 
-  opts->req.frames = calloc(opts->req.nframes, sizeof(char*));
+  opts->req.frames = calloc(nframes, sizeof(char*));
   if (opts->req.frames == NULL) {
     fprintf(stderr, "frames: %s\n", strerror(errno));
     return -1;
   }
 
-  opts->req.frameslen = calloc(opts->req.nframes, sizeof(size_t));
+  opts->req.frameslen = calloc(nframes, sizeof(size_t));
   if (opts->req.frameslen == NULL) {
     fprintf(stderr, "frameslen: %s\n", strerror(errno));
     free(opts->req.frames);
@@ -166,7 +166,6 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
   }
 
   if (parse_frames(opts, argc - optind, argv + optind) < 0) {
-    clean_opts(opts);
     return -1;
   }
 
@@ -185,7 +184,7 @@ usage:
 
 static int ethframecli_run(struct ethframe_opts *opts) {
   struct ycl_ctx ycl;
-  struct ycl_msg msg = {0};
+  struct ycl_msg msg = {{0}};
   const char *okmsg = NULL;
   const char *errmsg = NULL;
   int ret = -1;
@@ -230,7 +229,7 @@ done:
 }
 
 int ethframecli_main(int argc, char *argv[]) {
-  struct ethframe_opts opts = {0};
+  struct ethframe_opts opts = {{0}};
   int ret = EXIT_FAILURE;
 
   if (parse_opts(&opts, argc, argv) < 0) {

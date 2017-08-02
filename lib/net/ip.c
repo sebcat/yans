@@ -389,7 +389,7 @@ static int cons_block(struct ip_blocks *blks, const char *s, size_t start,
     size_t end, int *err) {
   size_t len;
   char buf[256];
-  ip_block_t blk = {0};
+  ip_block_t blk = {{{{0}}}};
   void *tmp;
 
   len = end - start;
@@ -463,11 +463,13 @@ int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
 }
 
 void ip_blocks_cleanup(struct ip_blocks *blks) {
-  if (blks && blks->blocks) {
-    free(blks->blocks);
+  if (blks) {
+    if (blks->blocks) {
+      free(blks->blocks);
+    }
+    blks->nblocks = 0;
+    blks->curr = 0;
   }
-  blks->nblocks = 0;
-  blks->curr = 0;
 }
 
 int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {

@@ -644,7 +644,6 @@ wait:
   }
 
   /* find the corresponding service */
-  svc = svcs;
   for (svc = svcs; svc->name != NULL; svc++) {
     for (i = 0; i < svc->nprocs; i++) {
       if (EDS_SERVICE_SUPERVISOR(svc).pids[i] == pid) {

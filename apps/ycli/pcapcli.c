@@ -125,7 +125,7 @@ fail:
 
 static int pcapcli_run(int fd, struct pcapcli_opts *opts) {
   struct ycl_ctx ycl;
-  struct ycl_msg msg = {0};
+  struct ycl_msg msg = {{0}};
   const char *okmsg = NULL;
   const char *errmsg = NULL;
 

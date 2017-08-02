@@ -105,6 +105,7 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
 int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   io_t io;
+  size_t nread = 0;
   int ret;
 
   /* this function is written with re-entrancy for non-blocking I/O in mind
@@ -115,11 +116,14 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   while (m->buf.len == 0 ||
       (ret = netstring_tryparse(m->buf.data, m->buf.len)) ==
       NETSTRING_ERRINCOMPLETE) {
-    ret = io_readbuf(&io, &m->buf, NULL);
+    ret = io_readbuf(&io, &m->buf, &nread);
     if (ret == IO_AGAIN) {
       return YCL_AGAIN;
     } else if (ret != IO_OK) {
       SETERR(ycl, "%s", io_strerror(&io));
+      return YCL_ERR;
+    } else if (nread == 0) {
+      SETERR(ycl, "connection terminated prematurely");
       return YCL_ERR;
     }
   }

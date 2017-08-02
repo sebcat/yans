@@ -57,6 +57,7 @@ static int l_pcapd_open(lua_State *L) {
   struct p_status_resp resp;
   struct pcapd *pcapd = checkpcapd(L, 1);
   const char *dumppath = luaL_checkstring(L, 2);
+  size_t nread;
   buf_t buf;
   char errbuf[256];
 
@@ -90,13 +91,15 @@ static int l_pcapd_open(lua_State *L) {
     return luaL_error(L, "unable to send command: %s", io_strerror(&cli));
   }
 
-  /* TODO: read response message */
+  /* read response message */
   buf_clear(&buf);
   do {
-    ret = io_readbuf(&cli, &buf, NULL);
+    ret = io_readbuf(&cli, &buf, &nread);
     if (ret != IO_OK) {
       buf_cleanup(&buf);
       return luaL_error(L, "error reading response: %s", io_strerror(&cli));
+    } else if (nread == 0) {
+      return luaL_error(L, "connection closed while reading response");
     }
   } while ((ret = p_status_resp_deserialize(&resp, buf.data, buf.len, NULL)) ==
         PROTO_ERRINCOMPLETE);

@@ -199,15 +199,21 @@ static void on_read_req(struct eds_client *cli, int fd) {
   char *frame;
   char *frames;
   size_t framelen;
+  size_t nread = 0;
   const char *errmsg = "an internal error occurred";
   char errbuf[128];
 
   IO_INIT(&io, fd);
-  ret = io_readbuf(&io, &ecli->buf, NULL);
+  ret = io_readbuf(&io, &ecli->buf, &nread);
   if (ret == IO_AGAIN) {
     return;
   } else if (ret != IO_OK) {
     errmsg = io_strerror(&io);
+    goto fail;
+  }
+
+  if (nread == 0) {
+    errmsg = "connection closed while reading request";
     goto fail;
   }
 

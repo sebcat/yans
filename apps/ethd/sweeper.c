@@ -43,6 +43,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
   struct sweeper_client *scli;
   const char *errmsg = "internal error";
   struct p_sweeper_req req;
+  size_t nread = 0;
   struct p_status_resp resp = {0};
   struct eds_transition trans = {
     .flags = EDS_TFLREAD | EDS_TFLWRITE,
@@ -52,11 +53,14 @@ static void on_read_req(struct eds_client *cli, int fd) {
 
   scli = SWEEPER_CLIENT(cli);
   IO_INIT(&io, fd);
-  ret = io_readbuf(&io, &scli->buf, NULL);
+  ret = io_readbuf(&io, &scli->buf, &nread);
   if (ret == IO_AGAIN) {
     return;
   } else if (ret != IO_OK) {
     errmsg = io_strerror(&io);
+    goto fail;
+  } else if (nread == 0) {
+    errmsg = "premature connection termination";
     goto fail;
   }
 

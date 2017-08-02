@@ -97,16 +97,22 @@ static void on_readcmd(struct eds_client *cli, int fd) {
   int pcapfd;
   io_t io;
   size_t left;
+  size_t nread;
   struct p_pcap_req cmd;
   const char *errmsg = "an internal error occurred";
 
   IO_INIT(&io, fd);
 
-  ret = io_readbuf(&io, &pcapcli->cmdbuf, NULL);
+  ret = io_readbuf(&io, &pcapcli->cmdbuf, &nread);
   if (ret == IO_AGAIN) {
     return;
   } else if (ret != IO_OK) {
     ylog_error("pcapcli%d: io_readbuf: %s", fd, io_strerror(&io));
+    goto fail;
+  }
+
+  if (nread == 0) {
+    ylog_error("pcapcli%d: connection terminated while reading cmd", fd);
     goto fail;
   }
 

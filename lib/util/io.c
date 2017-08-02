@@ -1,16 +1,20 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <poll.h>
+#include <assert.h>
 
 #include <lib/util/io.h>
 
-#define READBUF_GROWSZ 256
+/* FIXME: this is intentionally low in order to detect bugs. Change before
+ *        serious use. Maybe do 50% buffer increases instead. */
+#define READBUF_GROWSZ 4
 
 #define IO_SETERR(io, ...) \
     snprintf((io)->errbuf, sizeof((io)->errbuf), __VA_ARGS__);
@@ -66,6 +70,12 @@ int io_listen_unix(io_t *io, const char *path) {
     IO_PERROR(io, "listen");
     goto fail_close;
   }
+ /* XXX: so this chmod is a TOCTOU, but the man-pages for FreeBSD says:
+  *  The fchmod() system call will fail if:
+  *  [EINVAL]           The fd argument refers to a socket, not to a file.
+  *
+  * which is a bit strange, it would be nice to use fchmod... */
+  chmod(path, 0777);
   io->fd = fd;
   return IO_OK;
 fail_close:
@@ -345,6 +355,11 @@ int io_setnonblock(io_t *io, int val) {
 int io_readbuf(io_t *io, buf_t *buf, size_t *nread) {
   ssize_t ret;
   size_t bufsz = buf->cap - buf->len;
+
+  assert(nread != NULL); /* we used to allow nread to be NULL, but callers
+                          * *need* to check for EOF (nread == 0) so it's no
+                          * longer allowed, and should be cleaned up */
+
   if (bufsz < READBUF_GROWSZ) {
     if (buf_grow(buf, READBUF_GROWSZ) < 0) {
       IO_PERROR(io, "buf_grow");

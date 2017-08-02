@@ -34,12 +34,26 @@ bin_PROGRAMS = \
     yans \
     ethd \
     ping \
-    ycli
+    ycli \
+    fcgi-demo
 
 lib_LTLIBRARIES = libycl.la
 
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
+
+fcgi_demo_SOURCES = \
+    lib/util/ylog.h \
+    lib/util/ylog.c \
+    lib/util/eds.h \
+    lib/util/eds.c \
+    lib/util/os.h \
+    lib/util/os.c \
+    lib/util/buf.c \
+    lib/util/io.c \
+    lib/net/fcgi.h \
+    lib/net/fcgi.c \
+    apps/fcgi-demo/fcgi-demo.c
 
 ethd_SOURCES = \
     lib/util/buf.c \

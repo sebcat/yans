@@ -131,6 +131,10 @@ void eds_service_stop(struct eds_service *svc);
  */
 int eds_serve_single(struct eds_service *svc);
 
+/* iterates over svcs until sentinel, starts the first service identified
+ * by name */
+int eds_serve_single_by_name(struct eds_service *svcs, const char *name);
+
 /* eds_serve --
  *   starts a set of service processes and serves incoming requests on them.
  *   Terminated service processes are always restarted by the supervisor

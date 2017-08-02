@@ -178,31 +178,6 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
   ylog_error("%s", err);
 }
 
-static struct eds_service *g_service;
-
-static void shutdown_single(int sig) {
-  eds_service_stop(g_service);
-}
-
-static int start_single_service(struct eds_service *svcs, const char *name) {
-  struct eds_service *svc;
-  struct sigaction sa = {{0}};
-
-  for (svc = svcs; svc->name != NULL; svc++) {
-    if (strcmp(svc->name, name) == 0) {
-      g_service = svc;
-      sa.sa_handler = shutdown_single;
-      sigaction(SIGHUP, &sa, NULL);
-      sigaction(SIGINT, &sa, NULL);
-      sigaction(SIGTERM, &sa, NULL);
-      return eds_serve_single(svc);
-    }
-  }
-
-  ylog_error("service \"%s\" not found", name);
-  return -1;
-}
-
 int main(int argc, char *argv[]) {
   static struct eds_service services[] = {
     {
@@ -274,8 +249,8 @@ int main(int argc, char *argv[]) {
 
   if (opts.single != NULL) {
     ylog_info("Starting service: %s", opts.single);
-    if (start_single_service(services, opts.single) < 0) {
-      ylog_error("eds_serve_single: failed");
+    if (eds_serve_single_by_name(services, opts.single) < 0) {
+      ylog_error("unable to start service \"%s\"", opts.single);
       status = EXIT_FAILURE;
     }
   } else {

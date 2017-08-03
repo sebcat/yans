@@ -488,42 +488,44 @@ static void eds_service_cleanup(struct eds_service *svc) {
   l->cdata = NULL;
 }
 
+static struct eds_service *g_service;
+
+static void shutdown_single(int sig) {
+  if (g_service) {
+    g_service->flags |= EDS_SERVICE_STOPPED;
+  }
+}
+
 int eds_serve_single(struct eds_service *svc) {
+  struct sigaction sa = {{0}};
   int ret;
 
   if (eds_service_init(svc) < 0) {
     return -1;
   }
 
+  g_service = svc;
+  sa.sa_handler = shutdown_single;
+  sigaction(SIGHUP, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+
   ret = eds_serve_single_mainloop(svc);
   eds_service_cleanup(svc);
   return ret;
 }
 
-static struct eds_service *g_service;
-
-static void shutdown_single(int sig) {
-  eds_service_stop(g_service);
-}
-
 int eds_serve_single_by_name(struct eds_service *svcs, const char *name) {
   struct eds_service *svc;
-  struct sigaction sa = {{0}};
 
   for (svc = svcs; svc->name != NULL; svc++) {
     if (strcmp(svc->name, name) == 0) {
-      g_service = svc;
-      sa.sa_handler = shutdown_single;
-      sigaction(SIGHUP, &sa, NULL);
-      sigaction(SIGINT, &sa, NULL);
-      sigaction(SIGTERM, &sa, NULL);
       return eds_serve_single(svc);
     }
   }
 
   return -1;
 }
-
 
 static int fork_service_listener(struct eds_service *svc, unsigned int n) {
   pid_t pid;

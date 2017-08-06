@@ -15,6 +15,7 @@
 #include <lib/lua/ypcap.h>
 #include <lib/lua/pcapd.h>
 #include <lib/lua/json.h>
+#include <lib/lua/cgi.h>
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -123,6 +124,7 @@ static lua_State * state_or_die() {
   luaL_requiref(L, "pcapd", luaopen_pcapd, 1);
   luaL_requiref(L, "lpeg", luaopen_lpeg, 1);
   luaL_requiref(L, "json", luaopen_json, 1);
+  luaL_requiref(L, "cgi", luaopen_cgi, 1);
   return L;
 }
 

@@ -12,9 +12,8 @@
 
 #include <lib/util/io.h>
 
-/* FIXME: this is intentionally low in order to detect bugs. Change before
- *        serious use. Maybe do 50% buffer increases instead. */
-#define READBUF_GROWSZ 4
+/* Number of bytes left in a buffer before we grow it */
+#define READBUF_GROWSZ 256
 
 #define IO_SETERR(io, ...) \
     snprintf((io)->errbuf, sizeof((io)->errbuf), __VA_ARGS__);

@@ -6,7 +6,6 @@
 #define BUF_ALIGNMENT    sizeof(long)
 #define BUF_ALIGN(x)    (((x)+(BUF_ALIGNMENT-1))&~(BUF_ALIGNMENT-1))
 
-
 buf_t *buf_init(buf_t *buf, size_t cap) {
   size_t acap = BUF_ALIGN(cap);
   if ((buf->data = calloc(1, acap)) == NULL) {
@@ -64,10 +63,3 @@ int buf_adata(buf_t *buf, const void *data, size_t len) {
   return 0;
 }
 
-void buf_shrink(buf_t *buf, size_t nbytes) {
-  if (nbytes > buf->len) {
-    buf->len = 0;
-  } else {
-    buf->len -= nbytes;
-  }
-}

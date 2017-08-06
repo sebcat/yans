@@ -330,3 +330,53 @@ fail:
   return OS_ERR;
 }
 
+void os_cleanpath(char *path) {
+  size_t r;       /* read offset */
+  size_t w;       /* write offset */
+  size_t leftlim; /* left-most limit for ..'s */
+  int absolute;   /* path begins with / (1) or not (0) */
+
+  if (path[0] == '/') {
+    absolute = 1;
+    r = 1;
+    w = 1;
+    leftlim = 1;
+  } else {
+    absolute = 0;
+    r = 0;
+    w = 0;
+    leftlim = 0;
+  }
+
+  while (path[r] != '\0') {
+    if (path[r] == '/') {
+      r++;
+    } else if (path[r] == '.' && (path[r + 1] == '\0' || path[r + 1] == '/')) {
+      r++;
+    } else if (path[r] == '.' && path[r + 1] == '.' &&
+        (path[r + 2] == '\0' || path[r + 2] == '/')) {
+      r += 2;
+      if (w > leftlim) {
+        do {
+          w--;
+        } while (w > leftlim && path[w] != '/');
+      } else if (!absolute) {
+        if (w > 0) {
+          path[w++] = '/';
+        }
+        path[w++] = '.';
+        path[w++] = '.';
+        leftlim = w;
+      }
+    } else {
+      if ((absolute && w != 1) || (!absolute && w > 0)) {
+        path[w++] = '/';
+      }
+      while (path[r] != '\0' && path[r] != '/') {
+        path[w++] = path[r++];
+      }
+    }
+  }
+
+  path[w] = '\0';
+}

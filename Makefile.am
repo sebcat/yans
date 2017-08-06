@@ -12,6 +12,7 @@ TESTS = \
     lib_net_punycode_test \
     lib_net_ethframe_test \
     lib_util_u8_test \
+    lib_util_os_test \
     lib_util_netstring_test \
     lib_util_conf_test \
     apps/yans/tests/url_test.yans \
@@ -26,6 +27,7 @@ check_PROGRAMS = \
     lib_net_punycode_test \
     lib_net_ethframe_test \
     lib_util_u8_test \
+    lib_util_os_test \
     lib_util_netstring_test \
     lib_util_conf_test \
     yans
@@ -35,7 +37,8 @@ bin_PROGRAMS = \
     ethd \
     ping \
     ycli \
-    fcgi-demo
+    fcgi-demo \
+    fc2
 
 lib_LTLIBRARIES = libycl.la
 
@@ -50,10 +53,27 @@ fcgi_demo_SOURCES = \
     lib/util/os.h \
     lib/util/os.c \
     lib/util/buf.c \
+    lib/util/buf.h \
     lib/util/io.c \
+    lib/util/io.h \
     lib/net/fcgi.h \
     lib/net/fcgi.c \
     apps/fcgi-demo/fcgi-demo.c
+
+fc2_SOURCES = \
+    lib/util/ylog.h \
+    lib/util/ylog.c \
+    lib/util/eds.h \
+    lib/util/eds.c \
+    lib/util/os.h \
+    lib/util/os.c \
+    lib/util/buf.c \
+    lib/util/buf.h \
+    lib/util/io.c \
+    lib/util/io.h \
+    lib/net/fcgi.h \
+    lib/net/fcgi.c \
+    apps/fc2/fc2.c
 
 ethd_SOURCES = \
     lib/util/buf.c \
@@ -112,6 +132,8 @@ yans_SOURCES = \
     lib/util/buf.h \
     lib/util/io.c \
     lib/util/io.h \
+    lib/util/sandbox.c \
+    lib/util/sandbox.h \
     lib/util/fio.c \
     lib/util/fio.h \
     lib/util/netstring.c \
@@ -139,6 +161,8 @@ yans_SOURCES = \
     lib/lua/pcapd.h \
     lib/lua/json.h \
     lib/lua/json.c \
+    lib/lua/cgi.h \
+    lib/lua/cgi.c \
     apps/yans/yans.c
 
 yans_LDADD = \
@@ -206,6 +230,11 @@ lib_util_u8_test_SOURCES = \
     lib/util/u8.c \
     lib/util/u8.h \
     lib/util/u8_test.c
+
+lib_util_os_test_SOURCES = \
+    lib/util/os.c \
+    lib/util/os.h \
+    lib/util/os_test.c
 
 lib_util_conf_test_SOURCES = \
     lib/util/conf.c \

@@ -70,6 +70,9 @@ struct eds_service {
   unsigned int tick_slice_us; /* tick time slice, in microseconds */
   /* callback called on service error with string describing the error */
   void (*on_svc_error)(struct eds_service *svc, const char *err);
+  /* callback called on reaped child for every eds_client in use */
+  void (*on_reaped_child)(struct eds_service *svc, struct eds_client *cli,
+      pid_t pid, int status);
 
   /* init, fini routines, if any. Called once per process  */
   int (*mod_init)(struct eds_service *svc); /* ret < 0 means failure */
@@ -98,19 +101,13 @@ void eds_client_set_on_readable(struct eds_client *cli,
     void (*on_readable)(struct eds_client *cli, int fd));
 void eds_client_set_on_writable(struct eds_client *cli,
     void (*on_writable)(struct eds_client *cli, int fd));
+void eds_client_suspend_readable(struct eds_client *cli);
+void eds_client_clear_actions(struct eds_client *cli);
 
 /* send a piece of data, and transition to the next state on success. On write
  * failure, log an error and remove the client */
 void eds_client_send(struct eds_client *cli, const char *data, size_t len,
     struct eds_transition *next);
-
-static inline void eds_client_clear_actions(struct eds_client *cli) {
-  int fd = eds_client_get_fd(cli);
-  cli->actions.on_readable = NULL;
-  cli->actions.on_writable = NULL;
-  FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).rfds);
-  FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).wfds);
-}
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
     struct eds_client_actions *acts, void *udata, size_t udata_size);

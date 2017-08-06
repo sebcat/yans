@@ -53,5 +53,8 @@ int os_chrootd(os_t *os, struct os_chrootd_opts *opts);
 int os_getuid(os_t *os, const char *user, uid_t *uid);
 int os_getgid(os_t *os, const char *group, gid_t *gid);
 
+/* normalizes path in-place */
+void os_cleanpath(char *path);
+
 #endif
 

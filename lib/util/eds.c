@@ -25,7 +25,19 @@
 /* internal eds_client flags */
 #define EDS_CLIENT_FEXTERNALFD (1 << 0)
 #define EDS_CLIENT_REMOVED     (1 << 1)
+#define EDS_CLIENT_RSUSPEND    (1 << 2)
+#define EDS_CLIENT_IN_USE      (1 << 3)
 
+/* in a listener process, this field gets the currently running service.
+ * Used for graceful shutdown on HUP, TERM, INT signals */
+static struct eds_service *running_service;
+
+/* set to 1 when a listener receives SIGCHLD, cleared when reaping zombies */
+static volatile sig_atomic_t got_listener_sigchld;
+
+/* when running with a process supervisor, this variable is set in the
+ * supervisor to initiate the shutdown of the children. */
+static volatile sig_atomic_t shutdown_supervisor;
 
 static void svcerr(struct eds_service *svc, const char *fmt, ...) {
   char errbuf[256];
@@ -62,10 +74,35 @@ void eds_client_set_on_readable(struct eds_client *cli,
     if (on_readable == NULL) {
       FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
     } else {
+      cli->flags &= ~EDS_CLIENT_RSUSPEND;
       FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
     }
   }
 }
+
+/* removes the current on_readable event and sets the EDS_CLIENT_RSUSPEND
+ * flag. The file descriptor will not be checked in the event loop, but
+ * the client will not be removed either. This is useful when we only want
+ * to read from an fd after an external event has happened (e.g., read on
+ * another fd, &c) */
+void eds_client_suspend_readable(struct eds_client *cli) {
+  if (cli->flags & EDS_CLIENT_REMOVED) {
+    /* no-op if client is removed */
+    return;
+  }
+  cli->actions.on_readable = NULL;
+  cli->flags |= EDS_CLIENT_RSUSPEND;
+}
+
+void eds_client_clear_actions(struct eds_client *cli) {
+  int fd = eds_client_get_fd(cli);
+  cli->actions.on_readable = NULL;
+  cli->actions.on_writable = NULL;
+  cli->flags &= ~EDS_CLIENT_RSUSPEND;
+  FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).rfds);
+  FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).wfds);
+}
+
 
 void eds_client_set_on_writable(struct eds_client *cli,
     void (*on_writable)(struct eds_client *cli, int fd)) {
@@ -78,7 +115,6 @@ void eds_client_set_on_writable(struct eds_client *cli,
     }
   }
 }
-
 
 static void on_eds_client_send(struct eds_client *cli, int fd) {
   ssize_t ret;
@@ -159,6 +195,7 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
 
   ecli = eds_service_client_from_fd(svc, fd);
   memset(ecli, 0, sizeof(struct eds_client) + svc->udata_size);
+  ecli->flags |= EDS_CLIENT_IN_USE;
   ecli->svc = svc;
   ecli->actions = *acts;
   if (ecli->actions.on_readable != NULL) {
@@ -236,7 +273,44 @@ static void run_tickers(struct eds_service *svc,
   }
 }
 
+static void handle_listener_shutdown(int sig) {
+  if (running_service) {
+    running_service->flags |= EDS_SERVICE_STOPPED;
+  }
+}
+
+static void handle_listener_sigchld(int sig) {
+  got_listener_sigchld = 1;
+}
+
+static void reap_listener_children(struct eds_service *svc) {
+  struct eds_service_listener *l = &EDS_SERVICE_LISTENER(svc);
+  struct eds_client *cli;
+  pid_t pid;
+  int status;
+  int i;
+
+again:
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    if (svc->on_reaped_child) {
+      for (i = 0; i < l->maxfd; i++) {
+        cli = eds_service_client_from_fd(svc, i);
+        if (cli->flags & EDS_CLIENT_IN_USE) {
+          svc->on_reaped_child(svc, cli, pid, status);
+        }
+      }
+    }
+  }
+
+  if (pid < 0 && errno == EINTR) {
+    goto again;
+  }
+
+  got_listener_sigchld = 0;
+}
+
 static int eds_serve_single_mainloop(struct eds_service *svc) {
+  struct sigaction sa = {{0}};
   struct eds_service_listener *l = &EDS_SERVICE_LISTENER(svc);
   struct eds_client *ecli;
   fd_set rfds;
@@ -252,11 +326,16 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
   long expired_us;
   long left_us;
 
-  /* NB: masking out SIGPIPE may be better if it's handled higher up in the
-         call stack, but it's done here so that we always get a consistent
-         behavior for eds. It could be a setting in the eds_service struct if
-         a caller wants to override SIGPIPE behavior */
   signal(SIGPIPE, SIG_IGN);
+  running_service = svc;
+  sa.sa_handler = handle_listener_shutdown;
+  sigaction(SIGHUP, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sa.sa_handler = handle_listener_sigchld;
+  sa.sa_flags = SA_NOCLDSTOP;
+  sigaction(SIGCHLD, &sa, NULL);
+
 
   /* init listener fields */
   FD_ZERO(&l->rfds);
@@ -289,6 +368,10 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
 select:
   if (svc->flags & EDS_SERVICE_STOPPED) {
     return 0;
+  }
+
+  if (got_listener_sigchld) {
+    reap_listener_children(svc);
   }
 
   rfds = l->rfds;
@@ -360,16 +443,12 @@ select:
       num_fds--;
       ecli = eds_service_client_from_fd(svc, fd);
 
-      /* EDS_CLIENT_REMOVED is set in eds_service_remove_client. We clear
-       * it here to indicate to the on_readable handler that the client is not
-       * removed.
-       *
-       * This is done to prevent eds_client_set_on_readable to re-activate a
-       * client that has been removed. This will occur if the current
-       * on_readable action sets the a new on_readable handler after it has
-       * called eds_service_remove_client, e.g., in a transition in
-       * eds_client_send */
-      ecli->flags &= ~EDS_CLIENT_REMOVED;
+      /* this client may have been removed by another client whose
+       * actions are run previously in the same select invocation. Do not
+       * run any actions for this client if that's so */
+      if (ecli->flags & EDS_CLIENT_REMOVED) {
+        continue;
+      }
 
       /* call action handlers */
       if (FD_ISSET(fd, &rfds) && ecli->actions.on_readable != NULL) {
@@ -379,8 +458,10 @@ select:
         ecli->actions.on_writable(ecli, fd);
       }
 
-      /* no action callbacks after called callbacks indicates termination */
-      if (ecli->actions.on_readable == NULL &&
+      /* no action callbacks after called callbacks indicates termination,
+       * unless reading is suspended */
+      if (!(ecli->flags & EDS_CLIENT_RSUSPEND) &&
+          ecli->actions.on_readable == NULL &&
           ecli->actions.on_writable == NULL) {
         eds_service_remove_client(svc, ecli);
       }
@@ -410,8 +491,20 @@ select:
 
 void eds_service_remove_client(struct eds_service *svc,
     struct eds_client *cli) {
-  struct eds_service_listener *l = &EDS_SERVICE_LISTENER(svc);
-  int fd = eds_client_get_fd(cli);
+  struct eds_service_listener *l;
+  int fd;
+
+  /* first check if the client is removed, and return if it is. Immediately
+   * after, mark it as being removed, to avoid recursion loops via on_done */
+  if (cli->flags & EDS_CLIENT_REMOVED) {
+    return;
+  }
+  cli->flags |= EDS_CLIENT_REMOVED;
+
+  cli->flags &= ~EDS_CLIENT_IN_USE;
+
+  l = &EDS_SERVICE_LISTENER(svc);
+  fd = eds_client_get_fd(cli);
 
   if (cli->actions.on_done != NULL) {
     cli->actions.on_done(cli, fd);
@@ -425,14 +518,11 @@ void eds_service_remove_client(struct eds_service *svc,
 
   if (!(cli->flags & EDS_CLIENT_FEXTERNALFD)) {
     close(fd);
-    /* set the fd as external to avoid closing it again if
-     * eds_service_remove_client is called multiple times */
     eds_client_set_externalfd(cli);
   }
   FD_CLR(fd, &l->rfds);
   FD_CLR(fd, &l->wfds);
   FD_SET(svc->cmdfd, &l->rfds);
-  cli->flags |= EDS_CLIENT_REMOVED;
 }
 
 /* initializes an eds_service struct. Called pre-fork on eds_serve */
@@ -488,27 +578,12 @@ static void eds_service_cleanup(struct eds_service *svc) {
   l->cdata = NULL;
 }
 
-static struct eds_service *g_service;
-
-static void shutdown_single(int sig) {
-  if (g_service) {
-    g_service->flags |= EDS_SERVICE_STOPPED;
-  }
-}
-
 int eds_serve_single(struct eds_service *svc) {
-  struct sigaction sa = {{0}};
   int ret;
 
   if (eds_service_init(svc) < 0) {
     return -1;
   }
-
-  g_service = svc;
-  sa.sa_handler = shutdown_single;
-  sigaction(SIGHUP, &sa, NULL);
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
 
   ret = eds_serve_single_mainloop(svc);
   eds_service_cleanup(svc);
@@ -613,12 +688,9 @@ fail:
   return -1;
 }
 
-/* set once, never reset */
-static volatile sig_atomic_t got_shutdown_sig = 0;
-
-static void handle_shutdown_sig(int sig) {
+static void handle_supervisor_shutdown(int sig) {
   if (sig == SIGINT || sig == SIGTERM || sig == SIGHUP) {
-    got_shutdown_sig = 1;
+    shutdown_supervisor = 1;
   }
 }
 
@@ -630,7 +702,7 @@ static int supervise_service_listeners(struct eds_service *svcs) {
 
 wait:
   pid = wait(&status);
-  if (got_shutdown_sig) {
+  if (shutdown_supervisor) {
     return 0;
   } else if (pid < 0 && errno == EINTR) {
     goto wait;
@@ -682,10 +754,7 @@ int eds_serve(struct eds_service *svcs) {
   int status = -1;
   struct sigaction sa = {{0}};
 
-  /* XXX
-   * setting up signal handlers (or any global state) inside lib code should
-   * be considered bad, but it's probably OK for eds_serve's use case */
-  sa.sa_handler = handle_shutdown_sig;
+  sa.sa_handler = handle_supervisor_shutdown;
   sigaction(SIGHUP, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);

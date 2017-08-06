@@ -28,7 +28,7 @@ struct fcgi_header {
   uint8_t clenB0;
   uint8_t plen;
   uint8_t reserved;
-};
+} __attribute__((packed));
 
 /* non-multiplexing (because of FCGI protocol limitations, and because
  * no one implements it) FCGI responder */

@@ -12,13 +12,20 @@ typedef struct buf_t {
 	char *data;
 } buf_t;
 
-#define buf_clear(buf) ((buf)->len = 0)
+#define buf_clear(buf__) ((buf__)->len = 0)
+
+#define buf_shrink(buf__, nbytes__) \
+  (buf__)->len = ((nbytes__) > (buf__)->len) ? 0 : (buf__)->len - (nbytes__);
+
+#define buf_truncate(buf__, off__)         \
+  if ((off__) < (buf__)->len) {            \
+    (buf__)->len = (off__);                \
+  }                                        \
 
 buf_t *buf_init(buf_t *buf, size_t cap);
 void buf_cleanup(buf_t *buf);
 int buf_grow(buf_t *buf, size_t needed);
 int buf_achar(buf_t *buf, int ch);
 int buf_adata(buf_t *buf, const void *data, size_t len);
-void buf_shrink(buf_t *buf, size_t nbytes);
 
 #endif

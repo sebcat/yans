@@ -330,7 +330,7 @@ fail:
   return OS_ERR;
 }
 
-void os_cleanpath(char *path) {
+char *os_cleanpath(char *path) {
   size_t r;       /* read offset */
   size_t w;       /* write offset */
   size_t leftlim; /* left-most limit for ..'s */
@@ -379,4 +379,25 @@ void os_cleanpath(char *path) {
   }
 
   path[w] = '\0';
+  return path;
+}
+
+int os_isdir(const char *path) {
+  struct stat st;
+
+  if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int os_fdisfile(int fd) {
+  struct stat st;
+
+  if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
+    return 1;
+  } else {
+    return 0;
+  }
 }

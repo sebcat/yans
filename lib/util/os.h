@@ -54,7 +54,11 @@ int os_getuid(os_t *os, const char *user, uid_t *uid);
 int os_getgid(os_t *os, const char *group, gid_t *gid);
 
 /* normalizes path in-place */
-void os_cleanpath(char *path);
+char *os_cleanpath(char *path);
+
+/* return 0 if the path does not point to a directory, 1 if it does */
+int os_isdir(const char *path);
+int os_fdisfile(int fd);
 
 #endif
 

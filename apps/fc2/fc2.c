@@ -16,6 +16,7 @@
 
 #define DAEMON_NAME "fc2"
 #define FC2_NFDS 1024
+#define CGIPATH_MAX 256
 
 struct opts {
   const char *basepath;
@@ -77,18 +78,144 @@ struct fc2_cli {
 #define CLINFO(cli__, fd, fmt__, ...) \
     ylog_info("%scli%d: " fmt__ , (cli__)->svc->name, (fd), __VA_ARGS__)
 
-static char **g_argv;
+static char *g_cgidir;
 
-static pid_t fork_reqproc(struct eds_client *cli, int fd, int *procfd) {
-  struct fc2_ctx *ctx = FC2_CTX(cli);
+/* static 404 response as a FCGI_STDOUT frame (hardcoded ID)
+ * if you cnage it*/
+static const char r404[] =
+  "\x01\x06\x00\x01" /* version 1, type FCGI_STDOUT(6), ID 1 */
+  "\x00\x40"         /* content length */
+  "\x00\x00"         /* padding length, reserved */
+  "Status: 404 Not Found\r\n"
+  "Content-Type: text/plain\r\n"
+  "\r\n"
+  "404 Not Found";
+
+struct cgi_env {
+  char full_cgi_path[CGIPATH_MAX]; /* path to executed CGI file */
+  int cgifd;
+  buf_t envp_buf;
+};
+
+#define CGIERR_OK                0
+#define CGIERR_MEMORY           -1
+#define CGIERR_OPEN             -2
+#define CGIERR_INVALIDPATH      -3
+#define CGIERR_UNKNOWN        -255
+
+#define REQUEST_URI     "REQUEST_URI"
+#define REQUEST_URI_LEN            11
+
+static const char *cgi_strerror(int code) {
+  switch (code) {
+  case CGIERR_OK:
+    return "success";
+  case CGIERR_MEMORY:
+    return "memory allocation error";
+  case CGIERR_OPEN:
+    return "unable to open/execute CGI";
+  case CGIERR_INVALIDPATH:
+    return "invalid CGI path";
+  default:
+    return "unknown CGI error";
+  }
+}
+
+static void clean_cgi_env(struct cgi_env *env) {
+  char **curr;
+  size_t len = 0;
+
+  if (env->cgifd != -1) {
+    close(env->cgifd);
+  }
+
+  if (env->envp_buf.cap > 0) {
+    while (len < env->envp_buf.len) {
+      curr = (char**)(env->envp_buf.data + len);
+      if (*curr == NULL) {
+        break;
+      }
+      free(*curr);
+      len += sizeof(char*);
+    }
+    buf_cleanup(&env->envp_buf);
+  }
+}
+
+static int setup_cgi_env(struct fcgi_cli *fcgi, struct cgi_env *out) {
+  size_t len;
+  char *cptr;
   struct fcgi_pair pair;
+  size_t off = 0;
+  int status = CGIERR_UNKNOWN;
+  char cgi_path[CGIPATH_MAX];
+
+  cgi_path[0] = '\0';
+  out->full_cgi_path[0] = '\0';
+  out->cgifd = -1;
+  buf_init(&out->envp_buf, 2048);
+  while (fcgi_cli_next_param(fcgi, &off, &pair) == FCGI_AGAIN) {
+    /* check for REQUEST_URI */
+    if (pair.keylen == REQUEST_URI_LEN &&
+        strncmp(pair.key, REQUEST_URI, REQUEST_URI_LEN) == 0) {
+      for (len = 0; len < pair.valuelen && pair.value[len] != '?'; len++);
+      if (len > CGIPATH_MAX-1) {
+        status = CGIERR_INVALIDPATH;
+        goto fail;
+      }
+      snprintf(cgi_path, sizeof(cgi_path), "%.*s",
+          (int)len, pair.value);
+      os_cleanpath(cgi_path);
+    }
+
+    /* Setup the envp string for this parameter.
+     * We prefix the variables with FC2_ to avoid silly things like a
+     * supplied HTTP Proxy: header expanding to HTTP_PROXY, &c */
+    len = pair.keylen + pair.valuelen + 6; /* FC2_<KEY>=<VAL>\0 */
+    cptr = malloc(len);
+    if (cptr == NULL) {
+      status = CGIERR_MEMORY;
+      goto fail;
+    }
+    snprintf(cptr, len, "FC2_%.*s=%.*s", (int)pair.keylen, pair.key,
+        (int)pair.valuelen, pair.value);
+    buf_adata(&out->envp_buf, &cptr, sizeof(char*));
+  }
+  cptr = NULL;
+  buf_adata(&out->envp_buf, &cptr, sizeof(char*));
+
+  if (cgi_path[0] != '/') {
+    status = CGIERR_INVALIDPATH;
+    goto fail;
+  }
+
+  snprintf(out->full_cgi_path, sizeof(out->full_cgi_path), "%s%s",
+      g_cgidir, cgi_path);
+  out->cgifd = open(out->full_cgi_path, O_RDONLY);
+  if (out->cgifd < 0) {
+    status = CGIERR_OPEN;
+    goto fail;
+  }
+
+  /* check to see if the file is a regular file */
+  if (!os_fdisfile(out->cgifd)) {
+    status = CGIERR_OPEN;
+    goto fail;
+  }
+
+  return CGIERR_OK;
+
+fail:
+  clean_cgi_env(out);
+  return status;
+}
+
+static pid_t fork_reqproc(struct eds_client *cli, int fd, struct cgi_env *env,
+    int *procfd) {
   int fds[2] = {0};
   int ret;
   pid_t pid;
-  buf_t buf;
-  size_t off = 0;
-  size_t len;
-  char *cptr;
+  char *cgi_argv[2] = {0};
 
   ret = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
   if (ret < 0) {
@@ -114,27 +241,12 @@ static pid_t fork_reqproc(struct eds_client *cli, int fd, int *procfd) {
   dup2(fds[1], STDERR_FILENO);
   close(fds[1]);
 
-  /* setup envp and execve! */
-  buf_init(&buf, 1024);
-  while (fcgi_cli_next_param(&ctx->fcgi, &off, &pair) == FCGI_AGAIN) {
-    len = pair.keylen + pair.valuelen + 6; /* FC2_<KEY>=<VAL>\0 */
-    cptr = malloc(len);
-    if (cptr == NULL) {
-      CLIERR(cli, fd, "malloc: %s", strerror(errno));
-      goto fail_child;
-    }
-    /* We prefix the variables with FC2_ to avoid silly things like a
-     * supplied HTTP Proxy: header expanding to HTTP_PROXY, &c */
-    snprintf(cptr, len, "FC2_%.*s=%.*s", (int)pair.keylen, pair.key,
-        (int)pair.valuelen, pair.value);
-    buf_adata(&buf, &cptr, sizeof(char*));
-  }
-  cptr = NULL;
-  buf_adata(&buf, &cptr, sizeof(char*));
-  ret = execve(g_argv[0], g_argv, (void*)buf.data);
-  CLIERR(cli, fd, "fork: %s", strerror(errno));
-
-fail_child:
+  /* fexecve! */
+  cgi_argv[0] = env->full_cgi_path;
+  ret = fexecve(env->cgifd, cgi_argv, (void*)env->envp_buf.data);
+  /* we can't log this here - stderr will redirect to client */
+  /* CLIERR(cli, fd, "fexecve: %s", strerror(errno)); */
+  clean_cgi_env(env);
   exit(1);
 
 fail_prefork:
@@ -209,9 +321,6 @@ static void on_reactivate_childproc(struct eds_client *cli, int fd) {
 }
 
 static void on_graceful_teardown_done(struct eds_client *cli, int fd) {
-  struct fc2_ctx *ctx = FC2_CTX(cli);
-
-  eds_service_remove_client(cli->svc, ctx->child_cli);
   eds_service_remove_client(cli->svc, cli);
 }
 
@@ -290,27 +399,46 @@ static void on_read_req(struct eds_client *cli, int fd) {
   struct fc2_ctx *ctx = FC2_CTX(cli);
   struct eds_client_actions acts = {0};
   struct fc2_cli ncli = {0};
+  struct cgi_env env = {0};
+  struct eds_transition trans;
   int ret;
   int procfd;
   pid_t pid;
 
   ret = fcgi_cli_readparams(&ctx->fcgi);
   if (ret == FCGI_OK) {
-    pid = fork_reqproc(cli, fd, &procfd);
+
+    /* setup the CGI environment */
+    ret = setup_cgi_env(&ctx->fcgi, &env);
+    if (ret != CGIERR_OK) {
+      if (env.full_cgi_path[0] != '\0') {
+        CLIERR(cli, fd, "setup_cgi_env: %s (%s)", cgi_strerror(ret),
+            env.full_cgi_path);
+      } else {
+        CLIERR(cli, fd, "setup_cgi_env: %s", cgi_strerror(ret));
+      }
+
+      /* respond with static 404 */
+      eds_client_set_on_readable(cli, NULL);
+      trans.flags = EDS_TFLWRITE;
+      trans.on_writable = on_graceful_teardown;
+      eds_client_send(cli, r404, sizeof(r404)-1, &trans);
+      return;
+    }
+
+    /* fork the child process */
+    pid = fork_reqproc(cli, fd, &env, &procfd);
     if (pid < 0) {
+      clean_cgi_env(&env);
+      CLIERR(cli, fd, "%s", "fork_reqproc failure");
       eds_client_clear_actions(cli);
       return;
     }
 
     IO_INIT(&ctx->cgi_io, procfd);
-    ret = io_setnonblock(&ctx->cgi_io, 1);
-    if (ret < 0) {
-      CLIERR(cli, fd, "PID:%d fd:%d: %s", pid, procfd,
-          io_strerror(&ctx->cgi_io));
-      goto fail_postfork;
-    }
-
-    CLINFO(cli, fd, "reqproc PID:%d fd:%d", pid, procfd);
+    CLINFO(cli, fd, "reqproc PID:%d fd:%d path:%s", pid, procfd,
+        env.full_cgi_path);
+    clean_cgi_env(&env);
     acts.on_readable = on_childproc_readable;
     acts.on_done = on_childproc_done;
     INIT_FC2_CGI(ncli, cli);
@@ -388,14 +516,14 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  fc2 -u <user> -g <group> -b <basepath> </path/to/cgi> [args]\n"
-      "  fc2 -n -b <basepath> </path/to/cgi> [args] \n"
+      "  fc2 -u <user> -g <group> -b <basepath> </path/to/cgi/dir>\n"
+      "  fc2 -n -b <basepath> </path/to/cgi/dir>\n"
       "  fc2 -h\n"
       "\n"
       "options:\n"
       "  -u, --user:      daemon user\n"
       "  -g, --group:     daemon group\n"
-      "  -b, --basepath:  chroot basepath\n"
+      "  -b, --basepath:  working directory basepath\n"
       "  -n, --no-daemon: do not daemonize\n"
       "  -h, --help:      this text\n");
   exit(EXIT_FAILURE);
@@ -460,11 +588,20 @@ static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
   argc -= optind;
   argv += optind;
   if (argc <= 0) {
-    fprintf(stderr, "CGI bin missing\n");
+    fprintf(stderr, "missing CGI workdir\n");
     usage();
   }
 
-  g_argv = argv; /* for CGI execve */
+  /* setup and validate g_cgidir */
+  g_cgidir = os_cleanpath(argv[0]);
+  if (*g_cgidir != '/') {
+    fprintf(stderr, "CGI workdir must be an absolute path");
+    usage();
+  } else if (!os_isdir(g_cgidir)) {
+    fprintf(stderr, "CGI workdir is not a valid directory");
+    usage();
+  }
+
   return 0;
 }
 

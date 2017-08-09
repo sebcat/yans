@@ -234,7 +234,8 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	proto/status_resp.$(OBJEXT) lib/lua/net.$(OBJEXT) \
 	lib/lua/http.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
 	lib/lua/pcapd.$(OBJEXT) lib/lua/json.$(OBJEXT) \
-	lib/lua/cgi.$(OBJEXT) apps/yans/yans.$(OBJEXT)
+	lib/lua/cgi.$(OBJEXT) lib/lua/fts.$(OBJEXT) \
+	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
@@ -802,6 +803,8 @@ yans_SOURCES = \
     lib/lua/json.c \
     lib/lua/cgi.h \
     lib/lua/cgi.c \
+    lib/lua/fts.h \
+    lib/lua/fts.c \
     apps/yans/yans.c
 
 yans_LDADD = \
@@ -1249,6 +1252,8 @@ lib/lua/json.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/cgi.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/fts.$(OBJEXT): lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
 apps/yans/$(am__dirstamp):
 	@$(MKDIR_P) apps/yans
 	@: > apps/yans/$(am__dirstamp)
@@ -1322,6 +1327,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/sweepercli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/cgi.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/fts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/http.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/json.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/net.Po@am__quote@

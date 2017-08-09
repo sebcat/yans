@@ -163,6 +163,8 @@ yans_SOURCES = \
     lib/lua/json.c \
     lib/lua/cgi.h \
     lib/lua/cgi.c \
+    lib/lua/fts.h \
+    lib/lua/fts.c \
     apps/yans/yans.c
 
 yans_LDADD = \

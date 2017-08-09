@@ -376,6 +376,8 @@ static void on_childproc_readable(struct eds_client *cli, int fd) {
 
   /* suspend reading from childproc until outbuf is sent */
   eds_client_suspend_readable(cli);
+
+  /* write the content of outbuf to the cgi parent */
   trans.flags = EDS_TFLWRITE;
   trans.on_writable = on_reactivate_childproc;
   eds_client_send(cgi->parent, ctx->outbuf.data, ctx->outbuf.len, &trans);

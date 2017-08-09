@@ -450,10 +450,18 @@ select:
         continue;
       }
 
-      /* call action handlers */
+      /* call on_readable if we have things to read */
       if (FD_ISSET(fd, &rfds) && ecli->actions.on_readable != NULL) {
         ecli->actions.on_readable(ecli, fd);
       }
+
+      /* on_readable may have removed the client, so check EDS_CLIENT_REMOVED
+       * again */
+      if (ecli->flags & EDS_CLIENT_REMOVED) {
+        continue;
+      }
+
+      /* call on_writable if we have things to write */
       if (FD_ISSET(fd, &wfds) && ecli->actions.on_writable != NULL) {
         ecli->actions.on_writable(ecli, fd);
       }

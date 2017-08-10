@@ -134,7 +134,7 @@ static void on_eds_client_send(struct eds_client *cli, int fd) {
 
     EDS_SERVE_ERR(cli->svc, "%s: fd %d write error: %s", cli->svc->name, fd,
         strerror(errno));
-    eds_client_clear_actions(cli);
+    eds_service_remove_client(cli->svc, cli);
     return;
   }
 

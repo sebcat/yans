@@ -24,9 +24,6 @@ struct opts {
   int no_daemon;
 };
 
-#define FC2_CTX_MAGIC       0x4123A7F0
-#define FC2_CGI_MAGIC       0xF729CD01
-
 struct fc2_ctx {
   int flags;
   int exit_status;
@@ -47,29 +44,12 @@ struct fc2_cgi {
   struct eds_client *parent;
 };
 
-struct fc2_cli {
-  int magic;
-  union {
-    struct fc2_ctx fc2_ctx;
-    struct fc2_cgi fc2_cgi;
-  } u;
-};
-
 /* why do I do this to myself? */
-#define FC2_CTX(cli__)                                                    \
-    &((struct fc2_cli*)((cli__)->udata))->u.fc2_ctx;                      \
-    assert(((struct fc2_cli*)((cli__)->udata))->magic == FC2_CTX_MAGIC);  \
+#define FC2_CTX(cli__) \
+    ((struct fc2_ctx*)((cli__)->udata))
 
-#define FC2_CGI(cli__)                                                    \
-    &((struct fc2_cli*)((cli__)->udata))->u.fc2_cgi;                      \
-    assert(((struct fc2_cli*)((cli__)->udata))->magic == FC2_CGI_MAGIC);  \
-
-#define FC2_CLI(cli__)                       \
-     ((struct fc2_cli*)((cli__)->udata));    \
-
-#define INIT_FC2_CGI(cli__, parent__)        \
-    (cli__).magic = FC2_CGI_MAGIC;           \
-    (cli__).u.fc2_cgi.parent = (parent__);   \
+#define FC2_CGI(cli__) \
+    ((struct fc2_cgi*)((cli__)->udata))
 
 #define CLIERR(cli__, fd, fmt__, ...) \
     ylog_error("%scli%d: " fmt__ , (cli__)->svc->name, (fd), __VA_ARGS__)
@@ -398,8 +378,8 @@ static void on_childproc_done(struct eds_client *cli, int fd) {
 static void on_read_req(struct eds_client *cli, int fd) {
   struct fc2_ctx *ctx = FC2_CTX(cli);
   struct eds_client_actions acts = {0};
-  struct fc2_cli ncli = {0};
-  struct cgi_env env = {0};
+  struct fc2_cgi ncli = {0};
+  struct cgi_env env = {{0}};
   struct eds_transition trans;
   int ret;
   int procfd;
@@ -441,7 +421,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
     clean_cgi_env(&env);
     acts.on_readable = on_childproc_readable;
     acts.on_done = on_childproc_done;
-    INIT_FC2_CGI(ncli, cli);
+    ncli.parent = cli;
     if ((ctx->child_cli = eds_service_add_client(cli->svc, procfd, &acts,
         &ncli, sizeof(ncli))) == NULL) {
       CLIERR(cli, fd, "PID:%d fd:%d: failed to add client", pid, procfd);
@@ -472,10 +452,8 @@ fail_postfork:
 }
 
 static void on_readable(struct eds_client *cli, int fd) {
-  struct fc2_cli *fc2_cli = FC2_CLI(cli);
   struct fc2_ctx *ctx;
 
-  fc2_cli->magic = FC2_CTX_MAGIC;
   ctx = FC2_CTX(cli);
   ctx->exit_status = -1;
   fcgi_cli_init(&ctx->fcgi, fd);
@@ -499,14 +477,9 @@ static void on_done(struct eds_client *cli, int fd) {
 
 void on_reaped_child(struct eds_service *svc, struct eds_client *cli,
     pid_t pid, int status) {
-  struct fc2_ctx *ctx;
-  struct fc2_cli *fc2_cli = FC2_CLI(cli);
-
-  if (fc2_cli->magic == FC2_CTX_MAGIC) {
-    ctx = FC2_CTX(cli);
-    if (ctx->cgi_pid == pid) {
-      ctx->exit_status = status;
-    }
+  struct fc2_ctx *ctx = ctx = FC2_CTX(cli);
+  if (ctx->cgi_pid == pid) {
+    ctx->exit_status = status;
   }
 }
 static void on_svc_error(struct eds_service *svc, const char *err) {
@@ -612,7 +585,7 @@ int main(int argc, char *argv[]) {
   static struct eds_service service = {
     .name = DAEMON_NAME,
     .path = DAEMON_NAME ".sock",
-    .udata_size = sizeof(struct fc2_cli),
+    .udata_size = sizeof(struct fc2_ctx),
     .actions = {
       .on_readable = on_readable,
       .on_done = on_done,

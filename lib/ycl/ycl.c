@@ -8,7 +8,6 @@
 
 #include <proto/pcap_req.h>
 #include <proto/ethframe_req.h>
-#include <proto/sweeper_req.h>
 #include <proto/status_resp.h>
 
 #include <lib/ycl/ycl.h>
@@ -187,29 +186,6 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
 
   ycl_msg_reset(msg);
   if (p_pcap_req_serialize(&req, &m->buf) != PROTO_OK) {
-    return YCL_ERR;
-  }
-
-  return YCL_OK;
-}
-
-int ycl_msg_create_sweeper_req(struct ycl_msg *msg,
-    struct ycl_msg_sweeper_req *args) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
-  struct p_sweeper_req req = {0};
-
-  if (args->arp != NULL) {
-    req.arp = args->arp;
-    req.arplen = strlen(args->arp);
-  }
-
-  if (args->addrs != NULL) {
-    req.addrs = args->addrs;
-    req.addrslen = strlen(args->addrs);
-  }
-
-  ycl_msg_reset(msg);
-  if (p_sweeper_req_serialize(&req, &m->buf) != PROTO_OK) {
     return YCL_ERR;
   }
 

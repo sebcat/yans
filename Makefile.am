@@ -83,18 +83,12 @@ ethd_SOURCES = \
     proto/pcap_req.h \
     proto/ethframe_req.c \
     proto/ethframe_req.h \
-    proto/sweeper_req.c \
-    proto/sweeper_req.h \
     proto/status_resp.c \
     proto/status_resp.h \
     apps/ethd/pcap.c \
     apps/ethd/pcap.h \
     apps/ethd/ethframe.c \
     apps/ethd/ethframe.h \
-    apps/ethd/sweeper.c \
-    apps/ethd/sweeper.h \
-    apps/ethd/sender.c \
-    apps/ethd/sender.h \
     apps/ethd/main.c
 
 ethd_LDADD = \
@@ -171,8 +165,6 @@ ycli_SOURCES = \
     apps/ycli/pcapcli.h \
     apps/ycli/ethframecli.c \
     apps/ycli/ethframecli.h \
-    apps/ycli/sweepercli.c \
-    apps/ycli/sweepercli.h \
     apps/ycli/ycli.c
 
 ycli_LDADD = \
@@ -193,8 +185,6 @@ libycl_la_SOURCES = \
     proto/pcap_req.h \
     proto/ethframe_req.c \
     proto/ethframe_req.h \
-    proto/sweeper_req.c \
-    proto/sweeper_req.h \
     proto/status_resp.c \
     proto/status_resp.h \
     lib/ycl/ycl.c

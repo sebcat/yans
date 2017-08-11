@@ -22,8 +22,7 @@
 struct fcgi_header {
   uint8_t version;
   uint8_t t;
-  uint8_t idB1;
-  uint8_t idB0;
+  uint16_t id;
   uint8_t clenB1;
   uint8_t clenB0;
   uint8_t plen;
@@ -34,6 +33,7 @@ struct fcgi_header {
  * no one implements it) FCGI responder */
 struct fcgi_cli {
   /* -- internal fields -- */
+  uint16_t id;
   buf_t buf;        /* message buffer */
   buf_t params;     /* FCGI_PARAMS */
   buf_t body;       /* FCGI_STDIN */
@@ -68,9 +68,6 @@ struct fcgi_end_request {
 
 #define FCGI_ENDMSGSIZE 16
 
-#define FCGI_ID(hdr) \
-    (((hdr)->idB1 << 8) + (hdr)->idB0)
-
 #define FCGI_CLEN(hdr) \
     (((hdr)->clenB1 << 8) + (hdr)->clenB0)
 
@@ -99,10 +96,10 @@ int fcgi_cli_readreq(struct fcgi_cli *fcgi);
 int fcgi_cli_next_param(struct fcgi_cli *fcgi, size_t *off,
     struct fcgi_pair *out);
 
-void fcgi_format_endmsg(struct fcgi_end_request *r, unsigned short id,
+void fcgi_cli_format_endmsg(struct fcgi_cli *cli, struct fcgi_end_request *r,
     int status);
-void fcgi_format_header(struct fcgi_header *h, uint8_t t, unsigned short id,
-    unsigned short clen);
+void fcgi_cli_format_header(struct fcgi_cli *cli, struct fcgi_header *h,
+    uint8_t t, unsigned short clen);
 
 
 const char *fcgi_cli_strerror(struct fcgi_cli *fcgi);

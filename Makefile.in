@@ -102,7 +102,7 @@ check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_util_netstring_test$(EXEEXT) lib_util_conf_test$(EXEEXT) \
 	yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ping$(EXEEXT) ycli$(EXEEXT) \
-	fcgi-demo$(EXEEXT) fc2$(EXEEXT)
+	fc2$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -182,12 +182,6 @@ am_fc2_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	apps/fc2/fc2.$(OBJEXT)
 fc2_OBJECTS = $(am_fc2_OBJECTS)
 fc2_LDADD = $(LDADD)
-am_fcgi_demo_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
-	lib/util/os.$(OBJEXT) lib/util/buf.$(OBJEXT) \
-	lib/util/io.$(OBJEXT) lib/net/fcgi.$(OBJEXT) \
-	apps/fcgi-demo/fcgi-demo.$(OBJEXT)
-fcgi_demo_OBJECTS = $(am_fcgi_demo_OBJECTS)
-fcgi_demo_LDADD = $(LDADD)
 am_lib_net_ethframe_test_OBJECTS = lib/net/ethframe.$(OBJEXT) \
 	lib/net/ethframe_test.$(OBJEXT)
 lib_net_ethframe_test_OBJECTS = $(am_lib_net_ethframe_test_OBJECTS)
@@ -278,14 +272,14 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
-	$(fcgi_demo_SOURCES) $(lib_net_ethframe_test_SOURCES) \
+	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
 	$(lib_util_u8_test_SOURCES) $(ping_SOURCES) $(yans_SOURCES) \
 	$(ycli_SOURCES)
 DIST_SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
-	$(fcgi_demo_SOURCES) $(lib_net_ethframe_test_SOURCES) \
+	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
@@ -684,21 +678,6 @@ YANS_LOG_COMPILER = ./yans
 lib_LTLIBRARIES = libycl.la
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
-
-fcgi_demo_SOURCES = \
-    lib/util/ylog.h \
-    lib/util/ylog.c \
-    lib/util/eds.h \
-    lib/util/eds.c \
-    lib/util/os.h \
-    lib/util/os.c \
-    lib/util/buf.c \
-    lib/util/buf.h \
-    lib/util/io.c \
-    lib/util/io.h \
-    lib/net/fcgi.h \
-    lib/net/fcgi.c \
-    apps/fcgi-demo/fcgi-demo.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \
@@ -1140,18 +1119,6 @@ apps/fc2/fc2.$(OBJEXT): apps/fc2/$(am__dirstamp) \
 fc2$(EXEEXT): $(fc2_OBJECTS) $(fc2_DEPENDENCIES) $(EXTRA_fc2_DEPENDENCIES) 
 	@rm -f fc2$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(fc2_OBJECTS) $(fc2_LDADD) $(LIBS)
-apps/fcgi-demo/$(am__dirstamp):
-	@$(MKDIR_P) apps/fcgi-demo
-	@: > apps/fcgi-demo/$(am__dirstamp)
-apps/fcgi-demo/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) apps/fcgi-demo/$(DEPDIR)
-	@: > apps/fcgi-demo/$(DEPDIR)/$(am__dirstamp)
-apps/fcgi-demo/fcgi-demo.$(OBJEXT): apps/fcgi-demo/$(am__dirstamp) \
-	apps/fcgi-demo/$(DEPDIR)/$(am__dirstamp)
-
-fcgi-demo$(EXEEXT): $(fcgi_demo_OBJECTS) $(fcgi_demo_DEPENDENCIES) $(EXTRA_fcgi_demo_DEPENDENCIES) 
-	@rm -f fcgi-demo$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(fcgi_demo_OBJECTS) $(fcgi_demo_LDADD) $(LIBS)
 lib/net/ethframe.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ethframe_test.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -1292,7 +1259,6 @@ mostlyclean-compile:
 	-rm -f 3rd_party/*.$(OBJEXT)
 	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/fc2/*.$(OBJEXT)
-	-rm -f apps/fcgi-demo/*.$(OBJEXT)
 	-rm -f apps/ping/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f apps/ycli/*.$(OBJEXT)
@@ -1318,7 +1284,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/sender.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/sweeper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/fc2/$(DEPDIR)/fc2.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@apps/fcgi-demo/$(DEPDIR)/fcgi-demo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ethframecli.Po@am__quote@
@@ -2029,8 +1994,6 @@ distclean-generic:
 	-rm -f apps/ethd/$(am__dirstamp)
 	-rm -f apps/fc2/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/fc2/$(am__dirstamp)
-	-rm -f apps/fcgi-demo/$(DEPDIR)/$(am__dirstamp)
-	-rm -f apps/fcgi-demo/$(am__dirstamp)
 	-rm -f apps/ping/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/ping/$(am__dirstamp)
 	-rm -f apps/yans/$(DEPDIR)/$(am__dirstamp)
@@ -2058,7 +2021,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/fcgi-demo/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -2106,7 +2069,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/fcgi-demo/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

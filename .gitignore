@@ -18,6 +18,5 @@ libtool
 /libycl.la
 /ping
 /ycli
-/fcgi-demo
 /fc2
 freebsd/etc.rc.d/ethd

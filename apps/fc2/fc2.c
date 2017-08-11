@@ -331,10 +331,10 @@ static void on_graceful_teardown(struct eds_client *cli, int fd) {
   struct fcgi_end_request *ereq =(struct fcgi_end_request*)
       (ctx->teardown_buf + sizeof(struct fcgi_header));
 
-  /* TODO: get ID from ctx->fcgi */
   /* NB: child may not yet have been reaped. If not, we default to 0 */
-  fcgi_format_header(out0, FCGI_STDOUT, 1, 0);
-  fcgi_format_endmsg(ereq, 1, ctx->exit_status >= 0 ? ctx->exit_status : 0);
+  fcgi_cli_format_header(&ctx->fcgi, out0, FCGI_STDOUT, 0);
+  fcgi_cli_format_endmsg(&ctx->fcgi, ereq,
+      ctx->exit_status >= 0 ? ctx->exit_status : 0);
 
   trans.flags = EDS_TFLWRITE;
   trans.on_writable = on_graceful_teardown_done;
@@ -370,8 +370,7 @@ static void on_childproc_readable(struct eds_client *cli, int fd) {
   assert(nread < 65527);
 
   /* set up the FCGI_STDOUT header */
-  /* TODO: get ID from FCGI stream */
-  fcgi_format_header((void*)ctx->outbuf.data, FCGI_STDOUT, 1,
+  fcgi_cli_format_header(&ctx->fcgi, (void*)ctx->outbuf.data, FCGI_STDOUT,
       (unsigned short)nread);
 
   /* suspend reading from childproc until outbuf is sent */

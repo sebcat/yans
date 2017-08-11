@@ -37,28 +37,12 @@ bin_PROGRAMS = \
     ethd \
     ping \
     ycli \
-    fcgi-demo \
     fc2
 
 lib_LTLIBRARIES = libycl.la
 
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
-
-fcgi_demo_SOURCES = \
-    lib/util/ylog.h \
-    lib/util/ylog.c \
-    lib/util/eds.h \
-    lib/util/eds.c \
-    lib/util/os.h \
-    lib/util/os.c \
-    lib/util/buf.c \
-    lib/util/buf.h \
-    lib/util/io.c \
-    lib/util/io.h \
-    lib/net/fcgi.h \
-    lib/net/fcgi.c \
-    apps/fcgi-demo/fcgi-demo.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \

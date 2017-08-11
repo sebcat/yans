@@ -46,6 +46,7 @@ int fcgi_cli_init(struct fcgi_cli *fcgi, int fd) {
   }
 
   IO_INIT(&fcgi->io, fd);
+  fcgi->id = 0;
   fcgi->read_state = RSTATE_INCOMPLETE;
   fcgi->param_state = PSTATE_EXPECT_BEGIN_REQUEST;
   fcgi->errcode = 0;
@@ -84,6 +85,7 @@ int fcgi_cli_readmsg(struct fcgi_cli *fcgi, struct fcgi_msg *msg) {
   int ret;
   int is_complete;
 
+again:
   if (fcgi->read_state == RSTATE_COMPLETE) {
     assert(fcgi->buf.len >= sizeof(struct fcgi_header));
     hdr = (struct fcgi_header *)fcgi->buf.data;
@@ -97,9 +99,7 @@ int fcgi_cli_readmsg(struct fcgi_cli *fcgi, struct fcgi_msg *msg) {
 
       if (fcgi_is_complete_msg(fcgi)) {
         /* we had a full message in the trailing bytes in the buffer */
-        msg->header = (struct fcgi_header *)fcgi->buf.data;
-        msg->data = fcgi->buf.data + sizeof(struct fcgi_header);
-        return FCGI_OK;
+        goto got_msg;
       }
     } else {
       /* we don't have trailing bytes, reset the buffer */
@@ -116,17 +116,26 @@ int fcgi_cli_readmsg(struct fcgi_cli *fcgi, struct fcgi_msg *msg) {
 
   if (is_complete) {
     fcgi->read_state = RSTATE_COMPLETE;
-    msg->header = (struct fcgi_header *)fcgi->buf.data;
-    msg->data = fcgi->buf.data + sizeof(struct fcgi_header);
-    return FCGI_OK;
+    goto got_msg;
   } else if (ret == IO_AGAIN) {
     return FCGI_AGAIN;
   } else if (ret == IO_OK && nread == 0) {
     fcgi->errcode = FCGIERR_CLOSED;
     return FCGI_ERR;
-  } else {
-    return FCGI_ERR;
   }
+
+  return FCGI_ERR;
+
+got_msg:
+  msg->header = (struct fcgi_header *)fcgi->buf.data;
+  msg->data = fcgi->buf.data + sizeof(struct fcgi_header);
+  if (fcgi->param_state != PSTATE_EXPECT_BEGIN_REQUEST &&
+      msg->header->id != fcgi->id) {
+    /* unexpected ID, ignore message and try and get another one */
+    goto again;
+  }
+
+  return FCGI_OK;
 }
 
 int fcgi_cli_readparams(struct fcgi_cli *fcgi) {
@@ -146,6 +155,7 @@ int fcgi_cli_readparams(struct fcgi_cli *fcgi) {
         fcgi->errcode = FCGIERR_UNEXPECTEDMSG;
         return FCGI_ERR;
       }
+      fcgi->id = msg.header->id;
       fcgi->param_state = PSTATE_EXPECT_PARAMS;
       break;
     case PSTATE_EXPECT_PARAMS:
@@ -270,21 +280,20 @@ int fcgi_cli_next_param(struct fcgi_cli *fcgi, size_t *off,
   return FCGI_AGAIN;
 }
 
-void fcgi_format_header(struct fcgi_header *h, uint8_t t, unsigned short id,
-    unsigned short clen) {
+void fcgi_cli_format_header(struct fcgi_cli *cli, struct fcgi_header *h,
+    uint8_t t, unsigned short clen) {
   h->version = 1;
   h->t = t;
-  h->idB1 = (uint8_t)(id >> 8);
-  h->idB0 = id & 0xff;
+  h->id = cli->id; /* we assume id is given in big-endian form */
   h->clenB1 = (uint8_t)(clen >> 8);
   h->clenB0 = (uint8_t)(clen & 0xff);
   h->plen = 0;
 }
 
 
-void fcgi_format_endmsg(struct fcgi_end_request *r, unsigned short id,
+void fcgi_cli_format_endmsg(struct fcgi_cli *cli, struct fcgi_end_request *r,
     int status) {
-  fcgi_format_header(&r->header, FCGI_END_REQUEST, id, 8);
+  fcgi_cli_format_header(cli, &r->header, FCGI_END_REQUEST, 8);
   r->appstatusB3 = (uint8_t)(status >> 24);
   r->appstatusB2 = (uint8_t)(status >> 16);
   r->appstatusB1 = (uint8_t)(status >> 8);

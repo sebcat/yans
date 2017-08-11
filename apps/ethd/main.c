@@ -189,7 +189,6 @@ int main(int argc, char *argv[]) {
         .on_done = pcap_on_done,
       },
       .nprocs = 2,
-      .nfds = 256,
       .on_svc_error = on_svc_error,
     },
     {
@@ -203,7 +202,6 @@ int main(int argc, char *argv[]) {
         .on_done = ethframe_on_done,
       },
       .nprocs = 1,
-      .nfds = 256,
       .on_svc_error = on_svc_error,
     },
     {
@@ -215,7 +213,6 @@ int main(int argc, char *argv[]) {
         .on_done = sweeper_on_done,
       },
       .nprocs = 1,
-      .nfds = 256,
       .tick_slice_us = 50000,
       .on_svc_error = on_svc_error,
     },

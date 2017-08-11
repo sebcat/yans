@@ -15,7 +15,6 @@
 #include <lib/net/fcgi.h>
 
 #define DAEMON_NAME "fc2"
-#define FC2_NFDS 1024
 #define CGIPATH_MAX 256
 
 struct opts {
@@ -618,7 +617,6 @@ int main(int argc, char *argv[]) {
       .on_readable = on_readable,
       .on_done = on_done,
     },
-    .nfds = FC2_NFDS,
     .on_svc_error = on_svc_error,
     .on_reaped_child = on_reaped_child,
   };

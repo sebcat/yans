@@ -101,8 +101,8 @@ static void write_ok_response(struct eds_client *cli, int fd) {
   }
 
   eds_client_send(cli, ecli->buf.data, ecli->buf.len, NULL);
-
 }
+
 static void write_err_response(struct eds_client *cli, int fd,
     const char *errmsg) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
@@ -277,7 +277,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
       fd, req.iface, req.frameslen, req.arpreq_addrslen);
 
   /* on readable at this point means session termination */
-  eds_client_set_on_readable(cli, on_term);
+  eds_client_set_on_readable(cli, on_term, EDS_DEFER);
 
   /* send custom frames, if any */
   frames = (char*)req.frames; /* XXX: casting away const (should be OK) */
@@ -302,8 +302,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
   if (req.arpreq_addrslen > 0) {
     /* NB: this is 'writable' on the client fd, not the packet sender. This
      *     is intentional, but non-intuitive. */
-    eds_client_set_on_writable(cli, on_write_arpreqs);
-    on_write_arpreqs(cli, fd);
+    eds_client_set_on_writable(cli, on_write_arpreqs, 0);
     return;
   }
 
@@ -318,8 +317,7 @@ void ethframe_on_readable(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
 
   buf_init(&ecli->buf, INITREQBUFSZ);
-  eds_client_set_on_readable(cli, on_read_req);
-  on_read_req(cli, fd);
+  eds_client_set_on_readable(cli, on_read_req, 0);
 }
 
 void ethframe_on_done(struct eds_client *cli, int fd) {

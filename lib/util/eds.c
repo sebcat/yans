@@ -68,14 +68,20 @@ void eds_client_set_externalfd(struct eds_client *cli) {
 }
 
 void eds_client_set_on_readable(struct eds_client *cli,
-    void (*on_readable)(struct eds_client *cli, int fd)) {
+    void (*on_readable)(struct eds_client *cli, int fd), int flags) {
+  int fd;
+
   if (!(cli->flags & EDS_CLIENT_REMOVED)) {
+    fd = eds_client_get_fd(cli);
     cli->actions.on_readable = on_readable;
     if (on_readable == NULL) {
-      FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
+      FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).rfds);
     } else {
       cli->flags &= ~EDS_CLIENT_RSUSPEND;
-      FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).rfds);
+      FD_SET(fd, &EDS_SERVICE_LISTENER(cli->svc).rfds);
+      if (!(flags & EDS_DEFER)) {
+        on_readable(cli, fd);
+      }
     }
   }
 }
@@ -103,15 +109,20 @@ void eds_client_clear_actions(struct eds_client *cli) {
   FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).wfds);
 }
 
-
 void eds_client_set_on_writable(struct eds_client *cli,
-    void (*on_writable)(struct eds_client *cli, int fd)) {
+    void (*on_writable)(struct eds_client *cli, int fd), int flags) {
+  int fd;
+
   if (!(cli->flags & EDS_CLIENT_REMOVED)) {
+    fd = eds_client_get_fd(cli);
     cli->actions.on_writable = on_writable;
     if (on_writable == NULL) {
-      FD_CLR(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
+      FD_CLR(fd, &EDS_SERVICE_LISTENER(cli->svc).wfds);
     } else {
-      FD_SET(eds_client_get_fd(cli), &EDS_SERVICE_LISTENER(cli->svc).wfds);
+      FD_SET(fd, &EDS_SERVICE_LISTENER(cli->svc).wfds);
+      if (!(flags & EDS_DEFER)) {
+        on_writable(cli, fd);
+      }
     }
   }
 }
@@ -151,13 +162,13 @@ completed:
    *      any actions registered after the call to eds_client_send */
 
   if (cli->trans.flags & EDS_TFLREAD) {
-    eds_client_set_on_readable(cli, cli->trans.on_readable);
     cli->trans.flags &= ~EDS_TFLREAD;
+    eds_client_set_on_readable(cli, cli->trans.on_readable, 0);
   }
 
   if (cli->trans.flags & EDS_TFLWRITE) {
-    eds_client_set_on_writable(cli, cli->trans.on_writable);
     cli->trans.flags &= ~EDS_TFLWRITE;
+    eds_client_set_on_writable(cli, cli->trans.on_writable, 0);
   }
 }
 
@@ -172,8 +183,7 @@ void eds_client_send(struct eds_client *cli, const char *data, size_t len,
     cli->trans.on_readable = NULL;
     cli->trans.on_writable = NULL;
   }
-  eds_client_set_on_writable(cli, on_eds_client_send);
-  on_eds_client_send(cli, eds_client_get_fd(cli));
+  eds_client_set_on_writable(cli, on_eds_client_send, 0);
 }
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,

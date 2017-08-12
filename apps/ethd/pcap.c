@@ -51,7 +51,7 @@ static void sendresp(struct eds_client *cli, enum resptype t,
     resp.okmsg = msg;
     resp.okmsglen = strlen(msg);
   } else {
-    eds_client_set_on_readable(cli, NULL); /* stop any reader routines */
+    eds_client_set_on_readable(cli, NULL, 0); /* stop any reader routines */
     trans.flags = EDS_TFLREAD | EDS_TFLWRITE;
     trans.on_readable = NULL;
     trans.on_writable = NULL;
@@ -207,7 +207,7 @@ static void on_readcmd(struct eds_client *cli, int fd) {
 
   /* send OK response and terminate the client whenever we get data */
   sendresp(cli, RESPTYPE_OK, "started");
-  eds_client_set_on_readable(cli, on_terminate);
+  eds_client_set_on_readable(cli, on_terminate, EDS_DEFER);
   return;
 
 fail:
@@ -239,8 +239,7 @@ void pcap_on_readable(struct eds_client *cli, int fd) {
 
   pcapcli->dumpf = fp;
   buf_init(&pcapcli->cmdbuf, CMDBUFINITSZ);
-  eds_client_set_on_readable(cli, on_readcmd);
-  on_readcmd(cli, fd);
+  eds_client_set_on_readable(cli, on_readcmd, 0);
 }
 
 void pcap_on_done(struct eds_client *cli, int fd) {

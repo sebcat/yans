@@ -240,9 +240,8 @@ static void on_reactivate_fcgi(struct eds_client *cli, int fd) {
   struct fc2_cgi *cgi = FC2_CGI(cli);
   struct fc2_ctx *ctx = FC2_CTX(cgi->parent);
 
-  eds_client_set_on_writable(ctx->child_cli, NULL);
-  eds_client_set_on_readable(cgi->parent, on_fcgi_msg);
-  on_fcgi_msg(cgi->parent, eds_client_get_fd(cgi->parent));
+  eds_client_set_on_writable(ctx->child_cli, NULL, 0);
+  eds_client_set_on_readable(cgi->parent, on_fcgi_msg, 0);
 }
 
 static void on_fcgi_msg(struct eds_client *cli, int fd) {
@@ -271,7 +270,7 @@ static void on_fcgi_msg(struct eds_client *cli, int fd) {
     /* FCGI_STDIN, 0 == end-of-stream */
     child_fd = eds_client_get_fd(ctx->child_cli);
     shutdown(child_fd, SHUT_WR);
-    eds_client_set_on_writable(ctx->child_cli, NULL);
+    eds_client_set_on_writable(ctx->child_cli, NULL, 0);
   } else {
     /* suspend further reading until writing is done */
     eds_client_suspend_readable(cli);
@@ -290,9 +289,8 @@ done:
 static void on_reactivate_childproc(struct eds_client *cli, int fd) {
   struct fc2_ctx *ctx = FC2_CTX(cli);
   buf_truncate(&ctx->outbuf, sizeof(struct fcgi_header));
-  eds_client_set_on_readable(ctx->child_cli, on_childproc_readable);
-  eds_client_set_on_writable(cli, NULL);
-  on_childproc_readable(ctx->child_cli, eds_client_get_fd(ctx->child_cli));
+  eds_client_set_on_writable(cli, NULL, 0);
+  eds_client_set_on_readable(ctx->child_cli, on_childproc_readable, 0);
 }
 
 static void on_graceful_teardown_done(struct eds_client *cli, int fd) {
@@ -332,11 +330,10 @@ static void on_childproc_readable(struct eds_client *cli, int fd) {
     return;
   } else if (nread == 0) {
     /* send FCI_STDOUT 0 and FCGI_END_REQUEST */
-    /* we don't want to dispatch these right away since we must reap the
-     * child too, so we'll set the actions and yield to the event loop */
     eds_client_suspend_readable(cli);
     eds_client_suspend_readable(cgi->parent);
-    eds_client_set_on_writable(cgi->parent, on_graceful_teardown);
+    /* defer the calling of the handler to the event loop */
+    eds_client_set_on_writable(cgi->parent, on_graceful_teardown, EDS_DEFER);
     return;
   }
 
@@ -408,7 +405,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
           sizeof(r404)-1-8);
 
       /* send 404 response and transition to graceful teardown */
-      eds_client_set_on_readable(cli, NULL);
+      eds_client_set_on_readable(cli, NULL, 0);
       trans.flags = EDS_TFLWRITE;
       trans.on_writable = on_graceful_teardown;
       eds_client_send(cli, ctx->outbuf.data, ctx->outbuf.len, &trans);
@@ -445,8 +442,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
     /* reserve space for struct fcgi_header */
     buf_adata(&ctx->outbuf, "\0\0\0\0\0\0\0\0", 8);
     ctx->cgi_pid = pid;
-    eds_client_set_on_readable(cli, on_fcgi_msg);
-    on_fcgi_msg(cli, fd);
+    eds_client_set_on_readable(cli, on_fcgi_msg, 0);
   } else if (ret == FCGI_ERR) {
     CLIERR(cli, fd, "read_req: %s", fcgi_cli_strerror(&ctx->fcgi));
     eds_client_clear_actions(cli);
@@ -466,8 +462,7 @@ static void on_readable(struct eds_client *cli, int fd) {
   ctx = FC2_CTX(cli);
   ctx->exit_status = -1;
   fcgi_cli_init(&ctx->fcgi, fd);
-  eds_client_set_on_readable(cli, on_read_req);
-  on_read_req(cli, fd);
+  eds_client_set_on_readable(cli, on_read_req, 0);
 }
 
 static void on_done(struct eds_client *cli, int fd) {

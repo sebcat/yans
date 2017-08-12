@@ -229,44 +229,43 @@ blocks_str("127.0.0.1-127.0.0.2, ::1", "127.0.0.1-127.0.0.2 ::1")
 blocks_str("127.0.0.1-127.0.0.2, ::1/32", "127.0.0.1-127.0.0.2 ::/32")
 blocks_str("127.0.0.1-127.0.0.2, ::1/32 \t\r\n,", "127.0.0.1-127.0.0.2 ::/32")
 
--- assume we have network interfaces
-assert(type(eth.devices()) == "table")
+IFACES = eth.ifaces()
+ROUTES = ip.routes()
 
--- print some network information
-do
-  for _, dev in pairs(eth.devices()) do
-    print(string.format("interface: %s",dev.name))
-    if dev.loopback then print("loopback") end
-    if dev.up then print("up") end
-    if dev.running then print("running") end
-    if dev.addresses ~= nil then
-      print("addresses:")
-      for _, addr in pairs(dev.addresses) do
-        if addr.addr then
-          print(string.format("    addr: %s", addr.addr))
-        end
-        if addr.netmask then
-          print(string.format("    mask: %s", addr.netmask))
-        end
-        if addr.block then
-          print(string.format("   range: %s", addr.block))
-        end
-        if addr.broadaddr then
-          print(string.format("   bcast: %s", addr.broadaddr))
-        end
-        if addr.dstaddr then
-          print(string.format(" dstaddr: %s", addr.dstaddr))
-        end
-        print("")
-      end
+assert(type(IFACES) == "table")
+assert(type(ROUTES) == "table")
+
+-- init iface index -> name map
+local index2name = {}
+for _, iface in pairs(IFACES) do
+  index2name[iface.index] = iface.name
+end
+
+local function print_routes(routes)
+  print(string.format("%30s %20s %8s", "Destination", "Gateway", "Netif"))
+  for _, route in ipairs(routes) do
+    local gw
+    if route.gw_ifindex then
+      gw = index2name[route.gw_ifindex]
+    else
+      gw = route.gw
     end
-    print("")
+
+    local line = string.format("%30s %20s %8s", route.block,
+        gw, index2name[route.ifindex])
+    print(line)
   end
 end
 
+-- print the routing table to excercise the code paths
+print("IP4")
+print_routes(ROUTES.ip4)
+print("IP6")
+print_routes(ROUTES.ip6)
+
 local function get_loopback_ifname()
-  for _, dev in pairs(eth.devices()) do
-    if dev.loopback then return dev.name end
+  for _,iface in pairs(IFACES) do
+    if iface.loopback then return iface.name end
   end
 end
 

@@ -432,127 +432,6 @@ static int l_ipblocks_contains(lua_State *L) {
   return 1;
 }
 
-/* returns the number of device addresses, and if > 0 a table on TOS */
-static lua_Integer l_device_addrs(lua_State*L, pcap_addr_t *addrs) {
-  pcap_addr_t *curr;
-  lua_Integer naddrs = 0;
-  ip_addr_t *addr = NULL, *netmask = NULL;
-  ip_block_t *blk;
-  struct eth_addr *eth;
-  int eth_valid_res;
-
-
-  for (curr = addrs; curr != NULL; curr = curr->next) {
-    if (curr->addr == NULL) {
-      continue;
-    }
-    if ((eth_valid_res = eth_addr_valid(curr->addr)) == ETHERR_OK ||
-        (curr->addr->sa_family == AF_INET ||
-        curr->addr->sa_family == AF_INET6)) {
-      if (naddrs == 0) {
-        lua_newtable(L);
-      }
-    } else {
-      continue;
-    }
-
-    if (eth_valid_res == ETHERR_OK) {
-      lua_newtable(L);
-      eth = l_newethaddr(L);
-      eth_addr_init(eth, curr->addr);
-      lua_setfield(L, -2, "addr");
-      naddrs++;
-    } else {
-      /* AF_INET || AF_INET6 */
-      lua_newtable(L);
-      addr = l_pushipaddr(L, curr->addr);
-      lua_setfield(L, -2, "addr");
-      naddrs++;
-
-      if (curr->netmask != NULL) {
-        netmask = l_pushipaddr(L, curr->netmask);
-        lua_setfield(L, -2, "netmask");
-      }
-
-      if (curr->broadaddr != NULL) {
-        l_pushipaddr(L, curr->broadaddr);
-        lua_setfield(L, -2, "broadaddr");
-      }
-
-      if (curr->dstaddr != NULL) {
-        l_pushipaddr(L, curr->dstaddr);
-        lua_setfield(L, -2, "dstaddr");
-      }
-
-      if (addr != NULL && netmask != NULL) {
-        blk = l_newipblock(L);
-        if (ip_block_netmask(blk, addr, netmask, NULL) == 0) {
-          lua_setfield(L, -2, "block");
-        } else {
-          lua_pop(L, 1);
-        }
-      }
-    }
-    lua_rawseti(L, -2, naddrs);
-  }
-
-  return naddrs;
-}
-
-static void l_device(lua_State *L, pcap_if_t *dev) {
-  /*NB: can't call lua_error/luaL_error in here; l_devices must clear state */
-  lua_newtable(L);
-  if (dev->name != NULL) {
-    lua_pushstring(L, dev->name);
-    lua_setfield(L, -2, "name");
-  }
-
-  if (dev->description != NULL) {
-    lua_pushstring(L, dev->description);
-    lua_setfield(L, -2, "description");
-  }
-
-  if (dev->flags & PCAP_IF_LOOPBACK) {
-    lua_pushboolean(L, 1);
-    lua_setfield(L, -2, "loopback");
-  }
-
-  if (dev->flags & PCAP_IF_UP) {
-    lua_pushboolean(L, 1);
-    lua_setfield(L, -2, "up");
-  }
-
-  if (dev->flags & PCAP_IF_RUNNING) {
-    lua_pushboolean(L, 1);
-    lua_setfield(L, -2, "running");
-  }
-
-  if (l_device_addrs(L, dev->addresses) > 0) {
-    lua_setfield(L, -2, "addresses");
-  }
-}
-
-static int l_devices(lua_State *L) {
-  pcap_if_t *devs = NULL, *curr;
-  char errbuf[PCAP_ERRBUF_SIZE];
-  lua_Integer ndevs=0;
-
-  errbuf[0] = '\0';
-  if (pcap_findalldevs(&devs, errbuf) < 0) {
-    return luaL_error(L, "%s", errbuf);
-  }
-
-  lua_newtable(L);
-  for (curr = devs; curr != NULL; curr = curr->next) {
-    l_device(L, curr);
-    ndevs++;
-    lua_rawseti(L, -2, ndevs);
-  }
-
-  pcap_freealldevs(devs);
-  return 1;
-}
-
 static int l_addroute(lua_State *L, struct route_table_entry *ent) {
   ip_block_t *blk;
   int ret;
@@ -653,6 +532,10 @@ static int l_ifaces(lua_State *L) {
     lua_setfield(L, -2, "index");
     lua_pushstring(L, ent.name);
     lua_setfield(L, -2, "name");
+    lua_pushboolean(L, ent.flags & IFACE_UP);
+    lua_setfield(L, -2, "up");
+    lua_pushboolean(L, ent.flags & IFACE_LOOPBACK);
+    lua_setfield(L, -2, "loopback");
     lua_rawseti(L, -2, i++);
   }
 
@@ -714,7 +597,6 @@ static const struct luaL_Reg ip_f[] = {
 
 static const struct luaL_Reg eth_f[] = {
   {"addr", l_ethaddr},
-  {"devices", l_devices},
   {"ifaces", l_ifaces},
   {NULL, NULL},
 };

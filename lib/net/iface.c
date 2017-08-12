@@ -1,6 +1,5 @@
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <net/if.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -70,6 +69,7 @@ int iface_next(struct iface *iface, struct iface_entry *out) {
   out->name[IFACE_NAMESZ-1] = '\0';
   copy_iface_addr(out, iface->curr->ifa_addr);
   out->index = (int)if_nametoindex(out->name);
+  out->flags = iface->curr->ifa_flags;
   if (out->index <= 0) {
     out->index = -1;
   }

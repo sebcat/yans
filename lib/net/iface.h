@@ -2,6 +2,7 @@
 #define NET_IFACE_H__
 
 #include <ifaddrs.h>
+#include <net/if.h>
 
 #define IFACE_NAMESZ 16
 #define IFACE_ADDRSZ 6
@@ -12,7 +13,11 @@ struct iface {
   int err;
 };
 
+#define IFACE_UP       IFF_UP
+#define IFACE_LOOPBACK IFF_LOOPBACK
+
 struct iface_entry {
+  unsigned int flags;
   int index;
   char name[IFACE_NAMESZ];
   char addr[IFACE_ADDRSZ];

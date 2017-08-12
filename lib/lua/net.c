@@ -5,6 +5,7 @@
 
 #include <lib/net/ip.h>
 #include <lib/net/eth.h>
+#include <lib/net/route.h>
 #include <lib/lua/net.h>
 
 #define MTNAME_IPADDR     "yans.IPAddr"
@@ -286,7 +287,7 @@ static int l_ipblock(lua_State *L) {
 
   s = luaL_checkstring(L, 1);
   blk = l_newipblock(L);
-  if (ip_block(blk, s, &err) < 0) {
+  if (ip_block_from_str(blk, s, &err) < 0) {
     if (err != 0) {
       luaL_error(L, "IPBlock: %s, block \"%s\"", ip_block_strerror(err), s);
     } else {
@@ -302,7 +303,7 @@ static int l_ipblock_tostring(lua_State *L) {
   int err=0;
 
   addr = checkblock(L, 1);
-  if (ip_block_str(addr, addrbuf, sizeof(addrbuf), &err) < 0) {
+  if (ip_block_to_str(addr, addrbuf, sizeof(addrbuf), &err) < 0) {
     if (err != 0) {
       luaL_error(L, "IPAddr: string conversion error: %s",
           ip_addr_strerror(err));
@@ -551,6 +552,85 @@ static int l_devices(lua_State *L) {
   return 1;
 }
 
+static int l_addroute(lua_State *L, struct route_table_entry *ent) {
+  ip_block_t *blk;
+  int ret;
+
+  blk = l_newipblock(L);
+
+  if (ent->flags & RTENTRY_HOST) {
+    /* it's a host entry */
+    ret = ip_block_from_addrs(blk, (ip_addr_t*)&ent->addr.sa,
+        (ip_addr_t*)&ent->addr.sa, NULL);
+    if (ret < 0) {
+      lua_pop(L, 1);
+      return -1;
+    } else {
+      lua_setfield(L, -2, "block");
+    }
+  } else if (ip_block_netmask(blk, (ip_addr_t*)&ent->addr.sa,
+      (ip_addr_t*)&ent->mask.sa, NULL) == 0) {
+    /* it's a netmask entry */
+    lua_setfield(L, -2, "block");
+  } else {
+    lua_pop(L, 1);
+    return -1;
+  }
+
+  if (ent->gw_ifindex >= 0) {
+    lua_pushinteger(L, (lua_Integer)ent->gw_ifindex);
+    lua_setfield(L, -2, "gw_ifindex");
+  } else {
+    l_pushipaddr(L, &ent->gw.sa);
+    lua_setfield(L, -2, "gw");
+  }
+
+  lua_pushinteger(L, (lua_Integer)ent->ifindex);
+  lua_setfield(L, -2, "ifindex");
+
+  return 0;
+}
+
+static int l_routes(lua_State *L) {
+  struct route_table rt;
+  char errbuf[ROUTE_TABLE_ERRBUFSZ];
+  struct route_table_entry ent;
+  lua_Integer i;
+
+  if (route_table_init(&rt) < 0) {
+    route_table_strerror(&rt, errbuf, sizeof(errbuf));
+    return luaL_error(L, "route_table_init: %s", errbuf);
+  }
+
+  lua_createtable(L, 0, 2); /* top-level table containing ip4, ip6 keys */
+
+  lua_newtable(L); /* sub-level table containing a sequence of entries */
+  i = 1;
+  while (route_table_next_ip4(&rt, &ent)) {
+    lua_newtable(L); /* a single routing table entry */
+    if (l_addroute(L, &ent) < 0) {
+      lua_pop(L, 1);
+      continue;
+    }
+    lua_rawseti(L, -2, i++);
+  }
+  lua_setfield(L, -2, "ip4");
+
+  lua_newtable(L);
+  i = 1;
+  while (route_table_next_ip6(&rt, &ent)) {
+    lua_newtable(L); /* a single routing table entry */
+    if (l_addroute(L, &ent) < 0) {
+      lua_pop(L, 1);
+      continue;
+    }
+    lua_rawseti(L, -2, i++);
+  }
+  lua_setfield(L, -2, "ip6");
+  route_table_cleanup(&rt);
+  return 1;
+}
+
 static const struct luaL_Reg yansipaddr_m[] = {
   {"__tostring", l_ipaddr_tostring},
   {"__eq", l_ipaddr_eqop},
@@ -599,6 +679,7 @@ static const struct luaL_Reg ip_f[] = {
   {"addr", l_ipaddr},
   {"addrs", l_ipblocks},
   {"block", l_ipblock},
+  {"routes", l_routes},
   {NULL, NULL},
 };
 

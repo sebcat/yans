@@ -42,9 +42,11 @@ int ip_addr_cmp(ip_addr_t *a1, ip_addr_t *a2, int *err);
 void ip_addr_add(ip_addr_t *addr, int32_t n);
 void ip_addr_sub(ip_addr_t *addr, int32_t n);
 
-int ip_block(ip_block_t *blk, const char *s, int *err);
+int ip_block_from_addrs(ip_block_t *blk, ip_addr_t *first, ip_addr_t *last,
+    int *err);
+int ip_block_from_str(ip_block_t *blk, const char *s, int *err);
+int ip_block_to_str(ip_block_t *blk, char *dst, size_t dstlen, int *err);
 int ip_block_contains(ip_block_t *blk, ip_addr_t *addr);
-int ip_block_str(ip_block_t *blk, char *dst, size_t dstlen, int *err);
 int ip_block_netmask(ip_block_t *blk, ip_addr_t * addr, ip_addr_t *netmask,
     int *err);
 const char *ip_block_strerror(int code);
@@ -56,9 +58,7 @@ int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err);
 /* Takes the first address from blks, puts it in addr and removes it from blks.
  * Returns -1 on error, 0 when blks is empty, 1 when addr is properly set */
 int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr);
-
 int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr);
-
 const char *ip_blocks_strerror(int code);
 
 uint16_t ip_csum(uint16_t init, void *data, size_t size);

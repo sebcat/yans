@@ -249,31 +249,38 @@ static int ip_block_cidr(ip_block_t *block, const char *addrstr,
   return 0;
 }
 
-static int ip_block_range(ip_block_t *block, const char *first,
-    const char *last, int *err) {
-  ip_addr_t a1, a2;
-  int cmp, lerr = 0;
+int ip_block_from_addrs(ip_block_t *blk, ip_addr_t *a1, ip_addr_t *a2,
+    int *err) {
+  int cmp;
+  int lerr = 0;
 
-  if (ip_addr(&a1, first, err) < 0) return -1;
-  if (ip_addr(&a2, last, err) < 0) return -1;
-  cmp = ip_addr_cmp(&a1, &a2, &lerr);
+  cmp = ip_addr_cmp(a1, a2, &lerr);
   if (lerr != 0) {
     if (err != NULL) *err = lerr;
     return -1;
   }
 
   if (cmp < 0) {
-    memcpy(&block->first, &a1, sizeof(ip_addr_t));
-    memcpy(&block->last, &a2, sizeof(ip_addr_t));
+    memcpy(&blk->first, a1, sizeof(ip_addr_t));
+    memcpy(&blk->last, a2, sizeof(ip_addr_t));
   } else {
-    memcpy(&block->first, &a2, sizeof(ip_addr_t));
-    memcpy(&block->last, &a1, sizeof(ip_addr_t));
+    memcpy(&blk->first, a2, sizeof(ip_addr_t));
+    memcpy(&blk->last, a1, sizeof(ip_addr_t));
   }
 
   return 0;
 }
 
-int ip_block(ip_block_t *blk, const char *s, int *err) {
+static int ip_block_range(ip_block_t *blk, const char *first,
+    const char *last, int *err) {
+  ip_addr_t a1, a2;
+
+  if (ip_addr(&a1, first, err) < 0) return -1;
+  if (ip_addr(&a2, last, err) < 0) return -1;
+  return ip_block_from_addrs(blk, &a1, &a2, err);
+}
+
+int ip_block_from_str(ip_block_t *blk, const char *s, int *err) {
   char *cptr;
   char addrbuf[YANS_IP_ADDR_MAXLEN];
   int ret = -1;
@@ -300,6 +307,9 @@ int ip_block(ip_block_t *blk, const char *s, int *err) {
 
 int ip_block_netmask(ip_block_t *blk, ip_addr_t * addr, ip_addr_t *netmask,
     int *err) {
+  /* TODO: calculate prefixlen from netmask(?) */
+  blk->prefixlen = -1;
+
   memcpy(&blk->first, addr, sizeof(ip_addr_t));
   memcpy(&blk->last, addr, sizeof(ip_addr_t));
   if (addr->u.sa.sa_family == AF_INET && netmask->u.sa.sa_family == AF_INET) {
@@ -329,7 +339,7 @@ int ip_block_contains(ip_block_t *blk, ip_addr_t *addr) {
   return 0;
 }
 
-int ip_block_str(ip_block_t *blk, char *dst, size_t dstlen, int *err) {
+int ip_block_to_str(ip_block_t *blk, char *dst, size_t dstlen, int *err) {
   char *cptr;
   size_t len;
   size_t left;
@@ -398,7 +408,7 @@ static int cons_block(struct ip_blocks *blks, const char *s, size_t start,
   }
   memcpy(buf, s + start, len);
   buf[len] = '\0';
-  if (ip_block(&blk, buf, err) < 0) {
+  if (ip_block_from_str(&blk, buf, err) < 0) {
     return -1;
   }
 
@@ -481,7 +491,8 @@ int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {
     goto success;
   }
 
-  if (ip_block_str(&blks->blocks[blks->curr], ipbuf, sizeof(ipbuf), err) < 0) {
+  if (ip_block_to_str(&blks->blocks[blks->curr], ipbuf, sizeof(ipbuf), err) <
+      0) {
     return -1;
   }
 
@@ -490,7 +501,7 @@ int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {
   }
 
   for(i = blks->curr + 1; i < blks->nblocks; i++) {
-    if (ip_block_str(&blks->blocks[i], ipbuf, sizeof(ipbuf), err) < 0) {
+    if (ip_block_to_str(&blks->blocks[i], ipbuf, sizeof(ipbuf), err) < 0) {
       return -1;
     }
 

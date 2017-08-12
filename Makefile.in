@@ -212,12 +212,12 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	lib/util/sandbox.$(OBJEXT) lib/util/fio.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) lib/net/ip.$(OBJEXT) \
-	lib/net/url.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/status_resp.$(OBJEXT) lib/lua/net.$(OBJEXT) \
-	lib/lua/http.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
-	lib/lua/pcapd.$(OBJEXT) lib/lua/json.$(OBJEXT) \
-	lib/lua/cgi.$(OBJEXT) lib/lua/fts.$(OBJEXT) \
-	apps/yans/yans.$(OBJEXT)
+	lib/net/url.$(OBJEXT) lib/net/route.$(OBJEXT) \
+	proto/pcap_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
+	lib/lua/net.$(OBJEXT) lib/lua/http.$(OBJEXT) \
+	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
+	lib/lua/json.$(OBJEXT) lib/lua/cgi.$(OBJEXT) \
+	lib/lua/fts.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
@@ -743,6 +743,8 @@ yans_SOURCES = \
     lib/net/ip.h \
     lib/net/url.c \
     lib/net/url.h \
+    lib/net/route.c \
+    lib/net/route.h \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \
@@ -1132,6 +1134,8 @@ lib/util/sandbox.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/net/route.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/lua/$(am__dirstamp):
 	@$(MKDIR_P) lib/lua
 	@: > lib/lua/$(am__dirstamp)
@@ -1228,6 +1232,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@

@@ -7,7 +7,7 @@
 int iflist_main(int argc, char *argv[]) {
   int ret;
   struct iface ifs = {0};
-  const char *ifname;
+  struct iface_entry ent;
 
   ret = iface_init(&ifs);
   if (ret < 0) {
@@ -15,8 +15,8 @@ int iflist_main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  while ((ifname = iface_next(&ifs)) != NULL) {
-    printf("%s ", ifname);
+  while (iface_next(&ifs, &ent) > 0) {
+    printf("%s ", ent.name);
   }
 
   printf("\n");

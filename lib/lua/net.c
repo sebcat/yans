@@ -6,6 +6,7 @@
 #include <lib/net/ip.h>
 #include <lib/net/eth.h>
 #include <lib/net/route.h>
+#include <lib/net/iface.h>
 #include <lib/lua/net.h>
 
 #define MTNAME_IPADDR     "yans.IPAddr"
@@ -631,6 +632,34 @@ static int l_routes(lua_State *L) {
   return 1;
 }
 
+static int l_ifaces(lua_State *L) {
+  struct iface ifs;
+  struct iface_entry ent;
+  struct eth_addr *eth;
+  lua_Integer i;
+
+  if (iface_init(&ifs) < 0) {
+    return luaL_error(L, "%s", iface_strerror(&ifs));
+  }
+
+  lua_newtable(L);
+  i = 1;
+  while (iface_next(&ifs, &ent) > 0) {
+    lua_createtable(L, 0, 3);
+    eth = l_newethaddr(L);
+    eth_addr_init_bytes(eth, ent.addr);
+    lua_setfield(L, -2, "addr");
+    lua_pushinteger(L, (lua_Integer)ent.index);
+    lua_setfield(L, -2, "index");
+    lua_pushstring(L, ent.name);
+    lua_setfield(L, -2, "name");
+    lua_rawseti(L, -2, i++);
+  }
+
+  iface_cleanup(&ifs);
+  return 1;
+}
+
 static const struct luaL_Reg yansipaddr_m[] = {
   {"__tostring", l_ipaddr_tostring},
   {"__eq", l_ipaddr_eqop},
@@ -686,6 +715,7 @@ static const struct luaL_Reg ip_f[] = {
 static const struct luaL_Reg eth_f[] = {
   {"addr", l_ethaddr},
   {"devices", l_devices},
+  {"ifaces", l_ifaces},
   {NULL, NULL},
 };
 

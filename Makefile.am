@@ -117,6 +117,8 @@ yans_SOURCES = \
     lib/net/punycode.h \
     lib/net/eth.c \
     lib/net/eth.h \
+    lib/net/iface.c \
+    lib/net/iface.h \
     lib/net/ip.c \
     lib/net/ip.h \
     lib/net/url.c \

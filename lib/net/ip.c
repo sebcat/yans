@@ -149,7 +149,7 @@ static void ip6_netmask(ip_addr_t *addr, uint32_t prefixlen) {
     addr->u.sin6.sin6_addr.s6_addr32[i] = 0xffffffff;
   }
 
-  if (prefixlen != 0 && i <= 3) {
+  if (nsetmod != 0 && i <= 3) {
     addr->u.sin6.sin6_addr.s6_addr32[i] = htonl(~((1<<(32-nsetmod))-1));
   }
 }
@@ -305,26 +305,55 @@ int ip_block_from_str(ip_block_t *blk, const char *s, int *err) {
   return ret;
 }
 
+/* naive way of calculating the prefixlen from a netmask, assuming that
+ * a prefixlen is applicable (which it should be, otherwise one addr+mask can
+ * turn into many blocks, and that's a PITA) */
+static int calc_prefixlen(unsigned char *data, int len) {
+  unsigned char *curr, buf;
+  int nbits = 0;
+
+  assert(len >= 0);
+  for (curr = data + len - 1; curr >= data; curr--) {
+    if (*curr == 0) {
+      nbits += 8;
+      continue;
+    }
+
+    buf = *curr;
+    while (!(buf & 1)) {
+      nbits++;
+      buf = buf >> 1;
+    }
+    break;
+  }
+
+  nbits = len*8 - nbits;
+  assert(nbits >= 0);
+  return nbits;
+}
+
 int ip_block_netmask(ip_block_t *blk, ip_addr_t * addr, ip_addr_t *netmask,
     int *err) {
-  /* TODO: calculate prefixlen from netmask(?) */
-  blk->prefixlen = -1;
+  int prefixlen;
 
   memcpy(&blk->first, addr, sizeof(ip_addr_t));
   memcpy(&blk->last, addr, sizeof(ip_addr_t));
   if (addr->u.sa.sa_family == AF_INET && netmask->u.sa.sa_family == AF_INET) {
-    ip4_clearbits(&blk->first, netmask);
-    ip4_setbits(&blk->last, netmask);
-    return 0;
+    prefixlen = calc_prefixlen((unsigned char *)(&netmask->u.sin.sin_addr),
+        sizeof(netmask->u.sin.sin_addr));
+    ip4_block_mask(&blk->first, &blk->last, (uint32_t)prefixlen);
+    blk->prefixlen = prefixlen;
   } else if (addr->u.sa.sa_family == AF_INET6 &&
       netmask->u.sa.sa_family == AF_INET6) {
-    ip6_clearbits(&blk->first, netmask);
-    ip6_setbits(&blk->last, netmask);
-    return 0;
+    prefixlen = calc_prefixlen((unsigned char *)(&netmask->u.sin6.sin6_addr),
+        sizeof(netmask->u.sin6.sin6_addr));
+    ip6_block_mask(&blk->first, &blk->last, (uint32_t)prefixlen);
+    blk->prefixlen = prefixlen;
   } else {
     if (err != NULL) *err = EAI_FAMILY;
     return -1;
   }
+  return 0;
 }
 
 /* returns 1 if the block contains the address, 0 if not */

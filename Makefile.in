@@ -92,17 +92,15 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
-	lib_net_ethframe_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
-	lib_util_os_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
-	lib_util_conf_test$(EXEEXT) apps/yans/tests/url_test.yans \
-	apps/yans/tests/json_test.yans apps/yans/tests/ip_test.yans
-check_PROGRAMS = lib_net_url_test$(EXEEXT) \
-	lib_net_punycode_test$(EXEEXT) lib_net_ethframe_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_os_test$(EXEEXT) \
 	lib_util_netstring_test$(EXEEXT) lib_util_conf_test$(EXEEXT) \
-	yans$(EXEEXT)
-bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ping$(EXEEXT) ycli$(EXEEXT) \
-	fc2$(EXEEXT)
+	apps/yans/tests/url_test.yans apps/yans/tests/json_test.yans \
+	apps/yans/tests/ip_test.yans
+check_PROGRAMS = lib_net_url_test$(EXEEXT) \
+	lib_net_punycode_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
+	lib_util_os_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
+	lib_util_conf_test$(EXEEXT) yans$(EXEEXT)
+bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ycli$(EXEEXT) fc2$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -180,10 +178,6 @@ am_fc2_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	apps/fc2/fc2.$(OBJEXT)
 fc2_OBJECTS = $(am_fc2_OBJECTS)
 fc2_LDADD = $(LDADD)
-am_lib_net_ethframe_test_OBJECTS = lib/net/ethframe.$(OBJEXT) \
-	lib/net/ethframe_test.$(OBJEXT)
-lib_net_ethframe_test_OBJECTS = $(am_lib_net_ethframe_test_OBJECTS)
-lib_net_ethframe_test_LDADD = $(LDADD)
 am_lib_net_punycode_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/buf.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/punycode_test.$(OBJEXT)
@@ -211,10 +205,6 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
-am_ping_OBJECTS = lib/net/eth.$(OBJEXT) lib/net/ethframe.$(OBJEXT) \
-	apps/ping/ping.$(OBJEXT)
-ping_OBJECTS = $(am_ping_OBJECTS)
-ping_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	3rd_party/lpeg.$(OBJEXT) 3rd_party/lua.$(OBJEXT) \
 	3rd_party/jansson.$(OBJEXT) lib/util/u8.$(OBJEXT) \
@@ -270,19 +260,15 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
-	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
-	$(lib_util_u8_test_SOURCES) $(ping_SOURCES) $(yans_SOURCES) \
-	$(ycli_SOURCES)
+	$(lib_util_u8_test_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
 DIST_SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
-	$(lib_net_ethframe_test_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
-	$(lib_util_u8_test_SOURCES) $(ping_SOURCES) $(yans_SOURCES) \
-	$(ycli_SOURCES)
+	$(lib_util_u8_test_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -782,13 +768,6 @@ yans_LDADD = \
     $(PCAPLIB) \
     -lm
 
-ping_SOURCES = \
-    lib/net/eth.c \
-    lib/net/eth.h \
-    lib/net/ethframe.c \
-    lib/net/ethframe.h \
-    apps/ping/ping.c
-
 ycli_SOURCES = \
     lib/net/iface.c \
     lib/net/iface.h \
@@ -802,9 +781,6 @@ ycli_SOURCES = \
 
 ycli_LDADD = \
     libycl.la
-
-ping_LDADD = \
-    $(PCAPLIB)
 
 libycl_la_SOURCES = \
     lib/util/buf.c \
@@ -868,11 +844,6 @@ lib_net_url_test_SOURCES = \
     lib/util/buf.c \
     lib/util/buf.h \
     lib/net/url_test.c
-
-lib_net_ethframe_test_SOURCES = \
-    lib/net/ethframe.c \
-    lib/net/ethframe.h \
-    lib/net/ethframe_test.c
 
 all: all-recursive
 
@@ -1099,14 +1070,6 @@ apps/fc2/fc2.$(OBJEXT): apps/fc2/$(am__dirstamp) \
 fc2$(EXEEXT): $(fc2_OBJECTS) $(fc2_DEPENDENCIES) $(EXTRA_fc2_DEPENDENCIES) 
 	@rm -f fc2$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(fc2_OBJECTS) $(fc2_LDADD) $(LIBS)
-lib/net/ethframe.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
-lib/net/ethframe_test.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
-
-lib_net_ethframe_test$(EXEEXT): $(lib_net_ethframe_test_OBJECTS) $(lib_net_ethframe_test_DEPENDENCIES) $(EXTRA_lib_net_ethframe_test_DEPENDENCIES) 
-	@rm -f lib_net_ethframe_test$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(lib_net_ethframe_test_OBJECTS) $(lib_net_ethframe_test_LDADD) $(LIBS)
 lib/util/u8.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/punycode.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -1151,18 +1114,6 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
-apps/ping/$(am__dirstamp):
-	@$(MKDIR_P) apps/ping
-	@: > apps/ping/$(am__dirstamp)
-apps/ping/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) apps/ping/$(DEPDIR)
-	@: > apps/ping/$(DEPDIR)/$(am__dirstamp)
-apps/ping/ping.$(OBJEXT): apps/ping/$(am__dirstamp) \
-	apps/ping/$(DEPDIR)/$(am__dirstamp)
-
-ping$(EXEEXT): $(ping_OBJECTS) $(ping_DEPENDENCIES) $(EXTRA_ping_DEPENDENCIES) 
-	@rm -f ping$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(ping_OBJECTS) $(ping_LDADD) $(LIBS)
 3rd_party/$(am__dirstamp):
 	@$(MKDIR_P) 3rd_party
 	@: > 3rd_party/$(am__dirstamp)
@@ -1237,7 +1188,6 @@ mostlyclean-compile:
 	-rm -f 3rd_party/*.$(OBJEXT)
 	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/fc2/*.$(OBJEXT)
-	-rm -f apps/ping/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f apps/ycli/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
@@ -1260,7 +1210,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/fc2/$(DEPDIR)/fc2.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@apps/ping/$(DEPDIR)/ping.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ethframecli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/iflist.Po@am__quote@
@@ -1274,8 +1223,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ethframe_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/fcgi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/iface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
@@ -1675,13 +1622,6 @@ lib_net_punycode_test.log: lib_net_punycode_test$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
-lib_net_ethframe_test.log: lib_net_ethframe_test$(EXEEXT)
-	@p='lib_net_ethframe_test$(EXEEXT)'; \
-	b='lib_net_ethframe_test'; \
-	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
-	--log-file $$b.log --trs-file $$b.trs \
-	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
-	"$$tst" $(AM_TESTS_FD_REDIRECT)
 lib_util_u8_test.log: lib_util_u8_test$(EXEEXT)
 	@p='lib_util_u8_test$(EXEEXT)'; \
 	b='lib_util_u8_test'; \
@@ -1960,8 +1900,6 @@ distclean-generic:
 	-rm -f apps/ethd/$(am__dirstamp)
 	-rm -f apps/fc2/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/fc2/$(am__dirstamp)
-	-rm -f apps/ping/$(DEPDIR)/$(am__dirstamp)
-	-rm -f apps/ping/$(am__dirstamp)
 	-rm -f apps/yans/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/yans/$(am__dirstamp)
 	-rm -f apps/ycli/$(DEPDIR)/$(am__dirstamp)
@@ -1987,7 +1925,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -2035,7 +1973,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/ping/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

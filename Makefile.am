@@ -10,7 +10,6 @@ AM_CFLAGS = -Wall -Werror -fvisibility=hidden
 TESTS = \
     lib_net_url_test \
     lib_net_punycode_test \
-    lib_net_ethframe_test \
     lib_util_u8_test \
     lib_util_os_test \
     lib_util_netstring_test \
@@ -25,7 +24,6 @@ YANS_LOG_COMPILER = ./yans
 check_PROGRAMS = \
     lib_net_url_test \
     lib_net_punycode_test \
-    lib_net_ethframe_test \
     lib_util_u8_test \
     lib_util_os_test \
     lib_util_netstring_test \
@@ -35,7 +33,6 @@ check_PROGRAMS = \
 bin_PROGRAMS = \
     yans \
     ethd \
-    ping \
     ycli \
     fc2
 
@@ -149,13 +146,6 @@ yans_LDADD = \
     $(PCAPLIB) \
     -lm
 
-ping_SOURCES = \
-    lib/net/eth.c \
-    lib/net/eth.h \
-    lib/net/ethframe.c \
-    lib/net/ethframe.h \
-    apps/ping/ping.c
-
 ycli_SOURCES = \
     lib/net/iface.c \
     lib/net/iface.h \
@@ -169,9 +159,6 @@ ycli_SOURCES = \
 
 ycli_LDADD = \
     libycl.la
-
-ping_LDADD = \
-    $(PCAPLIB)
 
 libycl_la_SOURCES = \
     lib/util/buf.c \
@@ -236,9 +223,3 @@ lib_net_url_test_SOURCES = \
     lib/util/buf.c \
     lib/util/buf.h \
     lib/net/url_test.c
-
-lib_net_ethframe_test_SOURCES = \
-    lib/net/ethframe.c \
-    lib/net/ethframe.h \
-    lib/net/ethframe_test.c
-

@@ -59,12 +59,8 @@ struct fc2_cgi {
 
 static char *g_cgidir;
 
-/* static 404 response as a FCGI_STDOUT frame (hardcoded ID)
- * if you cnage it*/
 static const char r404[] =
-  "\x01\x06\x00\x01" /* version 1, type FCGI_STDOUT(6), ID 1 */
-  "\x00\x40"         /* content length */
-  "\x00\x00"         /* padding length, reserved */
+  "\x00\x00\x00\x00\x00\x00\x00\x00" /* copy header here */
   "Status: 404 Not Found\r\n"
   "Content-Type: text/plain\r\n"
   "\r\n"
@@ -398,11 +394,24 @@ static void on_read_req(struct eds_client *cli, int fd) {
         CLIERR(cli, fd, "setup_cgi_env: %s", cgi_strerror(ret));
       }
 
-      /* respond with static 404 */
+      /* respond with 404 (TODO: support other HTTP error codes) */
+      /* init response buffer */
+      if (buf_init(&ctx->outbuf, 2048) == NULL) {
+        CLIERR(cli, fd, "%s", "unable to allocate space for error response");
+        eds_client_clear_actions(cli);
+        return;
+      }
+
+      /* craft 404 response (TODO: support other HTTP error codes) */
+      buf_adata(&ctx->outbuf, r404, sizeof(r404)-1);
+      fcgi_cli_format_header(&ctx->fcgi, (void*)ctx->outbuf.data, FCGI_STDOUT,
+          sizeof(r404)-1-8);
+
+      /* send 404 response and transition to graceful teardown */
       eds_client_set_on_readable(cli, NULL);
       trans.flags = EDS_TFLWRITE;
       trans.on_writable = on_graceful_teardown;
-      eds_client_send(cli, r404, sizeof(r404)-1, &trans);
+      eds_client_send(cli, ctx->outbuf.data, ctx->outbuf.len, &trans);
       return;
     }
 
@@ -428,7 +437,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
       goto fail_postfork;
     }
 
-    if (buf_init(&ctx->outbuf, 65536/2) == 0) {
+    if (buf_init(&ctx->outbuf, 65536/2) == NULL) {
       CLIERR(cli, fd, "PID:%d fd:%d: failed to allocate output buffer",
           pid, procfd);
       goto fail_postfork;

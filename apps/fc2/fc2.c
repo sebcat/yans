@@ -585,19 +585,28 @@ static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
 int main(int argc, char *argv[]) {
   os_t os;
   struct opts opts = {0};
-  struct os_chrootd_opts chroot_opts;
-  static struct eds_service service = {
-    .name = DAEMON_NAME,
-    .path = DAEMON_NAME ".sock",
-    .udata_size = sizeof(struct fc2_ctx),
-    .actions = {
-      .on_readable = on_readable,
-      .on_done = on_done,
+  struct os_daemon_opts daemon_opts = {0};
+  static struct eds_service services[] = {
+    {
+      .name = DAEMON_NAME,
+      .path = DAEMON_NAME ".sock",
+      .udata_size = sizeof(struct fc2_ctx),
+      .actions = {
+        .on_readable = on_readable,
+        .on_done = on_done,
+      },
+      .on_svc_error = on_svc_error,
+      .on_reaped_child = on_reaped_child,
+      /* in daemon mode we'll have multiple processes to handle slow readers.
+       * from a performance standpoint, forking and running the CGIs
+       * themselves will probably be a larger bottle neck than the fc2
+       * processes */
+      .nprocs = 2,
     },
-    .on_svc_error = on_svc_error,
-    .on_reaped_child = on_reaped_child,
+    {0},
   };
   int status = EXIT_SUCCESS;
+  int ret;
 
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
@@ -608,20 +617,31 @@ int main(int argc, char *argv[]) {
     }
   } else {
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
-    chroot_opts.name = DAEMON_NAME;
-    chroot_opts.path = opts.basepath;
-    chroot_opts.uid = opts.uid;
-    chroot_opts.gid = opts.gid;
-    chroot_opts.nagroups = 0;
-    if (os_chrootd(&os, &chroot_opts) != OS_OK) {
+    /* we want to be able to execve arbitrary CGIs, so no chroot */
+    daemon_opts.flags = DAEMONOPT_NOCHROOT;
+    daemon_opts.name = DAEMON_NAME;
+    daemon_opts.path = opts.basepath;
+    daemon_opts.uid = opts.uid;
+    daemon_opts.gid = opts.gid;
+    daemon_opts.nagroups = 0;
+    if (os_daemonize(&os, &daemon_opts) != OS_OK) {
       ylog_error("%s", os_strerror(&os));
       exit(EXIT_FAILURE);
     }
   }
 
   ylog_info("Starting " DAEMON_NAME);
-  if (eds_serve_single(&service) < 0) {
-    ylog_error("Failed to start " DAEMON_NAME);
+
+  /* only do process supervision and multiple workers if we're running as a
+   * daemon */
+  if (opts.no_daemon) {
+    ret = eds_serve_single_by_name(services, DAEMON_NAME);
+  } else {
+    ret = eds_serve(services);
+  }
+
+  if (ret < 0) {
+    ylog_error(DAEMON_NAME ": eds service failure");
     status = EXIT_FAILURE;
   }
 

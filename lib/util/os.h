@@ -22,7 +22,11 @@ int os_mkdirp(os_t *os, const char *path, mode_t mode, uid_t owner,
     gid_t group);
 int os_remove_all(os_t *os, const char *path);
 
-struct os_chrootd_opts {
+/* os_daemonize_opts flags */
+#define DAEMONOPT_NOCHROOT    (1 << 0)
+
+struct os_daemon_opts {
+  int flags;
   const char *name; /* name of chroot - must be a valid file name */
   const char *path; /* absolute path to chroot directory, must exist */
   uid_t uid;        /* uid of chroot process */
@@ -31,9 +35,9 @@ struct os_chrootd_opts {
   gid_t *agroups;   /* additional groups of chroot process (see setgroups) */
 };
 
-/* os_chrootd --
- *   chroots to a directory. Creates a PID-file in the chroot, and a .dump
- *   file for data written to stdout/stderr. Changes real and effecive
+/* os_daemonize --
+ *   chroots or chdirs to a directory. Creates a PID-file in the chroot, and a
+ *   .dump file for data written to stdout/stderr. Changes real and effecive
  *   uid/gid, as well as additional groups. Daemonizes the process.
  *
  *   The chroot must exist and have the neccessary device files. Care must be
@@ -48,7 +52,7 @@ struct os_chrootd_opts {
  *   have the FD_CLOEXEC flag set.
  *
  *   Must be called as root */
-int os_chrootd(os_t *os, struct os_chrootd_opts *opts);
+int os_daemonize(os_t *os, struct os_daemon_opts *opts);
 
 int os_getuid(os_t *os, const char *user, uid_t *uid);
 int os_getgid(os_t *os, const char *group, gid_t *gid);

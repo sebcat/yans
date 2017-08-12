@@ -148,55 +148,63 @@ fail:
   return OS_ERR;
 }
 
-int os_chrootd(os_t *os, struct os_chrootd_opts *opts) {
+int os_daemonize(os_t *os, struct os_daemon_opts *opts) {
   uid_t uid;
   pid_t pid;
-  int pidfilefd = -1, dumpfilefd = -1, ret, len;
+  int pidfilefd = -1;
+  int dumpfilefd = -1;
+  int ret;
+  int len;
   char buf[1024];
 
   CLEARERRBUF(os);
 
   /* validate opts and current euid */
   if (opts->path == NULL || *opts->path == '\0') {
-    os_seterr(os, "os_chrootd: path not set");
+    os_seterr(os, "os_daemonize: path not set");
     goto fail;
   } else if (opts->name == NULL || *opts->name == '\0') {
-    os_seterr(os, "os_chrootd: name not set");
+    os_seterr(os, "os_daemonize: name not set");
     goto fail;
   } else if (opts->path[0] != '/') {
-    os_seterr(os, "os_chrootd: path must be absolute");
+    os_seterr(os, "os_daemonize: path must be absolute");
     goto fail;
   } else if ((uid = geteuid()) != UID_ROOT) {
-    os_seterr(os, "os_chrootd: invoked as non-root user (%d)", uid);
+    os_seterr(os, "os_daemonize: invoked as non-root user (%d)", uid);
     goto fail;
   }
 
-  /* chdir and chroot */
+  /* chdir */
   if (chdir(opts->path) != 0) {
     os_setpatherr(os, "chdir", opts->path, "%s", strerror(errno));
     goto fail;
-  } else if (chroot(opts->path) != 0) {
-    os_setpatherr(os, "chroot", opts->path, "%s", strerror(errno));
-    goto fail;
+  }
+
+  /* chroot unless no chroot is wanted */
+  if (!(opts->flags & DAEMONOPT_NOCHROOT)) {
+    if (chroot(opts->path) != 0) {
+      os_setpatherr(os, "chroot", opts->path, "%s", strerror(errno));
+      goto fail;
+    }
   }
 
   /* create the PID file with correct UID/GID, or fail if it exists */
   snprintf(buf, sizeof(buf), "%.*s.pid", (int)sizeof(buf)-8, opts->name);
   if ((pidfilefd = open(buf, O_WRONLY|O_CREAT|O_EXCL, 0644)) < 0) {
-    os_perror(os, "os_chrootd: pidfile open");
+    os_perror(os, "os_daemonize: pidfile open");
     goto fail;
   } else if (fchown(pidfilefd, opts->uid, opts->gid) != 0) {
-    os_perror(os, "os_chrootd: pidfile chown");
+    os_perror(os, "os_daemonize: pidfile chown");
     goto fail;
   }
 
   /* create the dumpfile with correct UID/GID, truncate if it exists */
   snprintf(buf, sizeof(buf), "%.*s.dump", (int)sizeof(buf)-8, opts->name);
   if ((dumpfilefd = open(buf, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0) {
-    os_perror(os, "os_chrootd: dumpfile open");
+    os_perror(os, "os_daemonize: dumpfile open");
     goto fail;
   } else if (fchown(dumpfilefd, opts->uid, opts->gid) != 0) {
-    os_perror(os, "os_chrootd: dumpfile chown");
+    os_perror(os, "os_daemonize: dumpfile chown");
     goto fail;
   }
 
@@ -204,26 +212,26 @@ int os_chrootd(os_t *os, struct os_chrootd_opts *opts) {
   if (opts->nagroups == 0) {
     gid_t gid = opts->gid;
     if (setgroups(1, &gid) != 0) {
-      os_perror(os, "os_chrootd: setgroups");
+      os_perror(os, "os_daemonize: setgroups");
       goto fail;
     }
   } else if (setgroups(opts->nagroups, opts->agroups) != 0) {
-    os_perror(os, "os_chrootd: setgroups");
+    os_perror(os, "os_daemonize: setgroups");
     goto fail;
   }
 
   /* change gid and pid */
   if (setgid(opts->gid) != 0) {
-    os_perror(os, "os_chrootd: setgid");
+    os_perror(os, "os_daemonize: setgid");
     goto fail;
   } else if (setuid(opts->uid) != 0) {
-    os_perror(os, "os_chrootd: setuid");
+    os_perror(os, "os_daemonize: setuid");
     goto fail;
   }
 
   /* daemonize - first fork */
   if ((pid = fork()) < 0) {
-    os_perror(os, "os_chrootd: fork");
+    os_perror(os, "os_daemonize: fork");
     goto fail;
   } else if (pid > 0) {
     exit(EXIT_SUCCESS);
@@ -233,7 +241,7 @@ int os_chrootd(os_t *os, struct os_chrootd_opts *opts) {
   setsid();
   umask(0);
   if ((pid = fork()) < 0) {
-    os_perror(os, "os_chrootd: fork2");
+    os_perror(os, "os_daemonize: fork2");
     goto fail;
   } else if (pid > 0) {
     exit(EXIT_SUCCESS);

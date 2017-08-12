@@ -109,7 +109,7 @@ static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
 
 void chroot_or_die(struct opts *opts) {
   os_t os;
-  struct os_chrootd_opts chroot_opts;
+  struct os_daemon_opts daemon_opts = {0};
 
   /* for Linux: Set the "keep capabilities" flag to 1 and drop the permitted,
    * inheritable and effective capabilities to only include the ones needed
@@ -143,12 +143,12 @@ void chroot_or_die(struct opts *opts) {
   } while(0);
 #endif
 
-  chroot_opts.name = DAEMON_NAME;
-  chroot_opts.path = opts->basepath;
-  chroot_opts.uid = opts->uid;
-  chroot_opts.gid = opts->gid;
-  chroot_opts.nagroups = 0;
-  if (os_chrootd(&os, &chroot_opts) != OS_OK) {
+  daemon_opts.name = DAEMON_NAME;
+  daemon_opts.path = opts->basepath;
+  daemon_opts.uid = opts->uid;
+  daemon_opts.gid = opts->gid;
+  daemon_opts.nagroups = 0;
+  if (os_daemonize(&os, &daemon_opts) != OS_OK) {
     ylog_error("%s", os_strerror(&os));
     exit(EXIT_FAILURE);
   }

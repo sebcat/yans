@@ -327,6 +327,8 @@ end
 
 test_url_normalize(builder, "https://www.straße.de/straße",
     "https://www.xn--strae-oqa.de/stra%c3%9fe")
+test_url_normalize(builder, "https://www.xn--strae-oqa.de/stra%c3%9fe",
+    "https://www.xn--strae-oqa.de/stra%c3%9fe")
 test_url_normalize(builder, "", "")
 test_url_normalize(builder, ".", "")
 test_url_normalize(builder, "/", "/")

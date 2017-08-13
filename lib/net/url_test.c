@@ -396,8 +396,6 @@ static int test_normalize() {
      * paths are done only when the URL has an authority component.
      * Allows us to use url_normalize within url_resolve for the reference
      * URL. */
-    {"https://www.straße.de/straße",
-      "https://www.xn--strae-oqa.de/stra%c3%9fe"},
     {"", ""},
     {".", ""},
     {"/", "/"},
@@ -428,6 +426,10 @@ static int test_normalize() {
     {"http://example.com/foo/../bör/", "http://example.com/b%c3%b6r/"},
     {"http://example.com/foo/../bar/?q=?&bar=öh",
         "http://example.com/bar/?q=?&bar=%c3%b6h"},
+    {"https://www.straße.de/straße",
+      "https://www.xn--strae-oqa.de/stra%c3%9fe"},
+    {"https://www.xn--strae-oqa.de/stra%c3%9fe",
+     "https://www.xn--strae-oqa.de/stra%c3%9fe"},
     {NULL, NULL},
   };
 

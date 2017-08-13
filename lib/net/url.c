@@ -248,13 +248,13 @@ size_t url_remove_dot_segments(char *s, size_t len) {
 #define ISPCHAR(x) \
   (((x) >= 'A' && (x) <= 'Z') || \
    ((x) >= 'a' && (x) <= 'z') || \
-   ((x) >= '0' && (x) <= '0') || \
+   ((x) >= '0' && (x) <= '9') || \
    (strchr("-._~!$&'()*+,;=:@", (x)) != NULL))
 
 #define ISQUERYCHAR(x) \
   (((x) >= 'A' && (x) <= 'Z') || \
    ((x) >= 'a' && (x) <= 'z') || \
-   ((x) >= '0' && (x) <= '0') || \
+   ((x) >= '0' && (x) <= '9') || \
    (strchr("-._~!$&'()*+,;=:@/?", (x)) != NULL))
 
 int url_supported_scheme(const char *s) {

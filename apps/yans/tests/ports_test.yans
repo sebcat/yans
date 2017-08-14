@@ -1,0 +1,37 @@
+local function teq(input, expected)
+  local actual = tostring(ip.ports(input))
+  if actual ~= expected then
+    error(string.format("input:%q expected:%q actual:%q", input, expected,
+        actual))
+  end
+end
+
+-- test (de-)serialization in sorted order
+teq("", "")
+teq(" ", "")
+teq(" ,", "")
+teq(" ,\t", "")
+teq("1", "1")
+teq(" 1", "1")
+teq("1 ", "1")
+teq(" 1 ", "1")
+teq("1-2", "1-2")
+teq(" 1-2", "1-2")
+teq("1-2 ", "1-2")
+teq(" 1-2 ", "1-2")
+teq("1-2,", "1-2")
+teq("1-2,4", "1-2 4")
+teq("1-2, 4", "1-2 4")
+teq("1-2, 4-6", "1-2 4-6")
+teq("1-2, 4-6 ", "1-2 4-6")
+
+-- test sort order
+teq("4-6, 1-2", "1-2 4-6")
+teq("1-2 6-8 4", "1-2 4 6-8")
+teq("4-5 1-2", "1-2 4-5")
+
+-- test range compression
+teq("1-2 1-4", "1-4")
+teq("1-4, 1-2", "1-4")
+teq("9-8 1-6 7", "1-9")
+teq("4-5 1-10", "1-10")

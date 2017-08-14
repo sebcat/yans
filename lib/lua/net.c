@@ -4,18 +4,23 @@
 #include <pcap/pcap.h>
 
 #include <lib/net/ip.h>
+#include <lib/net/ports.h>
 #include <lib/net/eth.h>
 #include <lib/net/route.h>
 #include <lib/net/iface.h>
 #include <lib/lua/net.h>
 
 #define MTNAME_IPADDR     "yans.IPAddr"
+#define MTNAME_IPPORTS    "yans.IPPorts"
 #define MTNAME_ETHADDR    "yans.EthAddr"
 #define MTNAME_BLOCK      "yans.IPBlock"
 #define MTNAME_BLOCKS     "yans.IPBlocks"
 
 #define checkipaddr(L, i) \
     ((ip_addr_t*)luaL_checkudata(L, (i), MTNAME_IPADDR))
+
+#define checkipports(L, i) \
+    ((struct port_ranges *)luaL_checkudata(L, (i), MTNAME_IPPORTS))
 
 #define checkethaddr(L, i) \
     ((struct eth_addr *)luaL_checkudata(L, (i), MTNAME_ETHADDR))
@@ -32,6 +37,14 @@ static inline ip_addr_t *l_newipaddr(lua_State *L) {
   addr = lua_newuserdata(L, sizeof(ip_addr_t));
   luaL_setmetatable(L, MTNAME_IPADDR);
   return addr;
+}
+
+static inline struct port_ranges *l_newipports(lua_State *L) {
+  struct port_ranges *rs;
+
+  rs = lua_newuserdata(L, sizeof(struct port_ranges));
+  luaL_setmetatable(L, MTNAME_IPPORTS);
+  return rs;
 }
 
 static inline struct eth_addr *l_newethaddr(lua_State *L) {
@@ -543,6 +556,52 @@ static int l_ifaces(lua_State *L) {
   return 1;
 }
 
+static int l_ipports(lua_State *L) {
+  const char *s;
+  int ret;
+  struct port_ranges *rs;
+  size_t fail_off;
+
+  s = luaL_checkstring(L, 1);
+  rs = l_newipports(L);
+  ret = port_ranges_from_str(rs, s, &fail_off);
+  if (ret < 0) {
+    lua_pop(L, 1);
+    lua_pushnil(L);
+    lua_pushinteger(L, (lua_Integer)fail_off + 1); /* 1-indexing */
+    return 2;
+  }
+
+  return 1;
+}
+
+static int l_ipports_tostring(lua_State *L) {
+  buf_t buf;
+  struct port_ranges *rs = checkipports(L, 1);
+
+  if (buf_init(&buf, 1024) == NULL) {
+    goto fail;
+  }
+
+  if (port_ranges_to_buf(rs, &buf) < 0) {
+    buf_cleanup(&buf);
+    goto fail;
+  }
+
+  lua_pushlstring(L, buf.data, buf.len);
+  buf_cleanup(&buf);
+  return 1;
+
+fail:
+  return luaL_error(L, "memory allocation error");
+}
+
+static int l_ipports_gc(lua_State *L) {
+  struct port_ranges *rs = checkipports(L, 1);
+  port_ranges_cleanup(rs);
+  return 0;
+}
+
 static const struct luaL_Reg yansipaddr_m[] = {
   {"__tostring", l_ipaddr_tostring},
   {"__eq", l_ipaddr_eqop},
@@ -557,6 +616,12 @@ static const struct luaL_Reg yansipaddr_m[] = {
   {"add", l_ipaddr_add},
   {"sub", l_ipaddr_sub},
   {NULL, NULL}
+};
+
+static const struct luaL_Reg yansipports_m[] = {
+  {"__tostring", l_ipports_tostring},
+  {"__gc", l_ipports_gc},
+  {NULL, NULL},
 };
 
 static const struct luaL_Reg yansethaddr_m[] = {
@@ -591,6 +656,7 @@ static const struct luaL_Reg ip_f[] = {
   {"addr", l_ipaddr},
   {"addrs", l_ipblocks},
   {"block", l_ipblock},
+  {"ports", l_ipports},
   {"routes", l_routes},
   {NULL, NULL},
 };
@@ -620,6 +686,7 @@ static void init_mtable(lua_State *L, struct mtable *tbl) {
 int luaopen_ip(lua_State *L) {
   struct mtable mt[] = {
     {MTNAME_IPADDR, yansipaddr_m},
+    {MTNAME_IPPORTS, yansipports_m},
     {MTNAME_BLOCK, yansblock_m},
     {MTNAME_BLOCKS, yansblocks_m},
     {NULL, NULL},

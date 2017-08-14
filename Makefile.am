@@ -16,7 +16,8 @@ TESTS = \
     lib_util_conf_test \
     apps/yans/tests/url_test.yans \
     apps/yans/tests/json_test.yans \
-    apps/yans/tests/net_test.yans
+    apps/yans/tests/net_test.yans \
+    apps/yans/tests/ports_test.yans
 
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
@@ -121,6 +122,8 @@ yans_SOURCES = \
     lib/net/iface.h \
     lib/net/ip.c \
     lib/net/ip.h \
+    lib/net/ports.c \
+    lib/net/ports.h \
     lib/net/url.c \
     lib/net/url.h \
     lib/net/route.c \

@@ -95,7 +95,7 @@ TESTS = lib_net_url_test$(EXEEXT) lib_net_punycode_test$(EXEEXT) \
 	lib_util_u8_test$(EXEEXT) lib_util_os_test$(EXEEXT) \
 	lib_util_netstring_test$(EXEEXT) lib_util_conf_test$(EXEEXT) \
 	apps/yans/tests/url_test.yans apps/yans/tests/json_test.yans \
-	apps/yans/tests/net_test.yans
+	apps/yans/tests/net_test.yans apps/yans/tests/ports_test.yans
 check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_net_punycode_test$(EXEEXT) lib_util_u8_test$(EXEEXT) \
 	lib_util_os_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
@@ -212,13 +212,13 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	lib/util/sandbox.$(OBJEXT) lib/util/fio.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
 	lib/net/eth.$(OBJEXT) lib/net/iface.$(OBJEXT) \
-	lib/net/ip.$(OBJEXT) lib/net/url.$(OBJEXT) \
-	lib/net/route.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/status_resp.$(OBJEXT) lib/lua/net.$(OBJEXT) \
-	lib/lua/http.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
-	lib/lua/pcapd.$(OBJEXT) lib/lua/json.$(OBJEXT) \
-	lib/lua/cgi.$(OBJEXT) lib/lua/fts.$(OBJEXT) \
-	apps/yans/yans.$(OBJEXT)
+	lib/net/ip.$(OBJEXT) lib/net/ports.$(OBJEXT) \
+	lib/net/url.$(OBJEXT) lib/net/route.$(OBJEXT) \
+	proto/pcap_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
+	lib/lua/net.$(OBJEXT) lib/lua/http.$(OBJEXT) \
+	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
+	lib/lua/json.$(OBJEXT) lib/lua/cgi.$(OBJEXT) \
+	lib/lua/fts.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
@@ -744,6 +744,8 @@ yans_SOURCES = \
     lib/net/iface.h \
     lib/net/ip.c \
     lib/net/ip.h \
+    lib/net/ports.c \
+    lib/net/ports.h \
     lib/net/url.c \
     lib/net/url.h \
     lib/net/route.c \
@@ -1137,6 +1139,8 @@ lib/util/sandbox.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/net/ports.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/route.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/lua/$(am__dirstamp):
@@ -1233,6 +1237,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/fcgi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/iface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ports.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/route.Po@am__quote@

@@ -12,6 +12,9 @@
      (ch) == ' '  ||         \
      (ch) == ',')
 
+#define PORT_RANGE_HAS_LHS (1 << 0)
+#define PORT_RANGE_HAS_RHS (1 << 1)
+
 static int rangecmp(const void *p0, const void *p1) {
   const struct port_range *r0 = p0;
   const struct port_range *r1 = p1;
@@ -48,6 +51,7 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
   const char *start = s;
   int result = -1;
   unsigned int num;
+  unsigned int flags;
   buf_t buf;
   struct port_range range = {0};
   enum {
@@ -73,13 +77,18 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
         break;
       }
       num = 0;
+      flags = 0;
       S = PARSE_LHS;
       /* fallthrough */
     case PARSE_LHS:
       if (ch == '-' || IS_PORT_RANGE_SEP(ch)) {
         range.start = (uint16_t)num;
-        num = 0;
         if (ch == '-') {
+          if (!(flags & PORT_RANGE_HAS_LHS)) {
+            /* dash without left hand side of range is invalid */
+            goto fail;
+          }
+          num = 0;
           S = PARSE_RHS;
         } else {
           range.end = range.start;
@@ -96,6 +105,7 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
       } else if (ch < '0' || ch > '9') {
         goto fail;
       }
+      flags |= PORT_RANGE_HAS_LHS;
       num = num * 10 + (ch - '0');
       if (num > 65535) {
         goto fail;
@@ -103,13 +113,16 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
       break;
     case PARSE_RHS:
       if (IS_PORT_RANGE_SEP(ch)) {
+        if (!(flags & PORT_RANGE_HAS_RHS)) {
+          /* dash without right hand side of range is invalid */
+          goto fail;
+        }
         range.end = (uint16_t)num;
         if (range.end < range.start) {
           tmp = range.start;
           range.start = range.end;
           range.end = tmp;
         }
-        num = 0;
         buf_adata(&buf, &range, sizeof(range));
         range.start = range.end = 0;
         S = SKIP_SEP;
@@ -117,6 +130,7 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
       } else if (ch < '0' || ch > '9') {
         goto fail;
       }
+      flags |= PORT_RANGE_HAS_RHS;
       num = num * 10 + (ch - '0');
       if (num > 65535) {
         goto fail;
@@ -137,6 +151,9 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
     }
     buf_adata(&buf, &range, sizeof(range));
   } else if (S == PARSE_RHS) {
+    if (!(flags & PORT_RANGE_HAS_RHS)) {
+      goto fail;
+    }
     range.end = (uint16_t)num;
     if (range.end < range.start) {
       tmp = range.start;
@@ -146,15 +163,16 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
     buf_adata(&buf, &range, sizeof(range));
   }
 
+  /* if we have a range, set up rs. If we don't, return an empty result */
   if (buf.len >= sizeof(range)) {
     rs->nranges = buf.len / sizeof(range);
     rs->ranges = (struct port_range*)buf.data; /* rs takes ownership */
   } else {
-    /* empty result */
     buf_cleanup(&buf);
     return 0;
   }
 
+  /* sort and compress the ranges */
   qsort(rs->ranges, rs->nranges, sizeof(struct port_range), rangecmp);
   compress_ranges(rs);
   return 0;
@@ -193,16 +211,16 @@ int port_ranges_to_buf(struct port_ranges *rs, buf_t *buf) {
 
   buf_clear(buf);
 
-  if (rs->nranges == 0) {
+  if (rs->curr == rs->nranges) {
     return 0;
   }
 
-  if (append_range(buf, &rs->ranges[0], "") < 0) {
+  if (append_range(buf, &rs->ranges[rs->curr], "") < 0) {
     return -1;
   }
 
 
-  for (i = 1; i < rs->nranges; i++) {
+  for (i = rs->curr + 1; i < rs->nranges; i++) {
     if (append_range(buf, &rs->ranges[i], " ") < 0) {
       return -1;
     }
@@ -222,6 +240,18 @@ void port_ranges_cleanup(struct port_ranges *rs) {
 
 }
 
-int port_ranges_next(struct port_ranges *rs, struct port_range *out) {
-  return 0;
+int port_ranges_next(struct port_ranges *rs, uint16_t *out) {
+  struct port_range *r;
+
+  if (rs->curr >= rs->nranges) {
+    return 0;
+  }
+
+  r = rs->ranges + rs->curr;
+  *out = r->start;
+  if (r->end <= r->start) {
+    rs->curr++;
+  }
+  r->start++;
+  return 1;
 }

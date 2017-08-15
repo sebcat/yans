@@ -575,6 +575,24 @@ static int l_ipports(lua_State *L) {
   return 1;
 }
 
+static int l_ipports_next_iter(lua_State *L) {
+  struct port_ranges *rs = checkipports(L, lua_upvalueindex(1));
+  uint16_t port;
+
+  if (port_ranges_next(rs, &port) > 0) {
+    lua_pushinteger(L, (lua_Integer)port);
+    return 1;
+  }
+
+  return 0;
+}
+
+static int l_ipports_next(lua_State *L) {
+  checkipports(L, 1);
+  lua_pushcclosure(L, l_ipports_next_iter, 1);
+  return 1;
+}
+
 static int l_ipports_tostring(lua_State *L) {
   buf_t buf;
   struct port_ranges *rs = checkipports(L, 1);
@@ -621,6 +639,7 @@ static const struct luaL_Reg yansipaddr_m[] = {
 static const struct luaL_Reg yansipports_m[] = {
   {"__tostring", l_ipports_tostring},
   {"__gc", l_ipports_gc},
+  {"next", l_ipports_next},
   {NULL, NULL},
 };
 

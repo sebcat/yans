@@ -28,6 +28,6 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
   char ch;
 int port_ranges_to_buf(struct port_ranges *rs, buf_t *buf);
 void port_ranges_cleanup(struct port_ranges *rs);
-int port_ranges_next(struct port_ranges *rs, struct port_range *out);
+int port_ranges_next(struct port_ranges *rs, uint16_t *out);
 
 #endif /* NET_PORTS_H__ */

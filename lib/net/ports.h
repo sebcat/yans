@@ -18,10 +18,17 @@ struct port_range {
 };
 
 struct port_ranges {
-  size_t curr;
   size_t nranges;
   struct port_range *ranges;
+
+  /* curr_* - for iteration */
+  size_t curr_range;
+  uint16_t curr_port;
 };
+
+#define port_ranges_reset(rs) \
+  (rs)->curr_range = 0;       \
+  (rs)->curr_port = 0;
 
 int port_ranges_from_str(struct port_ranges *rs, const char *s,
     size_t *fail_off);

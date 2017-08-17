@@ -207,20 +207,34 @@ static int append_range(buf_t *buf, struct port_range *r, const char *sep) {
 }
 
 int port_ranges_to_buf(struct port_ranges *rs, buf_t *buf) {
+  struct port_range *r;
   size_t i;
+  uint16_t swp;
+  int ret;
 
   buf_clear(buf);
 
-  if (rs->curr == rs->nranges) {
+  /* we're iterating, and we've reached the end */
+  if (rs->curr_range >= rs->nranges) {
     return 0;
   }
 
-  if (append_range(buf, &rs->ranges[rs->curr], "") < 0) {
+  r = rs->ranges + rs->curr_range;
+  if (rs->curr_range == 0 && rs->curr_port == 0) {
+    /* first entry - initialize rs->curr_port to 0, which may also be 0 */
+    rs->curr_port = r->start;
+  }
+
+  swp = r->start;
+  r->start = rs->curr_port;
+  ret = append_range(buf, r, "");
+  r->start = swp;
+  if (ret < 0) {
     return -1;
   }
 
 
-  for (i = rs->curr + 1; i < rs->nranges; i++) {
+  for (i = rs->curr_range + 1; i < rs->nranges; i++) {
     if (append_range(buf, &rs->ranges[i], " ") < 0) {
       return -1;
     }
@@ -235,7 +249,8 @@ void port_ranges_cleanup(struct port_ranges *rs) {
       free(rs->ranges);
     }
     rs->nranges = 0;
-    rs->curr = 0;
+    rs->curr_range = 0;
+    rs->curr_port = 0;
   }
 
 }
@@ -243,15 +258,26 @@ void port_ranges_cleanup(struct port_ranges *rs) {
 int port_ranges_next(struct port_ranges *rs, uint16_t *out) {
   struct port_range *r;
 
-  if (rs->curr >= rs->nranges) {
+  if (rs->curr_range >= rs->nranges) {
+    /* we've reached the end of the iteration - reset counters and return 0 */
+    port_ranges_reset(rs);
     return 0;
   }
 
-  r = rs->ranges + rs->curr;
-  *out = r->start;
-  if (r->end <= r->start) {
-    rs->curr++;
+  r = rs->ranges + rs->curr_range;
+  if (rs->curr_range == 0 && rs->curr_port == 0) {
+    /* first entry - initialize rs->curr_port to 0, which may also be 0 */
+    rs->curr_port = r->start;
   }
-  r->start++;
+
+
+  *out = rs->curr_port;
+  if (r->end > rs->curr_port) {
+    rs->curr_port++;
+  } else {
+    rs->curr_range++;
+    r = rs->ranges + rs->curr_range;
+    rs->curr_port = r->start;
+  }
   return 1;
 }

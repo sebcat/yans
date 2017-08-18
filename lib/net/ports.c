@@ -38,6 +38,11 @@ static void compress_ranges(struct port_ranges *rs) {
       }
     } else {
       curr++;
+      if (next > curr) {
+        memmove(rs->ranges + curr, rs->ranges + next,
+            (rs->nranges - next) * sizeof(struct port_range));
+        next = curr;
+      }
     }
   }
 

@@ -465,9 +465,9 @@ int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
     BLKS_FINDEND,
   } S = BLKS_FINDSTART;
 
-  blks->curr = 0;
-  blks->nblocks = 0;
-  blks->blocks = NULL;
+  memset(blks, 0, sizeof(*blks));
+  /* AF_UNSPEC is "always" 0, but set it explicitly for paranoia reasons */
+  blks->curr_addr.u.sa.sa_family = AF_UNSPEC;
   if (s == NULL) {
     return 0;
   }
@@ -506,22 +506,34 @@ void ip_blocks_cleanup(struct ip_blocks *blks) {
     if (blks->blocks) {
       free(blks->blocks);
     }
-    blks->nblocks = 0;
-    blks->curr = 0;
+    memset(blks, 0, sizeof(*blks));
+    blks->curr_addr.u.sa.sa_family = AF_UNSPEC;
   }
 }
 
 int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {
   size_t i;
   char ipbuf[128];
+  ip_block_t *blk;
+  ip_addr_t swp;
+  int ret;
 
   buf_clear(buf);
-  if (blks == NULL || blks->curr >= blks->nblocks) {
+  if (blks == NULL || blks->curr_block >= blks->nblocks) {
     goto success;
   }
 
-  if (ip_block_to_str(&blks->blocks[blks->curr], ipbuf, sizeof(ipbuf), err) <
-      0) {
+  blk = blks->blocks + blks->curr_block;
+  if (blks->curr_block == 0 && blks->curr_addr.u.sa.sa_family == AF_UNSPEC) {
+    /* first entry - initialize blks->curr_addr */
+    blks->curr_addr = blk->first;
+  }
+
+  swp = blk->first;
+  blk->first = blks->curr_addr;
+  ret = ip_block_to_str(blk, ipbuf, sizeof(ipbuf), err);
+  blk->first = swp;
+  if (ret < 0) {
     return -1;
   }
 
@@ -529,7 +541,7 @@ int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err) {
     goto memfail;
   }
 
-  for(i = blks->curr + 1; i < blks->nblocks; i++) {
+  for(i = blks->curr_block + 1; i < blks->nblocks; i++) {
     if (ip_block_to_str(&blks->blocks[i], ipbuf, sizeof(ipbuf), err) < 0) {
       return -1;
     }
@@ -552,20 +564,40 @@ memfail:
   return -1;
 }
 
+void ip_blocks_reset(struct ip_blocks *blks) {
+  blks->curr_block = 0;
+  blks->curr_addr.u.sa.sa_family = AF_UNSPEC;
+}
+
 int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr) {
   ip_block_t *blk;
 
-  /* check if we've reached the end of all blocks */
-  if (blks->curr >= blks->nblocks) {
+  /* check if we've reached the end of all blocks - reset iter and return 0 */
+  if (blks->curr_block >= blks->nblocks) {
+    ip_blocks_reset(blks);
     return 0;
   }
 
-  blk = &blks->blocks[blks->curr];
-  blk->prefixlen = -1; /* if we next ::/n, n is no longer valid */
-  memcpy(addr, &blk->first, sizeof(ip_addr_t));
-  ip_addr_add(&blk->first, 1);
-  if (ip_addr_cmp(&blk->first, &blk->last, NULL) > 0) {
-    blks->curr++;
+  blk = blks->blocks + blks->curr_block;
+  if (blks->curr_block == 0 && blks->curr_addr.u.sa.sa_family == AF_UNSPEC) {
+    /* first entry - initialize blks->curr_addr */
+    blks->curr_addr = blk->first;
+  }
+
+  if (blk->prefixlen >= 0) {
+    /* if we 'next' ::/n, n is no longer valid. store it away for now */
+    blks->curr_prefixlen = blk->prefixlen;
+    blk->prefixlen = -1;
+  }
+
+  *addr = blks->curr_addr;
+  if (ip_addr_cmp(&blks->curr_addr, &blk->last, NULL) < 0) {
+    ip_addr_add(&blks->curr_addr, 1);
+  } else {
+    blk->prefixlen = blks->curr_prefixlen; /* restore block prefixlen */
+    blks->curr_block++;
+    blk = blks->blocks + blks->curr_block;
+    blks->curr_addr = blk->first;
   }
   return 1;
 }
@@ -574,7 +606,7 @@ int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr) {
   size_t i;
   int ret;
 
-  for (i = blks->curr; i < blks->nblocks; i++) {
+  for (i = blks->curr_block; i < blks->nblocks; i++) {
     ret = ip_block_contains(&blks->blocks[i], addr);
     if (ret != 0) {
       return ret;

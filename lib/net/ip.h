@@ -29,9 +29,12 @@ typedef struct ip_block_t {
 } ip_block_t;
 
 struct ip_blocks {
-  size_t curr;
   size_t nblocks;
   ip_block_t *blocks;
+  /* iteration state */
+  size_t curr_block;
+  ip_addr_t curr_addr;
+  int curr_prefixlen;
 };
 
 #define ip_addr_eqtype(a1, a2) ((a1)->u.sa.sa_family == (a2)->u.sa.sa_family)

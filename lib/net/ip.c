@@ -88,7 +88,8 @@ int ip_addr_cmp(ip_addr_t *a1, ip_addr_t *a2, int *err) {
   assert(a2 != NULL);
 
   if (a1->u.sa.sa_family == AF_INET && a2->u.sa.sa_family == AF_INET) {
-    return ntohl(a1->u.sin.sin_addr.s_addr)-ntohl(a2->u.sin.sin_addr.s_addr);
+    return memcmp(&a1->u.sin.sin_addr, &a2->u.sin.sin_addr,
+        sizeof(struct in_addr));
   } else if (a1->u.sa.sa_family == AF_INET6 &&
       a2->u.sa.sa_family == AF_INET6) {
     return memcmp(&a1->u.sin6.sin6_addr, &a2->u.sin6.sin6_addr,

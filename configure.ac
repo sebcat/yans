@@ -22,6 +22,8 @@ AC_SUBST([PCAPLIB])
 # Linux only: libcap
 AC_CHECK_LIB([cap], [cap_set_flag], [CAPLIB=-lcap], [CAPLIB=])
 AC_SUBST([CAPLIB])
+AC_CHECK_LIB([seccomp], [seccomp_init], [SECCOMPLIB=-lseccomp], [SECCOMPLIB=])
+AC_SUBST([SECCOMPLIB])
 
 # install freebsd-rc if asked for
 AC_ARG_WITH([freebsd-rc],

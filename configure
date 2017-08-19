@@ -637,6 +637,7 @@ LTLIBOBJS
 LIBOBJS
 FREEBSD_OPT_FALSE
 FREEBSD_OPT_TRUE
+SECCOMPLIB
 CAPLIB
 PCAPLIB
 CPP
@@ -12941,6 +12942,49 @@ if test "x$ac_cv_lib_cap_cap_set_flag" = xyes; then :
   CAPLIB=-lcap
 else
   CAPLIB=
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for seccomp_init in -lseccomp" >&5
+$as_echo_n "checking for seccomp_init in -lseccomp... " >&6; }
+if ${ac_cv_lib_seccomp_seccomp_init+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lseccomp  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char seccomp_init ();
+int
+main ()
+{
+return seccomp_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_seccomp_seccomp_init=yes
+else
+  ac_cv_lib_seccomp_seccomp_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_seccomp_seccomp_init" >&5
+$as_echo "$ac_cv_lib_seccomp_seccomp_init" >&6; }
+if test "x$ac_cv_lib_seccomp_seccomp_init" = xyes; then :
+  SECCOMPLIB=-lseccomp
+else
+  SECCOMPLIB=
 fi
 
 

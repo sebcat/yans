@@ -1,6 +1,5 @@
 #if defined(__FreeBSD__)
 
-#include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
@@ -243,6 +242,7 @@ int route_table_init(struct route_table *rt) {
 
 int route_table_init(struct route_table *rt) {
   memset(rt, 0, sizeof(*rt));
+  return 0;
 }
 
 void route_table_cleanup(struct route_table *rt) {

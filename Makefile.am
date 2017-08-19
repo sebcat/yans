@@ -151,6 +151,7 @@ yans_SOURCES = \
 
 yans_LDADD = \
     $(PCAPLIB) \
+    $(SECCOMPLIB) \
     -lm
 
 ycli_SOURCES = \

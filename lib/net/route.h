@@ -1,6 +1,8 @@
 #ifndef NET_ROUTE__
 #define NET_ROUTE__
 
+#include <netinet/in.h>
+
 #define ROUTE_TABLE_ERRBUFSZ 128
 
 typedef union {

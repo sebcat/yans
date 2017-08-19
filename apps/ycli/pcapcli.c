@@ -109,7 +109,7 @@ static int pcapcli_wait(struct ycl_ctx *ycl, struct ycl_msg *msg) {
         goto fail;
       }
     }
-    ret = poll(&p, 1, INFTIM);
+    ret = poll(&p, 1, -1);
   } while (ret < 0 && errno == EINTR);
 
   if (ret < 0) {

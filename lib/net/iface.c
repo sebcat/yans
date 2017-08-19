@@ -26,7 +26,7 @@ void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
 }
 #else
 
-/* TODO: headers */
+#include <linux/if_packet.h>
 
 void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
   const struct sockaddr_ll *ll;

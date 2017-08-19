@@ -220,7 +220,7 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	lib/lua/json.$(OBJEXT) lib/lua/cgi.$(OBJEXT) \
 	lib/lua/fts.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
-yans_DEPENDENCIES = $(am__DEPENDENCIES_1)
+yans_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
 	apps/ycli/pcapcli.$(OBJEXT) apps/ycli/ethframecli.$(OBJEXT) \
 	apps/ycli/ycli.$(OBJEXT)
@@ -593,6 +593,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PCAPLIB = @PCAPLIB@
 RANLIB = @RANLIB@
+SECCOMPLIB = @SECCOMPLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -773,6 +774,7 @@ yans_SOURCES = \
 
 yans_LDADD = \
     $(PCAPLIB) \
+    $(SECCOMPLIB) \
     -lm
 
 ycli_SOURCES = \

@@ -11,6 +11,8 @@ int sandbox_enter() {
 }
 
 #elif defined(__linux__)
+#include <stddef.h>
+#include <errno.h>
 #include <seccomp.h>
 
 int sandbox_enter() {

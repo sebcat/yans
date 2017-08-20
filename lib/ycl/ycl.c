@@ -192,50 +192,6 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
   return YCL_OK;
 }
 
-int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
-    struct ycl_ethframe_req *fields) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
-  struct p_ethframe_req req = {0};
-  int ret;
-  buf_t tmpbuf;
-
-  if (buf_init(&tmpbuf, 2048) == NULL) {
-    return YCL_ERR;
-  } else if (netstring_append_list(&tmpbuf, fields->nframes, fields->frames,
-      fields->frameslen) != NETSTRING_OK) {
-    return YCL_ERR;
-  }
-
-  req.frames = tmpbuf.data;
-  req.frameslen = tmpbuf.len;
-  if (fields->iface != NULL) {
-    req.iface = fields->iface;
-    req.ifacelen = strlen(fields->iface);
-  }
-
-  if (fields->arpreq_addrs != NULL) {
-    req.arpreq_addrs = fields->arpreq_addrs;
-    req.arpreq_addrslen = strlen(fields->arpreq_addrs);
-
-    if (fields->arpreq_sha != NULL) {
-      req.arpreq_sha = fields->arpreq_sha;
-      req.arpreq_shalen = 6; /* implicit */
-    }
-
-    req.arpreq_spa = (const char*)&fields->arpreq_spa;
-    req.arpreq_spalen = sizeof(fields->arpreq_spa);
-  }
-
-  ycl_msg_reset(msg);
-  ret = p_ethframe_req_serialize(&req, &m->buf);
-  buf_cleanup(&tmpbuf);
-  if (ret != PROTO_OK) {
-    return YCL_ERR;
-  }
-
-  return YCL_OK;
-}
-
 int ycl_msg_create_pcap_close(struct ycl_msg *msg) {
   struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   ycl_msg_reset(msg);
@@ -243,6 +199,79 @@ int ycl_msg_create_pcap_close(struct ycl_msg *msg) {
     return YCL_ERR;
   }
   return YCL_OK;
+}
+
+int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
+    struct ycl_ethframe_req *framereq) {
+  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+  struct p_ethframe_req req = {0};
+  buf_t tmpbuf = {0};
+
+  if (framereq->ncustom_frames > 0) {
+    if (buf_init(&tmpbuf, 2048) == NULL) {
+      goto fail;
+    }
+
+    if (netstring_append_list(&tmpbuf, framereq->ncustom_frames,
+        framereq->custom_frames, framereq->custom_frameslen) != NETSTRING_OK) {
+      goto fail;
+    }
+
+    req.custom_frames = tmpbuf.data;
+    req.custom_frameslen = tmpbuf.len;
+  }
+
+  if (framereq->categories != NULL) {
+    req.categories = framereq->categories;
+    req.categorieslen = strlen(framereq->categories);
+  }
+
+  if (framereq->iface != NULL) {
+    req.iface = framereq->iface;
+    req.ifacelen = strlen(framereq->iface);
+  }
+
+  if (framereq->pps != NULL) {
+    req.pps = framereq->pps;
+    req.ppslen = strlen(framereq->pps);
+  }
+
+  if (framereq->eth_src != NULL) {
+    req.eth_src = framereq->eth_src;
+    req.eth_srclen = strlen(framereq->eth_src);
+  }
+
+  if (framereq->eth_dst != NULL) {
+    req.eth_dst = framereq->eth_dst;
+    req.eth_dstlen = strlen(framereq->eth_dst);
+  }
+
+  if (framereq->ip_src != NULL) {
+    req.ip_src = framereq->ip_src;
+    req.ip_srclen = strlen(framereq->ip_src);
+  }
+
+  if (framereq->ip_dsts != NULL) {
+    req.ip_dsts = framereq->ip_dsts;
+    req.ip_dstslen = strlen(framereq->ip_dsts);
+  }
+
+  if (framereq->port_dsts != NULL) {
+    req.port_dsts = framereq->port_dsts;
+    req.port_dstslen = strlen(framereq->port_dsts);
+  }
+
+  ycl_msg_reset(msg);
+  if (p_ethframe_req_serialize(&req, &m->buf) != PROTO_OK) {
+    goto fail;
+  }
+
+  buf_cleanup(&tmpbuf);
+  return YCL_OK;
+
+fail:
+  buf_cleanup(&tmpbuf);
+  return YCL_ERR;
 }
 
 int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,

@@ -45,5 +45,6 @@ int flagset_from_str(struct flagset_map *m, const char *s,
   }
 
   out->flags = res;
+  return 0;
 }
 

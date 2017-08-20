@@ -5,18 +5,34 @@
 
 #include <lib/net/eth.h>
 #include <lib/net/ip.h>
+#include <lib/net/ports.h>
 
 #include <lib/util/buf.h>
 #include <lib/util/eds.h>
 
+struct frameconf {
+  char *custom_frames;
+  size_t custom_frameslen;
+  const char *iface;
+  unsigned int pps;
+  unsigned int categories; /* CAT_ARP &c */
+  char eth_src[ETH_ALEN];
+  char eth_dst[ETH_ALEN];
+  ip_addr_t src_ip;
+  ip_addr_t curr_dst_ip;
+  struct ip_blocks dst_ips;
+  uint16_t curr_dst_port;
+  struct port_ranges dst_ports;
+
+  /* -- internal fields -- */
+  size_t curr_buildix;
+};
+
 struct ethframe_client {
   buf_t buf;
   struct eth_sender *sender;
-
-  /* arpreq addrs, SPA and SHA */
-  struct ip_blocks addrs;
-  uint32_t spa;
-  char sha[6];
+  struct frameconf cfg;
+  size_t npackets;
 };
 
 int ethframe_init(struct eds_service *svc);

@@ -21,17 +21,26 @@ struct ycl_msg {
   char idata[YCL_IDATASIZ];
 }; /* TODO: Align? */
 
-struct ycl_msg_sweeper_req {
-  char *arp;
-  char *addrs;
-};
-
 /* accessor macros for struct ycl_ctx, use these instead of accessing the
  * fields directly */
 #define ycl_fd(ycl) \
     (ycl)->fd
 #define ycl_strerror(ycl) \
     (ycl)->errbuf
+
+struct ycl_ethframe_req {
+  size_t ncustom_frames;
+  const char **custom_frames;
+  size_t *custom_frameslen;
+  const char *categories;
+  const char *iface;
+  const char *pps;
+  const char *eth_src;
+  const char *eth_dst;
+  const char *ip_src;
+  const char *ip_dsts;
+  const char *port_dsts;
+};
 
 int ycl_connect(struct ycl_ctx *ycl, const char *dst);
 int ycl_close(struct ycl_ctx *ycl);
@@ -49,21 +58,8 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
     const char *filter);
 int ycl_msg_create_pcap_close(struct ycl_msg *msg);
 
-struct ycl_ethframe_req {
-  const char *iface;
-  size_t nframes;
-  const char **frames;
-  size_t *frameslen;
-  const char *arpreq_addrs;
-  const char *arpreq_sha;
-  uint32_t arpreq_spa;
-};
-
 int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
-    struct ycl_ethframe_req *fields);
-
-int ycl_msg_create_sweeper_req(struct ycl_msg *msg,
-    struct ycl_msg_sweeper_req *args);
+    struct ycl_ethframe_req *req);
 
 int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,
     const char **errmsg);

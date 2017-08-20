@@ -86,7 +86,8 @@ void eth_sender_cleanup(struct eth_sender *eth) {
   }
 }
 
-ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
+ssize_t eth_sender_write(struct eth_sender *eth, const void *data,
+    size_t len) {
   ssize_t ret;
 
   if (len < ETHFRAME_MINSZ) {
@@ -206,6 +207,22 @@ int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len) {
       (unsigned int)eth->addr[3],
       (unsigned int)eth->addr[4],
       (unsigned int)eth->addr[5]);
+}
+
+int eth_parse_addr(char *dst, size_t dstlen, const char *s) {
+  int ret;
+
+  if (dstlen < 6) {
+    return -1;
+  }
+
+  ret = sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", dst, dst + 1, dst + 2,
+      dst + 3, dst + 4, dst + 5);
+  if (ret != 6) {
+    return -1;
+  }
+
+  return 0;
 }
 
 

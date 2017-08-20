@@ -68,6 +68,8 @@ ethd_SOURCES = \
     lib/util/ylog.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
+    lib/util/flagset.c \
+    lib/util/flagset.h \
     lib/util/eds.c \
     lib/util/eds.h \
     lib/net/eth.c \
@@ -76,6 +78,8 @@ ethd_SOURCES = \
     lib/net/iface.h \
     lib/net/ip.h \
     lib/net/ip.c \
+    lib/net/ports.h \
+    lib/net/ports.c \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \

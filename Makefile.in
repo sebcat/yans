@@ -163,9 +163,10 @@ libycl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 PROGRAMS = $(bin_PROGRAMS)
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) lib/util/eds.$(OBJEXT) \
-	lib/net/eth.$(OBJEXT) lib/net/iface.$(OBJEXT) \
-	lib/net/ip.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) lib/util/flagset.$(OBJEXT) \
+	lib/util/eds.$(OBJEXT) lib/net/eth.$(OBJEXT) \
+	lib/net/iface.$(OBJEXT) lib/net/ip.$(OBJEXT) \
+	lib/net/ports.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
 	proto/ethframe_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
 	apps/ethd/pcap.$(OBJEXT) apps/ethd/ethframe.$(OBJEXT) \
 	apps/ethd/main.$(OBJEXT)
@@ -691,6 +692,8 @@ ethd_SOURCES = \
     lib/util/ylog.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
+    lib/util/flagset.c \
+    lib/util/flagset.h \
     lib/util/eds.c \
     lib/util/eds.h \
     lib/net/eth.c \
@@ -699,6 +702,8 @@ ethd_SOURCES = \
     lib/net/iface.h \
     lib/net/ip.h \
     lib/net/ip.c \
+    lib/net/ports.h \
+    lib/net/ports.c \
     proto/proto.h \
     proto/pcap_req.c \
     proto/pcap_req.h \
@@ -1029,6 +1034,8 @@ lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/flagset.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/eds.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/$(am__dirstamp):
@@ -1042,6 +1049,8 @@ lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 lib/net/iface.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/ports.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
@@ -1141,8 +1150,6 @@ lib/util/sandbox.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/net/ports.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/route.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/lua/$(am__dirstamp):
@@ -1250,6 +1257,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/conf_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/eds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/fio.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/flagset.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libycl_la-buf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libycl_la-io.Plo@am__quote@

@@ -565,11 +565,6 @@ memfail:
   return -1;
 }
 
-void ip_blocks_reset(struct ip_blocks *blks) {
-  blks->curr_block = 0;
-  blks->curr_addr.u.sa.sa_family = AF_UNSPEC;
-}
-
 int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr) {
   ip_block_t *blk;
 

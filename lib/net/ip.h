@@ -37,6 +37,11 @@ struct ip_blocks {
   int curr_prefixlen;
 };
 
+#define ip_blocks_reset(blks)                     \
+    (blks)->curr_block = 0;                       \
+    (blks)->curr_addr.u.sa.sa_family = AF_UNSPEC; \
+    (blks)->curr_prefixlen = -1;
+
 #define ip_addr_eqtype(a1, a2) ((a1)->u.sa.sa_family == (a2)->u.sa.sa_family)
 int ip_addr(ip_addr_t *addr, const char *s, int *err);
 int ip_addr_str(ip_addr_t *addr, char *dst, size_t dstlen, int *err);

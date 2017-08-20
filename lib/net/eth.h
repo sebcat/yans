@@ -39,10 +39,11 @@ int eth_addr_valid(const struct sockaddr *saddr);
 int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr);
 void eth_addr_init_bytes(struct eth_addr *eth, const char *data);
 int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len);
+int eth_parse_addr(char *dst, size_t dstlen, const char *s);
 
 int eth_sender_init(struct eth_sender *eth, const char *iface);
 void eth_sender_cleanup(struct eth_sender *eth);
-ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len);
+ssize_t eth_sender_write(struct eth_sender *eth, const void *data, size_t len);
 const char *eth_sender_strerror(struct eth_sender *eth);
 
 #endif

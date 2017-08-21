@@ -32,7 +32,10 @@ struct ethframe_client {
   buf_t buf;
   struct eth_sender *sender;
   struct frameconf cfg;
-  size_t npackets;
+
+  unsigned int tpp; /* ticks per packet */
+  unsigned int tppcount; /* ticks left until sending packets */
+  unsigned int  npackets;
 };
 
 int ethframe_init(struct eds_service *svc);

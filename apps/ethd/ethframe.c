@@ -2,6 +2,7 @@
 #include <net/if.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <assert.h>
 
 #include <lib/util/netstring.h>
 #include <lib/util/flagset.h>
@@ -262,6 +263,7 @@ static void write_ok_response(struct eds_client *cli, int fd) {
   struct p_status_resp resp = {0};
   int ret;
 
+  eds_client_set_ticker(cli, NULL);
   eds_client_clear_actions(cli);
   buf_clear(&ecli->buf);
   resp.okmsg = "ok";
@@ -282,6 +284,7 @@ static void write_err_response(struct eds_client *cli, int fd,
   struct p_status_resp resp = {0};
   int ret;
 
+  eds_client_set_ticker(cli, NULL);
   ylog_error("ethframecli%d: %s", fd, errmsg);
   eds_client_clear_actions(cli);
   buf_clear(&ecli->buf); /* reuse the request buffer */
@@ -391,14 +394,14 @@ static void cleanup_frameconf(struct frameconf *cfg) {
 }
 
 /* returns -1 on failure, 0 when done, 1 if more things can be sent */
-static int write_npackets(struct eds_client *cli, char *errbuf,
+static int write_npackets(struct eds_client *cli, int npackets, char *errbuf,
     size_t errbuflen) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   const char *frame;
   size_t framelen;
   int ret;
 
-  while (ecli->npackets > 0) {
+  while (npackets > 0) {
     frame = get_next_frame(&ecli->cfg, &framelen);
     if (frame == NULL) {
       return 0;
@@ -411,29 +414,25 @@ static int write_npackets(struct eds_client *cli, char *errbuf,
       return -1;
     }
 
-    ecli->npackets--;
+    npackets--;
   }
 
   return 1;
 }
 
-static void on_write_frames_tick(struct eds_client *cli, int fd) {
-  //struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
-  /* TODO: Implement */
-  write_ok_response(cli, fd);
-}
-
-static void on_tick(struct eds_client *cli, int fd) {
-  /* TODO: Implement */
-}
-
-static void on_write_frames_notick(struct eds_client *cli, int fd) {
+static void on_write_frames(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   char errbuf[128];
   int ret;
 
-  ecli->npackets = YIELD_NPACKETS;
-  ret = write_npackets(cli, errbuf, sizeof(errbuf));
+  if (ecli->tppcount > 0) {
+    ecli->tppcount--;
+    return;
+  } else {
+    ecli->tppcount = ecli->tpp;
+  }
+
+  ret = write_npackets(cli, ecli->npackets, errbuf, sizeof(errbuf));
   if (ret < 0) {
     write_err_response(cli, fd, errbuf);
   } else if (ret == 0) {
@@ -449,6 +448,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
   size_t nread = 0;
   const char *errmsg = "an internal error occurred";
   char errbuf[128];
+  unsigned int tps;
 
   IO_INIT(&io, fd);
   ret = io_readbuf(&io, &ecli->buf, &nread);
@@ -497,11 +497,22 @@ static void on_read_req(struct eds_client *cli, int fd) {
   eds_client_set_on_readable(cli, on_term, EDS_DEFER);
 
   if (ecli->cfg.pps > 0) {
-    /* TODO: setup ticker */
-    eds_client_set_ticker(cli, on_tick);
-    eds_client_set_on_writable(cli, on_write_frames_tick, 0);
+    tps = 1000000 / cli->svc->tick_slice_us; /* ticks per second */
+    assert(tps > 0);
+    if (ecli->cfg.pps < tps) {
+      /* we require multiple ticks for sending one packet */
+      ecli->tppcount = ecli->tpp = tps / ecli->cfg.pps;
+      ecli->npackets = 1;
+    } else {
+      /* we require one tick for sending N packets ( N >= 1) */
+      ecli->tppcount = ecli->tpp = 0;
+      ecli->npackets = ecli->cfg.pps / tps;
+    }
+    eds_client_set_ticker(cli, on_write_frames);
   } else {
-    eds_client_set_on_writable(cli, on_write_frames_notick, 0);
+    ecli->tppcount = ecli->tpp = 0;
+    ecli->npackets = YIELD_NPACKETS;
+    eds_client_set_on_writable(cli, on_write_frames, 0);
   }
   return;
 

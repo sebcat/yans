@@ -27,7 +27,7 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
     {"iface", required_argument, NULL, 'i'},
     {"filter", required_argument, NULL, 'f'},
     {"output", required_argument, NULL, 'o'},
-    {"sock", required_argument, NULL, 's'},
+    {"socket", required_argument, NULL, 's'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };

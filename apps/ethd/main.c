@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
       .path = "ethframe.sock",
       .mod_init = ethframe_init,
       .mod_fini = ethframe_fini,
+      .tick_slice_us = 50000, /* XXX: must be < 1M for pps calcs */
       .udata_size = sizeof(struct ethframe_client),
       .actions = {
         .on_readable = ethframe_on_readable,

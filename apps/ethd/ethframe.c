@@ -35,7 +35,8 @@
                                   IP_DST_SWEEP */
 
 /* frame categories */
-#define CAT_ARP (1 << 0)
+#define CAT_ARPREQ      (1 << 0)
+#define CAT_ICMPECHO    (1 << 1)
 
 #define ETHFRAME_CLIENT(cli__) \
   ((struct ethframe_client *)((cli__)->udata))
@@ -47,7 +48,8 @@ struct ethframe_ctx {
 };
 
 static struct flagset_map category_flags[] = {
-  FLAGSET_ENTRY("arpreqs", CAT_ARP),
+  FLAGSET_ENTRY("arp-req", CAT_ARPREQ),
+  FLAGSET_ENTRY("icmp-echo", CAT_ICMPECHO),
   FLAGSET_END
 };
 
@@ -59,6 +61,27 @@ struct frame_builder {
   unsigned int options;  /* option flag(s) */
   const char *(*build)(struct frameconf *cfg, size_t *len);
 };
+
+static uint32_t ip_csum(uint32_t sum, void *data, size_t size) {
+  uint16_t *curr = data;
+
+  while (size > 1) {
+    sum += *curr++;
+    size -= 2;
+  }
+
+  if (size > 0) {
+    sum += *(uint8_t*)curr;
+  }
+
+  return sum;
+}
+
+static uint16_t ip_csum_fold(uint32_t sum) {
+  sum = (sum >> 16) + (sum & 0xffff);
+  sum += (sum >> 16);
+  return (uint16_t)(~sum);
+}
 
 static const char *gen_custom_frame(struct frameconf *cfg, size_t *len) {
   int ret;
@@ -118,6 +141,117 @@ static const char *gen_arp_req(struct frameconf *cfg, size_t *len) {
   return pkt;
 }
 
+static const char *gen_icmp4_req(struct frameconf *cfg, size_t *len) {
+  uint32_t sum;
+  static char pkt[] = {
+    /* Ethernet */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* dst */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* src */
+    0x08, 0x00, /* ethertype: IPv4 */
+
+    /* IPv4 */
+    0x45, /* v: 4, 20B hdr */
+    0x00,
+    0x00, 0x1e, /* total length */
+    0x02, 0x9a, /* ID */
+    0x00, 0x00, /* flags, fragment offset */
+    0x40,       /* TTL */
+    0x01,       /* IPPROTO_ICMP */
+    0x00, 0x00, /* checksum */
+    /* src addr */
+    0x00, 0x00,
+    0x00, 0x00,
+    /* dst addr */
+    0x00, 0x00,
+    0x00, 0x00,
+
+    /* ICMPv4 */
+    0x08,       /* type */
+    0x00,       /* code */
+    0x8c, 0xfc, /* checksum (constant, change if ICMP packet changes) */
+    0x02, 0x9a, /* id */
+    0x00, 0x00, /* seq */
+    'h', 'i',   /* data */
+  };
+
+  /* set up the src and dst addresses */
+  memcpy(pkt, cfg->eth_dst, ETH_ALEN);
+  memcpy(pkt + 6, cfg->eth_src, ETH_ALEN);
+  *(uint32_t*)(pkt + 26) = cfg->src_ip.u.sin.sin_addr.s_addr;
+  *(uint32_t*)(pkt + 30) = cfg->curr_dst_ip.u.sin.sin_addr.s_addr;
+
+  /* calculate IP header checksum */
+  *(uint16_t*)(pkt + 24) = 0; /* clear from previous runs */
+  sum = ip_csum(0, pkt + 14, 20);
+  *(uint16_t*)(pkt + 24) = ip_csum_fold(sum);
+
+  *len = sizeof(pkt);
+  return pkt;
+}
+
+static const char *gen_icmp6_req(struct frameconf *cfg, size_t *len) {
+  uint32_t sum;
+  uint32_t tmp;
+  static char pkt[] = {
+    /* Ethernet */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* dst */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* src */
+    0x86, 0xdd, /* ethertype: IPv6 */
+
+    /* IPv6 */
+    0x60, 0x00, /* v6, TC: 0, flow lbl: 0*/
+    0x00, 0x00,
+    0x00, 0x0a, /* payload len: 10 */
+    0x3a,       /* Next header: ICMPv6 */
+    0x40,       /* hop limit */
+    /* src addr */
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    /* dst addr */
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+
+    /* ICMPv6 */
+    0x80,       /* type: echo request */
+    0x00,       /* code: 0 */
+    0x00, 0x00, /* checksum */
+    0x02, 0x9a, /* ID */
+    0x00, 0x00, /* seq */
+    'h', 'i',   /* data */
+  };
+
+  /* set up the src and dst addresses */
+  memcpy(pkt, cfg->eth_dst, ETH_ALEN);
+  memcpy(pkt + 6, cfg->eth_src, ETH_ALEN);
+  memcpy(pkt + 22, &cfg->src_ip.u.sin6.sin6_addr, 16);
+  memcpy(pkt + 38, &cfg->curr_dst_ip.u.sin6.sin6_addr, 16);
+
+  /* calculate the checksum (TODO: macro for adding len, next to sum direct) */
+  *(uint16_t*)(pkt + 56) = 0; /* clear from previous runs */
+  sum = ip_csum(0, pkt + 22, 32); /* pseudo-header: addrs */
+  tmp = htonl(10);
+  sum = ip_csum(sum, &tmp, sizeof(tmp)); /* ICMPv6 len */
+  tmp = htonl(58);
+  sum = ip_csum(sum, &tmp, sizeof(tmp)); /* ICMPv6 next type */
+  sum = ip_csum(sum, pkt + 54, 10);
+  *(uint16_t*)(pkt + 56) = ip_csum_fold(sum);
+
+  *len = sizeof(pkt);
+  return pkt;
+}
+
 static struct frame_builder frame_builders[] = {
   {
     .category = 0,
@@ -125,9 +259,19 @@ static struct frame_builder frame_builders[] = {
     .build = gen_custom_frame,
   },
   {
-    .category = CAT_ARP,
+    .category = CAT_ARPREQ,
     .options = IP_DST_SWEEP | REQUIRES_IP4,
     .build = gen_arp_req,
+  },
+  {
+    .category = CAT_ICMPECHO,
+    .options = IP_DST_SWEEP | REQUIRES_IP4,
+    .build = gen_icmp4_req,
+  },
+  {
+    .category = CAT_ICMPECHO,
+    .options = IP_DST_SWEEP | REQUIRES_IP6,
+    .build = gen_icmp6_req,
   }
 };
 

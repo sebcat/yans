@@ -592,8 +592,10 @@ int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr) {
   } else {
     blk->prefixlen = blks->curr_prefixlen; /* restore block prefixlen */
     blks->curr_block++;
-    blk = blks->blocks + blks->curr_block;
-    blks->curr_addr = blk->first;
+    if (blks->curr_block < blks->nblocks) {
+      blk = blks->blocks + blks->curr_block;
+      blks->curr_addr = blk->first;
+    }
   }
   return 1;
 }
@@ -624,21 +626,3 @@ const char *ip_blocks_strerror(int code) {
   return gai_strerror(code);
 }
 
-uint16_t ip_csum(uint16_t init, void *data, size_t size)
-{
-  uint32_t inter = (uint32_t)init;
-  uint16_t *curr = data;
-
-  while(size > 1) {
-    inter += *curr++;
-    size -= 2;
-  }
-
-  if(size > 0) {
-    inter += *(uint8_t*)curr;
-  }
-
-  inter = (inter >> 16) + (inter & 0xffff);
-  inter += (inter >> 16);
-  return (uint16_t)(~inter);
-}

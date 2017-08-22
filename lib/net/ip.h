@@ -69,5 +69,4 @@ int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr);
 int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr);
 const char *ip_blocks_strerror(int code);
 
-uint16_t ip_csum(uint16_t init, void *data, size_t size);
 #endif

@@ -188,7 +188,7 @@ int pcapcli_main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  ofd = open(opts.output, O_WRONLY|O_CREAT, 0755);
+  ofd = open(opts.output, O_WRONLY|O_CREAT|O_TRUNC, 0755);
   if (ofd < 0) {
     fprintf(stderr, "output file error: %s\n", strerror(errno));
     return EXIT_FAILURE;

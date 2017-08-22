@@ -279,6 +279,14 @@ static void run_tickers(struct eds_service *svc,
     if (cli->ticker != NULL) {
       cli->ticker(cli, i);
       ntickers--;
+
+      /* no action callbacks for client after tick indicates termination,
+       * unless reading is suspended */
+      if (!(cli->flags & EDS_CLIENT_RSUSPEND) &&
+          cli->actions.on_readable == NULL &&
+          cli->actions.on_writable == NULL) {
+        eds_service_remove_client(svc, cli);
+      }
     }
   }
 }

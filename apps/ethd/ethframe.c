@@ -37,6 +37,7 @@
 /* frame categories */
 #define CAT_ARPREQ      (1 << 0)
 #define CAT_ICMPECHO    (1 << 1)
+#define CAT_TCPSYN      (1 << 2)
 
 #define ETHFRAME_CLIENT(cli__) \
   ((struct ethframe_client *)((cli__)->udata))
@@ -50,6 +51,7 @@ struct ethframe_ctx {
 static struct flagset_map category_flags[] = {
   FLAGSET_ENTRY("arp-req", CAT_ARPREQ),
   FLAGSET_ENTRY("icmp-echo", CAT_ICMPECHO),
+  FLAGSET_ENTRY("tcp-syn", CAT_TCPSYN),
   FLAGSET_END
 };
 
@@ -252,6 +254,164 @@ static const char *gen_icmp6_req(struct frameconf *cfg, size_t *len) {
   return pkt;
 }
 
+static const char *gen_tcp4_syn(struct frameconf *cfg, size_t *len) {
+  uint32_t sum;
+  uint16_t tmp;
+  static char pkt[] = {
+    /* Ethernet */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* dst */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* src */
+    0x08, 0x00, /* ethertype: IPv4 */
+
+    /* IPv4 */
+    0x45, /* v: 4, 20B hdr */
+    0x00,
+    0x00, 0x3c, /* total length (XXX: CHANGEME) */
+    0x02, 0x9a, /* ID */
+    0x40, 0x00, /* flags (DF), fragment offset */
+    0x40,       /* TTL */
+    0x06,       /* IPPROTO_TCP */
+    0x00, 0x00, /* checksum */
+    /* src addr */
+    0x00, 0x00,
+    0x00, 0x00,
+    /* dst addr */
+    0x00, 0x00,
+    0x00, 0x00,
+
+    /* TCPv4 */
+    0x7f, 0x00,  /* src port */
+    0x00, 0x00,  /* dst port */
+    0x02, 0x9a,  /* seq */
+    0x02, 0x9a,  /* seq */
+    0x00, 0x00,  /* ack */
+    0x00, 0x00,  /* ack */
+    0xa0, 0x02, /* header length: 40 (XXX: CHANGEME)  flags: SYN*/
+    0xff, 0xff,  /* window size */
+    0x00, 0x00,  /* checksum */
+    0x00, 0x00,  /* URG */
+
+    /* TCPv4 options */
+    0x02, 0x04,  /* kind, len: MSS, 4 */
+    0x3f, 0xd8,
+    0x01,        /* NOP */
+    0x03, 0x03,  /* kind, len: window scale, 3 */
+    0x06,
+    0x04, 0x02,  /* kind, len: TCP SACK, 2 */
+    0x08, 0x0a,  /* kind, len: TSOpt, 10 */
+    0x00, 0x00,  /* TSval: 0 */
+    0x00, 0x00,
+    0x00, 0x00,  /* TSecr: 0 */
+    0x00, 0x00,
+  };
+
+  /* set up the src and dst addresses */
+  memcpy(pkt, cfg->eth_dst, ETH_ALEN);
+  memcpy(pkt + 6, cfg->eth_src, ETH_ALEN);
+  *(uint32_t*)(pkt + 26) = cfg->src_ip.u.sin.sin_addr.s_addr;
+  *(uint32_t*)(pkt + 30) = cfg->curr_dst_ip.u.sin.sin_addr.s_addr;
+  *(uint16_t*)(pkt + 36) = htons(cfg->curr_dst_port);
+
+  /* TCP checksum */
+  *(uint16_t*)(pkt + 50) = 0; /* clear from previous runs */
+  sum = ip_csum(0, pkt + 26, 8); /* pseudo-header: addrs */
+  tmp = htons(6); /* res, IPPROTO_TCP */
+  sum = ip_csum(sum, &tmp, sizeof(tmp));
+  tmp = htons(40); /* length */
+  sum = ip_csum(sum, &tmp, sizeof(tmp));
+  sum = ip_csum(sum, pkt + 34, 40);
+  *(uint16_t*)(pkt + 50) = ip_csum_fold(sum);
+
+  /* IP checksum */
+  *(uint16_t*)(pkt + 24) = 0; /* clear from previous runs */
+  sum = ip_csum(0, pkt + 14, 20);
+  *(uint16_t*)(pkt + 24) = ip_csum_fold(sum);
+
+  *len = sizeof(pkt);
+  return pkt;
+}
+
+static const char *gen_tcp6_syn(struct frameconf *cfg, size_t *len) {
+  uint32_t tmp;
+  uint32_t sum;
+  static char pkt[] = {
+    /* Ethernet */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* dst */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* src */
+    0x86, 0xdd, /* ethertype: IPv6 */
+
+    /* IPv6 */
+    0x60, 0x00, /* v6, TC: 0, flow lbl: 0*/
+    0x00, 0x00,
+    0x00, 0x28, /* payload len: 40 */
+    0x06,       /* Next header: IPPROTO_TCP */
+    0x40,       /* hop limit */
+    /* src addr */
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    /* dst addr */
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+
+    /* TCPv6 (off: 54) */
+    0x7f, 0x00,  /* src port */
+    0x00, 0x00,  /* dst port */
+    0x02, 0x9a,  /* seq */
+    0x02, 0x9a,  /* seq */
+    0x00, 0x00,  /* ack */
+    0x00, 0x00,  /* ack */
+    0xa0, 0x02,  /* header length: 40B, flags: SYN */
+    0xff, 0xff, /* window size */
+    0x00, 0x00, /* checksum */
+    0x00, 0x00, /* URG */
+
+    /* TCPv6 options */
+    0x02, 0x04,  /* kind, len: MSS, 4 */
+    0x3f, 0xc4,
+    0x01,        /* NOP */
+    0x03, 0x03,  /* kind, len: window scale, 3 */
+    0x06,
+    0x04, 0x02,  /* kind, len: TCP SACK, 2 */
+    0x08, 0x0a,  /* kind, len: TSOpt, 10 */
+    0x00, 0x00,  /* TSval: 666 */
+    0x02, 0x9a,
+    0x00, 0x00,  /* TSecr: 0 */
+    0x00, 0x00,
+  };
+
+  /* set up the src and dst addresses */
+  memcpy(pkt, cfg->eth_dst, ETH_ALEN);
+  memcpy(pkt + 6, cfg->eth_src, ETH_ALEN);
+  memcpy(pkt + 22, &cfg->src_ip.u.sin6.sin6_addr, 16);
+  memcpy(pkt + 38, &cfg->curr_dst_ip.u.sin6.sin6_addr, 16);
+  *(uint16_t*)(pkt + 56) = htons(cfg->curr_dst_port);
+
+  /* calculate the checksum */
+  *(uint16_t*)(pkt + 70) = 0; /* clear from previous runs */
+  sum = ip_csum(0, pkt + 22, 32); /* pseudo-header: addrs */
+  tmp = htonl(40);
+  sum = ip_csum(sum, &tmp, sizeof(tmp)); /* TCPv6 len */
+  tmp = htonl(6);
+  sum = ip_csum(sum, &tmp, sizeof(tmp)); /* TCP next type */
+  sum = ip_csum(sum, pkt + 54, 40);
+  *(uint16_t*)(pkt + 70) = ip_csum_fold(sum);
+
+  *len = sizeof(pkt);
+  return pkt;
+}
+
 static struct frame_builder frame_builders[] = {
   {
     .category = 0,
@@ -272,17 +432,31 @@ static struct frame_builder frame_builders[] = {
     .category = CAT_ICMPECHO,
     .options = IP_DST_SWEEP | REQUIRES_IP6,
     .build = gen_icmp6_req,
+  },
+  {
+    .category = CAT_TCPSYN,
+    .options = IP_PORT_SWEEP | REQUIRES_IP4,
+    .build = gen_tcp4_syn,
+  },
+  {
+    .category = CAT_TCPSYN,
+    .options = IP_PORT_SWEEP | REQUIRES_IP6,
+    .build = gen_tcp6_syn,
   }
 };
 
 static int is_family_allowed(struct frame_builder *fb, struct frameconf *cfg) {
-  if (fb->options & REQUIRES_IP4  &&
-      !(cfg->src_ip.u.sa.sa_family == AF_INET &&
-        cfg->curr_dst_ip.u.sa.sa_family == AF_INET)) {
+
+  if (cfg->src_ip.u.sa.sa_family != cfg->curr_dst_ip.u.sa.sa_family) {
+    return 0;
+  } else if (fb->options & REQUIRES_IP4 &&
+      cfg->curr_dst_ip.u.sa.sa_family != AF_INET) {
     return 0;
   } else if (fb->options & REQUIRES_IP6 &&
-      !(cfg->src_ip.u.sa.sa_family == AF_INET6 &&
-        cfg->curr_dst_ip.u.sa.sa_family == AF_INET6)) {
+      cfg->curr_dst_ip.u.sa.sa_family != AF_INET6) {
+    return 0;
+  } else if (cfg->curr_dst_ip.u.sa.sa_family != AF_INET &&
+      cfg->curr_dst_ip.u.sa.sa_family != AF_INET6) {
     return 0;
   }
   return 1;
@@ -291,6 +465,7 @@ static int is_family_allowed(struct frame_builder *fb, struct frameconf *cfg) {
 static void next_builder(struct frameconf *cfg) {
   port_ranges_reset(&cfg->dst_ports);
   ip_blocks_reset(&cfg->dst_ips);
+  cfg->curr_dst_ip.u.sa.sa_family = AF_UNSPEC;
   cfg->curr_buildix++;
 }
 
@@ -311,16 +486,25 @@ again:
     goto again;
   }
 
-  /* advance addresses on sweep */
+  /* advance addresses on sweep (TODO: simplify) */
+next_addr:
   if (fb->options & IP_PORT_SWEEP) {
-    if (!port_ranges_next(&cfg->dst_ports, &cfg->curr_dst_port)) {
+    while (!port_ranges_next(&cfg->dst_ports, &cfg->curr_dst_port)) {
       if (!ip_blocks_next(&cfg->dst_ips, &cfg->curr_dst_ip)) {
         next_builder(cfg);
         goto again;
       }
-      if (!is_family_allowed(fb, cfg)) {
+    }
+
+    if (cfg->curr_dst_ip.u.sa.sa_family == AF_UNSPEC) {
+      /* initialize dst addr on first run of this builder */
+      if (!ip_blocks_next(&cfg->dst_ips, &cfg->curr_dst_ip)) {
+        next_builder(cfg);
         goto again;
       }
+    }
+    if (!is_family_allowed(fb, cfg)) {
+      goto next_addr;
     }
   } else if (fb->options & IP_DST_SWEEP) {
     if (!ip_blocks_next(&cfg->dst_ips, &cfg->curr_dst_ip)) {
@@ -328,7 +512,7 @@ again:
       goto again;
     }
     if (!is_family_allowed(fb, cfg)) {
-      goto again;
+      goto next_addr;
     }
   }
 
@@ -340,7 +524,6 @@ again:
 
   return ret;
 }
-
 
 static struct eth_sender *get_sender_by_ifname(const char *ifname) {
   int i;

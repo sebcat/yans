@@ -46,7 +46,7 @@ struct ip_blocks {
 int ip_addr(ip_addr_t *addr, const char *s, int *err);
 int ip_addr_str(ip_addr_t *addr, char *dst, size_t dstlen, int *err);
 const char *ip_addr_strerror(int code);
-int ip_addr_cmp(ip_addr_t *a1, ip_addr_t *a2, int *err);
+int ip_addr_cmp(const ip_addr_t *a1, const ip_addr_t *a2, int *err);
 void ip_addr_add(ip_addr_t *addr, int32_t n);
 void ip_addr_sub(ip_addr_t *addr, int32_t n);
 

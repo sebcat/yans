@@ -82,7 +82,7 @@ int ip_addr_str(ip_addr_t *addr, char *dst, size_t dstlen, int *err) {
   }
 }
 
-int ip_addr_cmp(ip_addr_t *a1, ip_addr_t *a2, int *err) {
+int ip_addr_cmp(const ip_addr_t *a1, const ip_addr_t *a2, int *err) {
 
   assert(a1 != NULL);
   assert(a2 != NULL);
@@ -456,6 +456,27 @@ static int cons_block(struct ip_blocks *blks, const char *s, size_t start,
   return 0;
 }
 
+static int blockcmp(const void *p0, const void *p1) {
+  const ip_block_t *b0 = p0;
+  const ip_block_t *b1 = p1;
+  int ret;
+
+  /* consider IPv4 addrs to be less than IPv6 */
+  if (b0->first.u.sa.sa_family == AF_INET &&
+      b1->first.u.sa.sa_family == AF_INET6) {
+    return -1;
+  } else if (b0->first.u.sa.sa_family == AF_INET6 &&
+      b1->first.u.sa.sa_family == AF_INET) {
+    return 1;
+  }
+
+  ret = ip_addr_cmp(&b0->first, &b1->first, NULL);
+  if (ret == 0) {
+    return ip_addr_cmp(&b0->last, &b1->last, NULL);
+  }
+  return ret;
+}
+
 int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
   size_t pos;
   size_t end;
@@ -498,6 +519,13 @@ int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
       return -1;
     }
   }
+
+  /* return if empty */
+  if (blks->nblocks == 0) {
+    return 0;
+  }
+
+  qsort(blks->blocks, blks->nblocks, sizeof(ip_block_t), blockcmp);
 
   return 0;
 }

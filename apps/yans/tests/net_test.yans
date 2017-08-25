@@ -234,6 +234,9 @@ blocks_str("127.0.0.1-127.0.0.2, ::1", "127.0.0.1-127.0.0.2 ::1")
 blocks_str("127.0.0.1-127.0.0.2, ::1/32", "127.0.0.1-127.0.0.2 ::/32")
 blocks_str("127.0.0.1-127.0.0.2, ::1/32 \t\r\n,", "127.0.0.1-127.0.0.2 ::/32")
 
+-- sort order
+blocks_str("127.0.0.2 ::1 127.0.0.1", "127.0.0.1 127.0.0.2 ::1")
+
 local function expand_addrs(input, expected)
   local pre = tostring(input)
   local addrs = ip.addrs(input)

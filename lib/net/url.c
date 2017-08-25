@@ -20,11 +20,16 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include <lib/util/buf.h>
+#include <lib/net/punycode.h>
+#include <lib/net/ip.h>
 #include <lib/net/url.h>
 
 #define URL_INITALLOC  512
+
+#define URL_MAXHOSTLEN 256 /* RFC1035 */
 
 struct url_ctx_t {
   struct url_opts opts;
@@ -265,11 +270,56 @@ int url_supported_scheme(const char *s) {
   return EURL_OK;
 }
 
+static int normalize_host(const char *host, size_t hostlen, char *dst,
+    size_t dstlen) {
+  char tmp[URL_MAXHOSTLEN];
+  char *oname;
+  ip_addr_t addr;
+  int i;
+
+  if (hostlen >= URL_MAXHOSTLEN || hostlen >= dstlen) {
+    return EURL_HOST;
+  }
+
+  snprintf(tmp, sizeof(tmp), "%.*s", (int)hostlen, host);
+
+  /* is it an address? */
+  if (ip_addr(&addr, tmp, NULL) == 0) {
+    if (ip_addr_str(&addr, dst, dstlen, NULL) != 0) {
+      return EURL_HOST;
+    }
+    return EURL_OK;
+  }
+
+  /* do we need to punycode encode it? */
+  for (i = 0; i < hostlen; i++) {
+    if ((unsigned char)tmp[i] < 0x1f) {
+      return EURL_HOST;
+    } else if ((unsigned char)tmp[i] > 0x7f) {
+      break;
+    }
+  }
+  if (i == hostlen) {
+    snprintf(dst, dstlen, "%s", tmp);
+    return EURL_OK;
+  }
+
+  if ((oname = punycode_encode(host, hostlen)) == NULL) {
+    return EURL_HOST;
+  }
+
+  snprintf(dst, dstlen, "%s", oname);
+  free(oname);
+  return EURL_OK;
+}
+
 int url_normalize(url_ctx_t *ctx, const char *s, buf_t *out) {
   struct url_parts parts;
   size_t i;
   char hexbuf[4];
+  char hostbuf[URL_MAXHOSTLEN];
   const char *hextbl = "0123456789abcdef";
+  int ret;
 
   hexbuf[0] = '%';
   buf_clear(out);
@@ -304,20 +354,12 @@ int url_normalize(url_ctx_t *ctx, const char *s, buf_t *out) {
   if (parts.hostlen > 255) { /* RFC1035 */
     return EURL_HOST;
   } else if (parts.hostlen > 0) {
-    if (ctx->opts.host_normalizer != NULL) {
-      /* normalize host with the provided host normalizer, free the returned
-         string */
-      char *oname;
-      if ((oname = ctx->opts.host_normalizer(s+parts.host, parts.hostlen))
-          == NULL) {
-        return EURL_HOST;
-      }
-      buf_adata(out, oname, strlen(oname));
-      free(oname);
-    } else {
-      /* no host normalization */
-      buf_adata(out, s+parts.host, parts.hostlen);
+    ret = normalize_host(s+parts.host, parts.hostlen, hostbuf,
+        sizeof(hostbuf));
+    if (ret != EURL_OK) {
+      return ret;
     }
+    buf_adata(out, hostbuf, strlen(hostbuf));
   }
 
   if (parts.portlen > 0) {

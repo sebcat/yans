@@ -6,7 +6,6 @@
 #include <lib/net/url.h>
 
 static struct url_opts opts = {
-  .host_normalizer = punycode_encode,
   .flags = URLFL_REMOVE_EMPTY_QUERY | URLFL_REMOVE_EMPTY_FRAGMENT,
 };
 

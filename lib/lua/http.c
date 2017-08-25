@@ -1,7 +1,6 @@
 #include <string.h>
 
 #include <lib/net/url.h>
-#include <lib/net/punycode.h>
 #include <lib/lua/http.h>
 
 #define MTNAME_URLBUILDER "yans.URLBuilder"
@@ -29,7 +28,6 @@ static int l_urlbuilder(lua_State *L) {
     lua_pop(L, 1);
   }
   memset(&opts, 0, sizeof(opts));
-  opts.host_normalizer = punycode_encode;
   opts.flags = flags;
   ctx = lua_newuserdata(L, sizeof(url_ctx_t*));
   luaL_setmetatable(L, MTNAME_URLBUILDER);

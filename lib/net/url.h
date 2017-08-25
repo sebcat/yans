@@ -12,7 +12,6 @@
 #define URLFL_REMOVE_EMPTY_QUERY    (1 << 0)
 #define URLFL_REMOVE_EMPTY_FRAGMENT (1 << 1)
 struct url_opts {
-  char *(*host_normalizer)(const void *in, size_t inlen);
   int flags;
 };
 

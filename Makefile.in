@@ -185,8 +185,9 @@ am_lib_net_punycode_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 lib_net_punycode_test_OBJECTS = $(am_lib_net_punycode_test_OBJECTS)
 lib_net_punycode_test_LDADD = $(LDADD)
 am_lib_net_url_test_OBJECTS = lib/net/url.$(OBJEXT) \
-	lib/net/punycode.$(OBJEXT) lib/util/u8.$(OBJEXT) \
-	lib/util/buf.$(OBJEXT) lib/net/url_test.$(OBJEXT)
+	lib/net/punycode.$(OBJEXT) lib/net/ip.$(OBJEXT) \
+	lib/util/u8.$(OBJEXT) lib/util/buf.$(OBJEXT) \
+	lib/net/url_test.$(OBJEXT)
 lib_net_url_test_OBJECTS = $(am_lib_net_url_test_OBJECTS)
 lib_net_url_test_LDADD = $(LDADD)
 am_lib_util_conf_test_OBJECTS = lib/util/conf.$(OBJEXT) \
@@ -853,6 +854,8 @@ lib_net_url_test_SOURCES = \
     lib/net/url.h \
     lib/net/punycode.c \
     lib/net/punycode.h \
+    lib/net/ip.h \
+    lib/net/ip.c \
     lib/util/u8.c \
     lib/util/u8.h \
     lib/util/buf.c \

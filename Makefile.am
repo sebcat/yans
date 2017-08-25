@@ -230,6 +230,8 @@ lib_net_url_test_SOURCES = \
     lib/net/url.h \
     lib/net/punycode.c \
     lib/net/punycode.h \
+    lib/net/ip.h \
+    lib/net/ip.c \
     lib/util/u8.c \
     lib/util/u8.h \
     lib/util/buf.c \

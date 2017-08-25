@@ -364,6 +364,16 @@ test_url_normalize(builder, "http://example.com/foo/../bör/",
     "http://example.com/b%c3%b6r/")
 test_url_normalize(builder, "http://example.com/foo/../bar/?q=?&bar=öh",
     "http://example.com/bar/?q=?&bar=%c3%b6h")
+test_url_normalize(builder, "http://0/", "http://0.0.0.0/")
+-- pc-help.org/obscure.htm
+test_url_normalize(builder, "http://3468664375/", "http://206.191.158.55/")
+test_url_normalize(builder, "http://00000000316.000277.00000236.00000000067/",
+    "http://206.191.158.55/")
+test_url_normalize(builder, "http://0xCE.0xBF.0x9E.0x37/",
+    "http://206.191.158.55/")
+test_url_normalize(builder, "http://0xCEBF9E37/", "http://206.191.158.55/")
+test_url_normalize(builder, "http://0x9A3F0800CEBF9E37",
+    "http://206.191.158.55/")
 
 function test_url_resolve(builder, base, ref, expected)
   local actual = builder:resolve(base, ref)

@@ -575,6 +575,42 @@ static int l_ipports(lua_State *L) {
   return 1;
 }
 
+static struct port_ranges *castipports(lua_State *L, int index) {
+  struct port_ranges *rs;
+  const char *str;
+  int ret;
+
+  /* is it already the correct type? */
+  rs = luaL_testudata(L, index, MTNAME_IPPORTS);
+  if (rs != NULL) {
+    return rs;
+  }
+
+  /* replace the value at 'index' with a new port range, or fail */
+  str = luaL_checkstring(L, index);
+  rs = l_newipports(L);
+  ret = port_ranges_from_str(rs, str, NULL);
+  if (ret < 0) {
+    luaL_error(L, "invalid port range");
+  }
+  lua_replace(L, index);
+  return rs;
+}
+
+static int l_ipports_add(lua_State *L) {
+  int ret;
+  struct port_ranges *dst = checkipports(L, 1);
+  struct port_ranges *from = castipports(L, 2);
+
+  ret = port_ranges_add(dst, from);
+  if (ret < 0) {
+    return luaL_error(L, "ipports_add: memory allocation failure");
+  }
+
+  lua_pop(L, 1);
+  return 1;
+}
+
 static int l_ipports_next_iter(lua_State *L) {
   struct port_ranges *rs = checkipports(L, lua_upvalueindex(1));
   uint16_t port;
@@ -640,6 +676,7 @@ static const struct luaL_Reg yansipports_m[] = {
   {"__tostring", l_ipports_tostring},
   {"__gc", l_ipports_gc},
   {"next", l_ipports_next},
+  {"add", l_ipports_add},
   {NULL, NULL},
 };
 

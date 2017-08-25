@@ -18,7 +18,8 @@ struct port_range {
 };
 
 struct port_ranges {
-  size_t nranges;
+  size_t cap;                 /* number of allocated struct port_range's */
+  size_t nranges;             /* number of used struct port_range's */
   struct port_range *ranges;
 
   /* curr_* - for iteration */
@@ -26,15 +27,16 @@ struct port_ranges {
   uint16_t curr_port;
 };
 
+/* reset range iteration */
 #define port_ranges_reset(rs) \
   (rs)->curr_range = 0;       \
   (rs)->curr_port = 0;
 
 int port_ranges_from_str(struct port_ranges *rs, const char *s,
     size_t *fail_off);
-  char ch;
 int port_ranges_to_buf(struct port_ranges *rs, buf_t *buf);
 void port_ranges_cleanup(struct port_ranges *rs);
 int port_ranges_next(struct port_ranges *rs, uint16_t *out);
+int port_ranges_add(struct port_ranges *dst, struct port_ranges *from);
 
 #endif /* NET_PORTS_H__ */

@@ -27,7 +27,7 @@ static int rangecmp(const void *p0, const void *p1) {
 }
 
 /* NB: assumes rs is sorted */
-static void compress_ranges(struct port_ranges *rs) {
+static size_t compress_ranges(struct port_ranges *rs) {
   size_t curr;
   size_t next;
 
@@ -46,7 +46,7 @@ static void compress_ranges(struct port_ranges *rs) {
     }
   }
 
-  rs->nranges = curr + 1;
+  return curr + 1;
 }
 
 int port_ranges_from_str(struct port_ranges *rs, const char *s,
@@ -170,6 +170,7 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
 
   /* if we have a range, set up rs. If we don't, return an empty result */
   if (buf.len >= sizeof(range)) {
+    rs->cap = buf.cap / sizeof(range);
     rs->nranges = buf.len / sizeof(range);
     rs->ranges = (struct port_range*)buf.data; /* rs takes ownership */
   } else {
@@ -179,7 +180,7 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
 
   /* sort and compress the ranges */
   qsort(rs->ranges, rs->nranges, sizeof(struct port_range), rangecmp);
-  compress_ranges(rs);
+  rs->nranges = compress_ranges(rs);
   return 0;
 
 fail:
@@ -285,4 +286,33 @@ int port_ranges_next(struct port_ranges *rs, uint16_t *out) {
     rs->curr_port = r->start;
   }
   return 1;
+}
+
+int port_ranges_add(struct port_ranges *dst, struct port_ranges *from) {
+  size_t n;
+  void *tmp;
+
+  /* if we don't have anything to add - return */
+  if (from->nranges == 0) {
+    return 0;
+  }
+
+  /* allocate more space if needed */
+  if (from->nranges > (dst->cap - dst->nranges)) {
+    n = dst->cap + from->nranges;
+    n += n / 2; /* grow by 50%  */
+    tmp = realloc(dst->ranges, sizeof(struct port_range) * n);
+    if (tmp == NULL) {
+      return -1;
+    }
+    dst->cap = n;
+    dst->ranges = tmp;
+  }
+
+  memcpy(dst->ranges + dst->nranges, from->ranges,
+      from->nranges * sizeof(struct port_range));
+  dst->nranges += from->nranges;
+  qsort(dst->ranges, dst->nranges, sizeof(struct port_range), rangecmp);
+  dst->nranges = compress_ranges(dst);
+  return 0;
 }

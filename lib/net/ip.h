@@ -25,7 +25,6 @@ typedef struct ip_addr_t {
 typedef struct ip_block_t {
   ip_addr_t first;
   ip_addr_t last;
-  int prefixlen;
 } ip_block_t;
 
 struct ip_blocks {
@@ -34,13 +33,11 @@ struct ip_blocks {
   /* iteration state */
   size_t curr_block;
   ip_addr_t curr_addr;
-  int curr_prefixlen;
 };
 
 #define ip_blocks_reset(blks)                     \
     (blks)->curr_block = 0;                       \
-    (blks)->curr_addr.u.sa.sa_family = AF_UNSPEC; \
-    (blks)->curr_prefixlen = -1;
+    (blks)->curr_addr.u.sa.sa_family = AF_UNSPEC;
 
 #define ip_addr_eqtype(a1, a2) ((a1)->u.sa.sa_family == (a2)->u.sa.sa_family)
 int ip_addr(ip_addr_t *addr, const char *s, int *err);

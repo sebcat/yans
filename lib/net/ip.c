@@ -86,14 +86,29 @@ int ip_addr_cmp(const ip_addr_t *a1, const ip_addr_t *a2, int *err) {
 
   assert(a1 != NULL);
   assert(a2 != NULL);
+  int ret;
 
   if (a1->u.sa.sa_family == AF_INET && a2->u.sa.sa_family == AF_INET) {
     return memcmp(&a1->u.sin.sin_addr, &a2->u.sin.sin_addr,
         sizeof(struct in_addr));
   } else if (a1->u.sa.sa_family == AF_INET6 &&
       a2->u.sa.sa_family == AF_INET6) {
-    return memcmp(&a1->u.sin6.sin6_addr, &a2->u.sin6.sin6_addr,
-        sizeof(struct in6_addr));
+    ret = memcmp(&a1->u.sin6.sin6_addr, &a2->u.sin6.sin6_addr,
+        sizeof(a1->u.sin6.sin6_addr));
+    /*
+     * We could compare by zone-ids, but that becomes a problem in
+     * compress_blocks for cases like ff02::1%em0 ff02::1%lo0 ff02::1 ff02::2,
+     * which will get sorted as ff02::1 ff02::1%em0 ff02::1%lo0 ff02::2, which
+     * means ff02::2 will not get compressed to the range ff02::1-ff02::2 with
+     * the current way compress_blocks works. If we want
+     * to compare by zone ID's, we need to change the way compare_blocks works
+     *
+     * if (ret == 0) {
+     * ret = memcmp(&a1->u.sin6.sin6_scope_id, &a2->u.sin6.sin6_scope_id,
+     *   sizeof(a1->u.sin6.sin6_scope_id));
+     * }
+    */
+    return ret;
   } else {
     if (err != NULL) *err = EAI_FAMILY;
     return -1; /* not ideal if caller doesn't check errors */
@@ -244,9 +259,6 @@ static int ip_block_cidr(ip_block_t *block, const char *addrstr,
     return -1;
   }
 
-  /* NB: it's important that prefixlen is checked for large values before this
-   *     cast. */
-  block->prefixlen = (int)prefixlen;
   return 0;
 }
 
@@ -286,7 +298,6 @@ int ip_block_from_str(ip_block_t *blk, const char *s, int *err) {
   char addrbuf[YANS_IP_ADDR_MAXLEN];
   int ret = -1;
 
-  blk->prefixlen = -1; /* -1 means that prefixlen is not applicable */
   snprintf(addrbuf, sizeof(addrbuf), "%s", s);
   if ((cptr = strchr(addrbuf, '/')) != NULL) {
     /* addr/prefixlen form */
@@ -343,13 +354,11 @@ int ip_block_netmask(ip_block_t *blk, ip_addr_t * addr, ip_addr_t *netmask,
     prefixlen = calc_prefixlen((unsigned char *)(&netmask->u.sin.sin_addr),
         sizeof(netmask->u.sin.sin_addr));
     ip4_block_mask(&blk->first, &blk->last, (uint32_t)prefixlen);
-    blk->prefixlen = prefixlen;
   } else if (addr->u.sa.sa_family == AF_INET6 &&
       netmask->u.sa.sa_family == AF_INET6) {
     prefixlen = calc_prefixlen((unsigned char *)(&netmask->u.sin6.sin6_addr),
         sizeof(netmask->u.sin6.sin6_addr));
     ip6_block_mask(&blk->first, &blk->last, (uint32_t)prefixlen);
-    blk->prefixlen = prefixlen;
   } else {
     if (err != NULL) *err = EAI_FAMILY;
     return -1;
@@ -373,8 +382,6 @@ int ip_block_to_str(ip_block_t *blk, char *dst, size_t dstlen, int *err) {
   char *cptr;
   size_t len;
   size_t left;
-  size_t numlen;
-  char num[8];
 
   if (ip_addr_str(&blk->first, dst, dstlen, err) < 0) {
     return -1;
@@ -388,30 +395,16 @@ int ip_block_to_str(ip_block_t *blk, char *dst, size_t dstlen, int *err) {
   len = strlen(dst);
   left = dstlen - len;
 
-  if (blk->prefixlen < 0) {
-    /* first-last form */
-    if (left < 2) {
-      if (err != NULL) *err = EAI_OVERFLOW;
-      return -1;
-    }
-    cptr = dst+len;
-    *cptr = '-';
-    cptr++;
-    if (ip_addr_str(&blk->last, cptr, left-1, err) < 0) {
-      return -1;
-    }
-  } else {
-    /* addr/prefixlen form */
-    snprintf(num, sizeof(num), "%d", blk->prefixlen);
-    numlen = strlen(num);
-    if (left < 2 + numlen) {
-      if (err != NULL) *err = EAI_OVERFLOW;
-      return -1;
-    }
-    cptr = dst + len;
-    *cptr = '/';
-    cptr++;
-    snprintf(cptr, left-1, "%d", blk->prefixlen);
+  /* first-last form */
+  if (left < 2) {
+    if (err != NULL) *err = EAI_OVERFLOW;
+    return -1;
+  }
+  cptr = dst+len;
+  *cptr = '-';
+  cptr++;
+  if (ip_addr_str(&blk->last, cptr, left-1, err) < 0) {
+    return -1;
   }
 
   return 0;
@@ -456,6 +449,7 @@ static int cons_block(struct ip_blocks *blks, const char *s, size_t start,
   return 0;
 }
 
+/* sorting function for use by e.g., qsort */
 static int blockcmp(const void *p0, const void *p1) {
   const ip_block_t *b0 = p0;
   const ip_block_t *b1 = p1;
@@ -475,6 +469,46 @@ static int blockcmp(const void *p0, const void *p1) {
     return ip_addr_cmp(&b0->last, &b1->last, NULL);
   }
   return ret;
+}
+
+static size_t compress_blocks(struct ip_blocks *blks) {
+  size_t curr;
+  size_t next;
+  ip_addr_t tmp;
+  int diff_zones;
+
+  for (curr = 0, next = 1; next < blks->nblocks; next++) {
+    diff_zones = 0;
+    if (blks->blocks[curr].first.u.sa.sa_family == AF_INET6 &&
+        blks->blocks[next].first.u.sa.sa_family == AF_INET6 &&
+        blks->blocks[curr].first.u.sin6.sin6_scope_id !=
+        blks->blocks[next].first.u.sin6.sin6_scope_id) {
+      diff_zones = 1;
+    }
+
+    if (!diff_zones && blks->blocks[curr].first.u.sa.sa_family ==
+        blks->blocks[next].first.u.sa.sa_family) {
+      tmp = blks->blocks[curr].last;
+      ip_addr_add(&tmp, 1);
+      if (ip_addr_cmp(&tmp, &blks->blocks[next].first, NULL) >= 0) {
+        if (ip_addr_cmp(&blks->blocks[next].last, &blks->blocks[curr].last,
+            NULL) > 0) {
+          blks->blocks[curr].last = blks->blocks[next].last;
+        }
+        continue;
+      }
+    }
+
+    curr++;
+    if (next > curr) {
+      memmove(blks->blocks + curr, blks->blocks + next,
+          (blks->nblocks - next) * sizeof(ip_block_t));
+      blks->nblocks -= next - curr;
+      next = curr;
+    }
+  }
+
+  return curr + 1;
 }
 
 int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
@@ -526,7 +560,7 @@ int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err) {
   }
 
   qsort(blks->blocks, blks->nblocks, sizeof(ip_block_t), blockcmp);
-
+  blks->nblocks = compress_blocks(blks);
   return 0;
 }
 
@@ -608,17 +642,10 @@ int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr) {
     blks->curr_addr = blk->first;
   }
 
-  if (blk->prefixlen >= 0) {
-    /* if we 'next' ::/n, n is no longer valid. store it away for now */
-    blks->curr_prefixlen = blk->prefixlen;
-    blk->prefixlen = -1;
-  }
-
   *addr = blks->curr_addr;
   if (ip_addr_cmp(&blks->curr_addr, &blk->last, NULL) < 0) {
     ip_addr_add(&blks->curr_addr, 1);
   } else {
-    blk->prefixlen = blks->curr_prefixlen; /* restore block prefixlen */
     blks->curr_block++;
     if (blks->curr_block < blks->nblocks) {
       blk = blks->blocks + blks->curr_block;

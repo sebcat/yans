@@ -120,54 +120,58 @@ static int l_ipaddr_tostring(lua_State *L) {
   return 1;
 }
 
-static int l_ipaddr_eqop(lua_State *L) {
-  ip_addr_t *a, *b;
-  int err = 0, ret;
+static ip_addr_t *castipaddr(lua_State *L, int index) {
+  ip_addr_t *addr;
+  const char *str;
+  int ret;
+
+  /* is it already the correct type? */
+  addr = luaL_testudata(L, index, MTNAME_IPADDR);
+  if (addr != NULL) {
+    return addr;
+  }
+
+  /* replace the value at 'index' with a new port range, or fail */
+  str = luaL_checkstring(L, index);
+  addr = l_newipaddr(L);
+  ret = ip_addr(addr, str, NULL);
+  if (ret < 0) {
+    luaL_error(L, "invalid IP address");
+  }
+  lua_replace(L, index);
+  return addr;
+}
+
+static int l_ipaddr_equals(lua_State *L) {
+  ip_addr_t *a;
+  ip_addr_t *b;
+  int err = 0;
+  int ret;
 
   a = checkipaddr(L, 1);
-  b = checkipaddr(L, 2);
+  b = castipaddr(L, 2);
   ret = ip_addr_cmp(a, b, &err);
-  if (err != 0) {
-    luaL_error(L, "IPAddr: failed comparison: %s\n", ip_addr_strerror(err));
-  } else if (ret == 0) {
-    lua_pushboolean(L, 1);
-  } else {
+  if (err != 0 || ret != 0) {
     lua_pushboolean(L, 0);
+  } else {
+    lua_pushboolean(L, 1);
   }
   return 1;
 }
 
-static int l_ipaddr_ltop(lua_State *L) {
-  ip_addr_t *a, *b;
-  int err = 0, ret;
+static int l_ipaddr_compare(lua_State *L) {
+  ip_addr_t *a;
+  ip_addr_t *b;
+  int err = 0;
+  lua_Integer ret;
 
   a = checkipaddr(L, 1);
-  b = checkipaddr(L, 2);
-  ret = ip_addr_cmp(a, b, &err);
+  b = castipaddr(L, 2);
+  ret = (lua_Integer)ip_addr_cmp(a, b, &err);
   if (err != 0) {
     luaL_error(L, "IPAddr: failed comparison: %s\n", ip_addr_strerror(err));
-  } else if (ret < 0) {
-    lua_pushboolean(L, 1);
-  } else {
-    lua_pushboolean(L, 0);
   }
-  return 1;
-}
-
-static int l_ipaddr_leop(lua_State *L) {
-  ip_addr_t *a, *b;
-  int err = 0, ret;
-
-  a = checkipaddr(L, 1);
-  b = checkipaddr(L, 2);
-  ret = ip_addr_cmp(a, b, &err);
-  if (err != 0) {
-    luaL_error(L, "IPAddr: failed comparison: %s\n", ip_addr_strerror(err));
-  } else if (ret <= 0) {
-    lua_pushboolean(L, 1);
-  } else {
-    lua_pushboolean(L, 0);
-  }
+  lua_pushinteger(L, ret);
   return 1;
 }
 
@@ -658,15 +662,13 @@ static int l_ipports_gc(lua_State *L) {
 
 static const struct luaL_Reg yansipaddr_m[] = {
   {"__tostring", l_ipaddr_tostring},
-  {"__eq", l_ipaddr_eqop},
-  {"__lt", l_ipaddr_ltop},
-  {"__le", l_ipaddr_leop},
 
-  /* immutable */
+  /* immutable arithmetic (evals to a copy containing the result) */
   {"__add", l_ipaddr_addop},
   {"__sub", l_ipaddr_subop},
 
-  /* mutable */
+  {"equals", l_ipaddr_equals},
+  {"compare", l_ipaddr_compare},
   {"add", l_ipaddr_add},
   {"sub", l_ipaddr_sub},
   {NULL, NULL}

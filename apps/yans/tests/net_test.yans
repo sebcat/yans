@@ -12,52 +12,57 @@ end
 test_addr_tostring_self("127.0.0.1")
 test_addr_tostring_self("ff02::1")
 
--- __eq
-assert(ip.addr"127.0.0.1" == ip.addr"127.0.0.1")
-assert(ip.addr"127.0.0.1 127.0.6.4" == ip.addr"127.0.0.1")
-assert(ip.addr"\t 127.0.0.1\t " == ip.addr"127.0.0.1")
-assert(ip.addr"127.0.0.1" ~= ip.addr"127.0.0.0")
-assert(ip.addr"127.0.0.1" ~= ip.addr"127.0.0.2")
-assert(ip.addr"ff02::1" == ip.addr"ff02::1")
-assert(ip.addr"ff02::1" ~= ip.addr"ff02::")
-assert(ip.addr"ff02::1" ~= ip.addr"ff02::2")
+-- equals
+assert(ip.addr"127.0.0.1":equals("127.0.0.1"))
+assert(ip.addr"127.0.0.1":equals(ip.addr"127.0.0.1"))
+assert(ip.addr"127.0.0.1 127.0.6.4":equals(ip.addr"127.0.0.1"))
+assert(ip.addr"127.0.0.1 127.0.6.4":equals("127.0.0.1"))
+assert(ip.addr"\t 127.0.0.1\t ":equals(ip.addr"127.0.0.1"))
+assert(ip.addr"\t 127.0.0.1\t ":equals("127.0.0.1"))
+assert(ip.addr"127.0.0.1":equals(ip.addr"127.0.0.0") == false)
+assert(ip.addr"127.0.0.1":equals("127.0.0.0") == false)
+assert(ip.addr"127.0.0.1":equals(ip.addr"127.0.0.2") == false)
+assert(ip.addr"ff02::1":equals(ip.addr"ff02::1"))
+assert(ip.addr"ff02::1":equals("ff02::1"))
+assert(ip.addr"ff02::1":equals(ip.addr"ff02::") == false)
+assert(ip.addr"ff02::1":equals("ff02::") == false)
+assert(ip.addr"ff02::1":equals(ip.addr"ff02::2") == false)
+assert(ip.addr"ff02::1":equals("ff02::2") == false)
 
--- __lt
-assert(ip.addr"127.0.0.0" < ip.addr"127.0.0.1")
-assert(not(ip.addr"127.0.0.1" < ip.addr"127.0.0.1"))
-assert(not(ip.addr"127.0.0.2" < ip.addr"127.0.0.1"))
-assert(ip.addr"ff02::1" < ip.addr"ff02::2")
-assert(not(ip.addr"ff02::1" < ip.addr"ff02::1"))
-assert(not(ip.addr"ff02::2" < ip.addr"ff02::1"))
+-- compare
+assert(ip.addr"127.0.0.0":compare("127.0.0.1") < 0)
+assert(ip.addr"127.0.0.0":compare(ip.addr"127.0.0.1") < 0)
+assert(not(ip.addr"127.0.0.1":compare("127.0.0.1") < 0))
+assert(not(ip.addr"127.0.0.2":compare(ip.addr"127.0.0.1") < 0))
+assert(ip.addr"ff02::2":compare"ff02::1" > 0)
+assert(ip.addr"127.0.0.1":compare("127.0.0.0") > 0)
+assert(ip.addr"127.0.0.1":compare(ip.addr"127.0.0.0") > 0)
+assert(ip.addr"127.0.0.2":compare(ip.addr"127.0.0.1") > 0)
+assert(ip.addr"ff02::1":compare("ff02::2") < 0)
+assert(ip.addr"ff02::2":compare("ff02::1") > 0)
 
--- __le
-assert(ip.addr"127.0.0.0" <= ip.addr"127.0.0.1")
-assert(ip.addr"127.0.0.1" <= ip.addr"127.0.0.1")
-assert(not(ip.addr"127.0.0.2" <= ip.addr"127.0.0.1"))
-assert(ip.addr"ff02::1" <= ip.addr"ff02::2")
-assert(ip.addr"ff02::1" <= ip.addr"ff02::1")
-assert(not(ip.addr"ff02::2" <= ip.addr"ff02::1"))
-
+assert(ip.addr"127.0.0.1":compare("127.0.0.1")  == 0)
+assert(ip.addr"::1":compare"::1"  == 0)
 -- __add
 local a = ip.addr"126.255.255.255"
 local res = a + 2
-assert(a == ip.addr"126.255.255.255")
-assert(res == ip.addr"127.0.0.1")
+assert(a:equals("126.255.255.255"))
+assert(res:equals("127.0.0.1"))
 local a = ip.addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 local res = a + 2
-assert(a == ip.addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-assert(res == ip.addr"::1")
+assert(a:equals("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"))
+assert(res:equals("::1"))
 
 
 -- __sub
 local a = ip.addr"127.0.0.1"
 local res = a - 2
-assert(a == ip.addr"127.0.0.1")
-assert(res == ip.addr"126.255.255.255")
+assert(a:equals("127.0.0.1"))
+assert(res:equals("126.255.255.255"))
 local a = ip.addr"::1"
 local res = a - 2
-assert(a == ip.addr"::1")
-assert(res == ip.addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
+assert(a:equals("::1"))
+assert(res:equals("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"))
 
 -- mutable add method
 local function addr_add(addr, n, expected)
@@ -69,7 +74,7 @@ local function addr_add(addr, n, expected)
 end
 local a = ip.addr"127.0.0.1"
 a:add(1)
-assert(a == ip.addr"127.0.0.2")
+assert(a:equals("127.0.0.2"))
 addr_add("255.255.255.255", 1, "0.0.0.0")
 addr_add("0.0.255.255", 1, "0.1.0.0")
 addr_add("0.0.0.0", -1, "255.255.255.255")
@@ -93,7 +98,7 @@ local function addr_sub(addr, n, expected)
 end
 local a = ip.addr"127.0.0.1"
 a:sub(1)
-assert(a == ip.addr"127.0.0.0")
+assert(a:equals("127.0.0.0"))
 addr_sub("255.255.255.255", -1, "0.0.0.0")
 addr_sub("0.0.255.255", -1, "0.1.0.0")
 addr_sub("0.0.0.0", 1, "255.255.255.255")
@@ -259,7 +264,7 @@ local function expand_addrs(input, expected)
   local addrs = ip.addrs(input)
   local i = 1
   for addr in addrs:next() do
-    if ip.addr(expected[i]) ~= addr then
+    if not addr:equals(expected[i]) then
       error(string.format("index:%d addr:%s expected:%s", i,
           tostring(addr), tostring(expected[i])))
     end

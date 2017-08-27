@@ -88,6 +88,15 @@ int ip_addr_cmp(const ip_addr_t *a1, const ip_addr_t *a2, int *err) {
   assert(a2 != NULL);
   int ret;
 
+  /* consider IPv4 addrs to be less than IPv6 */
+  if (a1->u.sa.sa_family == AF_INET &&
+      a2->u.sa.sa_family == AF_INET6) {
+    return -1;
+  } else if (a1->u.sa.sa_family == AF_INET6 &&
+      a2->u.sa.sa_family == AF_INET) {
+    return 1;
+  }
+
   if (a1->u.sa.sa_family == AF_INET && a2->u.sa.sa_family == AF_INET) {
     return memcmp(&a1->u.sin.sin_addr, &a2->u.sin.sin_addr,
         sizeof(struct in_addr));
@@ -266,6 +275,11 @@ int ip_block_from_addrs(ip_block_t *blk, ip_addr_t *a1, ip_addr_t *a2,
     int *err) {
   int cmp;
   int lerr = 0;
+
+  if (a1->u.sa.sa_family != a2->u.sa.sa_family) {
+    if (err != NULL) *err = EAI_FAMILY;
+    return -1;
+  }
 
   cmp = ip_addr_cmp(a1, a2, &lerr);
   if (lerr != 0) {
@@ -454,15 +468,6 @@ static int blockcmp(const void *p0, const void *p1) {
   const ip_block_t *b0 = p0;
   const ip_block_t *b1 = p1;
   int ret;
-
-  /* consider IPv4 addrs to be less than IPv6 */
-  if (b0->first.u.sa.sa_family == AF_INET &&
-      b1->first.u.sa.sa_family == AF_INET6) {
-    return -1;
-  } else if (b0->first.u.sa.sa_family == AF_INET6 &&
-      b1->first.u.sa.sa_family == AF_INET) {
-    return 1;
-  }
 
   ret = ip_addr_cmp(&b0->first, &b1->first, NULL);
   if (ret == 0) {

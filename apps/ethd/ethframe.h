@@ -23,6 +23,7 @@ struct frameconf {
   struct ip_blocks dst_ips;
   uint16_t curr_dst_port;
   struct port_ranges dst_ports;
+  size_t curr_buildstate;
 
   /* -- internal fields -- */
   size_t curr_buildix;

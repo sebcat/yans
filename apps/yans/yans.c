@@ -130,21 +130,6 @@ static lua_State * state_or_die() {
   return L;
 }
 
-static int cmd_shell(int argc, char *argv[]) {
-  lua_State *L;
-
-  L = state_or_die();
-  linenoiseSetMultiLine(1);
-  linenoiseHistorySetMaxLen(YREPL_HISTORY);
-  if (isatty(0)) {
-    repl(L);
-  } else {
-    /*eval stdin as file */
-  }
-  lua_close(L);
-  return EXIT_SUCCESS;
-}
-
 static int evalfile(const char *filename) {
   lua_State *L;
   int exitcode = EXIT_FAILURE;
@@ -164,6 +149,21 @@ static int evalfile(const char *filename) {
 fail:
   lua_close(L);
   return exitcode;
+}
+
+static int cmd_shell(int argc, char *argv[]) {
+  lua_State *L;
+
+  L = state_or_die();
+  linenoiseSetMultiLine(1);
+  linenoiseHistorySetMaxLen(YREPL_HISTORY);
+  if (isatty(0)) {
+    repl(L);
+  } else {
+    evalfile(NULL);
+  }
+  lua_close(L);
+  return EXIT_SUCCESS;
 }
 
 void usage() {

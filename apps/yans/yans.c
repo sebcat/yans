@@ -17,6 +17,7 @@
 #include <lib/lua/json.h>
 #include <lib/lua/cgi.h>
 #include <lib/lua/fts.h>
+#include <lib/lua/opts.h>
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -108,7 +109,7 @@ static void repl(lua_State *L) {
   }
 }
 
-static lua_State * state_or_die() {
+static lua_State *state_or_die() {
   lua_State *L;
 
   L = luaL_newstate();
@@ -118,6 +119,7 @@ static lua_State * state_or_die() {
   }
 
   luaL_openlibs(L);
+  /* TODO: table-ify */
   luaL_requiref(L, "ip", luaopen_ip, 1);
   luaL_requiref(L, "eth", luaopen_eth, 1);
   luaL_requiref(L, "http", luaopen_http, 1);
@@ -127,6 +129,7 @@ static lua_State * state_or_die() {
   luaL_requiref(L, "json", luaopen_json, 1);
   luaL_requiref(L, "cgi", luaopen_cgi, 1);
   luaL_requiref(L, "fts", luaopen_fts, 1);
+  luaL_requiref(L, "opts", luaopen_opts, 1);
   return L;
 }
 

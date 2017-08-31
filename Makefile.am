@@ -151,6 +151,8 @@ yans_SOURCES = \
     lib/lua/cgi.c \
     lib/lua/fts.h \
     lib/lua/fts.c \
+    lib/lua/opts.h \
+    lib/lua/opts.c \
     apps/yans/yans.c
 
 yans_LDADD = \

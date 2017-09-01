@@ -18,6 +18,7 @@
 #include <lib/lua/cgi.h>
 #include <lib/lua/fts.h>
 #include <lib/lua/opts.h>
+#include <lib/lua/ylog.h>
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -126,6 +127,7 @@ static lua_State *state_or_die(const char *arg0, int argc, char **argv) {
     {"cgi", luaopen_cgi},
     {"fts", luaopen_fts},
     {"opts", luaopen_opts},
+    {"ylog", luaopen_ylog},
     {NULL, NULL},
   };
 

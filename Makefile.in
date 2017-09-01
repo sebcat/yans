@@ -212,15 +212,16 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	3rd_party/jansson.$(OBJEXT) lib/util/u8.$(OBJEXT) \
 	lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/sandbox.$(OBJEXT) lib/util/fio.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
-	lib/net/eth.$(OBJEXT) lib/net/iface.$(OBJEXT) \
-	lib/net/ip.$(OBJEXT) lib/net/ports.$(OBJEXT) \
-	lib/net/url.$(OBJEXT) lib/net/route.$(OBJEXT) \
-	proto/pcap_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
-	lib/lua/net.$(OBJEXT) lib/lua/http.$(OBJEXT) \
-	lib/lua/ypcap.$(OBJEXT) lib/lua/pcapd.$(OBJEXT) \
-	lib/lua/json.$(OBJEXT) lib/lua/cgi.$(OBJEXT) \
-	lib/lua/fts.$(OBJEXT) lib/lua/opts.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
+	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
+	lib/net/iface.$(OBJEXT) lib/net/ip.$(OBJEXT) \
+	lib/net/ports.$(OBJEXT) lib/net/url.$(OBJEXT) \
+	lib/net/route.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
+	proto/status_resp.$(OBJEXT) lib/lua/net.$(OBJEXT) \
+	lib/lua/http.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
+	lib/lua/pcapd.$(OBJEXT) lib/lua/json.$(OBJEXT) \
+	lib/lua/cgi.$(OBJEXT) lib/lua/fts.$(OBJEXT) \
+	lib/lua/opts.$(OBJEXT) lib/lua/ylog.$(OBJEXT) \
 	apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -744,6 +745,8 @@ yans_SOURCES = \
     lib/util/fio.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
+    lib/util/ylog.h \
+    lib/util/ylog.c \
     lib/net/punycode.c \
     lib/net/punycode.h \
     lib/net/eth.c \
@@ -779,6 +782,8 @@ yans_SOURCES = \
     lib/lua/fts.c \
     lib/lua/opts.h \
     lib/lua/opts.c \
+    lib/lua/ylog.h \
+    lib/lua/ylog.c \
     apps/yans/yans.c
 
 yans_LDADD = \
@@ -1180,6 +1185,8 @@ lib/lua/fts.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/opts.$(OBJEXT): lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/ylog.$(OBJEXT): lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
 apps/yans/$(am__dirstamp):
 	@$(MKDIR_P) apps/yans
 	@: > apps/yans/$(am__dirstamp)
@@ -1250,6 +1257,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/net.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/opts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/pcapd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ylog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/fcgi.Po@am__quote@

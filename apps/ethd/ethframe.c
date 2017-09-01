@@ -145,7 +145,8 @@ static const char *gen_arp_req(struct frameconf *cfg, size_t *len) {
   return pkt;
 }
 
-static const char *gen_icmp4_req(struct frameconf *cfg, size_t *len) {
+static const char *_icmp4_req(struct frameconf *cfg, size_t *len,
+    const char *eth_dst, uint32_t ip_dst) {
   uint32_t sum;
   static char pkt[] = {
     /* Ethernet */
@@ -153,7 +154,7 @@ static const char *gen_icmp4_req(struct frameconf *cfg, size_t *len) {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* src */
     0x08, 0x00, /* ethertype: IPv4 */
 
-    /* IPv4 */
+    /* IPv4 (off: 14) */
     0x45, /* v: 4, 20B hdr */
     0x00,
     0x00, 0x1e, /* total length */
@@ -169,20 +170,27 @@ static const char *gen_icmp4_req(struct frameconf *cfg, size_t *len) {
     0x00, 0x00,
     0x00, 0x00,
 
-    /* ICMPv4 */
+    /* ICMPv4 (off: 34) */
     0x08,       /* type */
     0x00,       /* code */
-    0x8c, 0xfc, /* checksum (constant, change if ICMP packet changes) */
+    0x8c, 0xfc, /* checksum XXX: change if ICMP part changes */
     0x02, 0x9a, /* id */
     0x00, 0x00, /* seq */
     'h', 'i',   /* data */
   };
 
   /* set up the src and dst addresses */
-  memcpy(pkt, cfg->eth_dst, ETH_ALEN);
+  memcpy(pkt, eth_dst, ETH_ALEN);
   memcpy(pkt + 6, cfg->eth_src, ETH_ALEN);
   *(uint32_t*)(pkt + 26) = cfg->src_ip.u.sin.sin_addr.s_addr;
-  *(uint32_t*)(pkt + 30) = cfg->curr_dst_ip.u.sin.sin_addr.s_addr;
+  *(uint32_t*)(pkt + 30) = ip_dst;
+
+#if 0
+  /* calculate ICMP header checksum */
+  *(uint16_t*)(pkt + 36) = 0; /* clear from previous runs */
+  sum = ip_csum(0, pkt + 34, 10);
+  *(uint16_t*)(pkt + 36) = ip_csum_fold(sum);
+#endif
 
   /* calculate IP header checksum */
   *(uint16_t*)(pkt + 24) = 0; /* clear from previous runs */
@@ -193,7 +201,24 @@ static const char *gen_icmp4_req(struct frameconf *cfg, size_t *len) {
   return pkt;
 }
 
-static const char *gen_icmp6_req(struct frameconf *cfg, size_t *len) {
+static const char *gen_icmp4_req(struct frameconf *cfg, size_t *len) {
+  return _icmp4_req(cfg, len, cfg->eth_dst,
+      cfg->curr_dst_ip.u.sin.sin_addr.s_addr);
+}
+
+static const char *gen_ll_icmp4_req(struct frameconf *cfg, size_t *len) {
+  static const char *eth_dst = "\xff\xff\xff\xff\xff\xff";
+  static const char *ip_dst = "\xff\xff\xff\xff";
+
+  if (cfg->curr_buildstate >= 1) {
+    return NULL;
+  }
+
+  return _icmp4_req(cfg, len, eth_dst, *(uint32_t*)ip_dst);
+}
+
+static const char *_icmp6_req(struct frameconf *cfg, size_t *len,
+    const char *eth_dst, struct in6_addr *ip_dst) {
   uint32_t sum;
   uint32_t tmp;
   static char pkt[] = {
@@ -237,10 +262,10 @@ static const char *gen_icmp6_req(struct frameconf *cfg, size_t *len) {
   };
 
   /* set up the src and dst addresses */
-  memcpy(pkt, cfg->eth_dst, ETH_ALEN);
+  memcpy(pkt, eth_dst, ETH_ALEN);
   memcpy(pkt + 6, cfg->eth_src, ETH_ALEN);
   memcpy(pkt + 22, &cfg->src_ip.u.sin6.sin6_addr, 16);
-  memcpy(pkt + 38, &cfg->curr_dst_ip.u.sin6.sin6_addr, 16);
+  memcpy(pkt + 38, ip_dst, 16);
 
   /* calculate the checksum (TODO: macro for adding len, next to sum direct) */
   *(uint16_t*)(pkt + 56) = 0; /* clear from previous runs */
@@ -254,6 +279,24 @@ static const char *gen_icmp6_req(struct frameconf *cfg, size_t *len) {
 
   *len = sizeof(pkt);
   return pkt;
+}
+
+static const char *gen_icmp6_req(struct frameconf *cfg, size_t *len) {
+  return _icmp6_req(cfg, len, cfg->eth_dst,
+      &cfg->curr_dst_ip.u.sin6.sin6_addr);
+}
+
+static const char *gen_ll_icmp6_req(struct frameconf *cfg, size_t *len) {
+  static const char *eth_dst = "\x33\x33\x00\x00\x00\x01";
+  static const char *ip_dst =
+      "\xff\x02\x00\x00\x00\x00\x00\x00"
+      "\x00\x00\x00\x00\x00\x00\x00\x01";
+
+  if (cfg->curr_buildstate >= 1) {
+    return NULL;
+  }
+
+  return _icmp6_req(cfg, len, eth_dst, (struct in6_addr *)ip_dst);
 }
 
 struct mdns_query {
@@ -689,6 +732,16 @@ static struct frame_builder frame_builders[] = {
   },
   {
     .category = CAT_LLDISCO,
+    .options = REQUIRES_IP4,
+    .build = gen_ll_icmp4_req,
+  },
+  {
+    .category = CAT_LLDISCO,
+    .options = REQUIRES_IP6,
+    .build = gen_ll_icmp6_req,
+  },
+  {
+    .category = CAT_LLDISCO,
     .options = REQUIRES_IP6,
     .build = gen_mdns6_req,
   },
@@ -713,6 +766,18 @@ static struct frame_builder frame_builders[] = {
     .build = gen_tcp6_syn,
   }
 };
+
+static int is_src_family_allowed(struct frame_builder *fb,
+    struct frameconf *cfg) {
+  if (fb->options & REQUIRES_IP4 &&
+      cfg->src_ip.u.sa.sa_family != AF_INET) {
+    return 0;
+  } else if (fb->options & REQUIRES_IP6 &&
+      cfg->src_ip.u.sa.sa_family != AF_INET6) {
+    return 0;
+  }
+  return 1;
+}
 
 static int is_family_allowed(struct frame_builder *fb, struct frameconf *cfg) {
 
@@ -783,6 +848,12 @@ next_addr:
     }
     if (!is_family_allowed(fb, cfg)) {
       goto next_addr;
+    }
+  } else {
+    /* ll-disco, &c */
+    if (!is_src_family_allowed(fb, cfg)) {
+      next_builder(cfg);
+      goto again;
     }
   }
 

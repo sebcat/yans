@@ -109,8 +109,25 @@ static void repl(lua_State *L) {
   }
 }
 
-static lua_State *state_or_die() {
+static lua_State *state_or_die(const char *arg0, int argc, char **argv) {
   lua_State *L;
+  int i;
+  static const struct {
+    const char *name;
+    int (*openfunc)(lua_State *);
+  } libs[] = {
+    {"ip", luaopen_ip},
+    {"eth", luaopen_eth},
+    {"http", luaopen_http},
+    {"ypcap", luaopen_ypcap},
+    {"pcapd", luaopen_pcapd},
+    {"lpeg", luaopen_lpeg},
+    {"json", luaopen_json},
+    {"cgi", luaopen_cgi},
+    {"fts", luaopen_fts},
+    {"opts", luaopen_opts},
+    {NULL, NULL},
+  };
 
   L = luaL_newstate();
   if (L == NULL) {
@@ -118,26 +135,31 @@ static lua_State *state_or_die() {
     exit(EXIT_FAILURE);
   }
 
+  if (arg0 != NULL) {
+    lua_pushstring(L, arg0);
+    lua_setglobal(L, "arg0");
+  }
+
+  lua_newtable(L);
+  for (i = 0; i < argc; i++) {
+    lua_pushstring(L, argv[i]);
+    lua_rawseti(L, 1, (lua_Integer)i + 1);
+  }
+  lua_setglobal(L, "args");
+
   luaL_openlibs(L);
-  /* TODO: table-ify */
-  luaL_requiref(L, "ip", luaopen_ip, 1);
-  luaL_requiref(L, "eth", luaopen_eth, 1);
-  luaL_requiref(L, "http", luaopen_http, 1);
-  luaL_requiref(L, "ypcap", luaopen_ypcap, 1);
-  luaL_requiref(L, "pcapd", luaopen_pcapd, 1);
-  luaL_requiref(L, "lpeg", luaopen_lpeg, 1);
-  luaL_requiref(L, "json", luaopen_json, 1);
-  luaL_requiref(L, "cgi", luaopen_cgi, 1);
-  luaL_requiref(L, "fts", luaopen_fts, 1);
-  luaL_requiref(L, "opts", luaopen_opts, 1);
+  for (i = 0; libs[i].name != NULL; i++) {
+    luaL_requiref(L, libs[i].name, libs[i].openfunc, 1);
+  }
   return L;
 }
 
-static int evalfile(const char *filename) {
+static int evalfile(const char *filename, const char *arg0, int argc,
+    char **argv) {
   lua_State *L;
   int exitcode = EXIT_FAILURE;
 
-  L = state_or_die();
+  L = state_or_die(arg0, argc, argv);
   if (luaL_loadfile(L, filename) != LUA_OK) {
     fprintf(stderr, "%s\n", lua_tostring(L, -1));
     goto fail;
@@ -154,64 +176,38 @@ fail:
   return exitcode;
 }
 
-static int cmd_shell(int argc, char *argv[]) {
+static int cmd_shell(const char *arg0, int argc, char *argv[]) {
   lua_State *L;
 
-  L = state_or_die();
+  L = state_or_die(arg0, argc, argv);
   linenoiseSetMultiLine(1);
   linenoiseHistorySetMaxLen(YREPL_HISTORY);
-  if (isatty(0)) {
-    repl(L);
-  } else {
-    evalfile(NULL);
-  }
+  repl(L);
   lua_close(L);
   return EXIT_SUCCESS;
 }
 
-void usage() {
-  fprintf(stderr,
-    "options:\n"
-    "  shell    - start the shell\n");
-  exit(EXIT_FAILURE);
-}
-
-typedef int(*cmdfunc)(int, char **);
-
-typedef struct {
-  const char *name;
-  cmdfunc func;
-} cmdfunc_t;
-
 int main(int argc, char *argv[]) {
-  int i;
   int exitcode = EXIT_FAILURE;
-  static const cmdfunc_t cmds[] = {
-    {"shell", cmd_shell},
-
-  };
 
   signal(SIGPIPE, SIG_IGN);
 
   if (argc == 1) {
-    /* default to REPL */
-    return cmd_shell(argc-1, argv+1);
-  } else if (argv[1][0] == '-' &&argv[1][1] == 'h') {
-    /* check -h */
-    usage();
-  }
-
-  for(i=0; i<sizeof(cmds)/sizeof(cmdfunc_t); i++) {
-    if (strcmp(argv[1], cmds[i].name) == 0) {
-      return cmds[i].func(argc-2, argv+2);
+    if (isatty(STDIN_FILENO)) {
+      exitcode = cmd_shell(argv[0], argc-1, argv+1);
+    } else {
+      exitcode = evalfile(NULL, argv[0], argc-1, argv+1);
     }
-  }
-
-  /* not a command, is it a file? */
-  if (argv[1][0] == '-' && argv[1][1] == '\0') {
-    exitcode = evalfile(NULL);
-  } else {
-    exitcode = evalfile(argv[1]);
+  } else if (argc > 1) {
+    if (argv[1][0] == '-' && argv[1][1] == '-' && argv[1][2] == '\0') {
+      if (isatty(STDIN_FILENO)) {
+        exitcode = cmd_shell(argv[0], argc-2, argv+2);
+      } else {
+        exitcode = evalfile(NULL, argv[0], argc-2, argv+2);
+      }
+    } else {
+      exitcode = evalfile(argv[1], argv[1], argc-2, argv+2);
+    }
   }
 
   return exitcode;

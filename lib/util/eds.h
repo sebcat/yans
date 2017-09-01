@@ -64,8 +64,8 @@ struct eds_service_listener {
 
 struct eds_service {
   /* --- fields which may be set by the user of the module --- */
-  char *name;         /* service name - used in log messages &c */
-  char *path;         /* path to unix socket used for the service */
+  const char *name;   /* service name - used in log messages &c */
+  const char *path;   /* path to unix socket used for the service */
   size_t udata_size;  /* size of client specific data section */
   struct eds_client_actions actions; /* initial client actions */
   unsigned int nprocs; /* number of processes for handling clients */

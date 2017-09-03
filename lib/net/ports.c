@@ -55,8 +55,8 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
   uint16_t tmp;
   const char *start = s;
   int result = -1;
-  unsigned int num;
-  unsigned int flags;
+  unsigned int num = 0;
+  unsigned int flags = 0;
   buf_t buf;
   struct port_range range = {0};
   enum {

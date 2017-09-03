@@ -5,7 +5,8 @@ endif
 SUBDIRS = $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror -fvisibility=hidden
+AM_CFLAGS = -Wall -Werror -fvisibility=hidden -Wl,--build-id=none \
+    -ffunction-sections -fdata-sections -Wl,--gc-sections
 
 TESTS = \
     lib_net_url_test \

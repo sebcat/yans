@@ -81,6 +81,13 @@ struct eds_service {
   int (*mod_init)(struct eds_service *svc); /* ret < 0 means failure */
   void (*mod_fini)(struct eds_service *svc);
 
+  /* data associated with the service */
+  union {
+    void *ptr;
+    size_t s;
+    int i;
+  } svc_data;
+
 
   /* --- fields that should be considered internal to the module --- */
   int cmdfd;

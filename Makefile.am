@@ -121,6 +121,8 @@ yans_SOURCES = \
     lib/util/netstring.h \
     lib/util/ylog.h \
     lib/util/ylog.c \
+    lib/util/eds.h \
+    lib/util/eds.c \
     lib/net/punycode.c \
     lib/net/punycode.h \
     lib/net/eth.c \
@@ -158,6 +160,8 @@ yans_SOURCES = \
     lib/lua/opts.c \
     lib/lua/ylog.h \
     lib/lua/ylog.c \
+    lib/lua/eds.h \
+    lib/lua/eds.c \
     apps/yans/yans.c
 
 yans_LDADD = \

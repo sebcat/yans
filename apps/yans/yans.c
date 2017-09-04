@@ -19,6 +19,7 @@
 #include <lib/lua/fts.h>
 #include <lib/lua/opts.h>
 #include <lib/lua/ylog.h>
+#include <lib/lua/eds.h>
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -128,6 +129,7 @@ static lua_State *state_or_die(const char *arg0, int argc, char **argv) {
     {"fts", luaopen_fts},
     {"opts", luaopen_opts},
     {"ylog", luaopen_ylog},
+    {"eds", luaopen_eds},
     {NULL, NULL},
   };
 

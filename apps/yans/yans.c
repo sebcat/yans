@@ -13,13 +13,13 @@
 #include <lib/lua/net.h>
 #include <lib/lua/http.h>
 #include <lib/lua/ypcap.h>
-#include <lib/lua/pcapd.h>
 #include <lib/lua/json.h>
 #include <lib/lua/cgi.h>
 #include <lib/lua/fts.h>
 #include <lib/lua/opts.h>
 #include <lib/lua/ylog.h>
 #include <lib/lua/eds.h>
+#include <lib/lua/ycl.h>
 
 #define YREPL_HISTORY 2000
 #define YREPL_PROMPT  ">>> "
@@ -122,7 +122,6 @@ static lua_State *state_or_die(const char *arg0, int argc, char **argv) {
     {"eth", luaopen_eth},
     {"http", luaopen_http},
     {"ypcap", luaopen_ypcap},
-    {"pcapd", luaopen_pcapd},
     {"lpeg", luaopen_lpeg},
     {"json", luaopen_json},
     {"cgi", luaopen_cgi},
@@ -130,6 +129,7 @@ static lua_State *state_or_die(const char *arg0, int argc, char **argv) {
     {"opts", luaopen_opts},
     {"ylog", luaopen_ylog},
     {"eds", luaopen_eds},
+    {"ycl", luaopen_ycl},
     {NULL, NULL},
   };
 

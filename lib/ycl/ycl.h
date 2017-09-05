@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+#include <lib/util/buf.h>
+
 struct ycl_ctx {
   /* -- internal -- */
   int fd;
@@ -17,9 +19,9 @@ struct ycl_ctx {
 };
 
 struct ycl_msg {
-  /* -- internal -- */
-  char idata[YCL_IDATASIZ];
-}; /* TODO: Align? */
+  buf_t buf;
+  size_t off;
+};
 
 /* accessor macros for struct ycl_ctx, use these instead of accessing the
  * fields directly */
@@ -61,8 +63,14 @@ int ycl_msg_create_pcap_close(struct ycl_msg *msg);
 int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
     struct ycl_ethframe_req *req);
 
-int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,
-    const char **errmsg);
+struct ycl_status_resp {
+  const char *okmsg;
+  const char *errmsg;
+};
+
+int ycl_msg_create_status_resp(struct ycl_msg *msg,
+    struct ycl_status_resp *r);
+int ycl_msg_parse_status_resp(struct ycl_msg *msg, struct ycl_status_resp *r);
 
 
 

@@ -18,7 +18,8 @@ TESTS = \
     apps/yans/tests/url_test.yans \
     apps/yans/tests/json_test.yans \
     apps/yans/tests/net_test.yans \
-    apps/yans/tests/ports_test.yans
+    apps/yans/tests/ports_test.yans \
+    apps/yans/tests/ycl_test.yans
 
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
@@ -137,19 +138,13 @@ yans_SOURCES = \
     lib/net/url.h \
     lib/net/route.c \
     lib/net/route.h \
-    proto/proto.h \
-    proto/pcap_req.c \
-    proto/pcap_req.h \
-    proto/status_resp.c \
-    proto/status_resp.h \
+    lib/ycl/ycl.h \
     lib/lua/net.c \
     lib/lua/net.h \
     lib/lua/http.c \
     lib/lua/http.h \
     lib/lua/ypcap.c \
     lib/lua/ypcap.h \
-    lib/lua/pcapd.c \
-    lib/lua/pcapd.h \
     lib/lua/json.h \
     lib/lua/json.c \
     lib/lua/cgi.h \
@@ -162,11 +157,14 @@ yans_SOURCES = \
     lib/lua/ylog.c \
     lib/lua/eds.h \
     lib/lua/eds.c \
+    lib/lua/ycl.h \
+    lib/lua/ycl.c \
     apps/yans/yans.c
 
 yans_LDADD = \
     $(PCAPLIB) \
     $(SECCOMPLIB) \
+    libycl.la \
     -lm
 
 ycli_SOURCES = \

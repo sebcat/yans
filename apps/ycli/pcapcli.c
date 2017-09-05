@@ -126,8 +126,7 @@ fail:
 static int pcapcli_run(int fd, struct pcapcli_opts *opts) {
   struct ycl_ctx ycl;
   struct ycl_msg msg = {{0}};
-  const char *okmsg = NULL;
-  const char *errmsg = NULL;
+  struct ycl_status_resp resp = {0};
 
   if (ycl_connect(&ycl, opts->sock) != YCL_OK) {
     fprintf(stderr, "%s\n", ycl_strerror(&ycl));
@@ -156,13 +155,13 @@ static int pcapcli_run(int fd, struct pcapcli_opts *opts) {
     goto fail;
   }
 
-  if (ycl_msg_parse_status_resp(&msg, &okmsg, &errmsg) != YCL_OK) {
+  if (ycl_msg_parse_status_resp(&msg, &resp) != YCL_OK) {
     fprintf(stderr, "unable to parse pcap status response\n");
     goto fail;
   }
 
-  if (errmsg != NULL) {
-    fprintf(stderr, "%s\n", errmsg);
+  if (resp.errmsg != NULL) {
+    fprintf(stderr, "%s\n", resp.errmsg);
     goto fail;
   }
 

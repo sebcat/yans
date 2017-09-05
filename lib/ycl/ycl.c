@@ -17,20 +17,10 @@
 
 #pragma GCC visibility push(default)
 
-struct ycl_msg_internal {
-  buf_t buf;
-  size_t off;
-};
-
-#define YCL_MSG_INTERNAL(msg) \
-    (struct ycl_msg_internal*)(msg)
-
 int ycl_connect(struct ycl_ctx *ycl, const char *dst) {
   int ret;
   io_t io;
 
-   _Static_assert(sizeof(struct ycl_msg_internal) <= YCL_IDATASIZ,
-       "YCL_IDATASIZ is too small");
   ret = io_connect_unix(&io, dst);
   if (ret < 0) {
     SETERR(ycl, "%s", io_strerror(&io));
@@ -69,7 +59,6 @@ int ycl_setnonblock(struct ycl_ctx *ycl, int status) {
 }
 
 int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   char *data;
   size_t left;
   ssize_t ret;
@@ -78,8 +67,8 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
    * , where msg holds the message state. ycl_msg_reset should be called
    * on an init-ed message before each new message passed to this function */
 
-  left = m->buf.len - m->off;
-  data = m->buf.data + m->off;
+  left = msg->buf.len - msg->off;
+  data = msg->buf.data + msg->off;
   while (left > 0) {
     ret = write(ycl->fd, data, left);
     if (ret < 0) {
@@ -93,7 +82,7 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
       }
     }
 
-    m->off += ret;
+    msg->off += ret;
     data += ret;
     left -= ret;
   }
@@ -102,7 +91,6 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
 }
 
 int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   io_t io;
   size_t nread = 0;
   int ret;
@@ -112,10 +100,10 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
    * on an init-ed message before each new message passed to this function */
 
   IO_INIT(&io, ycl->fd);
-  while (m->buf.len == 0 ||
-      (ret = netstring_tryparse(m->buf.data, m->buf.len)) ==
+  while (msg->buf.len == 0 ||
+      (ret = netstring_tryparse(msg->buf.data, msg->buf.len)) ==
       NETSTRING_ERRINCOMPLETE) {
-    ret = io_readbuf(&io, &m->buf, &nread);
+    ret = io_readbuf(&io, &msg->buf, &nread);
     if (ret == IO_AGAIN) {
       return YCL_AGAIN;
     } else if (ret != IO_OK) {
@@ -150,8 +138,7 @@ int ycl_sendfd(struct ycl_ctx *ycl, int fd) {
 }
 
 int ycl_msg_init(struct ycl_msg *msg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
-  if (buf_init(&m->buf, 1024) == NULL) {
+  if (buf_init(&msg->buf, 1024) == NULL) {
     return YCL_ERR;
   }
 
@@ -159,19 +146,16 @@ int ycl_msg_init(struct ycl_msg *msg) {
 }
 
 void ycl_msg_reset(struct ycl_msg *msg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
-  buf_clear(&m->buf);
-  m->off = 0;
+  buf_clear(&msg->buf);
+  msg->off = 0;
 }
 
 void ycl_msg_cleanup(struct ycl_msg *msg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
-  buf_cleanup(&m->buf);
+  buf_cleanup(&msg->buf);
 }
 
 int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
     const char *filter) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   struct p_pcap_req req = {0};
 
   if (iface != NULL) {
@@ -185,7 +169,7 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
   }
 
   ycl_msg_reset(msg);
-  if (p_pcap_req_serialize(&req, &m->buf) != PROTO_OK) {
+  if (p_pcap_req_serialize(&req, &msg->buf) != PROTO_OK) {
     return YCL_ERR;
   }
 
@@ -193,9 +177,8 @@ int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
 }
 
 int ycl_msg_create_pcap_close(struct ycl_msg *msg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   ycl_msg_reset(msg);
-  if (buf_adata(&m->buf, "0:,", 3) < 0) {
+  if (buf_adata(&msg->buf, "0:,", 3) < 0) {
     return YCL_ERR;
   }
   return YCL_OK;
@@ -203,7 +186,6 @@ int ycl_msg_create_pcap_close(struct ycl_msg *msg) {
 
 int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
     struct ycl_ethframe_req *framereq) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
   struct p_ethframe_req req = {0};
   buf_t tmpbuf = {0};
 
@@ -262,7 +244,7 @@ int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
   }
 
   ycl_msg_reset(msg);
-  if (p_ethframe_req_serialize(&req, &m->buf) != PROTO_OK) {
+  if (p_ethframe_req_serialize(&req, &msg->buf) != PROTO_OK) {
     goto fail;
   }
 
@@ -274,22 +256,42 @@ fail:
   return YCL_ERR;
 }
 
-int ycl_msg_parse_status_resp(struct ycl_msg *msg, const char **okmsg,
-    const char **errmsg) {
-  struct ycl_msg_internal *m = YCL_MSG_INTERNAL(msg);
+int ycl_msg_create_status_resp(struct ycl_msg *msg,
+    struct ycl_status_resp *r) {
   struct p_status_resp resp = {0};
 
-  if (p_status_resp_deserialize(&resp, m->buf.data, m->buf.len, NULL) !=
+  if (r->okmsg != NULL) {
+    resp.okmsg = r->okmsg;
+    resp.okmsglen = strlen(r->okmsg);
+  }
+
+  if (r->errmsg != NULL) {
+    resp.errmsg = r->errmsg;
+    resp.errmsglen = strlen(resp.errmsg);
+  }
+
+  ycl_msg_reset(msg);
+  if (p_status_resp_serialize(&resp, &msg->buf) != PROTO_OK) {
+    return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
+
+int ycl_msg_parse_status_resp(struct ycl_msg *msg, struct ycl_status_resp *r) {
+  struct p_status_resp resp = {0};
+
+  if (p_status_resp_deserialize(&resp, msg->buf.data, msg->buf.len, NULL) !=
       PROTO_OK) {
     return YCL_ERR;
   }
 
-  if (okmsg != NULL) {
-    *okmsg = resp.okmsg;
+  if (resp.okmsg != NULL) {
+    r->okmsg = resp.okmsg;
   }
 
-  if (errmsg != NULL) {
-    *errmsg = resp.errmsg;
+  if (resp.errmsg != NULL) {
+    r->errmsg = resp.errmsg;
   }
 
   return YCL_OK;

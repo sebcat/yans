@@ -1,0 +1,16 @@
+#!/usr/bin/env lua
+-- vim: shiftwidth=2 tabstop=2 expandtab
+
+local m = ycl.msg()
+assert(m:size() == 0)
+assert(#m:data() == 0)
+
+m:create_status_resp{okmsg = "foo bar"}
+assert(m:size() > 0)
+assert(#m:data() > 0)
+
+local resp = m:parse_status_resp()
+assert(m:size() == 0)
+assert(#m:data() == 0)
+assert(resp.okmsg == "foo bar")
+assert(resp.errmsg == nil)

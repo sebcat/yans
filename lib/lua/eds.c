@@ -171,14 +171,17 @@ static void handle_pcall_error(struct lds_client *lds_cli) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
   if (lua_getfield(L, -1, "on_eval_error") == LUA_TFUNCTION) {
     /* S: err cli func */
-    lua_pushnil(L);
-    lua_copy(L, -4, -1);
-    lua_pcall(L, 1, 0, 0);
+    lua_rotate(L, -3, 1); /* S: func err clitbl */
+    lua_pop(L, 1);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
+    lua_rotate(L, -2, 1); /* S: func cli err */
+    lua_pcall(L, 2, 0, 0);
   }
   lua_pop(L, lua_gettop(L));
 }
 
-static void dispatch_cli_handler(struct eds_client *cli, const char *name) {
+static void dispatch_cli_handler(struct eds_client *cli, int fd,
+    const char *name) {
   struct lds_client *lds_cli = get_lds_client(cli);
   int ret;
   int top;
@@ -191,7 +194,8 @@ static void dispatch_cli_handler(struct eds_client *cli, const char *name) {
       lua_rotate(L, lua_gettop(L)-1, 1);
       lua_pop(L, 1);
       lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-      ret = lua_pcall(L, 1, 0, 0);
+      lua_pushinteger(L, (lua_Integer)fd);
+      ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
         handle_pcall_error(lds_cli);
         eds_service_remove_client(cli->svc, cli);
@@ -210,12 +214,12 @@ static void dispatch_cli_handler(struct eds_client *cli, const char *name) {
 
 static void on_readable(struct eds_client *cli, int fd) {
   (void)fd;
-  dispatch_cli_handler(cli, "on_readable");
+  dispatch_cli_handler(cli, fd, "on_readable");
 }
 
 static void on_writable(struct eds_client *cli, int fd) {
   (void)fd;
-  dispatch_cli_handler(cli, "on_writable");
+  dispatch_cli_handler(cli, fd, "on_writable");
 }
 
 
@@ -241,7 +245,8 @@ static void on_done(struct eds_client *cli, int fd) {
       lua_rotate(L, lua_gettop(L)-1, 1);
       lua_pop(L, 1);
       lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-      ret = lua_pcall(L, 1, 0, 0);
+      lua_pushinteger(L, (lua_Integer)fd);
+      ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
         handle_pcall_error(lds_cli);
       }

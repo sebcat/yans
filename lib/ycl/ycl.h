@@ -44,6 +44,7 @@ struct ycl_ethframe_req {
   const char *port_dsts;
 };
 
+void ycl_init(struct ycl_ctx *ycl, int fd);
 int ycl_connect(struct ycl_ctx *ycl, const char *dst);
 int ycl_close(struct ycl_ctx *ycl);
 int ycl_setnonblock(struct ycl_ctx *ycl, int status);

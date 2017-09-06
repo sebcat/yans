@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <lib/ycl/ycl.h>
 #include <lib/util/eds.h>
 #include <lib/lua/eds.h>
 
@@ -15,6 +16,7 @@ struct lds_services {
 };
 
 struct lds_client {
+  struct ycl_ctx ycl;
   int tblref; /* client state table in Lua registry */
   int selfref; /* userdata reference in Lua registry */
   struct eds_client *self;
@@ -84,6 +86,15 @@ static int l_clidata(lua_State *L) {
   return 1;
 }
 
+static int l_climsg(lua_State *L) {
+  struct lds_client *lds_cli = checkldsclient(L, 1);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+  lua_getfield(L, -1, "msg");
+  lua_rotate(L, -2, 1);
+  lua_pop(L, 1);
+  return 1;
+}
+
 static int l_cliremove(lua_State *L) {
   struct eds_client *cli;
   struct lds_client *lds_cli = checkldsclient(L, 1);
@@ -92,7 +103,7 @@ static int l_cliremove(lua_State *L) {
   return 0;
 }
 
-static void init_lds_client(struct eds_client *cli) {
+static void init_lds_client(struct eds_client *cli, int fd) {
   size_t i;
   struct lds_services *svcs = cli->svc->svc_data.ptr;
   struct lds_client *lds_cli = get_lds_client(cli);
@@ -154,7 +165,17 @@ static void init_lds_client(struct eds_client *cli) {
     lua_pop(L, 1);
   }
 
+  /* create an ycl message buffer */
+  if (lua_getglobal(L, "ycl") != LUA_TTABLE) {
+    luaL_error(L, "ycl not loaded");
+  }
+  lua_getfield(L, -1, "msg");
+  lua_call(L, 0, 1);
+  lua_setfield(L, -3, "msg");
+  lua_pop(L, 1);
+
   lds_cli->L = L;
+  ycl_init(&lds_cli->ycl, fd);
   lds_cli->tblref = luaL_ref(L, LUA_REGISTRYINDEX);
   lua_pop(L, 1); /* pop svctbl, S: cli */
   lds_cli->selfref = luaL_ref(L, LUA_REGISTRYINDEX); /* pop cli */
@@ -163,7 +184,7 @@ static void init_lds_client(struct eds_client *cli) {
   *dst = lds_cli;
 }
 
-static void handle_pcall_error(struct lds_client *lds_cli) {
+static void handle_pcall_error(struct lds_client *lds_cli, int fd) {
   lua_State *L;
 
   /* assume error obj on TOS */
@@ -174,8 +195,9 @@ static void handle_pcall_error(struct lds_client *lds_cli) {
     lua_rotate(L, -3, 1); /* S: func err clitbl */
     lua_pop(L, 1);
     lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-    lua_rotate(L, -2, 1); /* S: func cli err */
-    lua_pcall(L, 2, 0, 0);
+    lua_pushinteger(L, (lua_Integer)fd);
+    lua_rotate(L, -3, -1); /* S: func cli fd err */
+    lua_pcall(L, 3, 0, 0);
   }
   lua_pop(L, lua_gettop(L));
 }
@@ -197,7 +219,7 @@ static void dispatch_cli_handler(struct eds_client *cli, int fd,
       lua_pushinteger(L, (lua_Integer)fd);
       ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
-        handle_pcall_error(lds_cli);
+        handle_pcall_error(lds_cli, fd);
         eds_service_remove_client(cli->svc, cli);
       }
       /* clear stack (should not be needed, paranoia)  */
@@ -224,12 +246,12 @@ static void on_writable(struct eds_client *cli, int fd) {
 
 
 static void on_first_readable(struct eds_client *cli, int fd) {
-  init_lds_client(cli);
+  init_lds_client(cli, fd);
   eds_client_set_on_readable(cli, on_readable, 0);
 }
 
 static void on_first_writable(struct eds_client *cli, int fd) {
-  init_lds_client(cli);
+  init_lds_client(cli, fd);
   eds_client_set_on_writable(cli, on_writable, 0);
 }
 
@@ -248,7 +270,7 @@ static void on_done(struct eds_client *cli, int fd) {
       lua_pushinteger(L, (lua_Integer)fd);
       ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
-        handle_pcall_error(lds_cli);
+        handle_pcall_error(lds_cli, fd);
       }
     } else {
       lua_pop(L, 2);
@@ -438,6 +460,7 @@ static const struct luaL_Reg services_m[] = {
 
 static const struct luaL_Reg cli_m[] = {
   {"data", l_clidata},
+  {"msg", l_climsg},
   {"remove", l_cliremove},
   {NULL, NULL},
 };

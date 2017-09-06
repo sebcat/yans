@@ -17,6 +17,11 @@
 
 #pragma GCC visibility push(default)
 
+void ycl_init(struct ycl_ctx *ycl, int fd) {
+  ycl->fd = fd;
+  ycl->errbuf[0] = '\0';
+}
+
 int ycl_connect(struct ycl_ctx *ycl, const char *dst) {
   int ret;
   io_t io;
@@ -27,8 +32,7 @@ int ycl_connect(struct ycl_ctx *ycl, const char *dst) {
     return YCL_ERR;
   }
 
-  ycl->fd = IO_FILENO(&io);
-  ycl->errbuf[0] = '\0';
+  ycl_init(ycl, IO_FILENO(&io));
   return YCL_OK;
 }
 

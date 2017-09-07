@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <lib/ycl/ycl.h>
 #include <lib/util/eds.h>
 #include <lib/lua/eds.h>
 
@@ -16,7 +15,6 @@ struct lds_services {
 };
 
 struct lds_client {
-  struct ycl_ctx ycl;
   int tblref; /* client state table in Lua registry */
   int selfref; /* userdata reference in Lua registry */
   struct eds_client *self;
@@ -83,15 +81,6 @@ static inline struct lds_client *get_lds_client(struct eds_client *cli) {
 static int l_clidata(lua_State *L) {
   struct lds_client *lds_cli = checkldsclient(L, 1);
   lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
-  return 1;
-}
-
-static int l_climsg(lua_State *L) {
-  struct lds_client *lds_cli = checkldsclient(L, 1);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
-  lua_getfield(L, -1, "msg");
-  lua_rotate(L, -2, 1);
-  lua_pop(L, 1);
   return 1;
 }
 
@@ -165,17 +154,7 @@ static void init_lds_client(struct eds_client *cli, int fd) {
     lua_pop(L, 1);
   }
 
-  /* create an ycl message buffer */
-  if (lua_getglobal(L, "ycl") != LUA_TTABLE) {
-    luaL_error(L, "ycl not loaded");
-  }
-  lua_getfield(L, -1, "msg");
-  lua_call(L, 0, 1);
-  lua_setfield(L, -3, "msg");
-  lua_pop(L, 1);
-
   lds_cli->L = L;
-  ycl_init(&lds_cli->ycl, fd);
   lds_cli->tblref = luaL_ref(L, LUA_REGISTRYINDEX);
   lua_pop(L, 1); /* pop svctbl, S: cli */
   lds_cli->selfref = luaL_ref(L, LUA_REGISTRYINDEX); /* pop cli */
@@ -460,7 +439,6 @@ static const struct luaL_Reg services_m[] = {
 
 static const struct luaL_Reg cli_m[] = {
   {"data", l_clidata},
-  {"msg", l_climsg},
   {"remove", l_cliremove},
   {NULL, NULL},
 };

@@ -15,6 +15,8 @@
 #define SETERR(ycl, ...) \
   snprintf((ycl)->errbuf, sizeof((ycl)->errbuf), __VA_ARGS__)
 
+/* the reason this is here, is because the build system is/should be
+ * using -fvisibility=hidden, except for library code */
 #pragma GCC visibility push(default)
 
 void ycl_init(struct ycl_ctx *ycl, int fd) {
@@ -76,9 +78,7 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   while (left > 0) {
     ret = write(ycl->fd, data, left);
     if (ret < 0) {
-      if (errno == EINTR) {
-        continue;
-      } else if (errno == EWOULDBLOCK || errno == EAGAIN) {
+      if (errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN) {
         return YCL_AGAIN;
       } else {
         SETERR(ycl, "ycl_sendmsg: %s", strerror(errno));

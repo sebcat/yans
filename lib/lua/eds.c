@@ -112,7 +112,7 @@ static void init_lds_client(struct eds_client *cli, int fd) {
     }
   }
 
-  /* no svc found? */
+  /* no svc found? That would be bad */
   if (i == svcs->nsvcs) {
     fprintf(stderr, "svc inconsistency: %p not in %p (nsvcs:%zu)\n",
         cli->svc, svcs->svcs, svcs->nsvcs);
@@ -219,15 +219,12 @@ static void dispatch_cli_handler(struct eds_client *cli, int fd,
 }
 
 static void on_readable(struct eds_client *cli, int fd) {
-  (void)fd;
   dispatch_cli_handler(cli, fd, "on_readable");
 }
 
 static void on_writable(struct eds_client *cli, int fd) {
-  (void)fd;
   dispatch_cli_handler(cli, fd, "on_writable");
 }
-
 
 static void on_first_readable(struct eds_client *cli, int fd) {
   init_lds_client(cli, fd);
@@ -237,6 +234,44 @@ static void on_first_readable(struct eds_client *cli, int fd) {
 static void on_first_writable(struct eds_client *cli, int fd) {
   init_lds_client(cli, fd);
   eds_client_set_on_writable(cli, on_writable, 0);
+}
+
+static int l_clisetonreadable(lua_State *L) {
+  struct lds_client *lds_cli;
+  struct eds_client *cli;
+  int flags;
+  void (*cb)(struct eds_client *, int);
+
+  lds_cli = checkldsclient(L, 1);
+  cli = lds_cli->self;
+  flags = (lua_Integer)luaL_checkinteger(L, 3);
+  lua_pop(L, 1);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+  lua_rotate(L, -2, 1);
+  /* S: cli clitbl cb */
+  cb = (lua_type(L, -1) == LUA_TNIL) ? NULL : on_readable;
+  lua_setfield(L, -2, "on_readable");
+  eds_client_set_on_readable(cli, cb, flags);
+  return 0;
+}
+
+static int l_clisetonwritable(lua_State *L) {
+  struct lds_client *lds_cli;
+  struct eds_client *cli;
+  int flags;
+  void (*cb)(struct eds_client *, int);
+
+  lds_cli = checkldsclient(L, 1);
+  cli = lds_cli->self;
+  flags = (lua_Integer)luaL_checkinteger(L, 3);
+  lua_pop(L, 1);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+  lua_rotate(L, -2, 1);
+  /* S: cli clitbl cb */
+  cb = (lua_type(L, -1) == LUA_TNIL) ? NULL : on_writable;
+  lua_setfield(L, -2, "on_writable");
+  eds_client_set_on_writable(cli, cb, flags);
+  return 0;
 }
 
 static void on_done(struct eds_client *cli, int fd) {
@@ -445,6 +480,8 @@ static const struct luaL_Reg services_m[] = {
 static const struct luaL_Reg cli_m[] = {
   {"data", l_clidata},
   {"remove", l_cliremove},
+  {"set_on_readable", l_clisetonreadable},
+  {"set_on_writable", l_clisetonwritable},
   {NULL, NULL},
 };
 
@@ -468,5 +505,7 @@ int luaopen_eds(lua_State *L) {
 
   /* register eds library functions */
   luaL_newlib(L, eds_f);
+  lua_pushinteger(L, EDS_DEFER);
+  lua_setfield(L, -2, "DEFER");
   return 1;
 }

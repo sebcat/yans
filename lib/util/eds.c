@@ -32,7 +32,7 @@
  * Used for graceful shutdown on HUP, TERM, INT signals */
 static struct eds_service *running_service;
 
-/* set to 1 when a listener receives SIGCHLD, cleared when reaping zombies */
+/* set to 1 when a listener receives SIGCHLD, cleared after reaping zombies */
 static volatile sig_atomic_t got_listener_sigchld;
 
 /* when running with a process supervisor, this variable is set in the

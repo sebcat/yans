@@ -212,18 +212,17 @@ am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
 	3rd_party/lpeg.$(OBJEXT) 3rd_party/lua.$(OBJEXT) \
 	3rd_party/jansson.$(OBJEXT) lib/util/u8.$(OBJEXT) \
 	lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
-	lib/util/sandbox.$(OBJEXT) lib/util/fio.$(OBJEXT) \
-	lib/util/netstring.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
-	lib/util/eds.$(OBJEXT) lib/net/punycode.$(OBJEXT) \
-	lib/net/eth.$(OBJEXT) lib/net/iface.$(OBJEXT) \
-	lib/net/ip.$(OBJEXT) lib/net/ports.$(OBJEXT) \
-	lib/net/url.$(OBJEXT) lib/net/route.$(OBJEXT) \
-	lib/lua/net.$(OBJEXT) lib/lua/http.$(OBJEXT) \
-	lib/lua/ypcap.$(OBJEXT) lib/lua/json.$(OBJEXT) \
-	lib/lua/cgi.$(OBJEXT) lib/lua/fts.$(OBJEXT) \
-	lib/lua/opts.$(OBJEXT) lib/lua/ylog.$(OBJEXT) \
-	lib/lua/eds.$(OBJEXT) lib/lua/ycl.$(OBJEXT) \
-	apps/yans/yans.$(OBJEXT)
+	lib/util/sandbox.$(OBJEXT) lib/util/netstring.$(OBJEXT) \
+	lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
+	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
+	lib/net/iface.$(OBJEXT) lib/net/ip.$(OBJEXT) \
+	lib/net/ports.$(OBJEXT) lib/net/url.$(OBJEXT) \
+	lib/net/route.$(OBJEXT) lib/lua/net.$(OBJEXT) \
+	lib/lua/http.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
+	lib/lua/json.$(OBJEXT) lib/lua/cgi.$(OBJEXT) \
+	lib/lua/fts.$(OBJEXT) lib/lua/opts.$(OBJEXT) \
+	lib/lua/ylog.$(OBJEXT) lib/lua/eds.$(OBJEXT) \
+	lib/lua/ycl.$(OBJEXT) apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	libycl.la
@@ -745,8 +744,6 @@ yans_SOURCES = \
     lib/util/io.h \
     lib/util/sandbox.c \
     lib/util/sandbox.h \
-    lib/util/fio.c \
-    lib/util/fio.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
     lib/util/ylog.h \
@@ -1164,8 +1161,6 @@ lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPEND
 	3rd_party/$(DEPDIR)/$(am__dirstamp)
 lib/util/sandbox.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/fio.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/route.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/lua/$(am__dirstamp):
@@ -1281,7 +1276,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/conf_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/eds.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/fio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/flagset.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libycl_la-buf.Plo@am__quote@

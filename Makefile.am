@@ -116,8 +116,6 @@ yans_SOURCES = \
     lib/util/io.h \
     lib/util/sandbox.c \
     lib/util/sandbox.h \
-    lib/util/fio.c \
-    lib/util/fio.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
     lib/util/ylog.h \

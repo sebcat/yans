@@ -81,6 +81,7 @@ static inline struct lds_client *get_lds_client(struct eds_client *cli) {
 static int l_clidata(lua_State *L) {
   struct lds_client *lds_cli = checkldsclient(L, 1);
   lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+  lua_getfield(L, -1, "clictx");
   return 1;
 }
 
@@ -153,6 +154,10 @@ static void init_lds_client(struct eds_client *cli, int fd) {
   } else {
     lua_pop(L, 1);
   }
+
+  /* EDS client data for Lua services */
+  lua_newtable(L);
+  lua_setfield(L, -2, "clictx");
 
   lds_cli->L = L;
   lds_cli->tblref = luaL_ref(L, LUA_REGISTRYINDEX);

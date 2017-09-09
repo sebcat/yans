@@ -106,6 +106,13 @@ static int l_yclctx(lua_State *L) {
   ctx = lua_newuserdata(L, sizeof(struct ycl_ctx));
   luaL_setmetatable(L, MTNAME_YCLCTX);
   ycl_init(ctx, fd);
+
+  /* for the eds use case, the file descriptor is managed externally and
+   * closed implicitly by eds. If ycl closes its fd on gc, that may occur
+   * after a new client connects, receiving the same fd number. So if we
+   * create a ycl_ctx with an externally opened file descriptor, the fd should
+   * be closed externally too. Again, for our current use case. */
+  ycl_set_externalfd(ctx);
   return 1;
 }
 

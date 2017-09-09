@@ -21,6 +21,7 @@
 
 void ycl_init(struct ycl_ctx *ycl, int fd) {
   ycl->fd = fd;
+  ycl->flags = 0;
   ycl->errbuf[0] = '\0';
 }
 
@@ -41,11 +42,16 @@ int ycl_connect(struct ycl_ctx *ycl, const char *dst) {
 int ycl_close(struct ycl_ctx *ycl) {
   int ret;
 
-  ret = close(ycl->fd);
-  if (ret < 0) {
-    SETERR(ycl, "close: %s", strerror(errno));
-    return YCL_ERR;
+  if (!(ycl->flags & YCL_EXTERNALFD)) {
+    ret = close(ycl->fd);
+    if (ret < 0) {
+      SETERR(ycl, "close: %s", strerror(errno));
+      return YCL_ERR;
+    }
   }
+
+  ycl->flags = 0;
+  ycl->errbuf[0] = '\0';
   ycl->fd = -1;
   return YCL_OK;
 }

@@ -15,20 +15,27 @@
 struct ycl_ctx {
   /* -- internal -- */
   int fd;
+  int flags;
   char errbuf[YCL_ERRBUFSIZ];
 };
 
 struct ycl_msg {
+  /* -- internal -- */
   buf_t buf;
   size_t off;
 };
 
-/* accessor macros for struct ycl_ctx, use these instead of accessing the
+/* internal ycl_ctx flags */
+#define YCL_EXTERNALFD (1 << 0)
+
+/* macros for struct ycl_ctx, use these instead of accessing the
  * fields directly */
 #define ycl_fd(ycl) \
     (ycl)->fd
 #define ycl_strerror(ycl) \
     (ycl)->errbuf
+#define ycl_set_externalfd(ycl) \
+  (ycl)->flags |= YCL_EXTERNALFD;
 
 struct ycl_ethframe_req {
   size_t ncustom_frames;

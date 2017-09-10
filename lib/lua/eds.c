@@ -15,8 +15,9 @@ struct lds_services {
 };
 
 struct lds_client {
+  int fd;
   int tblref; /* client state table in Lua registry */
-  int selfref; /* userdata reference in Lua registry */
+  int selfref; /* client userdata reference in Lua registry */
   struct eds_client *self;
   lua_State *L;
 };
@@ -78,10 +79,9 @@ static inline struct lds_client *get_lds_client(struct eds_client *cli) {
   return *lds_cli;
 }
 
-static int l_clidata(lua_State *L) {
+static int l_clifd(lua_State *L) {
   struct lds_client *lds_cli = checkldsclient(L, 1);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
-  lua_getfield(L, -1, "clictx");
+  lua_pushinteger(L, (lua_Integer)lds_cli->fd);
   return 1;
 }
 
@@ -95,17 +95,28 @@ static int l_cliremove(lua_State *L) {
 
 static void init_lds_client(struct eds_client *cli, int fd) {
   size_t i;
-  struct lds_services *svcs = cli->svc->svc_data.ptr;
-  struct lds_client *lds_cli = get_lds_client(cli);
-  struct lds_client **dst;
   lua_State *L;
+  struct lds_services *svcs;
+  struct lds_client *lds_cli;
+  struct lds_client **dst;
+  static const char *fields[] = {
+    /* fields to copy from the service table to the client table */
+    "on_readable",
+    "on_writable",
+    "on_done",
+    "on_reaped_child",
+    "on_eval_error",
+    NULL,
+  };
 
+  lds_cli = get_lds_client(cli);
   if (lds_cli != NULL) {
     /* already initialized */
     return;
   }
 
   /* lookup current svc */
+  svcs = cli->svc->svc_data.ptr;
   for (i = 0; i < svcs->nsvcs; i++) {
     if (svcs->svcs + i == cli->svc) {
       break;
@@ -125,34 +136,13 @@ static void init_lds_client(struct eds_client *cli, int fd) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, (lua_Integer)svcs->tblrefs[i]);
   lua_newtable(L); /* S: cli, {svctbl}, {clitbl} */
 
-  if (lua_getfield(L, -2, "on_readable") == LUA_TFUNCTION) {
-    lua_setfield(L, -2, "on_readable");
-  } else {
-    lua_pop(L, 1);
-  }
-
-  if (lua_getfield(L, -2, "on_writable") == LUA_TFUNCTION) {
-    lua_setfield(L, -2, "on_writable");
-  } else {
-    lua_pop(L, 1);
-  }
-
-  if (lua_getfield(L, -2, "on_done") == LUA_TFUNCTION) {
-    lua_setfield(L, -2, "on_done");
-  } else {
-    lua_pop(L, 1);
-  }
-
-  if (lua_getfield(L, -2, "on_reaped_child") == LUA_TFUNCTION) {
-    lua_setfield(L, -2, "on_reaped_child");
-  } else {
-    lua_pop(L, 1);
-  }
-
-  if (lua_getfield(L, -2, "on_eval_error") == LUA_TFUNCTION) {
-    lua_setfield(L, -2, "on_eval_error");
-  } else {
-    lua_pop(L, 1);
+  /* copy fields from the service table to the client table */
+  for (i = 0; fields[i] != NULL; i++) {
+    if (lua_getfield(L, -2, fields[i]) == LUA_TFUNCTION) {
+      lua_setfield(L, -2, fields[i]);
+    } else {
+      lua_pop(L, 1);
+    }
   }
 
   /* EDS client data for Lua services */
@@ -160,6 +150,7 @@ static void init_lds_client(struct eds_client *cli, int fd) {
   lua_setfield(L, -2, "clictx");
 
   lds_cli->L = L;
+  lds_cli->fd = fd;
   lds_cli->tblref = luaL_ref(L, LUA_REGISTRYINDEX);
   lua_pop(L, 1); /* pop svctbl, S: cli */
   lds_cli->selfref = luaL_ref(L, LUA_REGISTRYINDEX); /* pop cli */
@@ -168,19 +159,18 @@ static void init_lds_client(struct eds_client *cli, int fd) {
   *dst = lds_cli;
 }
 
-static void handle_pcall_error(struct lds_client *lds_cli, int fd) {
+static void handle_pcall_error(struct lds_client *lds_cli) {
   lua_State *L;
 
   /* assume error obj on TOS */
   L = lds_cli->L;
   lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
   if (lua_getfield(L, -1, "on_eval_error") == LUA_TFUNCTION) {
-    /* S: err cli func */
-    lua_rotate(L, -3, 1); /* S: func err clitbl */
-    lua_pop(L, 1);
+    /* S: err clitbl func */
+    lua_getfield(L, -2, "clictx");
     lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-    lua_pushinteger(L, (lua_Integer)fd);
-    lua_rotate(L, -3, -1); /* S: func cli fd err */
+    lua_pushvalue(L, -5);
+    /* err clitbl func data cli err*/
     lua_pcall(L, 3, 0, 0);
   }
   lua_pop(L, lua_gettop(L));
@@ -190,27 +180,21 @@ static void dispatch_cli_handler(struct eds_client *cli, int fd,
     const char *name) {
   struct lds_client *lds_cli = get_lds_client(cli);
   int ret;
-  int top;
   struct lua_State *L;
 
   if (lds_cli != NULL) {
     L = lds_cli->L;
-    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref); /* clitbl */
     if (lua_getfield(L, -1, name) == LUA_TFUNCTION) {
-      lua_rotate(L, lua_gettop(L)-1, 1);
-      lua_pop(L, 1);
+      lua_getfield(L, -2, "clictx");
       lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-      lua_pushinteger(L, (lua_Integer)fd);
+      /* S: clitbl func cli data */
       ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
-        handle_pcall_error(lds_cli, fd);
+        handle_pcall_error(lds_cli);
         eds_service_remove_client(cli->svc, cli);
       }
-      /* clear stack (should not be needed, paranoia)  */
-      top = lua_gettop(L);
-      if (top > 0) {
-        lua_pop(L, top);
-      }
+      lua_pop(L, lua_gettop(L));
     } else {
       lua_pop(L, 2);
       eds_service_remove_client(cli->svc, cli);
@@ -281,20 +265,17 @@ static void on_done(struct eds_client *cli, int fd) {
 
   if (lds_cli != NULL) {
     L = lds_cli->L;
-    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref); /* S: {clitbl} */
-    if (lua_getfield(L, -1, "on_done") == LUA_TFUNCTION) { /* S: {clitbl} v */
-      lua_rotate(L, lua_gettop(L)-1, 1);
-      lua_pop(L, 1);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+    if (lua_getfield(L, -1, "on_done") == LUA_TFUNCTION) {
+      lua_getfield(L, -2, "clictx");
       lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-      lua_pushinteger(L, (lua_Integer)fd);
+      /* clitbl func cli data */
       ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
-        handle_pcall_error(lds_cli, fd);
+        handle_pcall_error(lds_cli);
       }
-    } else {
-      lua_pop(L, 2);
     }
-
+    lua_pop(L, lua_gettop(L));
     luaL_unref(L, LUA_REGISTRYINDEX, lds_cli->tblref);
     luaL_unref(L, LUA_REGISTRYINDEX, lds_cli->selfref);
   }
@@ -326,6 +307,7 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
 
 static void on_reaped_child(struct eds_service *svc, struct eds_client *cli,
       pid_t pid, int status) {
+  /* XXX: Nothing in the Lua bindings uses this yet */
   struct lds_client *lds_cli = get_lds_client(cli);
   struct lua_State *L;
   if (lds_cli != NULL) {
@@ -333,6 +315,7 @@ static void on_reaped_child(struct eds_service *svc, struct eds_client *cli,
     lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
     if (lua_getfield(L, -1, "on_reaped_child") == LUA_TFUNCTION) {
       /* S: {clitbl} func */
+      /* TODO: we probably want clictx and selfref here */
       lua_pushinteger(L, (lua_Integer)pid);
       lua_pushinteger(L, (lua_Integer)status);
       lua_pcall(L, 2, 0, 0);
@@ -478,7 +461,7 @@ static const struct luaL_Reg services_m[] = {
 };
 
 static const struct luaL_Reg cli_m[] = {
-  {"data", l_clidata},
+  {"fd", l_clifd},
   {"remove", l_cliremove},
   {"set_on_readable", l_clisetonreadable},
   {"set_on_writable", l_clisetonwritable},

@@ -147,17 +147,38 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(pkgincludedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libycl_la_LIBADD =
+libyans_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
+am_libyans_la_OBJECTS = 3rd_party/libyans_la-linenoise.lo \
+	3rd_party/libyans_la-lpeg.lo 3rd_party/libyans_la-lua.lo \
+	3rd_party/libyans_la-jansson.lo lib/util/libyans_la-u8.lo \
+	lib/util/libyans_la-buf.lo lib/util/libyans_la-io.lo \
+	lib/util/libyans_la-sandbox.lo \
+	lib/util/libyans_la-netstring.lo lib/util/libyans_la-ylog.lo \
+	lib/util/libyans_la-eds.lo lib/net/libyans_la-punycode.lo \
+	lib/net/libyans_la-eth.lo lib/net/libyans_la-iface.lo \
+	lib/net/libyans_la-ip.lo lib/net/libyans_la-ports.lo \
+	lib/net/libyans_la-url.lo lib/net/libyans_la-route.lo \
+	lib/lua/libyans_la-net.lo lib/lua/libyans_la-http.lo \
+	lib/lua/libyans_la-ypcap.lo lib/lua/libyans_la-json.lo \
+	lib/lua/libyans_la-cgi.lo lib/lua/libyans_la-fts.lo \
+	lib/lua/libyans_la-opts.lo lib/lua/libyans_la-ylog.lo \
+	lib/lua/libyans_la-eds.lo lib/lua/libyans_la-ycl.lo \
+	lib/lua/libyans_la-yans.lo
+libyans_la_OBJECTS = $(am_libyans_la_OBJECTS)
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
+libyans_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libyans_la_CFLAGS) \
+	$(CFLAGS) $(libyans_la_LDFLAGS) $(LDFLAGS) -o $@
+libycl_la_LIBADD =
 am_libycl_la_OBJECTS = lib/util/libycl_la-buf.lo \
 	lib/util/libycl_la-io.lo lib/util/libycl_la-netstring.lo \
 	proto/libycl_la-pcap_req.lo proto/libycl_la-ethframe_req.lo \
 	proto/libycl_la-status_resp.lo lib/ycl/libycl_la-ycl.lo
 libycl_la_OBJECTS = $(am_libycl_la_OBJECTS)
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
 libycl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libycl_la_CFLAGS) \
 	$(CFLAGS) $(libycl_la_LDFLAGS) $(LDFLAGS) -o $@
@@ -208,24 +229,10 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
-am_yans_OBJECTS = 3rd_party/linenoise.$(OBJEXT) \
-	3rd_party/lpeg.$(OBJEXT) 3rd_party/lua.$(OBJEXT) \
-	3rd_party/jansson.$(OBJEXT) lib/util/u8.$(OBJEXT) \
-	lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
-	lib/util/sandbox.$(OBJEXT) lib/util/netstring.$(OBJEXT) \
-	lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
-	lib/net/punycode.$(OBJEXT) lib/net/eth.$(OBJEXT) \
-	lib/net/iface.$(OBJEXT) lib/net/ip.$(OBJEXT) \
-	lib/net/ports.$(OBJEXT) lib/net/url.$(OBJEXT) \
-	lib/net/route.$(OBJEXT) lib/lua/net.$(OBJEXT) \
-	lib/lua/http.$(OBJEXT) lib/lua/ypcap.$(OBJEXT) \
-	lib/lua/json.$(OBJEXT) lib/lua/cgi.$(OBJEXT) \
-	lib/lua/fts.$(OBJEXT) lib/lua/opts.$(OBJEXT) \
-	lib/lua/ylog.$(OBJEXT) lib/lua/eds.$(OBJEXT) \
-	lib/lua/ycl.$(OBJEXT) apps/yans/yans.$(OBJEXT)
+am_yans_OBJECTS = apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	libycl.la
+	libycl.la libyans.la
 am_ycli_OBJECTS = lib/net/iface.$(OBJEXT) apps/ycli/iflist.$(OBJEXT) \
 	apps/ycli/pcapcli.$(OBJEXT) apps/ycli/ethframecli.$(OBJEXT) \
 	apps/ycli/ycli.$(OBJEXT)
@@ -265,12 +272,13 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
-	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
-	$(lib_util_conf_test_SOURCES) \
+SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) $(ethd_SOURCES) \
+	$(fc2_SOURCES) $(lib_net_punycode_test_SOURCES) \
+	$(lib_net_url_test_SOURCES) $(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
 	$(lib_util_u8_test_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
-DIST_SOURCES = $(libycl_la_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
+DIST_SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) \
+	$(ethd_SOURCES) $(fc2_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
@@ -668,7 +676,10 @@ AM_CFLAGS = -Wall -Werror -fvisibility=hidden -Wl,--build-id=none \
 
 TEST_EXTENSIONS = .yans
 YANS_LOG_COMPILER = ./yans
-lib_LTLIBRARIES = libycl.la
+lib_LTLIBRARIES = \
+    libycl.la \
+    libyans.la
+
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
 
@@ -728,6 +739,30 @@ ethd_LDADD = \
     $(PCAPLIB)
 
 yans_SOURCES = \
+    apps/yans/yans.c
+
+yans_LDADD = \
+    $(PCAPLIB) \
+    $(SECCOMPLIB) \
+    libycl.la \
+    libyans.la \
+    -lm
+
+ycli_SOURCES = \
+    lib/net/iface.c \
+    lib/net/iface.h \
+    apps/ycli/iflist.c \
+    apps/ycli/iflist.h \
+    apps/ycli/pcapcli.c \
+    apps/ycli/pcapcli.h \
+    apps/ycli/ethframecli.c \
+    apps/ycli/ethframecli.h \
+    apps/ycli/ycli.c
+
+ycli_LDADD = \
+    libycl.la
+
+libyans_la_SOURCES = \
     3rd_party/linenoise.c \
     3rd_party/linenoise.h \
     3rd_party/lpeg.c \
@@ -785,28 +820,14 @@ yans_SOURCES = \
     lib/lua/eds.c \
     lib/lua/ycl.h \
     lib/lua/ycl.c \
-    apps/yans/yans.c
+    lib/lua/yans.h \
+    lib/lua/yans.c
 
-yans_LDADD = \
-    $(PCAPLIB) \
-    $(SECCOMPLIB) \
-    libycl.la \
-    -lm
+libyans_la_LDFLAGS = \
+    -version-info 1:0:0 \
+    -fvisibility=hidden
 
-ycli_SOURCES = \
-    lib/net/iface.c \
-    lib/net/iface.h \
-    apps/ycli/iflist.c \
-    apps/ycli/iflist.h \
-    apps/ycli/pcapcli.c \
-    apps/ycli/pcapcli.h \
-    apps/ycli/ethframecli.c \
-    apps/ycli/ethframecli.h \
-    apps/ycli/ycli.c
-
-ycli_LDADD = \
-    libycl.la
-
+libyans_la_CFLAGS = $(AM_CFLAGS)
 libycl_la_SOURCES = \
     lib/util/buf.c \
     lib/util/buf.h \
@@ -944,12 +965,91 @@ clean-libLTLIBRARIES:
 	  echo rm -f $${locs}; \
 	  rm -f $${locs}; \
 	}
+3rd_party/$(am__dirstamp):
+	@$(MKDIR_P) 3rd_party
+	@: > 3rd_party/$(am__dirstamp)
+3rd_party/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) 3rd_party/$(DEPDIR)
+	@: > 3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/libyans_la-linenoise.lo: 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/libyans_la-lpeg.lo: 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/libyans_la-lua.lo: 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
+3rd_party/libyans_la-jansson.lo: 3rd_party/$(am__dirstamp) \
+	3rd_party/$(DEPDIR)/$(am__dirstamp)
 lib/util/$(am__dirstamp):
 	@$(MKDIR_P) lib/util
 	@: > lib/util/$(am__dirstamp)
 lib/util/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) lib/util/$(DEPDIR)
 	@: > lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-u8.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-buf.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-io.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-sandbox.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-netstring.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-ylog.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/libyans_la-eds.lo: lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/net/$(am__dirstamp):
+	@$(MKDIR_P) lib/net
+	@: > lib/net/$(am__dirstamp)
+lib/net/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/net/$(DEPDIR)
+	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-punycode.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-eth.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-iface.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-ip.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-ports.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-url.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/net/libyans_la-route.lo: lib/net/$(am__dirstamp) \
+	lib/net/$(DEPDIR)/$(am__dirstamp)
+lib/lua/$(am__dirstamp):
+	@$(MKDIR_P) lib/lua
+	@: > lib/lua/$(am__dirstamp)
+lib/lua/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/lua/$(DEPDIR)
+	@: > lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-net.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-http.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-ypcap.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-json.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-cgi.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-fts.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-opts.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-ylog.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-eds.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-ycl.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-yans.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+
+libyans.la: $(libyans_la_OBJECTS) $(libyans_la_DEPENDENCIES) $(EXTRA_libyans_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(libyans_la_LINK) -rpath $(libdir) $(libyans_la_OBJECTS) $(libyans_la_LIBADD) $(LIBS)
 lib/util/libycl_la-buf.lo: lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/libycl_la-io.lo: lib/util/$(am__dirstamp) \
@@ -1051,12 +1151,6 @@ lib/util/flagset.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/eds.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/net/$(am__dirstamp):
-	@$(MKDIR_P) lib/net
-	@: > lib/net/$(am__dirstamp)
-lib/net/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/net/$(DEPDIR)
-	@: > lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/iface.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -1145,50 +1239,6 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
-3rd_party/$(am__dirstamp):
-	@$(MKDIR_P) 3rd_party
-	@: > 3rd_party/$(am__dirstamp)
-3rd_party/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) 3rd_party/$(DEPDIR)
-	@: > 3rd_party/$(DEPDIR)/$(am__dirstamp)
-3rd_party/linenoise.$(OBJEXT): 3rd_party/$(am__dirstamp) \
-	3rd_party/$(DEPDIR)/$(am__dirstamp)
-3rd_party/lpeg.$(OBJEXT): 3rd_party/$(am__dirstamp) \
-	3rd_party/$(DEPDIR)/$(am__dirstamp)
-3rd_party/lua.$(OBJEXT): 3rd_party/$(am__dirstamp) \
-	3rd_party/$(DEPDIR)/$(am__dirstamp)
-3rd_party/jansson.$(OBJEXT): 3rd_party/$(am__dirstamp) \
-	3rd_party/$(DEPDIR)/$(am__dirstamp)
-lib/util/sandbox.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/net/route.$(OBJEXT): lib/net/$(am__dirstamp) \
-	lib/net/$(DEPDIR)/$(am__dirstamp)
-lib/lua/$(am__dirstamp):
-	@$(MKDIR_P) lib/lua
-	@: > lib/lua/$(am__dirstamp)
-lib/lua/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/lua/$(DEPDIR)
-	@: > lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/net.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/http.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/ypcap.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/json.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/cgi.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/fts.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/opts.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/ylog.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/eds.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/ycl.$(OBJEXT): lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
 apps/yans/$(am__dirstamp):
 	@$(MKDIR_P) apps/yans
 	@: > apps/yans/$(am__dirstamp)
@@ -1223,12 +1273,15 @@ ycli$(EXEEXT): $(ycli_OBJECTS) $(ycli_DEPENDENCIES) $(EXTRA_ycli_DEPENDENCIES)
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f 3rd_party/*.$(OBJEXT)
+	-rm -f 3rd_party/*.lo
 	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/fc2/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f apps/ycli/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
+	-rm -f lib/lua/*.lo
 	-rm -f lib/net/*.$(OBJEXT)
+	-rm -f lib/net/*.lo
 	-rm -f lib/util/*.$(OBJEXT)
 	-rm -f lib/util/*.lo
 	-rm -f lib/ycl/*.$(OBJEXT)
@@ -1239,10 +1292,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/jansson.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/linenoise.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/lpeg.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/lua.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-jansson.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-linenoise.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-lpeg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-lua.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
@@ -1252,24 +1305,31 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/iflist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/pcapcli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ycli.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/cgi.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/eds.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/fts.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/http.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/json.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/net.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/opts.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ycl.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ylog.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/ypcap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-cgi.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-eds.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-fts.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-http.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-json.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-net.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-opts.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-yans.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-ycl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-ylog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/lua/$(DEPDIR)/libyans_la-ypcap.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/eth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/fcgi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/iface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ip.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-eth.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-iface.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-ip.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-ports.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-punycode.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-route.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/libyans_la-url.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/ports.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/punycode_test.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/net/$(DEPDIR)/url_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/buf.Po@am__quote@
@@ -1278,6 +1338,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/eds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/flagset.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/io.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-buf.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-eds.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-io.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-netstring.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-sandbox.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-u8.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libyans_la-ylog.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libycl_la-buf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libycl_la-io.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/libycl_la-netstring.Plo@am__quote@
@@ -1285,7 +1352,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/netstring_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os_test.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/sandbox.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
@@ -1320,6 +1386,209 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+3rd_party/libyans_la-linenoise.lo: 3rd_party/linenoise.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT 3rd_party/libyans_la-linenoise.lo -MD -MP -MF 3rd_party/$(DEPDIR)/libyans_la-linenoise.Tpo -c -o 3rd_party/libyans_la-linenoise.lo `test -f '3rd_party/linenoise.c' || echo '$(srcdir)/'`3rd_party/linenoise.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) 3rd_party/$(DEPDIR)/libyans_la-linenoise.Tpo 3rd_party/$(DEPDIR)/libyans_la-linenoise.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='3rd_party/linenoise.c' object='3rd_party/libyans_la-linenoise.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o 3rd_party/libyans_la-linenoise.lo `test -f '3rd_party/linenoise.c' || echo '$(srcdir)/'`3rd_party/linenoise.c
+
+3rd_party/libyans_la-lpeg.lo: 3rd_party/lpeg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT 3rd_party/libyans_la-lpeg.lo -MD -MP -MF 3rd_party/$(DEPDIR)/libyans_la-lpeg.Tpo -c -o 3rd_party/libyans_la-lpeg.lo `test -f '3rd_party/lpeg.c' || echo '$(srcdir)/'`3rd_party/lpeg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) 3rd_party/$(DEPDIR)/libyans_la-lpeg.Tpo 3rd_party/$(DEPDIR)/libyans_la-lpeg.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='3rd_party/lpeg.c' object='3rd_party/libyans_la-lpeg.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o 3rd_party/libyans_la-lpeg.lo `test -f '3rd_party/lpeg.c' || echo '$(srcdir)/'`3rd_party/lpeg.c
+
+3rd_party/libyans_la-lua.lo: 3rd_party/lua.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT 3rd_party/libyans_la-lua.lo -MD -MP -MF 3rd_party/$(DEPDIR)/libyans_la-lua.Tpo -c -o 3rd_party/libyans_la-lua.lo `test -f '3rd_party/lua.c' || echo '$(srcdir)/'`3rd_party/lua.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) 3rd_party/$(DEPDIR)/libyans_la-lua.Tpo 3rd_party/$(DEPDIR)/libyans_la-lua.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='3rd_party/lua.c' object='3rd_party/libyans_la-lua.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o 3rd_party/libyans_la-lua.lo `test -f '3rd_party/lua.c' || echo '$(srcdir)/'`3rd_party/lua.c
+
+3rd_party/libyans_la-jansson.lo: 3rd_party/jansson.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT 3rd_party/libyans_la-jansson.lo -MD -MP -MF 3rd_party/$(DEPDIR)/libyans_la-jansson.Tpo -c -o 3rd_party/libyans_la-jansson.lo `test -f '3rd_party/jansson.c' || echo '$(srcdir)/'`3rd_party/jansson.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) 3rd_party/$(DEPDIR)/libyans_la-jansson.Tpo 3rd_party/$(DEPDIR)/libyans_la-jansson.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='3rd_party/jansson.c' object='3rd_party/libyans_la-jansson.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o 3rd_party/libyans_la-jansson.lo `test -f '3rd_party/jansson.c' || echo '$(srcdir)/'`3rd_party/jansson.c
+
+lib/util/libyans_la-u8.lo: lib/util/u8.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-u8.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-u8.Tpo -c -o lib/util/libyans_la-u8.lo `test -f 'lib/util/u8.c' || echo '$(srcdir)/'`lib/util/u8.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-u8.Tpo lib/util/$(DEPDIR)/libyans_la-u8.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/u8.c' object='lib/util/libyans_la-u8.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-u8.lo `test -f 'lib/util/u8.c' || echo '$(srcdir)/'`lib/util/u8.c
+
+lib/util/libyans_la-buf.lo: lib/util/buf.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-buf.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-buf.Tpo -c -o lib/util/libyans_la-buf.lo `test -f 'lib/util/buf.c' || echo '$(srcdir)/'`lib/util/buf.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-buf.Tpo lib/util/$(DEPDIR)/libyans_la-buf.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/buf.c' object='lib/util/libyans_la-buf.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-buf.lo `test -f 'lib/util/buf.c' || echo '$(srcdir)/'`lib/util/buf.c
+
+lib/util/libyans_la-io.lo: lib/util/io.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-io.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-io.Tpo -c -o lib/util/libyans_la-io.lo `test -f 'lib/util/io.c' || echo '$(srcdir)/'`lib/util/io.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-io.Tpo lib/util/$(DEPDIR)/libyans_la-io.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/io.c' object='lib/util/libyans_la-io.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-io.lo `test -f 'lib/util/io.c' || echo '$(srcdir)/'`lib/util/io.c
+
+lib/util/libyans_la-sandbox.lo: lib/util/sandbox.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-sandbox.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-sandbox.Tpo -c -o lib/util/libyans_la-sandbox.lo `test -f 'lib/util/sandbox.c' || echo '$(srcdir)/'`lib/util/sandbox.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-sandbox.Tpo lib/util/$(DEPDIR)/libyans_la-sandbox.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/sandbox.c' object='lib/util/libyans_la-sandbox.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-sandbox.lo `test -f 'lib/util/sandbox.c' || echo '$(srcdir)/'`lib/util/sandbox.c
+
+lib/util/libyans_la-netstring.lo: lib/util/netstring.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-netstring.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-netstring.Tpo -c -o lib/util/libyans_la-netstring.lo `test -f 'lib/util/netstring.c' || echo '$(srcdir)/'`lib/util/netstring.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-netstring.Tpo lib/util/$(DEPDIR)/libyans_la-netstring.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/netstring.c' object='lib/util/libyans_la-netstring.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-netstring.lo `test -f 'lib/util/netstring.c' || echo '$(srcdir)/'`lib/util/netstring.c
+
+lib/util/libyans_la-ylog.lo: lib/util/ylog.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-ylog.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-ylog.Tpo -c -o lib/util/libyans_la-ylog.lo `test -f 'lib/util/ylog.c' || echo '$(srcdir)/'`lib/util/ylog.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-ylog.Tpo lib/util/$(DEPDIR)/libyans_la-ylog.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/ylog.c' object='lib/util/libyans_la-ylog.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-ylog.lo `test -f 'lib/util/ylog.c' || echo '$(srcdir)/'`lib/util/ylog.c
+
+lib/util/libyans_la-eds.lo: lib/util/eds.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/util/libyans_la-eds.lo -MD -MP -MF lib/util/$(DEPDIR)/libyans_la-eds.Tpo -c -o lib/util/libyans_la-eds.lo `test -f 'lib/util/eds.c' || echo '$(srcdir)/'`lib/util/eds.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/util/$(DEPDIR)/libyans_la-eds.Tpo lib/util/$(DEPDIR)/libyans_la-eds.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/util/eds.c' object='lib/util/libyans_la-eds.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/util/libyans_la-eds.lo `test -f 'lib/util/eds.c' || echo '$(srcdir)/'`lib/util/eds.c
+
+lib/net/libyans_la-punycode.lo: lib/net/punycode.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-punycode.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-punycode.Tpo -c -o lib/net/libyans_la-punycode.lo `test -f 'lib/net/punycode.c' || echo '$(srcdir)/'`lib/net/punycode.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-punycode.Tpo lib/net/$(DEPDIR)/libyans_la-punycode.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/punycode.c' object='lib/net/libyans_la-punycode.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-punycode.lo `test -f 'lib/net/punycode.c' || echo '$(srcdir)/'`lib/net/punycode.c
+
+lib/net/libyans_la-eth.lo: lib/net/eth.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-eth.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-eth.Tpo -c -o lib/net/libyans_la-eth.lo `test -f 'lib/net/eth.c' || echo '$(srcdir)/'`lib/net/eth.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-eth.Tpo lib/net/$(DEPDIR)/libyans_la-eth.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/eth.c' object='lib/net/libyans_la-eth.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-eth.lo `test -f 'lib/net/eth.c' || echo '$(srcdir)/'`lib/net/eth.c
+
+lib/net/libyans_la-iface.lo: lib/net/iface.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-iface.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-iface.Tpo -c -o lib/net/libyans_la-iface.lo `test -f 'lib/net/iface.c' || echo '$(srcdir)/'`lib/net/iface.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-iface.Tpo lib/net/$(DEPDIR)/libyans_la-iface.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/iface.c' object='lib/net/libyans_la-iface.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-iface.lo `test -f 'lib/net/iface.c' || echo '$(srcdir)/'`lib/net/iface.c
+
+lib/net/libyans_la-ip.lo: lib/net/ip.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-ip.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-ip.Tpo -c -o lib/net/libyans_la-ip.lo `test -f 'lib/net/ip.c' || echo '$(srcdir)/'`lib/net/ip.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-ip.Tpo lib/net/$(DEPDIR)/libyans_la-ip.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/ip.c' object='lib/net/libyans_la-ip.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-ip.lo `test -f 'lib/net/ip.c' || echo '$(srcdir)/'`lib/net/ip.c
+
+lib/net/libyans_la-ports.lo: lib/net/ports.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-ports.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-ports.Tpo -c -o lib/net/libyans_la-ports.lo `test -f 'lib/net/ports.c' || echo '$(srcdir)/'`lib/net/ports.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-ports.Tpo lib/net/$(DEPDIR)/libyans_la-ports.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/ports.c' object='lib/net/libyans_la-ports.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-ports.lo `test -f 'lib/net/ports.c' || echo '$(srcdir)/'`lib/net/ports.c
+
+lib/net/libyans_la-url.lo: lib/net/url.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-url.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-url.Tpo -c -o lib/net/libyans_la-url.lo `test -f 'lib/net/url.c' || echo '$(srcdir)/'`lib/net/url.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-url.Tpo lib/net/$(DEPDIR)/libyans_la-url.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/url.c' object='lib/net/libyans_la-url.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-url.lo `test -f 'lib/net/url.c' || echo '$(srcdir)/'`lib/net/url.c
+
+lib/net/libyans_la-route.lo: lib/net/route.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/net/libyans_la-route.lo -MD -MP -MF lib/net/$(DEPDIR)/libyans_la-route.Tpo -c -o lib/net/libyans_la-route.lo `test -f 'lib/net/route.c' || echo '$(srcdir)/'`lib/net/route.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/net/$(DEPDIR)/libyans_la-route.Tpo lib/net/$(DEPDIR)/libyans_la-route.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/net/route.c' object='lib/net/libyans_la-route.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/net/libyans_la-route.lo `test -f 'lib/net/route.c' || echo '$(srcdir)/'`lib/net/route.c
+
+lib/lua/libyans_la-net.lo: lib/lua/net.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-net.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-net.Tpo -c -o lib/lua/libyans_la-net.lo `test -f 'lib/lua/net.c' || echo '$(srcdir)/'`lib/lua/net.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-net.Tpo lib/lua/$(DEPDIR)/libyans_la-net.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/net.c' object='lib/lua/libyans_la-net.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-net.lo `test -f 'lib/lua/net.c' || echo '$(srcdir)/'`lib/lua/net.c
+
+lib/lua/libyans_la-http.lo: lib/lua/http.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-http.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-http.Tpo -c -o lib/lua/libyans_la-http.lo `test -f 'lib/lua/http.c' || echo '$(srcdir)/'`lib/lua/http.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-http.Tpo lib/lua/$(DEPDIR)/libyans_la-http.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/http.c' object='lib/lua/libyans_la-http.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-http.lo `test -f 'lib/lua/http.c' || echo '$(srcdir)/'`lib/lua/http.c
+
+lib/lua/libyans_la-ypcap.lo: lib/lua/ypcap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-ypcap.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-ypcap.Tpo -c -o lib/lua/libyans_la-ypcap.lo `test -f 'lib/lua/ypcap.c' || echo '$(srcdir)/'`lib/lua/ypcap.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-ypcap.Tpo lib/lua/$(DEPDIR)/libyans_la-ypcap.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/ypcap.c' object='lib/lua/libyans_la-ypcap.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-ypcap.lo `test -f 'lib/lua/ypcap.c' || echo '$(srcdir)/'`lib/lua/ypcap.c
+
+lib/lua/libyans_la-json.lo: lib/lua/json.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-json.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-json.Tpo -c -o lib/lua/libyans_la-json.lo `test -f 'lib/lua/json.c' || echo '$(srcdir)/'`lib/lua/json.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-json.Tpo lib/lua/$(DEPDIR)/libyans_la-json.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/json.c' object='lib/lua/libyans_la-json.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-json.lo `test -f 'lib/lua/json.c' || echo '$(srcdir)/'`lib/lua/json.c
+
+lib/lua/libyans_la-cgi.lo: lib/lua/cgi.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-cgi.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-cgi.Tpo -c -o lib/lua/libyans_la-cgi.lo `test -f 'lib/lua/cgi.c' || echo '$(srcdir)/'`lib/lua/cgi.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-cgi.Tpo lib/lua/$(DEPDIR)/libyans_la-cgi.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/cgi.c' object='lib/lua/libyans_la-cgi.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-cgi.lo `test -f 'lib/lua/cgi.c' || echo '$(srcdir)/'`lib/lua/cgi.c
+
+lib/lua/libyans_la-fts.lo: lib/lua/fts.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-fts.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-fts.Tpo -c -o lib/lua/libyans_la-fts.lo `test -f 'lib/lua/fts.c' || echo '$(srcdir)/'`lib/lua/fts.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-fts.Tpo lib/lua/$(DEPDIR)/libyans_la-fts.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/fts.c' object='lib/lua/libyans_la-fts.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-fts.lo `test -f 'lib/lua/fts.c' || echo '$(srcdir)/'`lib/lua/fts.c
+
+lib/lua/libyans_la-opts.lo: lib/lua/opts.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-opts.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-opts.Tpo -c -o lib/lua/libyans_la-opts.lo `test -f 'lib/lua/opts.c' || echo '$(srcdir)/'`lib/lua/opts.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-opts.Tpo lib/lua/$(DEPDIR)/libyans_la-opts.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/opts.c' object='lib/lua/libyans_la-opts.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-opts.lo `test -f 'lib/lua/opts.c' || echo '$(srcdir)/'`lib/lua/opts.c
+
+lib/lua/libyans_la-ylog.lo: lib/lua/ylog.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-ylog.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-ylog.Tpo -c -o lib/lua/libyans_la-ylog.lo `test -f 'lib/lua/ylog.c' || echo '$(srcdir)/'`lib/lua/ylog.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-ylog.Tpo lib/lua/$(DEPDIR)/libyans_la-ylog.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/ylog.c' object='lib/lua/libyans_la-ylog.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-ylog.lo `test -f 'lib/lua/ylog.c' || echo '$(srcdir)/'`lib/lua/ylog.c
+
+lib/lua/libyans_la-eds.lo: lib/lua/eds.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-eds.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-eds.Tpo -c -o lib/lua/libyans_la-eds.lo `test -f 'lib/lua/eds.c' || echo '$(srcdir)/'`lib/lua/eds.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-eds.Tpo lib/lua/$(DEPDIR)/libyans_la-eds.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/eds.c' object='lib/lua/libyans_la-eds.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-eds.lo `test -f 'lib/lua/eds.c' || echo '$(srcdir)/'`lib/lua/eds.c
+
+lib/lua/libyans_la-ycl.lo: lib/lua/ycl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-ycl.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-ycl.Tpo -c -o lib/lua/libyans_la-ycl.lo `test -f 'lib/lua/ycl.c' || echo '$(srcdir)/'`lib/lua/ycl.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-ycl.Tpo lib/lua/$(DEPDIR)/libyans_la-ycl.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/ycl.c' object='lib/lua/libyans_la-ycl.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-ycl.lo `test -f 'lib/lua/ycl.c' || echo '$(srcdir)/'`lib/lua/ycl.c
+
+lib/lua/libyans_la-yans.lo: lib/lua/yans.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-yans.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-yans.Tpo -c -o lib/lua/libyans_la-yans.lo `test -f 'lib/lua/yans.c' || echo '$(srcdir)/'`lib/lua/yans.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-yans.Tpo lib/lua/$(DEPDIR)/libyans_la-yans.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/yans.c' object='lib/lua/libyans_la-yans.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-yans.lo `test -f 'lib/lua/yans.c' || echo '$(srcdir)/'`lib/lua/yans.c
 
 lib/util/libycl_la-buf.lo: lib/util/buf.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/util/libycl_la-buf.lo -MD -MP -MF lib/util/$(DEPDIR)/libycl_la-buf.Tpo -c -o lib/util/libycl_la-buf.lo `test -f 'lib/util/buf.c' || echo '$(srcdir)/'`lib/util/buf.c
@@ -1375,6 +1644,9 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+	-rm -rf 3rd_party/.libs 3rd_party/_libs
+	-rm -rf lib/lua/.libs lib/lua/_libs
+	-rm -rf lib/net/.libs lib/net/_libs
 	-rm -rf lib/util/.libs lib/util/_libs
 	-rm -rf lib/ycl/.libs lib/ycl/_libs
 	-rm -rf proto/.libs proto/_libs

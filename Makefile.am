@@ -39,7 +39,9 @@ bin_PROGRAMS = \
     ycli \
     fc2
 
-lib_LTLIBRARIES = libycl.la
+lib_LTLIBRARIES = \
+    libycl.la \
+    libyans.la
 
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
@@ -100,6 +102,30 @@ ethd_LDADD = \
     $(PCAPLIB)
 
 yans_SOURCES = \
+    apps/yans/yans.c
+
+yans_LDADD = \
+    $(PCAPLIB) \
+    $(SECCOMPLIB) \
+    libycl.la \
+    libyans.la \
+    -lm
+
+ycli_SOURCES = \
+    lib/net/iface.c \
+    lib/net/iface.h \
+    apps/ycli/iflist.c \
+    apps/ycli/iflist.h \
+    apps/ycli/pcapcli.c \
+    apps/ycli/pcapcli.h \
+    apps/ycli/ethframecli.c \
+    apps/ycli/ethframecli.h \
+    apps/ycli/ycli.c
+
+ycli_LDADD = \
+    libycl.la
+
+libyans_la_SOURCES = \
     3rd_party/linenoise.c \
     3rd_party/linenoise.h \
     3rd_party/lpeg.c \
@@ -157,27 +183,14 @@ yans_SOURCES = \
     lib/lua/eds.c \
     lib/lua/ycl.h \
     lib/lua/ycl.c \
-    apps/yans/yans.c
+    lib/lua/yans.h \
+    lib/lua/yans.c
 
-yans_LDADD = \
-    $(PCAPLIB) \
-    $(SECCOMPLIB) \
-    libycl.la \
-    -lm
+libyans_la_LDFLAGS = \
+    -version-info 1:0:0 \
+    -fvisibility=hidden
 
-ycli_SOURCES = \
-    lib/net/iface.c \
-    lib/net/iface.h \
-    apps/ycli/iflist.c \
-    apps/ycli/iflist.h \
-    apps/ycli/pcapcli.c \
-    apps/ycli/pcapcli.h \
-    apps/ycli/ethframecli.c \
-    apps/ycli/ethframecli.h \
-    apps/ycli/ycli.c
-
-ycli_LDADD = \
-    libycl.la
+libyans_la_CFLAGS = $(AM_CFLAGS)
 
 libycl_la_SOURCES = \
     lib/util/buf.c \

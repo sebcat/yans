@@ -22,7 +22,8 @@ struct ycl_ctx {
 struct ycl_msg {
   /* -- internal -- */
   buf_t buf;
-  size_t off;
+  size_t sendoff; /* sendmsg message offset */
+  size_t nextoff; /* message offset to next received chunk, if any */
 };
 
 /* internal ycl_ctx flags */

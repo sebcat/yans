@@ -79,8 +79,8 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
    * , where msg holds the message state. ycl_msg_reset should be called
    * on an init-ed message before each new message passed to this function */
 
-  left = msg->buf.len - msg->off;
-  data = msg->buf.data + msg->off;
+  left = msg->buf.len - msg->sendoff;
+  data = msg->buf.data + msg->sendoff;
   while (left > 0) {
     ret = write(ycl->fd, data, left);
     if (ret < 0) {
@@ -92,11 +92,15 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
       }
     }
 
-    msg->off += ret;
+    msg->sendoff += ret;
     data += ret;
     left -= ret;
   }
 
+  /* reset the message buffer after the message is sent so that
+   * sendmsg followed by a recvmsg receives from a clean state and not
+   * the previously sent message */
+  ycl_msg_reset(msg);
   return YCL_OK;
 }
 
@@ -105,14 +109,32 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   size_t nread = 0;
   int ret;
 
-  /* this function is written with re-entrancy for non-blocking I/O in mind
-   * , where msg holds the message state. ycl_msg_reset should be called
-   * on an init-ed message before each new message passed to this function */
+  /* check if we have a previous invocation */
+  if (msg->nextoff > 0) {
+    /* check if the previous invocation has trailing data */
+    if (msg->nextoff < msg->buf.len) {
+      /* move the trailing data to the start of the message buffer */
+      memmove(msg->buf.data, msg->buf.data + msg->nextoff,
+          msg->buf.len - msg->nextoff);
+      msg->buf.len -= msg->nextoff;
+      /* is the previous data a complete message? */
+      ret = netstring_tryparse(msg->buf.data, msg->buf.len, &msg->nextoff);
+      if (ret == NETSTRING_OK) {
+        return YCL_OK;
+      } else if (ret != NETSTRING_ERRINCOMPLETE) {
+        goto parse_err;
+      }
+    } else {
+      /* no trailing data from the previous invocation; clear buffer */
+      buf_clear(&msg->buf);
+    }
+  }
+  msg->nextoff = 0;
 
   IO_INIT(&io, ycl->fd);
   while (msg->buf.len == 0 ||
-      (ret = netstring_tryparse(msg->buf.data, msg->buf.len)) ==
-      NETSTRING_ERRINCOMPLETE) {
+      (ret = netstring_tryparse(msg->buf.data, msg->buf.len,
+       &msg->nextoff)) == NETSTRING_ERRINCOMPLETE) {
     ret = io_readbuf(&io, &msg->buf, &nread);
     if (ret == IO_AGAIN) {
       return YCL_AGAIN;
@@ -120,17 +142,20 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
       SETERR(ycl, "%s", io_strerror(&io));
       return YCL_ERR;
     } else if (nread == 0) {
-      SETERR(ycl, "connection terminated prematurely");
+      SETERR(ycl, "premature connection termination");
       return YCL_ERR;
     }
   }
 
   if (ret != NETSTRING_OK) {
-    SETERR(ycl, "message parse error: %s", netstring_strerror(ret));
-    return YCL_ERR;
+    goto parse_err;
   }
 
   return YCL_OK;
+
+parse_err:
+  SETERR(ycl, "message parse error: %s", netstring_strerror(ret));
+  return YCL_ERR;
 }
 
 int ycl_sendfd(struct ycl_ctx *ycl, int fd) {
@@ -152,12 +177,15 @@ int ycl_msg_init(struct ycl_msg *msg) {
     return YCL_ERR;
   }
 
+  msg->sendoff = 0;
+  msg->nextoff = 0;
   return YCL_OK;
 }
 
 void ycl_msg_reset(struct ycl_msg *msg) {
   buf_clear(&msg->buf);
-  msg->off = 0;
+  msg->sendoff = 0;
+  msg->nextoff = 0;
 }
 
 void ycl_msg_cleanup(struct ycl_msg *msg) {

@@ -39,6 +39,15 @@ int test_parse() {
         NETSTRING_ERRINCOMPLETE}},
     {"4:sven,3:ior,wiie", {"sven", "ior", NULL}, {NETSTRING_OK, NETSTRING_OK,
         NETSTRING_ERRFMT}},
+
+    /* whitespace handling */
+    {" \r\n\t 0",    {NULL}, {NETSTRING_ERRINCOMPLETE}},
+    {" \r\n\t 0:",    {NULL}, {NETSTRING_ERRINCOMPLETE}},
+    {" \r\n\t 0:,",    {"", NULL}, {NETSTRING_OK, NETSTRING_ERRINCOMPLETE}},
+    {" \t\n\t 0:, 0:,", {"", "", NULL}, {NETSTRING_OK, NETSTRING_OK,
+        NETSTRING_ERRINCOMPLETE}},
+    {" \t\n\t 0:, 0:, \t\n\r ", {"", "", NULL}, {NETSTRING_OK, NETSTRING_OK,
+        NETSTRING_ERRINCOMPLETE}},
     {NULL, {0}, {0}},
   };
 

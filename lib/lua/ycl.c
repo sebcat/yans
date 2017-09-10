@@ -90,7 +90,6 @@ static int l_parsestatusresp(lua_State *L) {
     lua_setfield(L, -2, "errmsg");
   }
 
-  ycl_msg_reset(msg);
   return 1;
 }
 
@@ -158,15 +157,12 @@ static int l_ctxsendmsg(lua_State *L) {
   ctx = checkctx(L, 1);
   msg = checkmsg(L, 2);
   ret = ycl_sendmsg(ctx, msg);
-  if (ret == YCL_OK || ret == YCL_AGAIN) {
-    lua_pushinteger(L, (lua_Integer)ret);
-    lua_pushnil(L);
-  } else {
-    lua_pushinteger(L, YCL_ERR);
-    lua_pushstring(L, ycl_strerror(ctx));
+  if (ret == YCL_ERR) {
+    return luaL_error(L, "%s", ycl_strerror(ctx));
   }
 
-  return 2;
+  lua_pushinteger(L, (lua_Integer)ret);
+  return 1;
 }
 
 static int l_ctxrecvmsg(lua_State *L) {
@@ -177,15 +173,12 @@ static int l_ctxrecvmsg(lua_State *L) {
   ctx = checkctx(L, 1);
   msg = checkmsg(L, 2);
   ret = ycl_recvmsg(ctx, msg);
-  if (ret == YCL_OK || ret == YCL_AGAIN) {
-    lua_pushinteger(L, (lua_Integer)ret);
-    lua_pushnil(L);
-  } else {
-    lua_pushinteger(L, YCL_ERR);
-    lua_pushstring(L, ycl_strerror(ctx));
+  if (ret == YCL_ERR) {
+    return luaL_error(L, "%s", ycl_strerror(ctx));
   }
 
-  return 2;
+  lua_pushinteger(L, (lua_Integer)ret);
+  return 1;
 }
 
 static const struct luaL_Reg yclmsg_m[] = {

@@ -22,6 +22,12 @@ const char *netstring_strerror(int code) {
   }
 }
 
+#define NETSTRING_WS(c) \
+    ((c) == '\r' ||     \
+     (c) == '\n' ||     \
+     (c) == '\t' ||     \
+     (c) == ' ')
+
 static int _netstring_parse(const char *src, size_t srclen, size_t *nsoff,
     size_t *nslen) {
   size_t i;
@@ -29,12 +35,19 @@ static int _netstring_parse(const char *src, size_t srclen, size_t *nsoff,
   size_t lenbuf;
 
   enum {
+    NETSTRING_SWS,
     NETSTRING_SLEN,
     NETSTRING_SDATA,
-  } S = NETSTRING_SLEN;
+  } S = NETSTRING_SWS;
 
   for (i = 0; i < srclen; i++) {
     switch (S) {
+    case NETSTRING_SWS:
+      if (NETSTRING_WS(src[i])) {
+        break;
+      }
+      S = NETSTRING_SLEN;
+      /* fall-through */
     case NETSTRING_SLEN:
       if (src[i] >= '0' && src[i] <= '9') {
         lenbuf = len * 10;
@@ -72,8 +85,16 @@ static int _netstring_parse(const char *src, size_t srclen, size_t *nsoff,
   return NETSTRING_ERRINCOMPLETE;
 }
 
-int netstring_tryparse(const char *src, size_t srclen) {
-  return _netstring_parse(src, srclen, NULL, NULL);
+int netstring_tryparse(const char *src, size_t srclen, size_t *nextoff) {
+  size_t nsoff;
+  size_t nslen;
+  int ret;
+
+  ret = _netstring_parse(src, srclen, &nsoff, &nslen);
+  if (ret == NETSTRING_OK && nextoff != NULL) {
+    *nextoff = nsoff + nslen + 1;
+  }
+  return ret;
 }
 
 int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen) {

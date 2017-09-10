@@ -10,7 +10,10 @@ assert(m:size() > 0)
 assert(#m:data() > 0)
 
 local resp = m:parse_status_resp()
-assert(m:size() == 0)
-assert(#m:data() == 0)
 assert(resp.okmsg == "foo bar")
 assert(resp.errmsg == nil)
+
+m:create_status_resp{errmsg = "barbar"}
+resp = m:parse_status_resp()
+assert(resp.okmsg == nil)
+assert(resp.errmsg == "barbar")

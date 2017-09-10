@@ -57,7 +57,7 @@ struct netstring_map {
 };
 
 const char *netstring_strerror(int code);
-int netstring_tryparse(const char *src, size_t srclen);
+int netstring_tryparse(const char *src, size_t srclen, size_t *nextoff);
 int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen);
 int netstring_append_buf(buf_t *buf, const char *str, size_t len);
 int netstring_append_list(buf_t *buf, size_t nelems, const char **elems,

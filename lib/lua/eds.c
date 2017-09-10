@@ -188,7 +188,7 @@ static void dispatch_cli_handler(struct eds_client *cli, int fd,
     if (lua_getfield(L, -1, name) == LUA_TFUNCTION) {
       lua_getfield(L, -2, "clictx");
       lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
-      /* S: clitbl func cli data */
+      /* S: clitbl func data cli */
       ret = lua_pcall(L, 2, 0, 0);
       if (ret != LUA_OK) {
         handle_pcall_error(lds_cli);
@@ -255,6 +255,49 @@ static int l_clisetonwritable(lua_State *L) {
   cb = (lua_type(L, -1) == LUA_TNIL) ? NULL : on_writable;
   lua_setfield(L, -2, "on_writable");
   eds_client_set_on_writable(cli, cb, flags);
+  return 0;
+}
+
+static void on_tick(struct eds_client *cli, int fd) {
+  struct lds_client *lds_cli;
+  lua_State *L;
+  int ret;
+
+  lds_cli = get_lds_client(cli);
+  if (lds_cli == NULL) {
+    return;
+  }
+
+  L = lds_cli->L;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+  lua_getfield(L, -1, "on_tick");
+  lua_getfield(L, -2, "clictx");
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->selfref);
+  /* S: clitbl func data cli */
+  ret = lua_pcall(L, 2, 0, 0);
+  if (ret != LUA_OK) {
+    handle_pcall_error(lds_cli);
+    eds_service_remove_client(cli->svc, cli);
+  }
+
+  lua_pop(L, lua_gettop(L));
+}
+
+static int l_clisetticker(lua_State *L) {
+  struct lds_client *lds_cli;
+  int t;
+
+  lds_cli = checkldsclient(L, 1);
+  t = lua_type(L, 2);
+  if (t == LUA_TNIL) {
+    eds_client_set_ticker(lds_cli->self, NULL);
+  } else {
+    luaL_argcheck(L, t == LUA_TFUNCTION, 2, "function or nil expected");
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
+    lua_rotate(L, -2, 1); /* S: cli clitbl func */
+    lua_setfield(L, -2, "on_tick");
+    eds_client_set_ticker(lds_cli->self, on_tick);
+  }
   return 0;
 }
 
@@ -465,6 +508,7 @@ static const struct luaL_Reg cli_m[] = {
   {"remove", l_cliremove},
   {"set_on_readable", l_clisetonreadable},
   {"set_on_writable", l_clisetonwritable},
+  {"set_ticker", l_clisetticker},
   {NULL, NULL},
 };
 

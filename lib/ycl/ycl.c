@@ -163,7 +163,7 @@ int ycl_sendfd(struct ycl_ctx *ycl, int fd) {
   int ret;
 
   IO_INIT(&io, ycl->fd);
-  ret = io_sendfd(&io, fd);
+  ret = io_sendfd(&io, fd, 0);
   if (ret != IO_OK) {
     SETERR(ycl, "%s", io_strerror(&io));
     return YCL_ERR;

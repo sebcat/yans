@@ -53,7 +53,7 @@ int io_close(io_t *io);
  * underlying file descriptor, as ownership of it is passed to the FILE*. */
 int io_tofp(io_t *io, const char *mode, FILE **out);
 
-int io_sendfd(io_t *io, int fd);
+int io_sendfd(io_t *io, int fd, int err);
 int io_recvfd(io_t *io, int *out);
 
 int io_setnonblock(io_t *io, int val);

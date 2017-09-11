@@ -22,8 +22,6 @@
     snprintf((io)->errbuf, sizeof((io)->errbuf), "%s: %s", \
         (func), strerror(errno));
 
-#define CONTROLMSG 0x41424344 /* 'DCBA' in LSB order */
-
 const char *io_strerror(io_t *io) {
   return io->errbuf;
 }
@@ -241,11 +239,11 @@ int io_close(io_t *io) {
   return ret;
 }
 
-int io_sendfd(io_t *io, int fd) {
+int io_sendfd(io_t *io, int fd, int err) {
   struct iovec iov;
   struct msghdr mhdr = {0};
   struct cmsghdr *cmsg;
-  int m = CONTROLMSG;
+  int m = err;
   ssize_t ret;
   union {
     char buf[CMSG_SPACE(sizeof(int))];
@@ -319,14 +317,13 @@ int io_recvfd(io_t *io, int *out) {
     }
   }
 
-  if (fd < 0) {
-    IO_SETERR(io, "no file descriptor received");
+  if (m != 0) {
+    IO_SETERR(io, "%s", strerror(m));
     return IO_ERR;
   }
 
-  if (m != CONTROLMSG) {
-    IO_SETERR(io, "unexpected control message (0x%08x)", m);
-    close(fd);
+  if (fd < 0) {
+    IO_SETERR(io, "no file descriptor received");
     return IO_ERR;
   }
 

@@ -7,7 +7,7 @@
 
 # Creating the group and user:
 #   pw groupadd ethd
-#   pw useradd ethd -d /var/ethd -g ethd -s /user/sbin/nologin
+#   pw useradd ethd -d @LOCALSTATEDIR@/ethd -g ethd -s /usr/sbin/nologin
 #
 # The daemon drops user privs itself, which is why ethd_user, ethd_group
 # is not used
@@ -32,9 +32,9 @@
 name="ethd"
 rcvar="ethd_enable"
 command="@BINDIR@/ethd"
-command_args="-u ${ethd_duser} -g ${ethd_dgroup} -b /var/ethd"
+command_args="-u ${ethd_duser} -g ${ethd_dgroup} -b @LOCALSTATEDIR@/ethd"
 start_precmd="ethd_precmd"
-pidfile="/var/ethd/ethd.pid"
+pidfile="@LOCALSTATEDIR@/ethd/ethd.pid"
 
 ethd_precmd()
 {
@@ -50,38 +50,39 @@ ethd_precmd()
       ;;
   esac
 
-  if [ -d /var/ethd/dev ]; then
-    umount /var/ethd/dev 2>/dev/null
+  if [ -d @LOCALSTATEDIR@/ethd/dev ]; then
+    umount @LOCALSTATEDIR@/ethd/dev 2>/dev/null
   fi
 
-  if [ -d /var/ethd ]; then
-    rm -rf /var/ethd
+  if [ -d @LOCALSTATEDIR@/ethd ]; then
+    rm -rf @LOCALSTATEDIR@/ethd
   fi
 
-  mkdir /var/ethd || {
-    warn "Unable to create /var/ethd"
+  mkdir @LOCALSTATEDIR@/ethd || {
+    warn "Unable to create @LOCALSTATEDIR@/ethd"
     return 1
   }
 
-  chmod 770 /var/ethd || {
-    warn "Failed to set correct permissions of /var/ethd"
+  chmod 770 @LOCALSTATEDIR@/ethd || {
+    warn "Failed to set correct permissions of @LOCALSTATEDIR@/ethd"
     return 1
   }
 
-  chown "${ethd_duser}:${ethd_dgroup}" /var/ethd || {
-    warn "Failed to set correct ownership of /var/ethd"
+  chown "${ethd_duser}:${ethd_dgroup}" @LOCALSTATEDIR@/ethd || {
+    warn "Failed to set correct ownership of @LOCALSTATEDIR@/ethd"
     return 1
   }
 
   # mount devfs in chroot
-  mkdir /var/ethd/dev
-  mount -t devfs -o ruleset=${ethd_devfs_ruleset} devfs /var/ethd/dev || {
+  mkdir @LOCALSTATEDIR@/ethd/dev
+  mount -t devfs -o ruleset=${ethd_devfs_ruleset} \
+      devfs @LOCALSTATEDIR@/ethd/dev || {
     warn "Failed to mount ethd devfs"
     return 1
   }
 
   # Set correct owner:group for bpf device
-  chown "${ethd_duser}:${ethd_dgroup}" /var/ethd/dev/bpf || {
+  chown "${ethd_duser}:${ethd_dgroup}" @LOCALSTATEDIR@/ethd/dev/bpf || {
     warn "Failed to chown bpf device for ethd"
     return 1
   }

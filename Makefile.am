@@ -5,8 +5,15 @@ endif
 SUBDIRS = $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror -fvisibility=hidden -Wl,--build-id=none \
-    -ffunction-sections -fdata-sections -Wl,--gc-sections
+AM_CFLAGS = \
+    -Wall \
+    -Werror \
+    -fvisibility=hidden \
+    -Wl,--build-id=none \
+    -ffunction-sections \
+    -fdata-sections \
+    -Wl,--gc-sections \
+    -DLOCALSTATEDIR='"$(localstatedir)"'
 
 TESTS = \
     lib_net_url_test \
@@ -37,7 +44,8 @@ bin_PROGRAMS = \
     yans \
     ethd \
     ycli \
-    fc2
+    fc2 \
+    storaged
 
 lib_LTLIBRARIES = \
     libycl.la \
@@ -45,6 +53,19 @@ lib_LTLIBRARIES = \
 
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
+
+storaged_SOURCES = \
+    lib/util/ylog.h \
+    lib/util/ylog.c \
+    lib/util/eds.h \
+    lib/util/eds.c \
+    lib/util/os.h \
+    lib/util/os.c \
+    lib/util/buf.c \
+    lib/util/buf.h \
+    lib/util/io.c \
+    lib/util/io.h \
+    apps/storaged/storaged.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \

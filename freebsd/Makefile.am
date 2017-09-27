@@ -5,5 +5,7 @@ EXTRA_DIST = etc.rc.d/ethd.in
 
 
 etc.rc.d/ethd: etc.rc.d/ethd.in
-	sed -e "s,@BINDIR@,$(bindir)," < etc.rc.d/ethd.in > etc.rc.d/ethd
+	sed -e "s,@BINDIR@,$(bindir)," \
+		-e "s,@LOCALSTATEDIR@,$(localstatedir)," \
+		 < etc.rc.d/ethd.in > etc.rc.d/ethd
 

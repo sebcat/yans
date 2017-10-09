@@ -9,26 +9,18 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
-#define DAEMON_NAME "storaged"
+#include <apps/clid/sock.h>
+#include <apps/clid/file.h>
+
+#define DAEMON_NAME "clid"
 
 struct opts {
+  const char *single;
   const char *basepath;
   uid_t uid;
   gid_t gid;
   int no_daemon;
 };
-
-struct storaged_cli {
-
-};
-
-static void on_readable(struct eds_client *cli, int fd) {
-  /* TODO: Implement */
-}
-
-static void on_done(struct eds_client *cli, int fd) {
-  /* TODO: Implement */
-}
 
 static void on_svc_error(struct eds_service *svc, const char *err) {
   ylog_error("%s", err);
@@ -37,14 +29,15 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  " DAEMON_NAME " -u <user> -g <group> -b <basepath>\n"
-      "  " DAEMON_NAME " -n -b <basepath>\n"
+      "  " DAEMON_NAME " [-s <name>] -u <user> -g <group> -b <basepath>\n"
+      "  " DAEMON_NAME " [-s <name>] -n -b <basepath>\n"
       "  " DAEMON_NAME " -h\n"
       "\n"
       "options:\n"
       "  -u, --user:      daemon user\n"
       "  -g, --group:     daemon group\n"
       "  -b, --basepath:  working directory basepath\n"
+      "  -s, --single:    name of single service to start\n"
       "  -n, --no-daemon: do not daemonize\n"
       "  -h, --help:      this text\n");
   exit(EXIT_FAILURE);
@@ -53,11 +46,12 @@ static void usage() {
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nh";
+  static const char *optstr = "u:g:b:ns:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
     {"basepath", required_argument, NULL, 'b'},
+    {"single", required_argument, NULL, 's'},
     {"no-daemon", no_argument, NULL, 'n'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
@@ -65,6 +59,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
 
   /* init default values */
   opts->basepath = NULL;
+  opts->single = NULL;
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
@@ -82,6 +77,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
           fprintf(stderr, "%s\n", os_strerror(&os));
           exit(EXIT_FAILURE);
         }
+        break;
+      case 's':
+        opts->single = optarg;
         break;
       case 'b':
         opts->basepath = optarg;
@@ -113,12 +111,23 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
-      .name = DAEMON_NAME,
-      .path = DAEMON_NAME ".sock",
-      .udata_size = sizeof(struct storaged_cli),
+      .name = "file",
+      .path = "file.sock",
+      .udata_size = sizeof(struct file_cli),
       .actions = {
-        .on_readable = on_readable,
-        .on_done = on_done,
+        .on_readable = file_on_readable,
+        .on_done = file_on_done,
+      },
+      .on_svc_error = on_svc_error,
+      .nprocs = 1,
+    },
+    {
+      .name = "sock",
+      .path = "sock.sock",
+      .udata_size = sizeof(struct sock_cli),
+      .actions = {
+        .on_readable = sock_on_readable,
+        .on_done = sock_on_done,
       },
       .on_svc_error = on_svc_error,
       .nprocs = 1,
@@ -150,14 +159,14 @@ int main(int argc, char *argv[]) {
 
   ylog_info("Starting " DAEMON_NAME);
 
-  if (opts.no_daemon) {
-    ret = eds_serve_single_by_name(services, DAEMON_NAME);
+  if (opts.single != NULL) {
+    ret = eds_serve_single_by_name(services, opts.single);
   } else {
     ret = eds_serve(services);
   }
 
   if (ret < 0) {
-    ylog_error(DAEMON_NAME ": eds service failure");
+    ylog_error("failed to start %s", opts.single ? opts.single : DAEMON_NAME);
     status = EXIT_FAILURE;
   }
 

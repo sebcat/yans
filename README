@@ -1,3 +1,49 @@
 # yans - Yet another network scanner
 
+## Architecture
+
+````
+                  JSON RPC-style HTTP API
+                       /a1/scan/start
+                       /a1/scan/stop
+                       /a1/scan/list
+                            ...
+                             ^
+                             |
+                             v
+      +----------+       +-------+
+      |   clid   | <---> | scand |
+      +----------+       +-------+
+                        /    |    \
+                       /     |     \
+                 +------+------+---------+----
+                 | ethd | tlsd | bannerd |   ...
+                 +------+------+---------+----
+````
+
+- a1: collection of CGIs communicating with scand, possibly others
+- scand: daemon for controlling/coordinating "scans"
+- clid: utility daemon for opening/closing files/connections
+- ethd, tlsd, bannerd, ...: scan daemons with a single responsibility
+
+a1, scand and the scan daemons must run under seccomp-bpf/capsicum.
+
+## clid
+
+- open(2) / socket(2) (udp) / socket(2)+connect(2) (tcp)
+- persistent
+- request fds that can be passed to scan daemons
+- sock, file services
+
+### sock
+
+- proto: tcp|udp (flagset)
+- sockaddr: optional, struct sockaddr
+
+### file
+
+- request session fd, get fd+errno back
+- session: request fd, get fd+errno back
+
+
 

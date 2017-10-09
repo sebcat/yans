@@ -45,7 +45,7 @@ bin_PROGRAMS = \
     ethd \
     ycli \
     fc2 \
-    storaged
+    clid
 
 lib_LTLIBRARIES = \
     libycl.la \
@@ -54,7 +54,7 @@ lib_LTLIBRARIES = \
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
 
-storaged_SOURCES = \
+clid_SOURCES = \
     lib/util/ylog.h \
     lib/util/ylog.c \
     lib/util/eds.h \
@@ -65,7 +65,11 @@ storaged_SOURCES = \
     lib/util/buf.h \
     lib/util/io.c \
     lib/util/io.h \
-    apps/storaged/storaged.c
+    apps/clid/file.c \
+    apps/clid/file.h \
+    apps/clid/sock.c \
+    apps/clid/sock.h \
+    apps/clid/clid.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \

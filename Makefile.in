@@ -102,7 +102,7 @@ check_PROGRAMS = lib_net_url_test$(EXEEXT) \
 	lib_util_os_test$(EXEEXT) lib_util_netstring_test$(EXEEXT) \
 	lib_util_conf_test$(EXEEXT) yans$(EXEEXT)
 bin_PROGRAMS = yans$(EXEEXT) ethd$(EXEEXT) ycli$(EXEEXT) fc2$(EXEEXT) \
-	storaged$(EXEEXT)
+	clid$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -184,6 +184,12 @@ libycl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libycl_la_CFLAGS) \
 	$(CFLAGS) $(libycl_la_LDFLAGS) $(LDFLAGS) -o $@
 PROGRAMS = $(bin_PROGRAMS)
+am_clid_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
+	lib/util/os.$(OBJEXT) lib/util/buf.$(OBJEXT) \
+	lib/util/io.$(OBJEXT) apps/clid/file.$(OBJEXT) \
+	apps/clid/sock.$(OBJEXT) apps/clid/clid.$(OBJEXT)
+clid_OBJECTS = $(am_clid_OBJECTS)
+clid_LDADD = $(LDADD)
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/ylog.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/flagset.$(OBJEXT) \
@@ -230,11 +236,6 @@ am_lib_util_u8_test_OBJECTS = lib/util/u8.$(OBJEXT) \
 	lib/util/u8_test.$(OBJEXT)
 lib_util_u8_test_OBJECTS = $(am_lib_util_u8_test_OBJECTS)
 lib_util_u8_test_LDADD = $(LDADD)
-am_storaged_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
-	lib/util/os.$(OBJEXT) lib/util/buf.$(OBJEXT) \
-	lib/util/io.$(OBJEXT) apps/storaged/storaged.$(OBJEXT)
-storaged_OBJECTS = $(am_storaged_OBJECTS)
-storaged_LDADD = $(LDADD)
 am_yans_OBJECTS = apps/yans/yans.$(OBJEXT)
 yans_OBJECTS = $(am_yans_OBJECTS)
 yans_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -278,19 +279,18 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) $(ethd_SOURCES) \
-	$(fc2_SOURCES) $(lib_net_punycode_test_SOURCES) \
-	$(lib_net_url_test_SOURCES) $(lib_util_conf_test_SOURCES) \
-	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
-	$(lib_util_u8_test_SOURCES) $(storaged_SOURCES) \
-	$(yans_SOURCES) $(ycli_SOURCES)
-DIST_SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) \
+SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) $(clid_SOURCES) \
 	$(ethd_SOURCES) $(fc2_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
-	$(lib_util_u8_test_SOURCES) $(storaged_SOURCES) \
-	$(yans_SOURCES) $(ycli_SOURCES)
+	$(lib_util_u8_test_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
+DIST_SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) \
+	$(clid_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
+	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
+	$(lib_util_conf_test_SOURCES) \
+	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
+	$(lib_util_u8_test_SOURCES) $(yans_SOURCES) $(ycli_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -679,10 +679,14 @@ top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
 SUBDIRS = $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -Wall -Werror \
+AM_CFLAGS = \
+    -Wall \
+    -Werror \
     -fvisibility=hidden \
     -Wl,--build-id=none \
-    -ffunction-sections -fdata-sections -Wl,--gc-sections \
+    -ffunction-sections \
+    -fdata-sections \
+    -Wl,--gc-sections \
     -DLOCALSTATEDIR='"$(localstatedir)"'
 
 TEST_EXTENSIONS = .yans
@@ -694,7 +698,7 @@ lib_LTLIBRARIES = \
 pkginclude_HEADERS = \
     lib/ycl/ycl.h
 
-storaged_SOURCES = \
+clid_SOURCES = \
     lib/util/ylog.h \
     lib/util/ylog.c \
     lib/util/eds.h \
@@ -705,7 +709,11 @@ storaged_SOURCES = \
     lib/util/buf.h \
     lib/util/io.c \
     lib/util/io.h \
-    apps/storaged/storaged.c
+    apps/clid/file.c \
+    apps/clid/file.h \
+    apps/clid/sock.c \
+    apps/clid/sock.h \
+    apps/clid/clid.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \
@@ -1161,19 +1169,35 @@ clean-checkPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/eds.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/ylog.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
+apps/clid/$(am__dirstamp):
+	@$(MKDIR_P) apps/clid
+	@: > apps/clid/$(am__dirstamp)
+apps/clid/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) apps/clid/$(DEPDIR)
+	@: > apps/clid/$(DEPDIR)/$(am__dirstamp)
+apps/clid/file.$(OBJEXT): apps/clid/$(am__dirstamp) \
+	apps/clid/$(DEPDIR)/$(am__dirstamp)
+apps/clid/sock.$(OBJEXT): apps/clid/$(am__dirstamp) \
+	apps/clid/$(DEPDIR)/$(am__dirstamp)
+apps/clid/clid.$(OBJEXT): apps/clid/$(am__dirstamp) \
+	apps/clid/$(DEPDIR)/$(am__dirstamp)
+
+clid$(EXEEXT): $(clid_OBJECTS) $(clid_DEPENDENCIES) $(EXTRA_clid_DEPENDENCIES) 
+	@rm -f clid$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(clid_OBJECTS) $(clid_LDADD) $(LIBS)
 lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/flagset.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
-lib/util/eds.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
@@ -1263,18 +1287,6 @@ lib/util/u8_test.$(OBJEXT): lib/util/$(am__dirstamp) \
 lib_util_u8_test$(EXEEXT): $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_DEPENDENCIES) $(EXTRA_lib_util_u8_test_DEPENDENCIES) 
 	@rm -f lib_util_u8_test$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib_util_u8_test_OBJECTS) $(lib_util_u8_test_LDADD) $(LIBS)
-apps/storaged/$(am__dirstamp):
-	@$(MKDIR_P) apps/storaged
-	@: > apps/storaged/$(am__dirstamp)
-apps/storaged/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) apps/storaged/$(DEPDIR)
-	@: > apps/storaged/$(DEPDIR)/$(am__dirstamp)
-apps/storaged/storaged.$(OBJEXT): apps/storaged/$(am__dirstamp) \
-	apps/storaged/$(DEPDIR)/$(am__dirstamp)
-
-storaged$(EXEEXT): $(storaged_OBJECTS) $(storaged_DEPENDENCIES) $(EXTRA_storaged_DEPENDENCIES) 
-	@rm -f storaged$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(storaged_OBJECTS) $(storaged_LDADD) $(LIBS)
 apps/yans/$(am__dirstamp):
 	@$(MKDIR_P) apps/yans
 	@: > apps/yans/$(am__dirstamp)
@@ -1310,9 +1322,9 @@ mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f 3rd_party/*.$(OBJEXT)
 	-rm -f 3rd_party/*.lo
+	-rm -f apps/clid/*.$(OBJEXT)
 	-rm -f apps/ethd/*.$(OBJEXT)
 	-rm -f apps/fc2/*.$(OBJEXT)
-	-rm -f apps/storaged/*.$(OBJEXT)
 	-rm -f apps/yans/*.$(OBJEXT)
 	-rm -f apps/ycli/*.$(OBJEXT)
 	-rm -f lib/lua/*.$(OBJEXT)
@@ -1333,11 +1345,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-linenoise.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-lpeg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-lua.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/clid.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/file.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/sock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/fc2/$(DEPDIR)/fc2.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@apps/storaged/$(DEPDIR)/storaged.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/yans/$(DEPDIR)/yans.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/ethframecli.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ycli/$(DEPDIR)/iflist.Po@am__quote@
@@ -2248,12 +2262,12 @@ distclean-generic:
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
 	-rm -f 3rd_party/$(DEPDIR)/$(am__dirstamp)
 	-rm -f 3rd_party/$(am__dirstamp)
+	-rm -f apps/clid/$(DEPDIR)/$(am__dirstamp)
+	-rm -f apps/clid/$(am__dirstamp)
 	-rm -f apps/ethd/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/ethd/$(am__dirstamp)
 	-rm -f apps/fc2/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/fc2/$(am__dirstamp)
-	-rm -f apps/storaged/$(DEPDIR)/$(am__dirstamp)
-	-rm -f apps/storaged/$(am__dirstamp)
 	-rm -f apps/yans/$(DEPDIR)/$(am__dirstamp)
 	-rm -f apps/yans/$(am__dirstamp)
 	-rm -f apps/ycli/$(DEPDIR)/$(am__dirstamp)
@@ -2279,7 +2293,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/storaged/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/clid/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -2327,7 +2341,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf 3rd_party/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/storaged/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/clid/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

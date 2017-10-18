@@ -21,3 +21,8 @@ libtool
 /fc2
 freebsd/etc.rc.d/ethd
 /clid
+tools/yclgen/parser.c
+tools/yclgen/parser.h
+tools/yclgen/tokens.c
+tools/yclgen/yclgen
+

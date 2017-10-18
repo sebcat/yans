@@ -511,7 +511,7 @@ YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
 DIST_SUBDIRS = freebsd
 am__DIST_COMMON = $(srcdir)/Makefile.in README TODO ar-lib compile \
 	config.guess config.sub depcomp install-sh ltmain.sh missing \
-	test-driver
+	test-driver ylwrap
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -588,6 +588,9 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LEX = @LEX@
+LEXLIB = @LEXLIB@
+LEX_OUTPUT_ROOT = @LEX_OUTPUT_ROOT@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -620,6 +623,8 @@ SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
 VERSION = @VERSION@
+YACC = @YACC@
+YFLAGS = @YFLAGS@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -679,6 +684,7 @@ top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
 SUBDIRS = $(MAYBE_FREEBSD)
 ACLOCAL_AMFLAGS = -I m4
+AM_YFLAGS = -d
 AM_CFLAGS = \
     -Wall \
     -Werror \

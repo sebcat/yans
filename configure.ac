@@ -13,6 +13,8 @@ LT_INIT
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_LEX
+AC_PROG_YACC
 AC_PROG_MAKE_SET
 
 AC_CHECK_LIB([pcap], [pcap_create], [PCAPLIB=-lpcap],
@@ -34,6 +36,6 @@ AC_ARG_WITH([freebsd-rc],
   [with_freebsd_rc=no])
 AM_CONDITIONAL([FREEBSD_OPT], [test x"$with_freebsd_rc" = "xyes"])
 
-AC_CONFIG_FILES([Makefile freebsd/Makefile])
+AC_CONFIG_FILES([Makefile freebsd/Makefile tools/yclgen/Makefile])
 
 AC_OUTPUT

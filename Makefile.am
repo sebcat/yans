@@ -5,6 +5,9 @@ endif
 SUBDIRS = $(MAYBE_FREEBSD)
 
 ACLOCAL_AMFLAGS = -I m4
+
+AM_YFLAGS = -d
+
 AM_CFLAGS = \
     -Wall \
     -Werror \

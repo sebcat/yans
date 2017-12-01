@@ -52,8 +52,13 @@ int buf_achar(buf_t *buf, int ch) {
 }
 
 int buf_adata(buf_t *buf, const void *data, size_t len) {
-  size_t nleft = buf->cap - buf->len;
+  size_t nleft;
 
+  if (len == 0) {
+    return 0;
+  }
+
+  nleft = buf->cap - buf->len;
   if (nleft < len && buf_grow(buf, len-nleft) < 0) {
     return -1;
   }

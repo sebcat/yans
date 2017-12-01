@@ -42,6 +42,22 @@ int buf_grow(buf_t *buf, size_t needed) {
   return 0;
 }
 
+int buf_align(buf_t *buf) {
+  size_t noff;
+  int ret;
+
+  noff = BUF_ALIGN(buf->len);
+  if (noff >= buf->cap) {
+    ret = buf_grow(buf, BUF_ALIGNMENT);
+    if (ret < 0) {
+      return -1;
+    }
+  }
+
+  buf->len = noff;
+  return 0;
+}
+
 int buf_achar(buf_t *buf, int ch) {
   if (buf->cap == buf->len && buf_grow(buf, 1) < 0) {
     return -1;

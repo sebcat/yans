@@ -114,19 +114,24 @@ int netstring_parse(char **out, size_t *outlen, char *src, size_t srclen) {
 }
 
 int netstring_append_buf(buf_t *buf, const char *str, size_t len) {
-  char szbuf[32];
-  int ret;
+  char szbuf[48];
+  char *szptr;
   size_t oldlen;
+  size_t tmplen;
   int failcode = NETSTRING_ERRMEM;
 
   oldlen = buf->len;
 
-  if ((ret = snprintf(szbuf, sizeof(szbuf), "%zu:", len)) <= 1) {
-    failcode = NETSTRING_ERRFMT;
-    goto fail;
-  }
+  tmplen = len;
+  szptr = szbuf + sizeof(szbuf) - 1;
+  *szptr = ':';
+  do {
+    szptr--;
+    *szptr = '0' + (tmplen % 10);
+    tmplen = tmplen / 10;
+  } while (tmplen != 0);
 
-  if (buf_adata(buf, szbuf, (size_t)ret) < 0) {
+  if (buf_adata(buf, szptr, szbuf + sizeof(szbuf) - szptr) < 0) {
     goto fail;
   }
 

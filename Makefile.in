@@ -177,8 +177,7 @@ libyans_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 libycl_la_LIBADD =
 am_libycl_la_OBJECTS = lib/util/libycl_la-buf.lo \
 	lib/util/libycl_la-io.lo lib/util/libycl_la-netstring.lo \
-	proto/libycl_la-pcap_req.lo proto/libycl_la-ethframe_req.lo \
-	proto/libycl_la-status_resp.lo lib/ycl/libycl_la-ycl.lo
+	lib/ycl/libycl_la-ycl_msg.lo lib/ycl/libycl_la-ycl.lo
 libycl_la_OBJECTS = $(am_libycl_la_OBJECTS)
 libycl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libycl_la_CFLAGS) \
@@ -873,13 +872,7 @@ libycl_la_SOURCES = \
     lib/util/io.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
-    proto/proto.h \
-    proto/pcap_req.c \
-    proto/pcap_req.h \
-    proto/ethframe_req.c \
-    proto/ethframe_req.h \
-    proto/status_resp.c \
-    proto/status_resp.h \
+    lib/ycl/ycl_msg.c \
     lib/ycl/ycl.c
 
 libycl_la_CFLAGS = $(AM_CFLAGS)
@@ -1094,24 +1087,14 @@ lib/util/libycl_la-io.lo: lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/libycl_la-netstring.lo: lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
-proto/$(am__dirstamp):
-	@$(MKDIR_P) proto
-	@: > proto/$(am__dirstamp)
-proto/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) proto/$(DEPDIR)
-	@: > proto/$(DEPDIR)/$(am__dirstamp)
-proto/libycl_la-pcap_req.lo: proto/$(am__dirstamp) \
-	proto/$(DEPDIR)/$(am__dirstamp)
-proto/libycl_la-ethframe_req.lo: proto/$(am__dirstamp) \
-	proto/$(DEPDIR)/$(am__dirstamp)
-proto/libycl_la-status_resp.lo: proto/$(am__dirstamp) \
-	proto/$(DEPDIR)/$(am__dirstamp)
 lib/ycl/$(am__dirstamp):
 	@$(MKDIR_P) lib/ycl
 	@: > lib/ycl/$(am__dirstamp)
 lib/ycl/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) lib/ycl/$(DEPDIR)
 	@: > lib/ycl/$(DEPDIR)/$(am__dirstamp)
+lib/ycl/libycl_la-ycl_msg.lo: lib/ycl/$(am__dirstamp) \
+	lib/ycl/$(DEPDIR)/$(am__dirstamp)
 lib/ycl/libycl_la-ycl.lo: lib/ycl/$(am__dirstamp) \
 	lib/ycl/$(DEPDIR)/$(am__dirstamp)
 
@@ -1213,6 +1196,12 @@ lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ports.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
+proto/$(am__dirstamp):
+	@$(MKDIR_P) proto
+	@: > proto/$(am__dirstamp)
+proto/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) proto/$(DEPDIR)
+	@: > proto/$(DEPDIR)/$(am__dirstamp)
 proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
 	proto/$(DEPDIR)/$(am__dirstamp)
 proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
@@ -1342,7 +1331,6 @@ mostlyclean-compile:
 	-rm -f lib/ycl/*.$(OBJEXT)
 	-rm -f lib/ycl/*.lo
 	-rm -f proto/*.$(OBJEXT)
-	-rm -f proto/*.lo
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1414,10 +1402,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/ycl/$(DEPDIR)/libycl_la-ycl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/ethframe_req.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-ethframe_req.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-pcap_req.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/libycl_la-status_resp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/status_resp.Po@am__quote@
 
@@ -1669,26 +1655,12 @@ lib/util/libycl_la-netstring.lo: lib/util/netstring.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/util/libycl_la-netstring.lo `test -f 'lib/util/netstring.c' || echo '$(srcdir)/'`lib/util/netstring.c
 
-proto/libycl_la-pcap_req.lo: proto/pcap_req.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-pcap_req.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-pcap_req.Tpo -c -o proto/libycl_la-pcap_req.lo `test -f 'proto/pcap_req.c' || echo '$(srcdir)/'`proto/pcap_req.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-pcap_req.Tpo proto/$(DEPDIR)/libycl_la-pcap_req.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/pcap_req.c' object='proto/libycl_la-pcap_req.lo' libtool=yes @AMDEPBACKSLASH@
+lib/ycl/libycl_la-ycl_msg.lo: lib/ycl/ycl_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/ycl/libycl_la-ycl_msg.lo -MD -MP -MF lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Tpo -c -o lib/ycl/libycl_la-ycl_msg.lo `test -f 'lib/ycl/ycl_msg.c' || echo '$(srcdir)/'`lib/ycl/ycl_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Tpo lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/ycl/ycl_msg.c' object='lib/ycl/libycl_la-ycl_msg.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-pcap_req.lo `test -f 'proto/pcap_req.c' || echo '$(srcdir)/'`proto/pcap_req.c
-
-proto/libycl_la-ethframe_req.lo: proto/ethframe_req.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-ethframe_req.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-ethframe_req.Tpo -c -o proto/libycl_la-ethframe_req.lo `test -f 'proto/ethframe_req.c' || echo '$(srcdir)/'`proto/ethframe_req.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-ethframe_req.Tpo proto/$(DEPDIR)/libycl_la-ethframe_req.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/ethframe_req.c' object='proto/libycl_la-ethframe_req.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-ethframe_req.lo `test -f 'proto/ethframe_req.c' || echo '$(srcdir)/'`proto/ethframe_req.c
-
-proto/libycl_la-status_resp.lo: proto/status_resp.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT proto/libycl_la-status_resp.lo -MD -MP -MF proto/$(DEPDIR)/libycl_la-status_resp.Tpo -c -o proto/libycl_la-status_resp.lo `test -f 'proto/status_resp.c' || echo '$(srcdir)/'`proto/status_resp.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) proto/$(DEPDIR)/libycl_la-status_resp.Tpo proto/$(DEPDIR)/libycl_la-status_resp.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='proto/status_resp.c' object='proto/libycl_la-status_resp.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o proto/libycl_la-status_resp.lo `test -f 'proto/status_resp.c' || echo '$(srcdir)/'`proto/status_resp.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/ycl/libycl_la-ycl_msg.lo `test -f 'lib/ycl/ycl_msg.c' || echo '$(srcdir)/'`lib/ycl/ycl_msg.c
 
 lib/ycl/libycl_la-ycl.lo: lib/ycl/ycl.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/ycl/libycl_la-ycl.lo -MD -MP -MF lib/ycl/$(DEPDIR)/libycl_la-ycl.Tpo -c -o lib/ycl/libycl_la-ycl.lo `test -f 'lib/ycl/ycl.c' || echo '$(srcdir)/'`lib/ycl/ycl.c
@@ -1707,7 +1679,6 @@ clean-libtool:
 	-rm -rf lib/net/.libs lib/net/_libs
 	-rm -rf lib/util/.libs lib/util/_libs
 	-rm -rf lib/ycl/.libs lib/ycl/_libs
-	-rm -rf proto/.libs proto/_libs
 
 distclean-libtool:
 	-rm -f libtool config.lt

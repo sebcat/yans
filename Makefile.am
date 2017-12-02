@@ -227,13 +227,7 @@ libycl_la_SOURCES = \
     lib/util/io.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
-    proto/proto.h \
-    proto/pcap_req.c \
-    proto/pcap_req.h \
-    proto/ethframe_req.c \
-    proto/ethframe_req.h \
-    proto/status_resp.c \
-    proto/status_resp.h \
+    lib/ycl/ycl_msg.c \
     lib/ycl/ycl.c
 
 libycl_la_CFLAGS = $(AM_CFLAGS)

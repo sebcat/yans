@@ -19,11 +19,9 @@
 [{};]                 {return yytext[0];}
 data\[\]              {return DATAARR;}
 str\[\]               {return STRARR;}
-int\[\]               {return INTARR;}
 long\[\]              {return LONGARR;}
 data                  {return DATA;}
 str                   {return STR;}
-int                   {return INT;}
 long                  {return LONG;}
 
 [a-zA-Z][a-zA-Z0-9_]{0,30} {

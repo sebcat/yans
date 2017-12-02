@@ -8,6 +8,9 @@
 #define YCL_OK      0
 #define YCL_ERR    -1
 
+/* ycl_msg.flags */
+#define YCLMSGF_HASOPTBUF    (1 << 0)
+
 #include <stdint.h>
 
 #include <lib/util/buf.h>
@@ -22,8 +25,11 @@ struct ycl_ctx {
 struct ycl_msg {
   /* -- internal -- */
   buf_t buf;
+  buf_t mbuf; /* secondary buffer used as a scratch-pad in create/parse */
+  buf_t optbuf; /* optional buffer used by create for array elements */
   size_t sendoff; /* sendmsg message offset */
   size_t nextoff; /* message offset to next received chunk, if any */
+  int flags;      /* flags used internally */
 };
 
 /* internal ycl_ctx flags */
@@ -38,20 +44,6 @@ struct ycl_msg {
 #define ycl_set_externalfd(ycl) \
   (ycl)->flags |= YCL_EXTERNALFD;
 
-struct ycl_ethframe_req {
-  size_t ncustom_frames;
-  const char **custom_frames;
-  size_t *custom_frameslen;
-  const char *categories;
-  const char *iface;
-  const char *pps;
-  const char *eth_src;
-  const char *eth_dst;
-  const char *ip_src;
-  const char *ip_dsts;
-  const char *port_dsts;
-};
-
 void ycl_init(struct ycl_ctx *ycl, int fd);
 int ycl_connect(struct ycl_ctx *ycl, const char *dst);
 int ycl_close(struct ycl_ctx *ycl);
@@ -62,25 +54,8 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);
 int ycl_sendfd(struct ycl_ctx *ycl, int fd);
 
 int ycl_msg_init(struct ycl_msg *msg);
+int ycl_msg_use_optbuf(struct ycl_msg *msg);
 void ycl_msg_reset(struct ycl_msg *msg);
 void ycl_msg_cleanup(struct ycl_msg *msg);
-
-int ycl_msg_create_pcap_req(struct ycl_msg *msg, const char *iface,
-    const char *filter);
-int ycl_msg_create_pcap_close(struct ycl_msg *msg);
-
-int ycl_msg_create_ethframe_req(struct ycl_msg *msg,
-    struct ycl_ethframe_req *req);
-
-struct ycl_status_resp {
-  const char *okmsg;
-  const char *errmsg;
-};
-
-int ycl_msg_create_status_resp(struct ycl_msg *msg,
-    struct ycl_status_resp *r);
-int ycl_msg_parse_status_resp(struct ycl_msg *msg, struct ycl_status_resp *r);
-
-
 
 #endif  /* YANS_YCL_H__ */

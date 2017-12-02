@@ -9,14 +9,14 @@
 #include <poll.h>
 
 #include <lib/ycl/ycl.h>
+#include <lib/ycl/ycl_msg.h>
 
 #include <apps/ycli/pcapcli.h>
 
 #define DEFAULT_SOCK "/var/ethd/pcap.sock"
 
 struct pcapcli_opts {
-  char *iface;
-  char *filter;
+  struct ycl_msg_pcap_req req;
   char *output;
   char *sock;
 };
@@ -35,10 +35,10 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
   while ((ch = getopt_long(argc, argv, "i:f:o:s:h", opts, NULL)) != -1) {
     switch(ch) {
     case 'i':
-      res->iface = optarg;
+      res->req.iface = optarg;
       break;
     case 'f':
-      res->filter = optarg;
+      res->req.filter = optarg;
       break;
     case 'o':
       res->output = optarg;
@@ -52,7 +52,7 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
     }
   }
 
-  if (res->iface == NULL) {
+  if (res->req.iface == NULL) {
     fprintf(stderr, "no iface specified\n");
     goto usage;
   }
@@ -70,7 +70,7 @@ static int pcapcli_opts(struct pcapcli_opts *res, int argc, char *argv[]) {
 
 usage:
   fprintf(stderr, "usage: pcap --iface|-i <iface> --filter|-f <filter> "
-      "--output|-o <path>\n");
+      "--output|-o <path> --socket|-s <path>\n");
   return -1;
 }
 
@@ -98,7 +98,7 @@ static int pcapcli_wait(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   do {
     if (got_shutdown_sig) {
       printf("Received shutdown signal, stopping capture...\n");
-      if (ycl_msg_create_pcap_close(msg) != YCL_OK) {
+      if (ycl_msg_create_pcap_close(msg, NULL) != YCL_OK) {
         fprintf(stderr, "unable to create pcap close message\n");
         goto fail;
       }
@@ -126,7 +126,7 @@ fail:
 static int pcapcli_run(int fd, struct pcapcli_opts *opts) {
   struct ycl_ctx ycl;
   struct ycl_msg msg = {{0}};
-  struct ycl_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {0};
 
   if (ycl_connect(&ycl, opts->sock) != YCL_OK) {
     fprintf(stderr, "%s\n", ycl_strerror(&ycl));
@@ -139,7 +139,7 @@ static int pcapcli_run(int fd, struct pcapcli_opts *opts) {
     goto fail;
   }
 
-  if (ycl_msg_create_pcap_req(&msg, opts->iface, opts->filter) != YCL_OK) {
+  if (ycl_msg_create_pcap_req(&msg, &opts->req) != YCL_OK) {
     fprintf(stderr, "unable to create pcap request\n");
     goto fail;
   }

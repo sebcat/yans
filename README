@@ -26,7 +26,8 @@
 - clid: utility daemon for opening/closing files/connections
 - ethd, tlsd, bannerd, ...: scan daemons with a single responsibility
 
-a1, scand and the scan daemons must run under seccomp-bpf/capsicum.
+a1, scand and the scan daemons run under seccomp-bpf/capsicum (exceptions
+can be made)
 
 ## clid
 

@@ -7,15 +7,16 @@
 #include <arpa/inet.h>
 
 #include <lib/ycl/ycl.h>
+#include <lib/ycl/ycl_msg.h>
 
 #define DEFAULT_SOCK "/var/ethd/ethframe.sock"
 
 struct ethframe_opts {
   const char *sock;
-  struct ycl_ethframe_req req;
+  struct ycl_msg_ethframe_req req;
 };
 
-static int parse_frame(int index, char *frame, size_t *len) {
+static int parse_frame(int index, char *frame, struct ycl_data *out) {
   size_t strl;
   size_t i;
 
@@ -62,7 +63,8 @@ static int parse_frame(int index, char *frame, size_t *len) {
     }
   }
 
-  *len = strl / 2;
+  out->data = frame;
+  out->len = strl / 2;
   return 0;
 }
 
@@ -74,25 +76,18 @@ static int parse_frames(struct ethframe_opts *opts, int nframes,
     return 0;
   }
 
-  opts->req.custom_frames = calloc(nframes, sizeof(char*));
+  opts->req.ncustom_frames = (size_t)nframes;
+  opts->req.custom_frames = calloc(nframes, sizeof(struct ycl_data));
   if (opts->req.custom_frames == NULL) {
     fprintf(stderr, "frames: %s\n", strerror(errno));
     return -1;
   }
 
-  opts->req.custom_frameslen = calloc(nframes, sizeof(size_t));
-  if (opts->req.custom_frameslen == NULL) {
-    fprintf(stderr, "frameslen: %s\n", strerror(errno));
-    free(opts->req.custom_frames);
-    return -1;
-  }
-
   opts->req.ncustom_frames = (size_t)nframes;
   for (i = 0; i < nframes; i++) {
-    if (parse_frame(i, frames[i], &opts->req.custom_frameslen[i]) < 0) {
+    if (parse_frame(i, frames[i], &opts->req.custom_frames[i]) < 0) {
       return -1;
     }
-    opts->req.custom_frames[i] = frames[i];
   }
 
   return 0;
@@ -124,7 +119,7 @@ static int parse_opts(struct ethframe_opts *opts, int argc, char *argv[]) {
       opts->req.iface = optarg;
       break;
     case 'r':
-      opts->req.pps = optarg;
+      opts->req.pps = strtol(optarg, NULL, 10);
       break;
     case 's':
       opts->req.eth_src = optarg;
@@ -179,7 +174,7 @@ usage:
 static int ethframecli_run(struct ethframe_opts *opts) {
   struct ycl_ctx ycl;
   struct ycl_msg msg = {{0}};
-  struct ycl_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {0};
   int ret = -1;
 
   if (ycl_connect(&ycl, opts->sock) != YCL_OK) {

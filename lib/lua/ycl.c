@@ -46,6 +46,7 @@ static int l_yclmsgdata(lua_State *L) {
   return 1;
 }
 
+#if 0
 static int l_createstatusresp(lua_State *L) {
   struct ycl_msg *msg;
   struct ycl_status_resp r = {0};
@@ -92,6 +93,7 @@ static int l_parsestatusresp(lua_State *L) {
 
   return 1;
 }
+#endif
 
 static int l_yclctx(lua_State *L) {
   struct ycl_ctx *ctx;
@@ -185,8 +187,10 @@ static const struct luaL_Reg yclmsg_m[] = {
   {"__gc", l_yclmsggc},
   {"size", l_yclmsgsize},
   {"data", l_yclmsgdata},
+#if 0
   {"create_status_resp", l_createstatusresp},
   {"parse_status_resp", l_parsestatusresp},
+#endif
   {NULL, NULL},
 };
 

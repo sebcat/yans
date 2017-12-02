@@ -1,0 +1,33 @@
+##
+## service agnostic messages
+##
+
+status_resp {
+  str okmsg;
+  str errmsg;
+}
+
+##
+## ethd messages
+##
+
+pcap_req {
+  str iface;
+  str filter;
+}
+
+pcap_close {
+
+}
+
+ethframe_req {
+  long pps;
+  str iface;
+  str categories;
+  str eth_src;
+  str eth_dst;
+  str ip_src;
+  str ip_dsts;
+  str port_dsts;
+  data[] custom_frames;
+}

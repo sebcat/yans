@@ -176,7 +176,7 @@ int test_next_pair() {
       {"oof", 3, "rabies", 6},
     }},
 
-    {"10:AAAAAAAAAA,11:BBBBBBBBBBB,12:CCCCCCCCCCCC,13:DDDDDDDDDDDDD,1:x,1:y,",
+    {"12:AAAAAAAAAA,13:BBBBBBBBBBB,14:CCCCCCCCCCCC,15:DDDDDDDDDDDDD,1:x,1:y,",
       3, {
         {"AAAAAAAAAA", 10, "BBBBBBBBBBB", 11},
         {"CCCCCCCCCCCC", 12, "DDDDDDDDDDDDD", 13},
@@ -366,7 +366,7 @@ int test_serialize() {
         .barlen = 0,
         .bazlen = 0,
       },
-      "12:3:foo,3:bar,,"
+      "14:3:foo,3:bar,,"
     },
     {
       {
@@ -377,7 +377,7 @@ int test_serialize() {
         .barlen = 4,
         .bazlen = 0,
       },
-      "13:3:bar,4:bara,,"
+      "15:3:bar,4:bara,,"
     },
     {
       {
@@ -388,7 +388,7 @@ int test_serialize() {
         .barlen = 0,
         .bazlen = 3,
       },
-      "12:3:baz,3:bar,,"
+      "14:3:baz,3:bar,,"
     },
     {
       {
@@ -399,7 +399,7 @@ int test_serialize() {
         .barlen = 1,
         .bazlen = 1,
       },
-      "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,"
+      "36:3:foo,1:a,3:bar,1:b,3:baz,1:c,,"
     },
     {{0}, NULL},
   };
@@ -458,7 +458,7 @@ int test_deserialize() {
       1,
     },
     {
-      "9:3:foo,0:,,",
+      "11:3:foo,0:,,",
       {
         .foo = NULL,
         .bar = NULL,
@@ -467,7 +467,7 @@ int test_deserialize() {
       0,
     },
     {
-      "12:3:foo,3:bar,,",
+      "14:3:foo,3:bar,,",
       {
         .foo = "bar",
         .bar = NULL,
@@ -476,7 +476,7 @@ int test_deserialize() {
       0,
     },
     {
-      "12:3:bar,3:bar,,",
+      "14:3:bar,3:bar,,",
       {
         .foo = NULL,
         .bar = "bar",
@@ -485,7 +485,7 @@ int test_deserialize() {
       0,
     },
     {
-      "12:3:baz,3:bar,,",
+      "14:3:baz,3:bar,,",
       {
         .foo = NULL,
         .bar = NULL,
@@ -494,7 +494,7 @@ int test_deserialize() {
       0,
     },
     {
-      "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,",
+      "36:3:foo,1:a,3:bar,1:b,3:baz,1:c,,",
       {
         .foo = "a",
         .bar = "b",
@@ -503,7 +503,7 @@ int test_deserialize() {
       0,
     },
     {
-      "30:3:foo,1:a,3:bar,1:b,3:baz,1:c,,topkek",
+      "36:3:foo,1:a,3:bar,1:b,3:baz,1:c,,topkek",
       {
         .foo = "a",
         .bar = "b",

@@ -1,4 +1,5 @@
 #include <lib/ycl/ycl.h>
+#include <lib/ycl/ycl_msg.h>
 #include <lib/lua/ycl.h>
 
 #define MTNAME_YCLMSG "yans.YCLMsg"
@@ -46,10 +47,9 @@ static int l_yclmsgdata(lua_State *L) {
   return 1;
 }
 
-#if 0
 static int l_createstatusresp(lua_State *L) {
   struct ycl_msg *msg;
-  struct ycl_status_resp r = {0};
+  struct ycl_msg_status_resp r = {0};
 
   msg = checkmsg(L, 1);
   luaL_checktype(L, 2, LUA_TTABLE);
@@ -73,7 +73,7 @@ static int l_createstatusresp(lua_State *L) {
 
 static int l_parsestatusresp(lua_State *L) {
   struct ycl_msg *msg;
-  struct ycl_status_resp r = {0};
+  struct ycl_msg_status_resp r = {0};
 
   msg = checkmsg(L, 1);
   if (ycl_msg_parse_status_resp(msg, &r) != YCL_OK) {
@@ -93,7 +93,6 @@ static int l_parsestatusresp(lua_State *L) {
 
   return 1;
 }
-#endif
 
 static int l_yclctx(lua_State *L) {
   struct ycl_ctx *ctx;
@@ -187,10 +186,8 @@ static const struct luaL_Reg yclmsg_m[] = {
   {"__gc", l_yclmsggc},
   {"size", l_yclmsgsize},
   {"data", l_yclmsgdata},
-#if 0
   {"create_status_resp", l_createstatusresp},
   {"parse_status_resp", l_parsestatusresp},
-#endif
   {NULL, NULL},
 };
 

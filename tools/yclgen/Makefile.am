@@ -2,7 +2,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 AM_YFLAGS = -d
 
-bin_PROGRAMS = yclgen
+bin_PROGRAMS = genycl
 
-yclgen_SOURCES = parser.y tokens.l
+genycl_SOURCES = parser.y tokens.l genycl.c
 

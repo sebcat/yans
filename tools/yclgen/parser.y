@@ -9,13 +9,13 @@
 
 #include "yclgen.h"
 #include "parser.h"
+#include "tokens.h"
 
-#define YYERROR_VERBOSE
-
-
+#if 0
 extern int yylex(YYSTYPE * lval, void *scanner);
 extern int yylex_init(void *scanner);
 extern int yylex_destroy(void *scanner);
+#endif
 
 static void push_msg(struct yclgen_ctx *ctx, const char *name);
 static void push_field(struct yclgen_ctx *ctx, enum yclgen_field_type typ,
@@ -69,12 +69,14 @@ field:
 
 %%
 
-int yclgen_parse(struct yclgen_ctx *ctx) {
+
+int yclgen_parse(struct yclgen_ctx *ctx, FILE *fp) {
   int ret;
   void *scanner;
 
   memset(ctx, 0, sizeof(*ctx));
   yylex_init(&scanner);
+  yyset_in(fp, scanner);
   ret = yyparse(ctx, scanner);
   yylex_destroy(scanner);
   return ret;

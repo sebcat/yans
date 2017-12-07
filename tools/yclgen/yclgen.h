@@ -1,6 +1,8 @@
 #ifndef YCLGEN_H__
 #define YCLGEN_H__
 
+#include <stdio.h>
+
 #define MAX_NAMELEN 32
 #define MAX_FIELDS 32
 
@@ -38,7 +40,7 @@ struct yclgen_ctx {
   int flags;
 };
 
-int yclgen_parse(struct yclgen_ctx *ctx);
+int yclgen_parse(struct yclgen_ctx *ctx, FILE *fp);
 void yclgen_cleanup(struct yclgen_ctx *ctx);
 
 #endif /* YCLGEN_H__ */

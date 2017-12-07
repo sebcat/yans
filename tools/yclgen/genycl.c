@@ -693,15 +693,15 @@ int main(int argc, char *argv[]) {
   FILE *outhdr = NULL;
   FILE *outimpl = NULL;
   int status = EXIT_FAILURE;
-  struct yclgen_ctx ctx;
+  struct yclgen_ctx ctx = {0};
   int ret;
 
   if (argc != 3) {
     usage(argv[0]);
   }
 
-  if (yclgen_parse(&ctx) != 0) {
-    exit(1);
+  if (yclgen_parse(&ctx, stdin) != 0) {
+    goto out;
   }
 
   outhdr = fopen(argv[1], "wb");

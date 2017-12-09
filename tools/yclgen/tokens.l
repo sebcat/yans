@@ -7,8 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-//#define YY_DECL int yylex()
-
 #include "yclgen.h"
 #include "parser.h"
 

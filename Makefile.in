@@ -15,7 +15,6 @@
 @SET_MAKE@
 
 
-
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -112,7 +111,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
-	$(am__configure_deps) $(pkginclude_HEADERS) $(am__DIST_COMMON)
+	$(am__configure_deps) $(am__DIST_COMMON)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
@@ -145,8 +144,7 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(pkgincludedir)"
+am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libyans_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
@@ -164,9 +162,10 @@ am_libyans_la_OBJECTS = 3rd_party/libyans_la-linenoise.lo \
 	lib/lua/libyans_la-ypcap.lo lib/lua/libyans_la-json.lo \
 	lib/lua/libyans_la-cgi.lo lib/lua/libyans_la-fts.lo \
 	lib/lua/libyans_la-opts.lo lib/lua/libyans_la-ylog.lo \
-	lib/lua/libyans_la-eds.lo lib/lua/libyans_la-ycl.lo \
-	lib/lua/libyans_la-yans.lo
-libyans_la_OBJECTS = $(am_libyans_la_OBJECTS)
+	lib/lua/libyans_la-eds.lo lib/lua/libyans_la-yans.lo
+nodist_libyans_la_OBJECTS = lib/lua/libyans_la-ycl.lo
+libyans_la_OBJECTS = $(am_libyans_la_OBJECTS) \
+	$(nodist_libyans_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -177,8 +176,10 @@ libyans_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 libycl_la_LIBADD =
 am_libycl_la_OBJECTS = lib/util/libycl_la-buf.lo \
 	lib/util/libycl_la-io.lo lib/util/libycl_la-netstring.lo \
-	lib/ycl/libycl_la-ycl_msg.lo lib/ycl/libycl_la-ycl.lo
-libycl_la_OBJECTS = $(am_libycl_la_OBJECTS)
+	lib/ycl/libycl_la-ycl.lo
+nodist_libycl_la_OBJECTS = lib/ycl/libycl_la-ycl_msg.lo
+libycl_la_OBJECTS = $(am_libycl_la_OBJECTS) \
+	$(nodist_libycl_la_OBJECTS)
 libycl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libycl_la_CFLAGS) \
 	$(CFLAGS) $(libycl_la_LDFLAGS) $(LDFLAGS) -o $@
@@ -278,8 +279,9 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libyans_la_SOURCES) $(libycl_la_SOURCES) $(clid_SOURCES) \
-	$(ethd_SOURCES) $(fc2_SOURCES) \
+SOURCES = $(libyans_la_SOURCES) $(nodist_libyans_la_SOURCES) \
+	$(libycl_la_SOURCES) $(nodist_libycl_la_SOURCES) \
+	$(clid_SOURCES) $(ethd_SOURCES) $(fc2_SOURCES) \
 	$(lib_net_punycode_test_SOURCES) $(lib_net_url_test_SOURCES) \
 	$(lib_util_conf_test_SOURCES) \
 	$(lib_util_netstring_test_SOURCES) $(lib_util_os_test_SOURCES) \
@@ -303,7 +305,6 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
-HEADERS = $(pkginclude_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -507,7 +508,7 @@ TEST_LOGS = $(am__test_logs2:.yans.log=.log)
 YANS_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 YANS_LOG_COMPILE = $(YANS_LOG_COMPILER) $(AM_YANS_LOG_FLAGS) \
 	$(YANS_LOG_FLAGS)
-DIST_SUBDIRS = freebsd
+DIST_SUBDIRS = freebsd tools/yclgen
 am__DIST_COMMON = $(srcdir)/Makefile.in README TODO ar-lib compile \
 	config.guess config.sub depcomp install-sh ltmain.sh missing \
 	test-driver ylwrap
@@ -681,7 +682,16 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 @FREEBSD_OPT_TRUE@MAYBE_FREEBSD = freebsd
-SUBDIRS = $(MAYBE_FREEBSD)
+SUBDIRS = $(MAYBE_FREEBSD) tools/yclgen
+EXTRA_DIST = \
+    lib/lua/ycl.c.in \
+    lib/ycl/ycl_msg.ycl
+
+CLEANFILES = \
+    lib/lua/ycl.c \
+    lib/ycl/ycl_msg.c \
+    lib/ycl/ycl_msg.h
+
 ACLOCAL_AMFLAGS = -I m4
 AM_YFLAGS = -d
 AM_CFLAGS = \
@@ -699,9 +709,6 @@ YANS_LOG_COMPILER = ./yans
 lib_LTLIBRARIES = \
     libycl.la \
     libyans.la
-
-pkginclude_HEADERS = \
-    lib/ycl/ycl.h
 
 clid_SOURCES = \
     lib/util/ylog.h \
@@ -856,9 +863,11 @@ libyans_la_SOURCES = \
     lib/lua/eds.h \
     lib/lua/eds.c \
     lib/lua/ycl.h \
-    lib/lua/ycl.c \
     lib/lua/yans.h \
     lib/lua/yans.c
+
+nodist_libyans_la_SOURCES = \
+    lib/lua/ycl.c
 
 libyans_la_LDFLAGS = \
     -version-info 1:0:0 \
@@ -872,8 +881,11 @@ libycl_la_SOURCES = \
     lib/util/io.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
-    lib/ycl/ycl_msg.c \
     lib/ycl/ycl.c
+
+nodist_libycl_la_SOURCES = \
+    lib/ycl/ycl_msg.c \
+    lib/ycl/ycl_msg.h
 
 libycl_la_CFLAGS = $(AM_CFLAGS)
 libycl_la_LDFLAGS = \
@@ -1074,9 +1086,9 @@ lib/lua/libyans_la-ylog.lo: lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/libyans_la-eds.lo: lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
-lib/lua/libyans_la-ycl.lo: lib/lua/$(am__dirstamp) \
-	lib/lua/$(DEPDIR)/$(am__dirstamp)
 lib/lua/libyans_la-yans.lo: lib/lua/$(am__dirstamp) \
+	lib/lua/$(DEPDIR)/$(am__dirstamp)
+lib/lua/libyans_la-ycl.lo: lib/lua/$(am__dirstamp) \
 	lib/lua/$(DEPDIR)/$(am__dirstamp)
 
 libyans.la: $(libyans_la_OBJECTS) $(libyans_la_DEPENDENCIES) $(EXTRA_libyans_la_DEPENDENCIES) 
@@ -1093,9 +1105,9 @@ lib/ycl/$(am__dirstamp):
 lib/ycl/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) lib/ycl/$(DEPDIR)
 	@: > lib/ycl/$(DEPDIR)/$(am__dirstamp)
-lib/ycl/libycl_la-ycl_msg.lo: lib/ycl/$(am__dirstamp) \
-	lib/ycl/$(DEPDIR)/$(am__dirstamp)
 lib/ycl/libycl_la-ycl.lo: lib/ycl/$(am__dirstamp) \
+	lib/ycl/$(DEPDIR)/$(am__dirstamp)
+lib/ycl/libycl_la-ycl_msg.lo: lib/ycl/$(am__dirstamp) \
 	lib/ycl/$(DEPDIR)/$(am__dirstamp)
 
 libycl.la: $(libycl_la_OBJECTS) $(libycl_la_DEPENDENCIES) $(EXTRA_libycl_la_DEPENDENCIES) 
@@ -1620,19 +1632,19 @@ lib/lua/libyans_la-eds.lo: lib/lua/eds.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-eds.lo `test -f 'lib/lua/eds.c' || echo '$(srcdir)/'`lib/lua/eds.c
 
-lib/lua/libyans_la-ycl.lo: lib/lua/ycl.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-ycl.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-ycl.Tpo -c -o lib/lua/libyans_la-ycl.lo `test -f 'lib/lua/ycl.c' || echo '$(srcdir)/'`lib/lua/ycl.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-ycl.Tpo lib/lua/$(DEPDIR)/libyans_la-ycl.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/ycl.c' object='lib/lua/libyans_la-ycl.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-ycl.lo `test -f 'lib/lua/ycl.c' || echo '$(srcdir)/'`lib/lua/ycl.c
-
 lib/lua/libyans_la-yans.lo: lib/lua/yans.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-yans.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-yans.Tpo -c -o lib/lua/libyans_la-yans.lo `test -f 'lib/lua/yans.c' || echo '$(srcdir)/'`lib/lua/yans.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-yans.Tpo lib/lua/$(DEPDIR)/libyans_la-yans.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/yans.c' object='lib/lua/libyans_la-yans.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-yans.lo `test -f 'lib/lua/yans.c' || echo '$(srcdir)/'`lib/lua/yans.c
+
+lib/lua/libyans_la-ycl.lo: lib/lua/ycl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -MT lib/lua/libyans_la-ycl.lo -MD -MP -MF lib/lua/$(DEPDIR)/libyans_la-ycl.Tpo -c -o lib/lua/libyans_la-ycl.lo `test -f 'lib/lua/ycl.c' || echo '$(srcdir)/'`lib/lua/ycl.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/lua/$(DEPDIR)/libyans_la-ycl.Tpo lib/lua/$(DEPDIR)/libyans_la-ycl.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/lua/ycl.c' object='lib/lua/libyans_la-ycl.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libyans_la_CFLAGS) $(CFLAGS) -c -o lib/lua/libyans_la-ycl.lo `test -f 'lib/lua/ycl.c' || echo '$(srcdir)/'`lib/lua/ycl.c
 
 lib/util/libycl_la-buf.lo: lib/util/buf.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/util/libycl_la-buf.lo -MD -MP -MF lib/util/$(DEPDIR)/libycl_la-buf.Tpo -c -o lib/util/libycl_la-buf.lo `test -f 'lib/util/buf.c' || echo '$(srcdir)/'`lib/util/buf.c
@@ -1655,19 +1667,19 @@ lib/util/libycl_la-netstring.lo: lib/util/netstring.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/util/libycl_la-netstring.lo `test -f 'lib/util/netstring.c' || echo '$(srcdir)/'`lib/util/netstring.c
 
-lib/ycl/libycl_la-ycl_msg.lo: lib/ycl/ycl_msg.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/ycl/libycl_la-ycl_msg.lo -MD -MP -MF lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Tpo -c -o lib/ycl/libycl_la-ycl_msg.lo `test -f 'lib/ycl/ycl_msg.c' || echo '$(srcdir)/'`lib/ycl/ycl_msg.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Tpo lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/ycl/ycl_msg.c' object='lib/ycl/libycl_la-ycl_msg.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/ycl/libycl_la-ycl_msg.lo `test -f 'lib/ycl/ycl_msg.c' || echo '$(srcdir)/'`lib/ycl/ycl_msg.c
-
 lib/ycl/libycl_la-ycl.lo: lib/ycl/ycl.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/ycl/libycl_la-ycl.lo -MD -MP -MF lib/ycl/$(DEPDIR)/libycl_la-ycl.Tpo -c -o lib/ycl/libycl_la-ycl.lo `test -f 'lib/ycl/ycl.c' || echo '$(srcdir)/'`lib/ycl/ycl.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/ycl/$(DEPDIR)/libycl_la-ycl.Tpo lib/ycl/$(DEPDIR)/libycl_la-ycl.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/ycl/ycl.c' object='lib/ycl/libycl_la-ycl.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/ycl/libycl_la-ycl.lo `test -f 'lib/ycl/ycl.c' || echo '$(srcdir)/'`lib/ycl/ycl.c
+
+lib/ycl/libycl_la-ycl_msg.lo: lib/ycl/ycl_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -MT lib/ycl/libycl_la-ycl_msg.lo -MD -MP -MF lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Tpo -c -o lib/ycl/libycl_la-ycl_msg.lo `test -f 'lib/ycl/ycl_msg.c' || echo '$(srcdir)/'`lib/ycl/ycl_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Tpo lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/ycl/ycl_msg.c' object='lib/ycl/libycl_la-ycl_msg.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libycl_la_CFLAGS) $(CFLAGS) -c -o lib/ycl/libycl_la-ycl_msg.lo `test -f 'lib/ycl/ycl_msg.c' || echo '$(srcdir)/'`lib/ycl/ycl_msg.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -1682,27 +1694,6 @@ clean-libtool:
 
 distclean-libtool:
 	-rm -f libtool config.lt
-install-pkgincludeHEADERS: $(pkginclude_HEADERS)
-	@$(NORMAL_INSTALL)
-	@list='$(pkginclude_HEADERS)'; test -n "$(pkgincludedir)" || list=; \
-	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(pkgincludedir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(pkgincludedir)" || exit 1; \
-	fi; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(pkgincludedir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(pkgincludedir)" || exit $$?; \
-	done
-
-uninstall-pkgincludeHEADERS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(pkginclude_HEADERS)'; test -n "$(pkgincludedir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(pkgincludedir)'; $(am__uninstall_files_from_dir)
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -2200,12 +2191,12 @@ check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-recursive
-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(HEADERS)
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS)
 install-binPROGRAMS: install-libLTLIBRARIES
 
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(pkgincludedir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -2233,6 +2224,7 @@ mostlyclean-generic:
 	-test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -2287,7 +2279,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-pkgincludeHEADERS
+install-data-am:
 
 install-dvi: install-dvi-recursive
 
@@ -2335,8 +2327,7 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-libLTLIBRARIES \
-	uninstall-pkgincludeHEADERS
+uninstall-am: uninstall-binPROGRAMS uninstall-libLTLIBRARIES
 
 .MAKE: $(am__recursive_targets) check-am install-am install-strip
 
@@ -2353,16 +2344,23 @@ uninstall-am: uninstall-binPROGRAMS uninstall-libLTLIBRARIES \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am \
 	install-libLTLIBRARIES install-man install-pdf install-pdf-am \
-	install-pkgincludeHEADERS install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am recheck tags tags-am \
-	uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-libLTLIBRARIES uninstall-pkgincludeHEADERS
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	recheck tags tags-am uninstall uninstall-am \
+	uninstall-binPROGRAMS uninstall-libLTLIBRARIES
 
 .PRECIOUS: Makefile
 
+
+lib/lua/ycl.c: lib/lua/ycl.c.in lib/ycl/ycl_msg.ycl
+	@./tools/yclgen/genlycl -f lib/ycl/ycl_msg.ycl < lib/lua/ycl.c.in \
+			> lib/lua/ycl.c
+
+lib/ycl/ycl_msg.c lib/ycl/ycl_msg.h: tools/yclgen/genycl lib/ycl/ycl_msg.ycl
+	./tools/yclgen/genycl lib/ycl/ycl_msg.h lib/ycl/ycl_msg.c \
+			< lib/ycl/ycl_msg.ycl
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

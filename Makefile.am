@@ -2,7 +2,16 @@ if FREEBSD_OPT
   MAYBE_FREEBSD = freebsd
 endif
 
-SUBDIRS = $(MAYBE_FREEBSD)
+SUBDIRS = $(MAYBE_FREEBSD) tools/yclgen
+
+EXTRA_DIST = \
+    lib/lua/ycl.c.in \
+    lib/ycl/ycl_msg.ycl
+
+CLEANFILES = \
+    lib/lua/ycl.c \
+    lib/ycl/ycl_msg.c \
+    lib/ycl/ycl_msg.h
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -53,9 +62,6 @@ bin_PROGRAMS = \
 lib_LTLIBRARIES = \
     libycl.la \
     libyans.la
-
-pkginclude_HEADERS = \
-    lib/ycl/ycl.h
 
 clid_SOURCES = \
     lib/util/ylog.h \
@@ -210,9 +216,15 @@ libyans_la_SOURCES = \
     lib/lua/eds.h \
     lib/lua/eds.c \
     lib/lua/ycl.h \
-    lib/lua/ycl.c \
     lib/lua/yans.h \
     lib/lua/yans.c
+
+nodist_libyans_la_SOURCES = \
+    lib/lua/ycl.c
+
+lib/lua/ycl.c: lib/lua/ycl.c.in lib/ycl/ycl_msg.ycl
+	@./tools/yclgen/genlycl -f lib/ycl/ycl_msg.ycl < lib/lua/ycl.c.in \
+			> lib/lua/ycl.c
 
 libyans_la_LDFLAGS = \
     -version-info 1:0:0 \
@@ -227,8 +239,15 @@ libycl_la_SOURCES = \
     lib/util/io.h \
     lib/util/netstring.c \
     lib/util/netstring.h \
-    lib/ycl/ycl_msg.c \
     lib/ycl/ycl.c
+
+nodist_libycl_la_SOURCES = \
+    lib/ycl/ycl_msg.c \
+    lib/ycl/ycl_msg.h
+
+lib/ycl/ycl_msg.c lib/ycl/ycl_msg.h: tools/yclgen/genycl lib/ycl/ycl_msg.ycl
+	./tools/yclgen/genycl lib/ycl/ycl_msg.h lib/ycl/ycl_msg.c \
+			< lib/ycl/ycl_msg.ycl
 
 libycl_la_CFLAGS = $(AM_CFLAGS)
 

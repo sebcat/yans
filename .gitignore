@@ -25,3 +25,8 @@ tools/yclgen/parser.c
 tools/yclgen/parser.h
 tools/yclgen/tokens.c
 tools/yclgen/genycl
+tools/yclgen/genlycl
+lib/lua/ycl.c
+lib/ycl/ycl_msg.c
+lib/ycl/ycl_msg.h
+

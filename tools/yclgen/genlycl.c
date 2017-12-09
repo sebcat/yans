@@ -52,12 +52,269 @@ static int load_yclgen_ctx(struct yclgen_ctx *ctx, struct opts *opts) {
   return ret;
 }
 
-void emit_header(struct yclgen_ctx *ctx, FILE *out) {
+void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
+  int i;
+  struct yclgen_field *f;
 
+  fprintf(out,
+      "static int l_msgcreate%s(lua_State *L) {\n"
+      "  struct ycl_msg_%s mdata%s;\n"
+      "  struct ycl_msg *m;\n"
+      "  int ret;\n"
+      "%s"
+      "\n"
+      "  m = checkmsg(L, 1);\n"
+      "  luaL_checktype(L, 2, LUA_TTABLE);\n"
+      "\n",
+      msg->name, msg->name,
+      msg->nfields > 0 ? " = {0}" : "",
+      msg->nfields > 0 ? "  int t;\n" : "");
+
+  for (i = 0; i < msg->nfields; i++) {
+    f = &msg->fields[i];
+    switch (f->typ) {
+    case FT_DATAARR:
+      fprintf(out,
+          "  t = lua_getfield(L, 2, \"%s\");\n"
+          "  if (t == LUA_TTABLE) {\n"
+          "    size_t len;\n"
+          "    size_t i;\n"
+          "\n"
+          "    len = lua_rawlen(L, -1);\n"
+          "    if (len > 0 && (mdata.%s = malloc(sizeof(struct ycl_data) * len))) {\n"
+          "      for (i = 0; i < len && i < INT_MAX; i++) {\n"
+          "        lua_rawgeti(L, -1, (lua_Integer)i + 1);\n"
+          "        mdata.%s[i].data = lua_tolstring(L, -1, &mdata.%s[i].len);\n"
+          "        lua_pop(L, 1);\n"
+          "      }\n"
+          "      mdata.n%s = len;\n"
+          "    }\n"
+          "  }\n"
+          "  lua_pop(L, 1);\n"
+          "\n", f->name, f->name, f->name, f->name, f->name);
+      break;
+    case FT_STRARR:
+      fprintf(out,
+          "  t = lua_getfield(L, 2, \"%s\");\n"
+          "  if (t == LUA_TTABLE) {\n"
+          "    size_t len;\n"
+          "    size_t i;\n"
+          "\n"
+          "    len = lua_rawlen(L, -1);\n"
+          "    if (len > 0 && (mdata.%s = malloc(sizeof(char *) * len))) {\n"
+          "      for (i = 0; i < len && i < INT_MAX; i++) {\n"
+          "        lua_rawgeti(L, -1, (lua_Integer)i + 1);\n"
+          "        mdata.%s[i] = lua_tostring(L, -1);\n"
+          "        lua_pop(L, 1);\n"
+          "      }\n"
+          "      mdata.n%s = len;\n"
+          "    }\n"
+          "  }\n"
+          "  lua_pop(L, 1);\n"
+          "\n", f->name, f->name, f->name, f->name);
+      break;
+    case FT_LONGARR:
+      fprintf(out,
+          "  t = lua_getfield(L, 2, \"%s\");\n"
+          "  if (t == LUA_TTABLE) {\n"
+          "    size_t len;\n"
+          "    size_t i;\n"
+          "\n"
+          "    len = lua_rawlen(L, -1);\n"
+          "    if (len > 0 && (mdata.%s = malloc(sizeof(long) * len))) {\n"
+          "      for (i = 0; i < len && i < INT_MAX; i++) {\n"
+          "        lua_rawgeti(L, -1, (lua_Integer)i + 1);\n"
+          "        mdata.%s[i] = (long)lua_tonumber(L, -1);\n"
+          "        lua_pop(L, 1);\n"
+          "      }\n"
+          "      mdata.n%s = len;\n"
+          "    }\n"
+          "  }\n"
+          "  lua_pop(L, 1);\n"
+          "\n", f->name, f->name, f->name, f->name);
+      break;
+    case FT_DATA:
+      fprintf(out,
+          "  t = lua_getfield(L, 2, \"%s\");\n"
+          "  if (t == LUA_TSTRING) {\n"
+          "    mdata.%s.data = lua_tolstring(L, -1, &mdata.%s.len);\n"
+          "  }\n"
+          "  lua_pop(L, 1);\n"
+          "\n", f->name, f->name, f->name);
+      break;
+    case FT_STR:
+      fprintf(out,
+          "  t = lua_getfield(L, 2, \"%s\");\n"
+          "  if (t == LUA_TSTRING) {\n"
+          "    mdata.%s = lua_tostring(L, -1);\n"
+          "  }\n"
+          "  lua_pop(L, 1);\n"
+          "\n", f->name, f->name);
+      break;
+    case FT_LONG:
+      fprintf(out,
+          "  t = lua_getfield(L, 2, \"%s\");\n"
+          "  if (t == LUA_TNUMBER) {\n"
+          "    mdata.%s = (long)lua_tointeger(L, -1);\n"
+          "  }\n"
+          "  lua_pop(L, 1);\n"
+          "\n", f->name, f->name);
+      break;
+    default:
+      abort();
+      break;
+    }
+  }
+
+  fprintf(out, "  ret = ycl_msg_create_%s(m, &mdata);\n", msg->name);
+  for (i = 0; i < msg->nfields; i++) {
+    f = &msg->fields[i];
+    switch (f->typ) {
+    case FT_DATAARR:
+    case FT_STRARR:
+    case FT_LONGARR:
+      fprintf(out,
+          "  if (mdata.%s != NULL) {\n"
+          "    free(mdata.%s);\n"
+          "  }\n\n", f->name, f->name);
+      break;
+    case FT_DATA:
+    case FT_STR:
+    case FT_LONG:
+    default:
+      /* no-op */
+      break;
+    }
+  }
+
+  fprintf(out,
+      "  if (ret != YCL_OK) {\n"
+      "    return luaL_error(L, \"ycl_msg_create_%s failure\");\n"
+      "  }\n"
+      "\n"
+      "  lua_pop(L, 1); /* pop arg table, return self */\n"
+      "  return 1;\n"
+      "}\n\n", msg->name);
+}
+
+void emit_parse_impl(struct yclgen_msg *msg, FILE *out) {
+  struct yclgen_field *f;
+  int i;
+
+  fprintf(out,
+      "static int l_msgparse%s(lua_State *L) {\n"
+      "  struct ycl_msg *m;\n"
+      "  struct ycl_msg_%s mdata%s;\n"
+      "  int ret;\n"
+      "\n"
+      "  m = checkmsg(L, 1);\n"
+      "  ret = ycl_msg_parse_%s(m, &mdata);\n"
+      "  if (ret != YCL_OK) {\n"
+      "    return luaL_error(L, \"ycl_msg_parse_%s failure\");\n"
+      "  }\n"
+      "\n"
+      "  lua_createtable(L, 0, %d);\n"
+      "\n", msg->name, msg->name,
+      msg->nfields > 0 ? " = {0}" : "",
+      msg->name, msg->name, msg->nfields);
+
+  for (i = 0; i < msg->nfields; i++) {
+    f = &msg->fields[i];
+    switch (f->typ) {
+    case FT_DATA:
+      fprintf(out,
+          "  if (mdata.%s.len > 0) {\n"
+          "    lua_pushlstring(L, mdata.%s.data, mdata.%s.len);\n"
+          "    lua_setfield(L, -2, \"%s\");\n"
+          "  }\n"
+          "\n", f->name, f->name, f->name, f->name);
+      break;
+    case FT_STR:
+      fprintf(out,
+          "  if (mdata.%s != NULL) {\n"
+          "    lua_pushstring(L, mdata.%s);\n"
+          "    lua_setfield(L, -2, \"%s\");\n"
+          "  }\n"
+          "\n", f->name, f->name, f->name);
+      break;
+    case FT_LONG:
+      fprintf(out,
+          "  lua_pushinteger(L, (lua_Integer)mdata.%s);\n"
+          "  lua_setfield(L, -2, \"%s\");\n"
+          "\n", f->name, f->name);
+      break;
+    case FT_DATAARR:
+      fprintf(out,
+          "  if (mdata.%s != NULL) {\n"
+          "    size_t i;\n"
+          "\n"
+          "    lua_createtable(L, mdata.n%s, 0);\n"
+          "    for (i = 0; i < mdata.n%s; i++) {\n"
+          "      lua_pushlstring(L, mdata.%s[i].data, mdata.%s[i].len);\n"
+          "      lua_rawseti(L, -2, (lua_Integer)i + 1);\n"
+          "    }\n"
+          "    lua_setfield(L, -2, \"%s\");\n"
+          "  }\n"
+          "\n", f->name, f->name, f->name, f->name, f->name, f->name);
+      break;
+    case FT_STRARR:
+      fprintf(out,
+          "  if (mdata.%s != NULL) {\n"
+          "    size_t i;\n"
+          "\n"
+          "    lua_createtable(L, mdata.n%s, 0);\n"
+          "    for (i = 0; i < mdata.n%s; i++) {\n"
+          "      lua_pushstring(L, mdata.%s[i]);\n"
+          "      lua_rawseti(L, -2, (lua_Integer)i + 1);\n"
+          "    }\n"
+          "    lua_setfield(L, -2, \"%s\");\n"
+          "  }\n"
+          "\n", f->name, f->name, f->name, f->name, f->name);
+      break;
+    case FT_LONGARR:
+      fprintf(out,
+          "  if (mdata.%s != NULL) {\n"
+          "    size_t i;\n"
+          "\n"
+          "    lua_createtable(L, mdata.n%s, 0);\n"
+          "    for (i = 0; i < mdata.n%s; i++) {\n"
+          "      lua_pushinteger(L, (lua_Integer)mdata.%s[i]);\n"
+          "      lua_rawseti(L, -2, (lua_Integer)i + 1);\n"
+          "    }\n"
+          "    lua_setfield(L, -2, \"%s\");\n"
+          "  }\n"
+          "\n", f->name, f->name, f->name, f->name, f->name);
+      break;
+    default:
+      abort();
+      break;
+    }
+  }
+
+  fprintf(out,
+      "  return 1;\n"
+      "}\n"
+      "\n");
 }
 
 void emit_impl(struct yclgen_ctx *ctx, FILE *out) {
+  struct yclgen_msg *curr;
 
+  for (curr = ctx->latest_msg; curr != NULL; curr = curr->next) {
+    emit_create_impl(curr, out);
+    emit_parse_impl(curr, out);
+  }
+}
+
+void emit_table(struct yclgen_ctx *ctx, FILE *out) {
+  struct yclgen_msg *curr;
+
+  for (curr = ctx->latest_msg; curr != NULL; curr = curr->next) {
+    fprintf(out,
+        "  {\"create_%s\", l_msgcreate%s},\n"
+        "  {\"parse_%s\", l_msgparse%s},\n",
+        curr->name, curr->name, curr->name, curr->name);
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -78,10 +335,10 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    if (strcmp(linebuf, "@@YCLHDR@@") == 0) {
-      emit_header(&ctx, stdout);
-    } else if (strcmp(linebuf, "@@YCLIMPL@@") == 0) {
+    if (strcmp(linebuf, "@@YCLIMPL@@\n") == 0) {
       emit_impl(&ctx, stdout);
+    } else if (strcmp(linebuf, "@@YCLTBL@@\n") == 0) {
+      emit_table(&ctx, stdout);
     } else {
       fputs(linebuf, stdout);
     }

@@ -195,13 +195,12 @@ am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
 	lib/util/netstring.$(OBJEXT) lib/util/flagset.$(OBJEXT) \
 	lib/util/eds.$(OBJEXT) lib/net/eth.$(OBJEXT) \
 	lib/net/iface.$(OBJEXT) lib/net/ip.$(OBJEXT) \
-	lib/net/ports.$(OBJEXT) proto/pcap_req.$(OBJEXT) \
-	proto/ethframe_req.$(OBJEXT) proto/status_resp.$(OBJEXT) \
-	apps/ethd/pcap.$(OBJEXT) apps/ethd/ethframe.$(OBJEXT) \
-	apps/ethd/main.$(OBJEXT)
+	lib/net/ports.$(OBJEXT) apps/ethd/pcap.$(OBJEXT) \
+	apps/ethd/ethframe.$(OBJEXT) apps/ethd/main.$(OBJEXT)
 ethd_OBJECTS = $(am_ethd_OBJECTS)
 am__DEPENDENCIES_1 =
-ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+ethd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	libycl.la
 am_fc2_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/util/io.$(OBJEXT) lib/net/fcgi.$(OBJEXT) \
@@ -765,13 +764,6 @@ ethd_SOURCES = \
     lib/net/ip.c \
     lib/net/ports.h \
     lib/net/ports.c \
-    proto/proto.h \
-    proto/pcap_req.c \
-    proto/pcap_req.h \
-    proto/ethframe_req.c \
-    proto/ethframe_req.h \
-    proto/status_resp.c \
-    proto/status_resp.h \
     apps/ethd/pcap.c \
     apps/ethd/pcap.h \
     apps/ethd/ethframe.c \
@@ -780,7 +772,8 @@ ethd_SOURCES = \
 
 ethd_LDADD = \
     $(CAPLIB) \
-    $(PCAPLIB)
+    $(PCAPLIB) \
+    libycl.la
 
 yans_SOURCES = \
     apps/yans/yans.c
@@ -1208,18 +1201,6 @@ lib/net/ip.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
 lib/net/ports.$(OBJEXT): lib/net/$(am__dirstamp) \
 	lib/net/$(DEPDIR)/$(am__dirstamp)
-proto/$(am__dirstamp):
-	@$(MKDIR_P) proto
-	@: > proto/$(am__dirstamp)
-proto/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) proto/$(DEPDIR)
-	@: > proto/$(DEPDIR)/$(am__dirstamp)
-proto/pcap_req.$(OBJEXT): proto/$(am__dirstamp) \
-	proto/$(DEPDIR)/$(am__dirstamp)
-proto/ethframe_req.$(OBJEXT): proto/$(am__dirstamp) \
-	proto/$(DEPDIR)/$(am__dirstamp)
-proto/status_resp.$(OBJEXT): proto/$(am__dirstamp) \
-	proto/$(DEPDIR)/$(am__dirstamp)
 apps/ethd/$(am__dirstamp):
 	@$(MKDIR_P) apps/ethd
 	@: > apps/ethd/$(am__dirstamp)
@@ -1342,7 +1323,6 @@ mostlyclean-compile:
 	-rm -f lib/util/*.lo
 	-rm -f lib/ycl/*.$(OBJEXT)
 	-rm -f lib/ycl/*.lo
-	-rm -f proto/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1415,9 +1395,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/ycl/$(DEPDIR)/libycl_la-ycl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/ycl/$(DEPDIR)/libycl_la-ycl_msg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/ethframe_req.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/pcap_req.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@proto/$(DEPDIR)/status_resp.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -2249,8 +2226,6 @@ distclean-generic:
 	-rm -f lib/util/$(am__dirstamp)
 	-rm -f lib/ycl/$(DEPDIR)/$(am__dirstamp)
 	-rm -f lib/ycl/$(am__dirstamp)
-	-rm -f proto/$(DEPDIR)/$(am__dirstamp)
-	-rm -f proto/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -2262,7 +2237,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf 3rd_party/$(DEPDIR) apps/clid/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/clid/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -2310,7 +2285,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf 3rd_party/$(DEPDIR) apps/clid/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR) proto/$(DEPDIR)
+	-rm -rf 3rd_party/$(DEPDIR) apps/clid/$(DEPDIR) apps/ethd/$(DEPDIR) apps/fc2/$(DEPDIR) apps/yans/$(DEPDIR) apps/ycli/$(DEPDIR) lib/lua/$(DEPDIR) lib/net/$(DEPDIR) lib/util/$(DEPDIR) lib/ycl/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

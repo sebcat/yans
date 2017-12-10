@@ -25,7 +25,6 @@ struct opts {
 };
 
 struct fc2_ctx {
-  int flags;
   int exit_status;
   struct eds_client *child_cli;
   pid_t cgi_pid;
@@ -371,7 +370,7 @@ static void on_childproc_done(struct eds_client *cli, int fd) {
 static void on_read_req(struct eds_client *cli, int fd) {
   struct fc2_ctx *ctx = FC2_CTX(cli);
   struct eds_client_actions acts = {0};
-  struct fc2_cgi ncli = {0};
+  struct fc2_cgi *ncli;
   struct cgi_env env = {{0}};
   struct eds_transition trans;
   int ret;
@@ -427,13 +426,14 @@ static void on_read_req(struct eds_client *cli, int fd) {
     clean_cgi_env(&env);
     acts.on_readable = on_childproc_readable;
     acts.on_done = on_childproc_done;
-    ncli.parent = cli;
-    if ((ctx->child_cli = eds_service_add_client(cli->svc, procfd, &acts,
-        &ncli, sizeof(ncli))) == NULL) {
+    if ((ctx->child_cli = eds_service_add_client(cli->svc, procfd,
+        &acts)) == NULL) {
       CLIERR(cli, fd, "PID:%d fd:%d: failed to add client", pid, procfd);
       goto fail_postfork;
     }
 
+    ncli = FC2_CGI(ctx->child_cli);
+    ncli->parent = cli;
     if (buf_init(&ctx->outbuf, 65536/2) == NULL) {
       CLIERR(cli, fd, "PID:%d fd:%d: failed to allocate output buffer",
           pid, procfd);

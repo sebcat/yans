@@ -10,9 +10,13 @@
 #include <lib/util/buf.h>
 #include <lib/util/eds.h>
 
+#include <lib/ycl/ycl.h>
+#include <lib/ycl/ycl_msg.h>
+
 struct frameconf {
-  char *custom_frames;
-  size_t custom_frameslen;
+  struct ycl_data *custom_frames;
+  size_t ncustom_frames;
+  size_t curr_custom_frame;
   const char *iface;
   unsigned int pps;
   unsigned int categories; /* CAT_ARP &c */
@@ -30,10 +34,12 @@ struct frameconf {
 };
 
 struct ethframe_client {
-  buf_t buf;
+  int flags;
+  struct ycl_msg msgbuf;
+  struct ycl_ctx ycl;
+
   struct eth_sender *sender;
   struct frameconf cfg;
-
   unsigned int tpp; /* ticks per packet */
   unsigned int tppcount; /* ticks left until sending packets */
   unsigned int  npackets;
@@ -44,5 +50,6 @@ void ethframe_fini(struct eds_service *svc);
 
 void ethframe_on_readable(struct eds_client *cli, int fd);
 void ethframe_on_done(struct eds_client *cli, int fd);
+void ethframe_on_finalize(struct eds_client *cli);
 
 #endif /* ETHD_ETHFRAME_H__ */

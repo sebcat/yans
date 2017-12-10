@@ -181,10 +181,11 @@ int main(int argc, char *argv[]) {
     {
       .name = "pcap",
       .path = "pcap.sock",
-      .udata_size = sizeof(struct pcap_client),
+      .udata_size = sizeof(struct pcap_clients),
       .actions = {
         .on_readable = pcap_on_readable,
         .on_done = pcap_on_done,
+        .on_finalize = pcap_on_finalize,
       },
       .nprocs = 2,
       .on_svc_error = on_svc_error,
@@ -199,6 +200,7 @@ int main(int argc, char *argv[]) {
       .actions = {
         .on_readable = ethframe_on_readable,
         .on_done = ethframe_on_done,
+        .on_finalize = ethframe_on_finalize,
       },
       .nprocs = 1,
       .on_svc_error = on_svc_error,

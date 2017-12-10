@@ -35,14 +35,17 @@ struct ycl_msg {
 /* internal ycl_ctx flags */
 #define YCL_EXTERNALFD (1 << 0)
 
-/* macros for struct ycl_ctx, use these instead of accessing the
- * fields directly */
+/* accessor macros for individual fields */
 #define ycl_fd(ycl) \
     (ycl)->fd
 #define ycl_strerror(ycl) \
     (ycl)->errbuf
 #define ycl_set_externalfd(ycl) \
-  (ycl)->flags |= YCL_EXTERNALFD;
+    (ycl)->flags |= YCL_EXTERNALFD;
+#define ycl_msg_bytes(msg) \
+    (msg)->buf.data
+#define ycl_msg_nbytes(msg) \
+    (msg)->buf.len
 
 void ycl_init(struct ycl_ctx *ycl, int fd);
 int ycl_connect(struct ycl_ctx *ycl, const char *dst);
@@ -51,9 +54,11 @@ int ycl_setnonblock(struct ycl_ctx *ycl, int status);
 
 int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);
 int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);
+int ycl_recvfd(struct ycl_ctx *ycl, int *fd);
 int ycl_sendfd(struct ycl_ctx *ycl, int fd);
 
 int ycl_msg_init(struct ycl_msg *msg);
+int ycl_msg_set(struct ycl_msg *msg, const void *data, size_t len);
 int ycl_msg_use_optbuf(struct ycl_msg *msg);
 void ycl_msg_reset(struct ycl_msg *msg);
 void ycl_msg_cleanup(struct ycl_msg *msg);

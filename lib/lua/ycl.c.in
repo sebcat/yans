@@ -30,6 +30,21 @@ static int l_yclmsg(lua_State *L) {
   return 1;
 }
 
+static int l_yclmsgset(lua_State *L) {
+  int ret;
+  struct ycl_msg *msg;
+  const char *str;
+  size_t len = 0;
+
+  msg = checkmsg(L, 1);
+  str = luaL_checklstring(L, 2, &len);
+  ret = ycl_msg_set(msg, str, len);
+  if (ret != YCL_OK) {
+    return luaL_error(L, "failed to set msg");
+  }
+  return 0;
+}
+
 static int l_yclmsgsize(lua_State *L) {
   struct ycl_msg *msg;
 
@@ -138,6 +153,7 @@ static int l_ctxrecvmsg(lua_State *L) {
 
 static const struct luaL_Reg yclmsg_m[] = {
   {"__gc", l_yclmsggc},
+  {"set", l_yclmsgset},
   {"size", l_yclmsgsize},
   {"data", l_yclmsgdata},
 @@YCLTBL@@

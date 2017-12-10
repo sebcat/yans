@@ -187,14 +187,10 @@ void eds_client_send(struct eds_client *cli, const char *data, size_t len,
 }
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
-    struct eds_client_actions *acts, void *udata, size_t udata_size) {
+    struct eds_client_actions *acts) {
   struct eds_service_listener *l = &EDS_SERVICE_LISTENER(svc);
   struct eds_client *ecli;
   io_t io;
-
-  if (udata_size > svc->udata_size) {
-    return NULL;
-  }
 
   IO_INIT(&io, fd);
   io_setnonblock(&io, 1);
@@ -204,7 +200,12 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
   }
 
   ecli = eds_service_client_from_fd(svc, fd);
-  memset(ecli, 0, sizeof(struct eds_client) + svc->udata_size);
+  /* ecli could have data in it from previous invocations. In some cases,
+   * this is unwanted. In other cases, we may want to reuse dynamically
+   * allocated memory, or other resources between client invocations. It is
+   * up to the client implementation. Thus, we only memset the eds_client
+   * part of the structure here, and not the userdata part of it.  */
+  memset(ecli, 0, sizeof(struct eds_client));
   ecli->flags |= EDS_CLIENT_IN_USE;
   ecli->svc = svc;
   ecli->actions = *acts;
@@ -213,10 +214,6 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
   }
   if (ecli->actions.on_writable != NULL) {
     FD_SET(fd, &l->wfds);
-  }
-
-  if (udata != NULL) {
-    memcpy(ecli->udata, udata, udata_size);
   }
 
   /* stop accepting connections on cmdfd if we have reached the set limit */
@@ -418,7 +415,7 @@ select:
       return -1;
     }
 
-    if (eds_service_add_client(svc, fd, &svc->actions, NULL, 0) == NULL) {
+    if (eds_service_add_client(svc, fd, &svc->actions) == NULL) {
       EDS_SERVE_ERR(svc, "%s: failed to add new client", svc->name);
     }
 
@@ -551,6 +548,15 @@ void eds_service_remove_client(struct eds_service *svc,
   FD_SET(svc->cmdfd, &l->rfds);
 }
 
+static void eds_service_finalize_client(struct eds_service *svc,
+    struct eds_client *cli) {
+  if (cli->actions.on_finalize != NULL) {
+    cli->actions.on_finalize(cli);
+  }
+}
+
+
+
 /* initializes an eds_service struct. Called pre-fork on eds_serve */
 static int eds_service_init(struct eds_service *svc) {
   io_t io;
@@ -588,10 +594,11 @@ static void eds_service_cleanup(struct eds_service *svc) {
 
   /* cleanup connected clients */
   for (i = 0; i < FD_SETSIZE; i++) {
+    cli = eds_service_client_from_fd(svc, i);
     if ((FD_ISSET(i, &l->rfds) || FD_ISSET(i, &l->wfds)) && i != svc->cmdfd) {
-      cli = eds_service_client_from_fd(svc, i);
       eds_service_remove_client(svc, cli);
     }
+    eds_service_finalize_client(svc, cli);
   }
 
   /* cleanup command file descriptor */

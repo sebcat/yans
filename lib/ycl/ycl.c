@@ -154,6 +154,20 @@ parse_err:
   return YCL_ERR;
 }
 
+int ycl_recvfd(struct ycl_ctx *ycl, int *fd) {
+  io_t io;
+  int ret;
+
+  IO_INIT(&io, ycl->fd);
+  ret = io_recvfd(&io, fd);
+  if (ret != IO_OK) {
+    SETERR(ycl, "%s", io_strerror(&io));
+    return YCL_ERR;
+  }
+
+  return YCL_OK;
+}
+
 int ycl_sendfd(struct ycl_ctx *ycl, int fd) {
   io_t io;
   int ret;
@@ -181,6 +195,14 @@ int ycl_msg_init(struct ycl_msg *msg) {
   msg->sendoff = 0;
   msg->nextoff = 0;
   msg->flags = 0;
+  return YCL_OK;
+}
+
+int ycl_msg_set(struct ycl_msg *msg, const void *data, size_t len) {
+  ycl_msg_reset(msg);
+  if (buf_adata(&msg->buf, data, len) < 0) {
+    return YCL_ERR;
+  }
   return YCL_OK;
 }
 

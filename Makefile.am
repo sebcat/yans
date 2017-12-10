@@ -118,13 +118,6 @@ ethd_SOURCES = \
     lib/net/ip.c \
     lib/net/ports.h \
     lib/net/ports.c \
-    proto/proto.h \
-    proto/pcap_req.c \
-    proto/pcap_req.h \
-    proto/ethframe_req.c \
-    proto/ethframe_req.h \
-    proto/status_resp.c \
-    proto/status_resp.h \
     apps/ethd/pcap.c \
     apps/ethd/pcap.h \
     apps/ethd/ethframe.c \
@@ -133,7 +126,8 @@ ethd_SOURCES = \
 
 ethd_LDADD = \
     $(CAPLIB) \
-    $(PCAPLIB)
+    $(PCAPLIB) \
+    libycl.la
 
 yans_SOURCES = \
     apps/yans/yans.c

@@ -14,6 +14,7 @@ struct eds_client_actions {
   void (*on_readable)(struct eds_client *cli, int fd);
   void (*on_writable)(struct eds_client *cli, int fd);
   void (*on_done)(struct eds_client *cli, int fd);
+  void (*on_finalize)(struct eds_client *cli);
 };
 
 /* eds transition flags */
@@ -120,7 +121,7 @@ void eds_client_send(struct eds_client *cli, const char *data, size_t len,
     struct eds_transition *next);
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
-    struct eds_client_actions *acts, void *udata, size_t udata_size);
+    struct eds_client_actions *acts);
 
 int eds_client_set_ticker(struct eds_client *cli,
     void (*ticker)(struct eds_client *, int));

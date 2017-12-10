@@ -11,9 +11,6 @@
 
 #include <lib/net/iface.h>
 
-#include <proto/ethframe_req.h>
-#include <proto/status_resp.h>
-
 #include <apps/ethd/ethframe.h>
 
 #if ETH_ALEN != 6
@@ -21,11 +18,9 @@
 #endif
 
 /* general settings */
-#define INITREQBUFSZ       2048   /* initial buffer size for service request */
 #define MAX_CMDSZ     (1 << 22)   /* maximum size of cmd request */
 #define NBR_IFACES           32   /* maximum number of network interfaces */
 #define YIELD_NPACKETS     1024   /* number of packets to send before yield */
-
 
 /* frame_builder flags */
 #define REQUIRES_IP4  (1 << 0) /* dst and src addrs must be IPv4 */
@@ -33,6 +28,9 @@
 #define IP_DST_SWEEP  (1 << 2) /* advances the destination IP address */
 #define IP_PORT_SWEEP (1 << 3) /* advances the destination port. Implies
                                   IP_DST_SWEEP */
+
+/* ethframe_cli flags */
+#define CLIFLAG_HASMSGBUF (1 << 0)
 
 /* frame categories */
 #define CAT_ARPREQ      (1 << 0)
@@ -88,21 +86,15 @@ static uint16_t ip_csum_fold(uint32_t sum) {
 }
 
 static const char *gen_custom_frame(struct frameconf *cfg, size_t *len) {
-  int ret;
-  char *frame;
-  size_t framelen;
+  const char *frame;
 
-  if (cfg->custom_frameslen == 0) {
+  if (cfg->curr_custom_frame >= cfg->ncustom_frames) {
     return NULL;
   }
 
-  ret = netstring_next(&frame, &framelen, &cfg->custom_frames,
-      &cfg->custom_frameslen);
-  if (ret != NETSTRING_OK) {
-    return NULL;
-  }
-
-  *len = framelen;
+  *len = cfg->custom_frames[cfg->curr_custom_frame].len;
+  frame = cfg->custom_frames[cfg->curr_custom_frame].data;
+  cfg->curr_custom_frame++;
   return frame;
 }
 
@@ -929,42 +921,38 @@ void ethframe_fini(struct eds_service *svc) {
 
 static void write_ok_response(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
-  struct p_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {0};
   int ret;
 
   eds_client_set_ticker(cli, NULL);
   eds_client_clear_actions(cli);
-  buf_clear(&ecli->buf);
   resp.okmsg = "ok";
-  resp.okmsglen = sizeof("ok")-1;
-  ret = p_status_resp_serialize(&resp, &ecli->buf);
-  if (ret != PROTO_OK) {
-    ylog_error("ethframecli%d: error response serialization error: %s", fd,
-        proto_strerror(ret));
+  ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
+  if (ret != YCL_OK) {
+    ylog_error("ethframecli%d: error response serialization error", fd);
     return;
   }
 
-  eds_client_send(cli, ecli->buf.data, ecli->buf.len, NULL);
+  eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
+      ycl_msg_nbytes(&ecli->msgbuf), NULL);
 }
 
 static void write_err_response(struct eds_client *cli, int fd,
     const char *errmsg) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
-  struct p_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {0};
   int ret;
 
   eds_client_set_ticker(cli, NULL);
   ylog_error("ethframecli%d: %s", fd, errmsg);
   eds_client_clear_actions(cli);
-  buf_clear(&ecli->buf); /* reuse the request buffer */
   resp.errmsg = errmsg;
-  resp.errmsglen = strlen(errmsg);
-  ret = p_status_resp_serialize(&resp, &ecli->buf);
-  if (ret != PROTO_OK) {
-    ylog_error("ethframecli%d: OK response serialization error: %s", fd,
-        proto_strerror(ret));
+  ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
+  if (ret != YCL_OK) {
+    ylog_error("ethframecli%d: OK response serialization error", fd);
   } else {
-    eds_client_send(cli, ecli->buf.data, ecli->buf.len, NULL);
+    eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
+        ycl_msg_nbytes(&ecli->msgbuf), NULL);
   }
 }
 
@@ -972,19 +960,19 @@ static void on_term(struct eds_client *cli, int fd) {
   eds_client_clear_actions(cli);
 }
 
-static int setup_frameconf(struct frameconf *cfg, struct p_ethframe_req *req,
-    char *errbuf, size_t errbuflen) {
+static int setup_frameconf(struct frameconf *cfg,
+    struct ycl_msg_ethframe_req *req, char *errbuf, size_t errbuflen) {
   size_t failoff;
   struct flagset_result fsres = {0};
-  unsigned long pps;
-  char *end;
 
-  /* XXX: we will mutate custom_frames, but it should reside in mutable memory,
-   * so it should (...) be OK to cast away the const */
-  cfg->custom_frames = (char*)req->custom_frames;
-  cfg->custom_frameslen = req->custom_frameslen;
+  /* clear from previous runs */
+  memset(cfg, 0, sizeof(*cfg));
 
-  if (req->categorieslen > 0) {
+  cfg->custom_frames = req->custom_frames;
+  cfg->ncustom_frames = req->ncustom_frames;
+  cfg->curr_custom_frame = 0;
+
+  if (req->categories != NULL) {
     if (flagset_from_str(category_flags, req->categories, &fsres) < 0) {
       snprintf(errbuf, errbuflen, "invalid categories, offset %zu: %s",
           fsres.erroff, fsres.errmsg);
@@ -993,32 +981,27 @@ static int setup_frameconf(struct frameconf *cfg, struct p_ethframe_req *req,
     cfg->categories = fsres.flags;
   }
 
-  if (req->ppslen > 0) {
-    pps = strtoul(req->pps, &end, 10);
-    if (pps > UINT_MAX || *end != '\0') {
-      snprintf(errbuf, errbuflen, "invalid pps value");
-      return -1;
-    }
-    cfg->pps = (unsigned int)pps;
+  if (req->pps > 0 && req->pps <= UINT_MAX) {
+    cfg->pps = (unsigned int)req->pps;
   }
 
-  if (req->ifacelen == 0) {
+  if (req->iface == NULL) {
     snprintf(errbuf, errbuflen, "missing iface");
     return -1;
   }
   cfg->iface = req->iface;
 
-  if (req->eth_srclen > 0) {
+  if (req->eth_src != NULL) {
     if (eth_parse_addr(cfg->eth_src, sizeof(cfg->eth_src), req->eth_src) < 0) {
       snprintf(errbuf, errbuflen, "invalid eth src");
       return -1;
     }
-  } else if (cfg->custom_frameslen == 0 && cfg->categories != 0) {
+  } else if (cfg->ncustom_frames == 0 && cfg->categories != 0) {
     snprintf(errbuf, errbuflen, "missing eth src");
     return -1;
   }
 
-  if (req->eth_dstlen > 0) {
+  if (req->eth_dst != NULL) {
     if (eth_parse_addr(cfg->eth_dst, sizeof(cfg->eth_dst), req->eth_dst) < 0) {
       snprintf(errbuf, errbuflen, "invalid eth dst");
       return -1;
@@ -1027,27 +1010,27 @@ static int setup_frameconf(struct frameconf *cfg, struct p_ethframe_req *req,
   /* we don't require eth_dstlen to be set- the frames may have them (e.g.,
    * bcasts) */
 
-  if (req->ip_srclen > 0) {
+  if (req->ip_src != NULL) {
     if (ip_addr(&cfg->src_ip, req->ip_src, NULL) < 0) {
       snprintf(errbuf, errbuflen, "invalid ip src address");
       return -1;
     }
-  } else if (cfg->custom_frameslen == 0 && cfg->categories != 0) {
+  } else if (cfg->ncustom_frames == 0 && cfg->categories != 0) {
     snprintf(errbuf, errbuflen, "missing ip src address");
     return -1;
   }
 
-  if (req->ip_dstslen > 0) {
+  if (req->ip_dsts != NULL) {
     if (ip_blocks_init(&cfg->dst_ips, req->ip_dsts, NULL) < 0) {
       snprintf(errbuf, errbuflen, "invalid ip dst addresses");
       return -1;
     }
-  } else if (cfg->custom_frameslen == 0 && !(cfg->categories | CAT_LLDISCO)) {
+  } else if (cfg->ncustom_frames == 0 && !(cfg->categories | CAT_LLDISCO)) {
     snprintf(errbuf, errbuflen, "missing ip dst addresses");
     return -1;
   }
 
-  if (req->port_dstslen > 0) {
+  if (req->port_dsts != NULL) {
     if (port_ranges_from_str(&cfg->dst_ports, req->port_dsts, &failoff) < 0) {
       snprintf(errbuf, errbuflen, "dst ports: syntax error near %zu", failoff);
       return -1;
@@ -1111,40 +1094,28 @@ static void on_write_frames(struct eds_client *cli, int fd) {
 
 static void on_read_req(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
-  struct p_ethframe_req req;
   int ret;
-  io_t io;
-  size_t nread = 0;
   const char *errmsg = "an internal error occurred";
   char errbuf[128];
   unsigned int tps;
+  struct ycl_msg_ethframe_req req = {0};
 
-  IO_INIT(&io, fd);
-  ret = io_readbuf(&io, &ecli->buf, &nread);
-  if (ret == IO_AGAIN) {
+  ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
+  if (ret == YCL_AGAIN) {
     return;
-  } else if (ret != IO_OK) {
-    errmsg = io_strerror(&io);
+  } else if (ret != YCL_OK) {
+    errmsg = ycl_strerror(&ecli->ycl);
     goto fail;
   }
 
-  if (nread == 0) {
-    errmsg = "connection closed while reading request";
-    goto fail;
-  }
-
-  if (ecli->buf.len >= MAX_CMDSZ) {
+  if (ycl_msg_nbytes(&ecli->msgbuf) >= MAX_CMDSZ) {
     errmsg = "maximum command size exceeded";
     goto fail;
   }
 
-  ret = p_ethframe_req_deserialize(&req, ecli->buf.data, ecli->buf.len, NULL);
-  if (ret == PROTO_ERRINCOMPLETE) {
-    return;
-  } else if (ret != PROTO_OK) {
-    snprintf(errbuf, sizeof(errbuf), "request error: %s",
-        proto_strerror(ret));
-    errmsg = errbuf;
+  ret = ycl_msg_parse_ethframe_req(&ecli->msgbuf, &req);
+  if (ret != YCL_OK) {
+    errmsg = "request parse error";
     goto fail;
   }
 
@@ -1192,7 +1163,15 @@ fail:
 void ethframe_on_readable(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
 
-  buf_init(&ecli->buf, INITREQBUFSZ);
+  ycl_init(&ecli->ycl, fd);
+  if (!(ecli->flags & CLIFLAG_HASMSGBUF)) {
+    ycl_msg_init(&ecli->msgbuf);
+    ecli->flags |= CLIFLAG_HASMSGBUF;
+  }
+
+  ecli->tpp = 0;
+  ecli->tppcount = 0;
+  ecli->npackets = 0;
   eds_client_set_on_readable(cli, on_read_req, 0);
 }
 
@@ -1200,5 +1179,12 @@ void ethframe_on_done(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   ylog_info("ethframecli%d: done", fd);
   cleanup_frameconf(&ecli->cfg);
-  buf_cleanup(&ecli->buf);
+  ycl_msg_reset(&ecli->msgbuf);
+}
+
+void ethframe_on_finalize(struct eds_client *cli) {
+  struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
+  if (ecli->flags & CLIFLAG_HASMSGBUF) {
+    ycl_msg_cleanup(&ecli->msgbuf);
+  }
 }

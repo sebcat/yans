@@ -171,3 +171,21 @@ int main(int argc, char *argv[]) {
   return status;
 }
 EOF
+
+cat <<EOF
+bin_PROGRAMS = \\
+    ${DAEMON_NAME}
+
+${DAEMON_NAME}_SOURCES = \\
+    lib/util/buf.c \\
+    lib/util/buf.h \\
+    lib/util/eds.c \\
+    lib/util/eds.h \\
+    lib/util/io.c \\
+    lib/util/io.h \\
+    lib/util/os.c \\
+    lib/util/os.h \\
+    lib/util/ylog.c \\
+    lib/util/ylog.h \\
+    apps/${DAEMON_NAME}/main.c
+EOF

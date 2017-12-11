@@ -593,7 +593,7 @@ static void eds_service_cleanup(struct eds_service *svc) {
   }
 
   /* cleanup connected clients */
-  for (i = 0; i < FD_SETSIZE; i++) {
+  for (i = 0; i < svc->nfds; i++) {
     cli = eds_service_client_from_fd(svc, i);
     if ((FD_ISSET(i, &l->rfds) || FD_ISSET(i, &l->wfds)) && i != svc->cmdfd) {
       eds_service_remove_client(svc, cli);

@@ -561,10 +561,27 @@ static void eds_service_finalize_client(struct eds_service *svc,
 static int eds_service_init(struct eds_service *svc) {
   io_t io;
 
-  assert(svc->path != NULL);
-  assert(svc->nfds <= FD_SETSIZE);
-  assert(svc->actions.on_readable != NULL ||
-      svc->actions.on_writable != NULL);
+  if (svc->name == NULL) {
+    EDS_SERVE_ERR(svc, "%s", "name missing for service");
+    return -1;
+  }
+
+  if (svc->path == NULL) {
+    EDS_SERVE_ERR(svc, "%s: service path not set", svc->name);
+    return -1;
+  }
+
+  if (svc->nfds > FD_SETSIZE) {
+    EDS_SERVE_ERR(svc, "%s: # of file descriptors is too large (max:%d)",
+        svc->name, FD_SETSIZE);
+    return -1;
+  }
+
+  if (svc->actions.on_readable == NULL && svc->actions.on_writable == NULL) {
+    EDS_SERVE_ERR(svc, "%s: service lacks registered actions", svc->name);
+    return -1;
+  }
+
   if (svc->nfds == 0) {
     svc->nfds = FD_SETSIZE;
   }

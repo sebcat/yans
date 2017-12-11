@@ -78,7 +78,7 @@ clid_SOURCES = \
     apps/clid/file.h \
     apps/clid/sock.c \
     apps/clid/sock.h \
-    apps/clid/clid.c
+    apps/clid/main.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \

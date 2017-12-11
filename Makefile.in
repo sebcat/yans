@@ -187,7 +187,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am_clid_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/buf.$(OBJEXT) \
 	lib/util/io.$(OBJEXT) apps/clid/file.$(OBJEXT) \
-	apps/clid/sock.$(OBJEXT) apps/clid/clid.$(OBJEXT)
+	apps/clid/sock.$(OBJEXT) apps/clid/main.$(OBJEXT)
 clid_OBJECTS = $(am_clid_OBJECTS)
 clid_LDADD = $(LDADD)
 am_ethd_OBJECTS = lib/util/buf.$(OBJEXT) lib/util/io.$(OBJEXT) \
@@ -724,7 +724,7 @@ clid_SOURCES = \
     apps/clid/file.h \
     apps/clid/sock.c \
     apps/clid/sock.h \
-    apps/clid/clid.c
+    apps/clid/main.c
 
 fc2_SOURCES = \
     lib/util/ylog.h \
@@ -1183,7 +1183,7 @@ apps/clid/file.$(OBJEXT): apps/clid/$(am__dirstamp) \
 	apps/clid/$(DEPDIR)/$(am__dirstamp)
 apps/clid/sock.$(OBJEXT): apps/clid/$(am__dirstamp) \
 	apps/clid/$(DEPDIR)/$(am__dirstamp)
-apps/clid/clid.$(OBJEXT): apps/clid/$(am__dirstamp) \
+apps/clid/main.$(OBJEXT): apps/clid/$(am__dirstamp) \
 	apps/clid/$(DEPDIR)/$(am__dirstamp)
 
 clid$(EXEEXT): $(clid_OBJECTS) $(clid_DEPENDENCIES) $(EXTRA_clid_DEPENDENCIES) 
@@ -1331,8 +1331,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-linenoise.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-lpeg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@3rd_party/$(DEPDIR)/libyans_la-lua.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/clid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/file.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/clid/$(DEPDIR)/sock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/ethframe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@apps/ethd/$(DEPDIR)/main.Po@am__quote@

@@ -215,34 +215,41 @@ void pcap_on_readable(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   int pcapfd;
   FILE *fp;
+  int ret;
 
   ycl_init(&pcapcli->ycl, fd);
   if (ycl_recvfd(&pcapcli->ycl, &pcapfd) != YCL_OK) {
     ylog_error("pcapcli%d: ycl_recvfd: %s", fd, ycl_strerror(&pcapcli->ycl));
-    eds_client_clear_actions(cli);
-    return;
+    goto fail;
   }
 
   fp = fdopen(pcapfd, "w");
   if (fp == NULL) {
     ylog_error("pcapcli%d: fdopen: %s", fd, strerror(errno));
     close(pcapfd);
-    eds_client_clear_actions(cli);
-    return;
+    goto fail;
   } else {
-    pcapcli->dumpf = fp;
+    pcapcli->dumpf = fp; /* will be closed by on_done */
   }
 
   /* if this is the first time we run on this client, allocate the
    * ycl_msg buffer, which will be reused for subsequent clients */
   if (!(pcapcli->common.flags & FLAGS_HASMSGBUF)) {
-    ycl_msg_init(&pcapcli->common.msgbuf);
+    ret = ycl_msg_init(&pcapcli->common.msgbuf);
+    if (ret != YCL_OK) {
+      ylog_error("pcapcli%d: ycl_msg_init failure", fd);
+      goto fail;
+    }
     pcapcli->common.flags |= FLAGS_HASMSGBUF;
   } else {
     ycl_msg_reset(&pcapcli->common.msgbuf);
   }
 
   eds_client_set_on_readable(cli, on_readreq, 0);
+  return;
+
+fail:
+  eds_client_clear_actions(cli);
 }
 
 void pcap_on_done(struct eds_client *cli, int fd) {

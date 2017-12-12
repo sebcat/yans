@@ -1162,10 +1162,15 @@ fail:
 
 void ethframe_on_readable(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
+  int ret;
 
   ycl_init(&ecli->ycl, fd);
   if (!(ecli->flags & CLIFLAG_HASMSGBUF)) {
-    ycl_msg_init(&ecli->msgbuf);
+    ret = ycl_msg_init(&ecli->msgbuf);
+    if (ret != YCL_OK) {
+      ylog_error("ethframecli%d: ycl_msg_init failure", fd);
+      goto fail;
+    }
     ecli->flags |= CLIFLAG_HASMSGBUF;
   }
 
@@ -1173,6 +1178,9 @@ void ethframe_on_readable(struct eds_client *cli, int fd) {
   ecli->tppcount = 0;
   ecli->npackets = 0;
   eds_client_set_on_readable(cli, on_read_req, 0);
+  return;
+fail:
+  eds_service_remove_client(cli->svc, cli);
 }
 
 void ethframe_on_done(struct eds_client *cli, int fd) {

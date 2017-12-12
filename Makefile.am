@@ -74,10 +74,12 @@ clid_SOURCES = \
     lib/util/buf.h \
     lib/util/io.c \
     lib/util/io.h \
-    apps/clid/file.c \
-    apps/clid/file.h \
-    apps/clid/sock.c \
-    apps/clid/sock.h \
+    lib/ycl/ycl.c \
+    lib/ycl/ycl.h \
+    lib/ycl/ycl_msg.c \
+    lib/ycl/ycl_msg.h \
+    apps/clid/store.c \
+    apps/clid/store.h \
     apps/clid/main.c
 
 fc2_SOURCES = \

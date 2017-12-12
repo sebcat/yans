@@ -9,8 +9,7 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
-#include <apps/clid/sock.h>
-#include <apps/clid/file.h>
+#include <apps/clid/store.h>
 
 #define DAEMON_NAME "clid"
 
@@ -111,23 +110,13 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
-      .name = "file",
-      .path = "file.sock",
-      .udata_size = sizeof(struct file_cli),
+      .name = "store",
+      .path = "store.sock",
+      .udata_size = sizeof(struct store_cli),
       .actions = {
-        .on_readable = file_on_readable,
-        .on_done = file_on_done,
-      },
-      .on_svc_error = on_svc_error,
-      .nprocs = 1,
-    },
-    {
-      .name = "sock",
-      .path = "sock.sock",
-      .udata_size = sizeof(struct sock_cli),
-      .actions = {
-        .on_readable = sock_on_readable,
-        .on_done = sock_on_done,
+        .on_readable = store_on_readable,
+        .on_done = store_on_done,
+        .on_finalize = store_on_finalize,
       },
       .on_svc_error = on_svc_error,
       .nprocs = 1,

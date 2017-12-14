@@ -19,6 +19,7 @@ struct ycl_ctx {
   /* -- internal -- */
   int fd;
   int flags;
+  size_t max_msgsz;
   char errbuf[YCL_ERRBUFSIZ];
 };
 

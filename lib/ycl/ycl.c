@@ -11,6 +11,8 @@
 #define SETERR(ycl, ...) \
   snprintf((ycl)->errbuf, sizeof((ycl)->errbuf), __VA_ARGS__)
 
+#define DFL_MAXMSGSZ (1 << 20)
+
 /* the reason this is here, is because the build system is/should be
  * using -fvisibility=hidden, except for library code, which this is */
 #pragma GCC visibility push(default)
@@ -18,6 +20,7 @@
 void ycl_init(struct ycl_ctx *ycl, int fd) {
   ycl->fd = fd;
   ycl->flags = 0;
+  ycl->max_msgsz = DFL_MAXMSGSZ;
   ycl->errbuf[0] = '\0';
 }
 
@@ -139,6 +142,9 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
       return YCL_ERR;
     } else if (nread == 0) {
       SETERR(ycl, "premature connection termination");
+      return YCL_ERR;
+    } else if (msg->buf.len >= ycl->max_msgsz) {
+      SETERR(ycl, "message too large");
       return YCL_ERR;
     }
   }

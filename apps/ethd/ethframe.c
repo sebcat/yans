@@ -18,7 +18,6 @@
 #endif
 
 /* general settings */
-#define MAX_CMDSZ     (1 << 22)   /* maximum size of cmd request */
 #define NBR_IFACES           32   /* maximum number of network interfaces */
 #define YIELD_NPACKETS     1024   /* number of packets to send before yield */
 
@@ -1105,11 +1104,6 @@ static void on_read_req(struct eds_client *cli, int fd) {
     return;
   } else if (ret != YCL_OK) {
     errmsg = ycl_strerror(&ecli->ycl);
-    goto fail;
-  }
-
-  if (ycl_msg_nbytes(&ecli->msgbuf) >= MAX_CMDSZ) {
-    errmsg = "maximum command size exceeded";
     goto fail;
   }
 

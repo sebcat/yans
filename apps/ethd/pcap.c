@@ -14,7 +14,6 @@
 #include <apps/ethd/pcap.h>
 
 #define CMDBUFINITSZ 1024     /* initial size of allocated cmd buffer */
-#define MAX_CMDSZ (1 << 20)   /* maximum size of cmd request */
 #define SNAPLEN 2048          /* pcap_open_live snapshot length */
 #define PCAP_TO_MS 1000       /* pcap_open_live timeout, in ms */
 #define PCAP_DISPATCH_CNT 64  /* pcap_dispatch dispatch count */
@@ -111,12 +110,6 @@ static void on_readreq(struct eds_client *cli, int fd) {
     return;
   } else if (ret != YCL_OK) {
     ylog_error("pcapcli%d: ycl_recvmsg: %s", fd, ycl_strerror(&pcapcli->ycl));
-    goto fail;
-  }
-
-  if (ycl_msg_nbytes(&pcapcli->common.msgbuf) >= MAX_CMDSZ) {
-    ylog_error("pcapcli%d: maximum command size exceeded", fd);
-    errmsg = "request too large";
     goto fail;
   }
 

@@ -106,6 +106,34 @@ static int l_fdget(lua_State *L) {
   return 1;
 }
 
+static int l_streamclose(lua_State *L) {
+  luaL_Stream *s;
+
+  s = (luaL_Stream*)luaL_checkudata(L, 1, LUA_FILEHANDLE);
+  if (s->f) {
+    fclose(s->f);
+  }
+  s->f = NULL;
+  return 0;
+}
+
+static int l_fdtostream(lua_State *L) {
+  struct l_fd *lfd;
+  luaL_Stream *s;
+  const char *mode;
+
+  lfd = checkyclfd(L, 1);
+  mode = luaL_checkstring(L, 2);
+  s = lua_newuserdata(L, sizeof(luaL_Stream));
+  luaL_setmetatable(L, LUA_FILEHANDLE);
+  s->f = fdopen(lfd->fd, mode);
+  s->closef = &l_streamclose;
+  if (s->f != NULL) {
+    lfd->fd = -1;
+  }
+  return 1;
+}
+
 static int l_yclctx(lua_State *L) {
   struct ycl_ctx *ctx;
   int fd;
@@ -252,6 +280,7 @@ static const struct luaL_Reg yclfd_m[] = {
   {"__gc", l_fdclose},
   {"close", l_fdclose},
   {"get", l_fdget},
+  {"to_stream", l_fdtostream},
 };
 
 static const struct luaL_Reg ycl_f[] = {

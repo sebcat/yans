@@ -928,7 +928,7 @@ static void write_ok_response(struct eds_client *cli, int fd) {
   resp.okmsg = "ok";
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
-    ylog_error("ethframecli%d: error response serialization error", fd);
+    ylog_error("ethframecli%d: OK response serialization error", fd);
     return;
   }
 
@@ -948,7 +948,7 @@ static void write_err_response(struct eds_client *cli, int fd,
   resp.errmsg = errmsg;
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
-    ylog_error("ethframecli%d: OK response serialization error", fd);
+    ylog_error("ethframecli%d: error response serialization error", fd);
   } else {
     eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
         ycl_msg_nbytes(&ecli->msgbuf), NULL);

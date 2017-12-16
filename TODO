@@ -1,0 +1,55 @@
+## ethframe
+  - SSDP, MDNS, ICMP multicasts
+  - choose sequential/procedurally generated/PRNG source port within suitable
+    range instead of hard-coding?
+  - generate packet generators from DSL?
+
+## resd
+  - getaddrinfo/getnameinfo service with threadpool for doing A/AAAA, PTR
+    lookups with the system resolver
+
+## connd
+  - implement (part of clid)
+
+## lib/net/url
+  - url_normalize: if we have a percent-encoding to a valid char, decode it?
+
+## lib/net/ip
+  - make it possible to add an address to a range (r:add(ip))
+  - have contains work on current instead of first?
+
+## new services
+
+  - scand: daemon for starting/stopping/removing scans
+  - bannerd: UDP/TCP banner grabbing with (D)TLS support (libressl?)
+  - tlshellod: TLS negotiation w/ STARTTLS
+  - spiderd: HTTP crawler (or HTTP proxy?)
+    * have a file with requests (raw HTTP requests?), pass it to the daemon
+      which generates a file with responses. Parse responses and generate new
+      requests. How to find requests? Have identity hash mapped to offsets?
+
+## distribution
+  - Yocto linux based? NanoBSD based?( XXX NanoBSD is obsolete) Homebrewn
+    FreeBSD dist?
+  - .vmdk image
+  - read-only fs
+  - /var/yans as tmpfs/md(4)
+  - nginx
+  - /usr/share/www/a1
+  - API implemented as yans CGIs, with implicit seccomp-bpf/capsicum
+    on cgi.init
+
+more areas:
+  protocols: dns, ssh, ftp, http, smtp, pop3, imap, vnc, rdp
+  functionality: enumeration of capabilities (cipher suites, commands, &c)
+                 default account testing
+
+## slask
+
+tcpdump -n '(ether broadcast or ether multicast or ether dst 00:24:d7:17:9c:38) and (not ether src 00:24:d7:17:9c:38)'
+
+tcpdump -n 'ether src not <local0> and ether src not <local1> ... and ether src not <localN>'
+
+echo -en 'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssdp:discover\r\nMX: 10\r\nST: ssdp:all\r\nUser-Agent: DinMammaOchDanHarmon/1.0 UPnP/1.1\r\n\r\n' | socat stdio udp4-datagram:239.255.255.250:1900
+
+echo -en 'M-SEARCH * HTTP/1.1\r\nHOST: [FF02::C]:1900\r\nMAN: ssdp:discover\r\nMX: 10\r\nST: ssdp:all\r\nUser-Agent: DinMammaOchDanHarmon/1.0 UPnP/1.1\r\n\r\n' | socat stdio 'udp6-datagram:[FF02::C%wlan0]:1900'

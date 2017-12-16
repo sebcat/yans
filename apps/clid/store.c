@@ -123,7 +123,8 @@ static int is_valid_path(const char *path, size_t pathlen) {
   return 1;
 }
 
-static int enter_store(struct store_cli *ecli, const char *store_id) {
+static int enter_store(struct store_cli *ecli, const char *store_id,
+    int exclusive) {
   const char *subdir;
   size_t id_len;
   int ret;
@@ -142,7 +143,7 @@ static int enter_store(struct store_cli *ecli, const char *store_id) {
   snprintf(ecli->store_path, sizeof(ecli->store_path), "%s/%s",
       subdir, store_id);
   ret = mkdir(ecli->store_path, 0770);
-  if (ret != 0 && errno != EEXIST) {
+  if (ret != 0 && (exclusive || errno != EEXIST)) {
     return -1;
   }
 
@@ -156,7 +157,7 @@ static int create_and_enter_store(struct store_cli *ecli) {
 
   for (i = 0; i < MAXTRIES_GENSTORE; i++) {
     gen_store_path(store_id, sizeof(store_id));
-    ret = enter_store(ecli, store_id);
+    ret = enter_store(ecli, store_id, 1);
     if (ret == 0) {
       break;
     }
@@ -302,7 +303,7 @@ static void on_readenter(struct eds_client *cli, int fd) {
   }
 
   if (req.store_id != NULL) {
-    ret = enter_store(ecli, req.store_id);
+    ret = enter_store(ecli, req.store_id, 0);
   } else {
     ret = create_and_enter_store(ecli);
   }

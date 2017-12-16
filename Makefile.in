@@ -186,7 +186,8 @@ libycl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 PROGRAMS = $(bin_PROGRAMS)
 am_clid_OBJECTS = lib/util/ylog.$(OBJEXT) lib/util/eds.$(OBJEXT) \
 	lib/util/os.$(OBJEXT) lib/util/buf.$(OBJEXT) \
-	lib/util/io.$(OBJEXT) lib/ycl/ycl.$(OBJEXT) \
+	lib/util/netstring.$(OBJEXT) lib/util/io.$(OBJEXT) \
+	lib/util/prng.$(OBJEXT) lib/ycl/ycl.$(OBJEXT) \
 	lib/ycl/ycl_msg.$(OBJEXT) apps/clid/store.$(OBJEXT) \
 	apps/clid/main.$(OBJEXT)
 clid_OBJECTS = $(am_clid_OBJECTS)
@@ -719,8 +720,12 @@ clid_SOURCES = \
     lib/util/os.c \
     lib/util/buf.c \
     lib/util/buf.h \
+    lib/util/netstring.c \
+    lib/util/netstring.h \
     lib/util/io.c \
     lib/util/io.h \
+    lib/util/prng.c \
+    lib/util/prng.h \
     lib/ycl/ycl.c \
     lib/ycl/ycl.h \
     lib/ycl/ycl_msg.c \
@@ -1174,7 +1179,11 @@ lib/util/os.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/buf.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/io.$(OBJEXT): lib/util/$(am__dirstamp) \
+	lib/util/$(DEPDIR)/$(am__dirstamp)
+lib/util/prng.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/ycl/ycl.$(OBJEXT): lib/ycl/$(am__dirstamp) \
 	lib/ycl/$(DEPDIR)/$(am__dirstamp)
@@ -1194,8 +1203,6 @@ apps/clid/main.$(OBJEXT): apps/clid/$(am__dirstamp) \
 clid$(EXEEXT): $(clid_OBJECTS) $(clid_DEPENDENCIES) $(EXTRA_clid_DEPENDENCIES) 
 	@rm -f clid$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(clid_OBJECTS) $(clid_LDADD) $(LIBS)
-lib/util/netstring.$(OBJEXT): lib/util/$(am__dirstamp) \
-	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/util/flagset.$(OBJEXT): lib/util/$(am__dirstamp) \
 	lib/util/$(DEPDIR)/$(am__dirstamp)
 lib/net/eth.$(OBJEXT): lib/net/$(am__dirstamp) \
@@ -1394,6 +1401,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/netstring_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/os_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/prng.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/u8_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/util/$(DEPDIR)/ylog.Po@am__quote@

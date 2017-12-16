@@ -56,7 +56,7 @@ int ycl_setnonblock(struct ycl_ctx *ycl, int status);
 int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);
 int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);
 int ycl_recvfd(struct ycl_ctx *ycl, int *fd);
-int ycl_sendfd(struct ycl_ctx *ycl, int fd);
+int ycl_sendfd(struct ycl_ctx *ycl, int fd, int err);
 
 int ycl_msg_init(struct ycl_msg *msg);
 int ycl_msg_set(struct ycl_msg *msg, const void *data, size_t len);

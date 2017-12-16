@@ -118,6 +118,7 @@ int main(int argc, char *argv[]) {
         .on_done = store_on_done,
         .on_finalize = store_on_finalize,
       },
+      .mod_init = store_init,
       .on_svc_error = on_svc_error,
       .nprocs = 1,
     },

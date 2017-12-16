@@ -166,7 +166,9 @@ int ycl_recvfd(struct ycl_ctx *ycl, int *fd) {
 
   IO_INIT(&io, ycl->fd);
   ret = io_recvfd(&io, fd);
-  if (ret != IO_OK) {
+  if (ret == IO_AGAIN) {
+    return YCL_AGAIN;
+  } else if (ret != IO_OK) {
     SETERR(ycl, "%s", io_strerror(&io));
     return YCL_ERR;
   }
@@ -174,13 +176,15 @@ int ycl_recvfd(struct ycl_ctx *ycl, int *fd) {
   return YCL_OK;
 }
 
-int ycl_sendfd(struct ycl_ctx *ycl, int fd) {
+int ycl_sendfd(struct ycl_ctx *ycl, int fd, int err) {
   io_t io;
   int ret;
 
   IO_INIT(&io, ycl->fd);
-  ret = io_sendfd(&io, fd, 0);
-  if (ret != IO_OK) {
+  ret = io_sendfd(&io, fd, err);
+  if (ret == IO_AGAIN) {
+    return YCL_AGAIN;
+  } else if (ret != IO_OK) {
     SETERR(ycl, "%s", io_strerror(&io));
     return YCL_ERR;
   }

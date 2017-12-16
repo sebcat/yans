@@ -330,14 +330,14 @@ int main(int argc, char *argv[]) {
 
   while (fgets(linebuf, sizeof(linebuf), stdin) != NULL) {
     /* fast-path: write line to stdout */
-    if (*linebuf != '@') {
+    if (*linebuf != '/') {
       fputs(linebuf, stdout);
       continue;
     }
 
-    if (strcmp(linebuf, "@@YCLIMPL@@\n") == 0) {
+    if (strcmp(linebuf, "//@@YCLIMPL@@\n") == 0) {
       emit_impl(&ctx, stdout);
-    } else if (strcmp(linebuf, "@@YCLTBL@@\n") == 0) {
+    } else if (strcmp(linebuf, "//@@YCLTBL@@\n") == 0) {
       emit_table(&ctx, stdout);
     } else {
       fputs(linebuf, stdout);

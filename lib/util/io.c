@@ -317,13 +317,16 @@ int io_recvfd(io_t *io, int *out) {
     }
   }
 
-  if (m != 0) {
-    IO_SETERR(io, "%s", strerror(m));
+  if (fd < 0) {
+    IO_SETERR(io, "no file descriptor received");
     return IO_ERR;
   }
 
-  if (fd < 0) {
-    IO_SETERR(io, "no file descriptor received");
+  /* If an error is signaled in m, a valid fd still needs to be passed.
+   * That's why we close fd if m != 0 **/
+  if (m != 0) {
+    close(fd);
+    IO_SETERR(io, "%s", strerror(m));
     return IO_ERR;
   }
 

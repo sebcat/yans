@@ -134,7 +134,7 @@ static int pcapcli_run(int fd, struct pcapcli_opts *opts) {
   }
 
   ycl_msg_init(&msg);
-  if (ycl_sendfd(&ycl, fd) != YCL_OK) {
+  if (ycl_sendfd(&ycl, fd, 0) != YCL_OK) {
     fprintf(stderr, "%s\n", ycl_strerror(&ycl));
     goto fail;
   }

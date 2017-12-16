@@ -72,8 +72,12 @@ clid_SOURCES = \
     lib/util/os.c \
     lib/util/buf.c \
     lib/util/buf.h \
+    lib/util/netstring.c \
+    lib/util/netstring.h \
     lib/util/io.c \
     lib/util/io.h \
+    lib/util/prng.c \
+    lib/util/prng.h \
     lib/ycl/ycl.c \
     lib/ycl/ycl.h \
     lib/ycl/ycl_msg.c \

@@ -31,3 +31,16 @@ ethframe_req {
   str port_dsts;
   data[] custom_frames;
 }
+
+##
+## clid messages
+##
+store_enter {
+  str store_id;
+}
+
+store_open {
+  str path;
+  long flags;
+  long mode;
+}

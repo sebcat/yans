@@ -55,7 +55,6 @@ check_PROGRAMS = \
 bin_PROGRAMS = \
     yans \
     ethd \
-    ycli \
     fc2 \
     clid
 
@@ -144,20 +143,6 @@ yans_LDADD = \
     libycl.la \
     libyans.la \
     -lm
-
-ycli_SOURCES = \
-    lib/net/iface.c \
-    lib/net/iface.h \
-    apps/ycli/iflist.c \
-    apps/ycli/iflist.h \
-    apps/ycli/pcapcli.c \
-    apps/ycli/pcapcli.h \
-    apps/ycli/ethframecli.c \
-    apps/ycli/ethframecli.h \
-    apps/ycli/ycli.c
-
-ycli_LDADD = \
-    libycl.la
 
 libyans_la_SOURCES = \
     3rd_party/linenoise.c \

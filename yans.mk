@@ -7,12 +7,18 @@ CFLAGS += -I.
 
 UNAME_S != uname -s
 INSTALL = install
+STRIP = strip -s
 
 DESTDIR ?=
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
+DATAROOTDIR = $(PREFIX)/share
+LOCALSTATEDIR = /var
 
-.PHONY: all clean distclean check check-ctests check-yanstests install
+USE_VALGRIND ?=
+MAYBE_VALGRIND=${USE_VALGRIND:1=valgrind --error-exitcode=1 --leak-check=full}
+
+.PHONY: all clean distclean check install install-strip
 
 include 3rd_party/files.mk
 include tools/yclgen/files.mk
@@ -51,6 +57,12 @@ install: $(nodist_BINS) $(BINS)
 		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
     done
 
+install-strip: install
+	for B in $(BINS); do \
+		B=$$(basename $$B); \
+		$(STRIP) $(DESTDIR)$(BINDIR)/$$B; \
+	done
+
 include 3rd_party/rules.mk
 include tools/yclgen/rules.mk
 include apps/yans/rules.mk
@@ -61,3 +73,5 @@ include lib/ycl/rules.mk
 include apps/clid/rules.mk
 include apps/ethd/rules.mk
 include apps/fc2/rules.mk
+include freebsd/etc.rc.d/rules.mk
+

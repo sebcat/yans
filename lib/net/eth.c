@@ -170,7 +170,8 @@ void eth_sender_cleanup(struct eth_sender *eth) {
   }
 }
 
-ssize_t eth_sender_write(struct eth_sender *eth, void *data, size_t len) {
+ssize_t eth_sender_write(struct eth_sender *eth, const void *data,
+    size_t len) {
   ssize_t ret;
   struct sockaddr_ll lladdr;
 

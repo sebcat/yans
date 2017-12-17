@@ -1,5 +1,12 @@
 # yans - Yet another network scanner
 
+## Dependencies
+
+### Ubuntu
+
+- build: build-essential flex bison
+- build/run: libpcap-dev libseccomp-dev libcap-dev
+
 ## Architecture
 
 ````

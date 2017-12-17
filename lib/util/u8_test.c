@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <lib/util/u8.h>
 
-int main() {
+static int test_u8_to_cp() {
   struct {
     char *s;
     size_t len;
@@ -24,10 +24,32 @@ int main() {
 
   for(i=0; vals[i].s != NULL; i++) {
     actual = u8_to_cp((uint8_t*)vals[i].s, vals[i].len, &nlen);
-    printf("%zu %d %d\n", nlen, vals[i].expected, actual);
 	if (vals[i].expected != actual) {
       ret = EXIT_FAILURE;
 	}
+  }
+
+  return ret;
+}
+
+int main() {
+  int ret = EXIT_SUCCESS;
+  size_t i;
+  struct {
+    char *name;
+    int (*func)(void);
+  } tests[] = {
+    {"u8_to_cp", test_u8_to_cp},
+    {NULL, NULL},
+  };
+
+  for (i = 0; tests[i].name != NULL; i++) {
+    if (tests[i].func() == EXIT_SUCCESS) {
+      fprintf(stderr, "OK  %s\n", tests[i].name);
+    } else {
+      fprintf(stderr, "ERR %s\n", tests[i].name);
+      ret = EXIT_FAILURE;
+    }
   }
 
   return ret;

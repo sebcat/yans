@@ -4,7 +4,7 @@
 
 #include <lib/net/punycode.h>
 
-int main() {
+static int test_encode() {
   int res = EXIT_SUCCESS;
   struct {
     char *in;
@@ -41,6 +41,29 @@ int main() {
       free(actual);
     }
   }
+  return res;
+}
+
+int main() {
+  size_t i;
+  int res = EXIT_SUCCESS;
+  struct {
+    const char *name;
+    int (*func)(void);
+  } tests[] = {
+    {"encode", test_encode},
+    {NULL, NULL},
+  };
+
+  for (i = 0; tests[i].name != NULL; i++) {
+    if (tests[i].func() == EXIT_SUCCESS) {
+      fprintf(stderr, "OK  %s\n", tests[i].name);
+    } else {
+      fprintf(stderr, "ERR %s\n", tests[i].name);
+      res = EXIT_FAILURE;
+    }
+  }
+
   return res;
 }
 

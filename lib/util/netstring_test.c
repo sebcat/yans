@@ -524,7 +524,6 @@ int test_deserialize() {
           i, netstring_strerror(ret));
       goto fail;
     }
-    fprintf(stderr, "%p %p\n", inputs[i].expected.foo, actual.foo);
     if (!cmpteq(i, &inputs[i].expected, &actual)) {
       goto fail;
     }
@@ -545,6 +544,7 @@ fail:
 
 int main() {
   size_t i;
+  int ret = EXIT_SUCCESS;
   static struct {
     char *name;
     int (*callback)(void);
@@ -558,11 +558,13 @@ int main() {
   };
 
   for (i = 0; tests[i].name != NULL; i++) {
-    if (tests[i].callback() != EXIT_SUCCESS) {
-      fprintf(stderr, "FAIL: %s (%zu)\n", tests[i].name, i);
-      return EXIT_FAILURE;
+    if (tests[i].callback() == EXIT_SUCCESS) {
+      fprintf(stderr, "OK  %s\n", tests[i].name);
+    } else {
+      fprintf(stderr, "ERR %s\n", tests[i].name);
+      ret = EXIT_FAILURE;
     }
   }
 
-  return EXIT_SUCCESS;
+  return ret;
 }

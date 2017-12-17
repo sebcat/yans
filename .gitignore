@@ -24,6 +24,7 @@ freebsd/etc.rc.d/ethd
 tools/yclgen/parser.c
 tools/yclgen/parser.h
 tools/yclgen/tokens.c
+tools/yclgen/tokens.h
 tools/yclgen/genycl
 tools/yclgen/genlycl
 lib/lua/ycl.c

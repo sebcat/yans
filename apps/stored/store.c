@@ -10,7 +10,7 @@
 #include <lib/util/prng.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
-#include <apps/clid/store.h>
+#include <apps/stored/store.h>
 
 #define STOREFL_HASMSGBUF (1 << 0)
 

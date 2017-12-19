@@ -6,7 +6,7 @@ tools/yclgen/parser.c
 tools/yclgen/parser.h
 tools/yclgen/tokens.c
 tools/yclgen/tokens.h
-apps/clid/clid
+apps/stored/stored
 apps/ethd/ethd
 apps/fc2/fc2
 apps/yans/yans

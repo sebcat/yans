@@ -4,12 +4,11 @@
     range instead of hard-coding?
   - generate packet generators from DSL?
 
-## resd
+## clid
   - getaddrinfo/getnameinfo service with threadpool for doing A/AAAA, PTR
     lookups with the system resolver
-
-## connd
-  - implement (part of clid)
+  - routing tables
+  - socket(2), connect(2) thingy
 
 ## lib/net/url
   - url_normalize: if we have a percent-encoding to a valid char, decode it?

@@ -9,9 +9,9 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
-#include <apps/clid/store.h>
+#include <apps/stored/store.h>
 
-#define DAEMON_NAME "clid"
+#define DAEMON_NAME "stored"
 
 struct opts {
   const char *single;

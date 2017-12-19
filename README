@@ -16,8 +16,8 @@
                        /a1/scan/list
                             ...
                              ^
-                             |
-                             v
+      +----------+           |
+      |  stored  | <--->     v
       +----------+       +-------+
       |   clid   | <---> | scand |
       +----------+       +-------+
@@ -30,7 +30,8 @@
 
 - a1: collection of CGIs communicating with scand, possibly others
 - scand: daemon for controlling/coordinating "scans"
-- clid: utility daemon for opening/closing files/connections
+- clid: utility daemon for network routes, connections, ...
+- stored: utility daemon for opening/closing files in "stores" (dirs)
 - ethd, tlsd, bannerd, ...: scan daemons with a single responsibility
 
 a1, scand and the scan daemons run under seccomp-bpf/capsicum (exceptions
@@ -38,20 +39,14 @@ can be made)
 
 ## clid
 
-- open(2) / socket(2) (udp) / socket(2)+connect(2) (tcp)
+- socket(2) (udp) / socket(2)+connect(2) (tcp)
 - persistent
 - request fds that can be passed to scan daemons
-- sock, file services
+- sock services
+- routing tables (separate service)
 
 ### sock
 
-- proto: tcp|udp (flagset)
+- proto: tcp|udp (flagset?)
 - sockaddr: optional, struct sockaddr
-
-### file
-
-- request session fd, get fd+errno back
-- session: request fd, get fd+errno back
-
-
 

@@ -33,7 +33,7 @@ ethframe_req {
 }
 
 ##
-## clid messages
+## stored messages
 ##
 store_enter {
   str store_id;

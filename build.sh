@@ -1,8 +1,9 @@
 #!/bin/sh
 
-export CC=clang40
+export CC=gcc
 export CFLAGS="-Os -g -pipe -Wall -Werror -fvisibility=hidden \
-     -ffunction-sections -fdata-sections"
+-ffunction-sections -fdata-sections -fomit-frame-pointer \
+-DNDEBUG"
 export LDFLAGS=" -Wl,--gc-sections"
 # -Wl,--build-id=none
-make
+make -j2

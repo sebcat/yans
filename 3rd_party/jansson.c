@@ -2212,7 +2212,7 @@ static void lex_scan_string(lex_t *lex, json_error_t *error)
         if(*p == '\\') {
             p++;
             if(*p == 'u') {
-                size_t length;
+                size_t length = 0;
                 int32_t value;
 
                 value = decode_unicode_escape(p);

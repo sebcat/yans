@@ -18,11 +18,11 @@
 #if !defined(lptypes_h)
 #define lptypes_h
 
-
+/* XXX(cat): avoid warning on -Wmacro-redefined
 #if !defined(LPEG_DEBUG)
 #define NDEBUG
 #endif
-
+*/
 
 
 

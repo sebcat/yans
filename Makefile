@@ -15,6 +15,8 @@ BINDIR = $(PREFIX)/bin
 DATAROOTDIR = $(PREFIX)/share
 LOCALSTATEDIR = /var
 
+# XXX: MAYBE_VALGRIND will be evaluated, so don't put arbitrary unvalidated
+#      user input there. It's expected to be 1 or empty.
 USE_VALGRIND ?=
 MAYBE_VALGRIND=${USE_VALGRIND:1=valgrind --error-exitcode=1 --leak-check=full}
 

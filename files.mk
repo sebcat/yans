@@ -1,0 +1,10 @@
+include 3rd_party/files.mk
+include tools/yclgen/files.mk
+include apps/yans/files.mk
+include lib/util/files.mk
+include lib/lua/files.mk
+include lib/net/files.mk
+include lib/ycl/files.mk
+include apps/stored/files.mk
+include apps/ethd/files.mk
+include apps/fc2/files.mk

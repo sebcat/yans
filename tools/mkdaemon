@@ -172,20 +172,38 @@ int main(int argc, char *argv[]) {
 }
 EOF
 
-cat <<EOF
-bin_PROGRAMS = \\
-    ${DAEMON_NAME}
+cat <<EOF > $DAEMON_DIR/files.mk
+${DAEMON_NAME}_DEPS = \\
+    lib/util/io.c \\
+    lib/util/os.c \\
+    lib/util/buf.c \\
+    lib/util/eds.c \\
+    lib/util/ylog.c
+
+${DAEMON_NAME}_DEPSOBJS = \${${DAEMON_NAME}_DEPS:.c=.o}
 
 ${DAEMON_NAME}_SOURCES = \\
-    lib/util/buf.c \\
-    lib/util/buf.h \\
-    lib/util/eds.c \\
-    lib/util/eds.h \\
-    lib/util/io.c \\
-    lib/util/io.h \\
-    lib/util/os.c \\
-    lib/util/os.h \\
-    lib/util/ylog.c \\
-    lib/util/ylog.h \\
     apps/${DAEMON_NAME}/main.c
+
+${DAEMON_NAME}_HEADERS =
+
+${DAEMON_NAME}_OBJS = \${${DAEMON_NAME}_SOURCES:.c=.o}
+
+${DAEMON_NAME}_BIN = apps/$DAEMON_NAME/${DAEMON_NAME}
+
+OBJS += \$(${DAEMON_NAME}_OBJS)
+BINS += \$(${DAEMON_NAME}_BIN)
 EOF
+
+cat <<EOF > $DAEMON_DIR/rules.mk
+\${${DAEMON_NAME}_OBJS}: \$(${DAEMON_NAME}_SOURCES) \$(${DAEMON_NAME}_HEADERS}
+
+\$(${DAEMON_NAME}_BIN): \$(${DAEMON_NAME}_DEPSOBJS) \$(${DAEMON_NAME}_OBJS)
+	\$(CC) \$(CFLAGS) -o \$(${DAEMON_NAME}_BIN) \${${DAEMON_NAME}_DEPSOBJS} \\
+		\$(${DAEMON_NAME}_OBJS) \$(LDFLAGS)
+
+EOF
+
+echo "include $DAEMON_DIR/files.mk" >> files.mk
+echo "include $DAEMON_DIR/rules.mk" >> rules.mk
+echo "apps/$DAEMON_NAME/$DAEMON_NAME" >> .gitignore

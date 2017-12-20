@@ -490,8 +490,7 @@ static int l_addroute(lua_State *L, struct route_table_entry *ent) {
 
 static int l_routes(lua_State *L) {
   struct route_table rt;
-  char errbuf[ROUTE_TABLE_ERRBUFSZ];
-  struct route_table_entry ent;
+  char errbuf[128];
   lua_Integer i;
 
   if (route_table_init(&rt) < 0) {
@@ -501,27 +500,26 @@ static int l_routes(lua_State *L) {
 
   lua_createtable(L, 0, 2); /* top-level table containing ip4, ip6 keys */
 
-  lua_newtable(L); /* sub-level table containing a sequence of entries */
-  i = 1;
-  while (route_table_next_ip4(&rt, &ent)) {
+  /* sub-level table containing a sequence of entries */
+  lua_createtable(L, rt.nentries_ip4, 0);
+  for (i = 0; i < rt.nentries_ip4; i++) {
     lua_newtable(L); /* a single routing table entry */
-    if (l_addroute(L, &ent) < 0) {
+    if (l_addroute(L, &rt.entries_ip4[i]) < 0) {
       lua_pop(L, 1);
       continue;
     }
-    lua_rawseti(L, -2, i++);
+    lua_rawseti(L, -2, i+1);
   }
   lua_setfield(L, -2, "ip4");
 
-  lua_newtable(L);
-  i = 1;
-  while (route_table_next_ip6(&rt, &ent)) {
+  lua_createtable(L, rt.nentries_ip6, 0);
+  for (i = 0; i < rt.nentries_ip6; i++) {
     lua_newtable(L); /* a single routing table entry */
-    if (l_addroute(L, &ent) < 0) {
+    if (l_addroute(L, &rt.entries_ip6[i]) < 0) {
       lua_pop(L, 1);
       continue;
     }
-    lua_rawseti(L, -2, i++);
+    lua_rawseti(L, -2, i+1);
   }
   lua_setfield(L, -2, "ip6");
   route_table_cleanup(&rt);

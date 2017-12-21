@@ -52,6 +52,20 @@ static int load_yclgen_ctx(struct yclgen_ctx *ctx, struct opts *opts) {
   return ret;
 }
 
+static const char *get_msg_initializer(struct yclgen_msg *msg) {
+  const char *initializer = NULL;
+
+  if (msg->nfields == 0) {
+    initializer = "";
+  } else if (msg->flags & MSGF_HASDATA) {
+    initializer = " = {{0}}";
+  } else {
+    initializer = " = {0}";
+  }
+
+  return initializer;
+}
+
 void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
   int i;
   struct yclgen_field *f;
@@ -67,7 +81,7 @@ void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
       "  luaL_checktype(L, 2, LUA_TTABLE);\n"
       "\n",
       msg->name, msg->name,
-      msg->nfields > 0 ? " = {0}" : "",
+      get_msg_initializer(msg),
       msg->nfields > 0 ? "  int t;\n" : "");
 
   for (i = 0; i < msg->nfields; i++) {
@@ -215,7 +229,7 @@ void emit_parse_impl(struct yclgen_msg *msg, FILE *out) {
       "\n"
       "  lua_createtable(L, 0, %d);\n"
       "\n", msg->name, msg->name,
-      msg->nfields > 0 ? " = {0}" : "",
+      get_msg_initializer(msg),
       msg->name, msg->name, msg->nfields);
 
   for (i = 0; i < msg->nfields; i++) {

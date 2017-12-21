@@ -120,8 +120,8 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
-      .name = "$DAEMON_NAME",
-      .path = "$DAEMON_NAME" ".sock",
+      .name = DAEMON_NAME,
+      .path = DAEMON_NAME ".sock",
       .udata_size = 0,
       .actions = {
         .on_readable = NULL,

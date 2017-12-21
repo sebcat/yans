@@ -3,7 +3,7 @@ BINS =
 OBJS =
 CODEGEN =
 CFLAGS ?= -Os -pipe
-CFLAGS += -I.
+CFLAGS += -Wall -Werror -I.
 
 UNAME_S != uname -s
 INSTALL = install

@@ -82,6 +82,9 @@ ethd_precmd()
   }
 
   # Set correct owner:group for bpf device
+  # this should probably be in /etc/devfs.conf, or /etc/devfs.rules,
+  # own  bpf* <user>:<group>
+  # perm bpf* 0660
   chown "${ethd_duser}:${ethd_dgroup}" @LOCALSTATEDIR@/ethd/dev/bpf || {
     warn "Failed to chown bpf device for ethd"
     return 1

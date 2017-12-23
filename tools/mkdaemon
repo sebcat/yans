@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ylog_info("Starting " DAEMON_NAME);
+  ylog_info("Starting %s", opts.single ? opts.single : DAEMON_NAME);
 
   if (opts.single != NULL) {
     ret = eds_serve_single_by_name(services, opts.single);

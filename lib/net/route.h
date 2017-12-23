@@ -1,6 +1,8 @@
 #ifndef NET_ROUTE__
 #define NET_ROUTE__
 
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
 
 /* struct route_table_entry flags */
@@ -29,8 +31,8 @@ struct route_table_entry {
 };
 
 struct route_table {
-  int nentries_ip4;
-  int nentries_ip6;
+  size_t nentries_ip4;
+  size_t nentries_ip6;
   struct route_table_entry *entries_ip4;
   struct route_table_entry *entries_ip6;
   char *errprefix;

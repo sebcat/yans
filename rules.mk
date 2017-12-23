@@ -9,3 +9,4 @@ include lib/ycl/rules.mk
 include apps/stored/rules.mk
 include apps/ethd/rules.mk
 include apps/fc2/rules.mk
+include apps/clid/rules.mk

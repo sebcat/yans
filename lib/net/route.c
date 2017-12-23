@@ -163,7 +163,7 @@ done:
 static int _route_table_init(struct route_table *rt, int af, int fibnum) {
   int mib[7];
   int ret;
-  size_t needed;
+  size_t needed = 0;
   char *buf = NULL;
   int status = -1;
 
@@ -183,6 +183,10 @@ static int _route_table_init(struct route_table *rt, int af, int fibnum) {
   if (ret < 0) {
     SETERR(rt, "sysctl estimate", errno);
     goto out;
+  }
+
+  if (needed == 0) {
+    return 0;
   }
 
   /* allocate memory for the routing table */

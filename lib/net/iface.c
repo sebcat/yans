@@ -17,7 +17,7 @@
 
 #include <net/if_dl.h>
 
-void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
+static void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
   const struct sockaddr_dl *dl;
 
   assert(sa->sa_family == LINKAF);
@@ -28,65 +28,95 @@ void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
 
 #include <linux/if_packet.h>
 
-void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
+static void copy_iface_addr(struct iface_entry *out, struct sockaddr *sa) {
   const struct sockaddr_ll *ll;
 
   assert(sa->sa_family == LINKAF);
   ll = (struct sockaddr_ll*)sa;
   memcpy(out->addr, ll->sll_addr, sizeof(out->addr));
-
 }
 #endif
 
-int iface_init(struct iface *iface) {
+int iface_init(struct iface_entries *ifs) {
   int ret;
+  struct ifaddrs *addrs = NULL;
+  struct ifaddrs *curr = NULL;
+  size_t nentries = 0;
+  struct iface_entry *entries = NULL;
+  struct iface_entry *out;
+  int pos;
 
-  ret = getifaddrs(&iface->addrs);
+  /* init the result to a known state */
+  ifs->err = 0;
+  ifs->nentries = 0;
+  ifs->entries = NULL;
+
+  /* get a list of all the links */
+  ret = getifaddrs(&addrs);
   if (ret < 0) {
-    iface->err = errno;
+    ifs->err = errno;
     return -1;
   }
 
-  iface->curr = iface->addrs;
-  iface->err = 0;
-  return 0;
-}
-
-int iface_next(struct iface *iface, struct iface_entry *out) {
-  if (iface->curr == NULL) {
-    return 0;
+  /* count the number of entries, goto done if there's none */
+  for (curr = addrs; curr != NULL; curr = curr->ifa_next) {
+    if (curr->ifa_addr->sa_family == LINKAF) {
+      nentries++;
+    }
+  }
+  if (nentries <= 0) {
+    goto done;
   }
 
-  /* go to the next link-level entry, if any */
-  while (iface->curr->ifa_addr->sa_family != LINKAF) {
-    iface->curr = iface->curr->ifa_next;
-    if (iface->curr == NULL) {
-      return 0;
+  /* allocate the entry table */
+  entries = malloc(sizeof(struct iface_entry) * nentries);
+  if (entries == NULL) {
+    ifs->err = errno;
+    goto done;
+  }
+
+  /* copy the entries to the table */
+  for (pos = 0, curr = addrs; curr != NULL; curr = curr->ifa_next) {
+    if (curr->ifa_addr->sa_family != LINKAF) {
+      continue;
+    }
+
+    out = &entries[pos++];
+    strncpy(out->name, curr->ifa_name, sizeof(out->name));
+    out->name[IFACE_NAMESZ-1] = '\0';
+    copy_iface_addr(out, curr->ifa_addr);
+    out->index = (int)if_nametoindex(out->name);
+    out->flags = curr->ifa_flags;
+    if (out->index <= 0) {
+      out->index = -1;
     }
   }
 
-  strncpy(out->name, iface->curr->ifa_name, sizeof(out->name));
-  out->name[IFACE_NAMESZ-1] = '\0';
-  copy_iface_addr(out, iface->curr->ifa_addr);
-  out->index = (int)if_nametoindex(out->name);
-  out->flags = iface->curr->ifa_flags;
-  if (out->index <= 0) {
-    out->index = -1;
+  /* success */
+  ifs->nentries = nentries;
+  ifs->entries = entries;
+  entries = NULL;
+done:
+  if (addrs != NULL) {
+    freeifaddrs(addrs);
   }
 
-  iface->curr = iface->curr->ifa_next;
-  return 1;
-}
-
-void iface_cleanup(struct iface *iface) {
-  if (iface && iface->addrs) {
-    freeifaddrs(iface->addrs);
-    iface->addrs = NULL;
-    iface->curr = NULL;
-    iface->err = 0;
+  if (entries != NULL) {
+    free(entries);
   }
+
+  return ifs->err == 0 ? 0 : -1;
 }
 
-const char *iface_strerror(struct iface *iface) {
-  return strerror(iface->err);
+void iface_cleanup(struct iface_entries *ifs) {
+  if (ifs && ifs->entries) {
+    free(ifs->entries);
+    ifs->entries = NULL;
+  }
+  ifs->nentries = 0;
+  ifs->err = 0;
+}
+
+const char *iface_strerror(struct iface_entries *ifs) {
+  return strerror(ifs->err);
 }

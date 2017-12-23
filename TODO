@@ -7,9 +7,8 @@
 ## clid
   - getaddrinfo/getnameinfo service with threadpool for doing A/AAAA, PTR
     lookups with the system resolver
-  - routing tables
+  - routing tables & interfaces
     - implement route table support for lunix
-    - maybe resolve ifindex to actual interfaces?
   - socket(2), connect(2) thingy
 
 ## lib/net/url

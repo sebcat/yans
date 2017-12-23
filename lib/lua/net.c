@@ -488,23 +488,15 @@ static int l_addroute(lua_State *L, struct route_table_entry *ent) {
   return 0;
 }
 
-static int l_routes(lua_State *L) {
-  struct route_table rt;
-  char errbuf[128];
+/* expects a lua table at TOS */
+static void add_routes_to_table(lua_State *L, struct route_table *rt) {
   lua_Integer i;
 
-  if (route_table_init(&rt) < 0) {
-    route_table_strerror(&rt, errbuf, sizeof(errbuf));
-    return luaL_error(L, "route_table_init: %s", errbuf);
-  }
-
-  lua_createtable(L, 0, 2); /* top-level table containing ip4, ip6 keys */
-
   /* sub-level table containing a sequence of entries */
-  lua_createtable(L, rt.nentries_ip4, 0);
-  for (i = 0; i < rt.nentries_ip4; i++) {
+  lua_createtable(L, rt->nentries_ip4, 0);
+  for (i = 0; i < rt->nentries_ip4; i++) {
     lua_newtable(L); /* a single routing table entry */
-    if (l_addroute(L, &rt.entries_ip4[i]) < 0) {
+    if (l_addroute(L, &rt->entries_ip4[i]) < 0) {
       lua_pop(L, 1);
       continue;
     }
@@ -512,51 +504,130 @@ static int l_routes(lua_State *L) {
   }
   lua_setfield(L, -2, "ip4");
 
-  lua_createtable(L, rt.nentries_ip6, 0);
-  for (i = 0; i < rt.nentries_ip6; i++) {
+  lua_createtable(L, rt->nentries_ip6, 0);
+  for (i = 0; i < rt->nentries_ip6; i++) {
     lua_newtable(L); /* a single routing table entry */
-    if (l_addroute(L, &rt.entries_ip6[i]) < 0) {
+    if (l_addroute(L, &rt->entries_ip6[i]) < 0) {
       lua_pop(L, 1);
       continue;
     }
     lua_rawseti(L, -2, i+1);
   }
   lua_setfield(L, -2, "ip6");
+}
+
+static int l_routes(lua_State *L) {
+  struct route_table rt;
+  char errbuf[128];
+
+  if (route_table_init(&rt) < 0) {
+    route_table_strerror(&rt, errbuf, sizeof(errbuf));
+    return luaL_error(L, "route_table_init: %s", errbuf);
+  }
+
+  lua_createtable(L, 0, 2); /* top-level table containing ip4, ip6 keys */
+  add_routes_to_table(L, &rt);
   route_table_cleanup(&rt);
   return 1;
 }
 
-static int l_ifaces(lua_State *L) {
-  struct iface ifs;
-  struct iface_entry ent;
+static void push_ifaces_table(lua_State *L, struct iface_entries *ifs) {
+  struct iface_entry *ent;
   struct eth_addr *eth;
-  lua_Integer i;
-
-  if (iface_init(&ifs) < 0) {
-    return luaL_error(L, "%s", iface_strerror(&ifs));
-  }
+  int i;
 
   lua_newtable(L);
-  i = 1;
-  while (iface_next(&ifs, &ent) > 0) {
-    lua_createtable(L, 0, 3);
+  for (i = 0; i < ifs->nentries; i++) {
+    ent = &ifs->entries[i];
+    lua_createtable(L, 0, 5);
     eth = l_newethaddr(L);
-    eth_addr_init_bytes(eth, ent.addr);
+    eth_addr_init_bytes(eth, ent->addr);
     lua_setfield(L, -2, "addr");
-    lua_pushinteger(L, (lua_Integer)ent.index);
+    lua_pushinteger(L, (lua_Integer)ent->index);
     lua_setfield(L, -2, "index");
-    lua_pushstring(L, ent.name);
+    lua_pushstring(L, ent->name);
     lua_setfield(L, -2, "name");
-    lua_pushboolean(L, ent.flags & IFACE_UP);
+    lua_pushboolean(L, ent->flags & IFACE_UP);
     lua_setfield(L, -2, "up");
-    lua_pushboolean(L, ent.flags & IFACE_LOOPBACK);
+    lua_pushboolean(L, ent->flags & IFACE_LOOPBACK);
     lua_setfield(L, -2, "loopback");
-    lua_rawseti(L, -2, i++);
+    lua_rawseti(L, -2, (lua_Integer)i+1);
   }
 
+}
+
+static int l_ifaces(lua_State *L) {
+  struct iface_entries ifs;
+
+  if (iface_init(&ifs) < 0) {
+    return luaL_error(L, "iface_init: %s", iface_strerror(&ifs));
+  }
+
+  push_ifaces_table(L, &ifs);
   iface_cleanup(&ifs);
   return 1;
 }
+
+/* expects a lua table with the keys
+ *   - ip6_routes
+ *   - ip4_routes
+ *   - ifaces
+ * which contains route_table_entry, iface_entries data. The unmarshaled
+ * data is returned in a table.  */
+static int l_unmarshal_routes(lua_State *L) {
+  struct route_table rt = {0};
+  struct iface_entries ifs = {0};
+  size_t ip6_sz = 0;
+  size_t ip4_sz = 0;
+  size_t ifaces_sz = 0;
+  const char *ip6_data;
+  const char *ip4_data;
+  const char *ifaces_data;
+  int t;
+
+  luaL_checktype(L, 1, LUA_TTABLE);
+
+  t = lua_getfield(L, 1, "ip6_routes");
+  if (t == LUA_TSTRING) {
+    ip6_data = lua_tolstring(L, -1, &ip6_sz);
+  }
+  lua_pop(L, 1);
+
+  t = lua_getfield(L, 1, "ip4_routes");
+  if (t == LUA_TSTRING) {
+    ip4_data = lua_tolstring(L, -1, &ip4_sz);
+  }
+  lua_pop(L, 1);
+
+  t = lua_getfield(L, 1, "ifaces");
+  if (t == LUA_TSTRING) {
+    ifaces_data = lua_tolstring(L, -1, &ifaces_sz);
+  }
+  lua_pop(L, 1);
+
+  if (ip6_sz > 0 && (ip6_sz % sizeof(struct route_table_entry)) == 0) {
+    rt.entries_ip6 = (struct route_table_entry *)ip6_data;
+    rt.nentries_ip6 = ip6_sz / sizeof(struct route_table_entry);
+  }
+
+  if (ip4_sz > 0 && (ip4_sz % sizeof(struct route_table_entry)) == 0) {
+    rt.entries_ip4 = (struct route_table_entry *)ip4_data;
+    rt.nentries_ip4 = ip4_sz / sizeof(struct route_table_entry);
+  }
+
+  if (ifaces_sz > 0 && ifaces_sz % sizeof(struct iface_entry) == 0) {
+    ifs.entries = (struct iface_entry *)ifaces_data;
+    ifs.nentries = ifaces_sz / sizeof(struct iface_entry);
+  }
+
+  lua_createtable(L, 0, 3);
+  add_routes_to_table(L, &rt);
+  push_ifaces_table(L, &ifs);
+  lua_setfield(L, -2, "ifaces");
+  /* rt, ifs is not cleaned up, because Lua owns the memory */
+  return 1;
+}
+
 
 static int l_ipports(lua_State *L) {
   const char *s;
@@ -714,6 +785,7 @@ static const struct luaL_Reg ip_f[] = {
   {"block", l_ipblock},
   {"ports", l_ipports},
   {"routes", l_routes},
+  {"unmarshal_routes", l_unmarshal_routes},
   {NULL, NULL},
 };
 

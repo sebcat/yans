@@ -873,10 +873,11 @@ static struct eth_sender *get_sender_by_ifname(const char *ifname) {
 }
 
 int ethframe_init(struct eds_service *svc) {
-  struct iface ifs;
-  struct iface_entry ent;
+  struct iface_entries ifs;
+  struct iface_entry *ent;
   int i;
   int ret;
+  int dst;
 
   ret = iface_init(&ifs);
   if (ret < 0) {
@@ -884,28 +885,26 @@ int ethframe_init(struct eds_service *svc) {
     return -1;
   }
 
-  for (i = 0; i < NBR_IFACES; i++) {
-next_iface:
-    ret = iface_next(&ifs, &ent);
-    if (ret <= 0) {
-      break;
-    }
+  for (dst = 0, i = 0; i < NBR_IFACES && i < ifs.nentries; i++) {
+    ent = &ifs.entries[i];
 
     /* skip loopbacks, interfaces like pflogN, &c */
-    if (memcmp(ent.addr, "\0\0\0\0\0\0", IFACE_ADDRSZ) == 0) {
-      goto next_iface;
+    if (memcmp(ent->addr, "\0\0\0\0\0\0", IFACE_ADDRSZ) == 0) {
+      continue;
     }
 
-    if (eth_sender_init(&ethframe_ctx.senders[i], ent.name) < 0) {
+    if (eth_sender_init(&ethframe_ctx.senders[dst], ent->name) < 0) {
       /* the interface may not be configured, so this should not be fatal */
-      goto next_iface;
+      continue;
     }
 
-    snprintf(ethframe_ctx.ifs[i], sizeof(ethframe_ctx.ifs[i]), "%s", ent.name);
-    ethframe_ctx.nifs++;
-    ylog_info("%s: initialized iface \"%s\"", svc->name, ent.name);
+    snprintf(ethframe_ctx.ifs[dst], sizeof(ethframe_ctx.ifs[dst]), "%s",
+        ent->name);
+    dst++;
+    ylog_info("%s: initialized iface \"%s\"", svc->name, ent->name);
   }
 
+  ethframe_ctx.nifs = dst;
   iface_cleanup(&ifs);
   return 0;
 }

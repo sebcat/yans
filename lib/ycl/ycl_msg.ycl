@@ -44,3 +44,17 @@ store_open {
   long flags;
   long mode;
 }
+
+##
+## clid messages
+##
+route_req {
+
+}
+
+route_resp {
+  str err;
+  data ip4_routes;
+  data ip6_routes;
+  data ifaces;
+}

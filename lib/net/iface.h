@@ -7,12 +7,6 @@
 #define IFACE_NAMESZ 16
 #define IFACE_ADDRSZ 6
 
-struct iface {
-  struct ifaddrs *addrs;
-  struct ifaddrs *curr;
-  int err;
-};
-
 #define IFACE_UP       IFF_UP
 #define IFACE_LOOPBACK IFF_LOOPBACK
 
@@ -23,10 +17,15 @@ struct iface_entry {
   char addr[IFACE_ADDRSZ];
 };
 
-int iface_init(struct iface *iface);
-int iface_next(struct iface *iface, struct iface_entry *out);
-void iface_cleanup(struct iface *iface);
-const char *iface_strerror(struct iface *iface);
+struct iface_entries {
+  int err;
+  size_t nentries;
+  struct iface_entry *entries;
+};
+
+int iface_init(struct iface_entries *ifs);
+void iface_cleanup(struct iface_entries *ifs);
+const char *iface_strerror(struct iface_entries *ifs);
 
 #endif /* NET_IFACE_H__ */
 

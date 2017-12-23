@@ -42,6 +42,7 @@ static void gen_store_path(char *data, size_t len) {
 
 int store_init(struct eds_service *svc) {
   time_t t;
+  uint32_t seed;
 
   g_nullfd = open("/dev/null", O_RDWR);
   if (g_nullfd < 0) {
@@ -57,8 +58,9 @@ int store_init(struct eds_service *svc) {
     goto fail;
   }
 
-  prng_init(&g_prng, (uint32_t)t);
-  ylog_info("store: initialized with seed: %u", (uint32_t)t);
+  seed = (uint32_t)t ^ getpid();
+  prng_init(&g_prng, seed);
+  ylog_info("store: initialized with seed: %u", seed);
   return 0;
 
 fail:
@@ -253,7 +255,6 @@ sendfd_resp:
 
 fail:
   write_err_response(cli, fd, errmsg);
-  eds_service_remove_client(cli->svc, cli);
 }
 
 static void on_post_enter_response(struct eds_client *cli, int fd) {

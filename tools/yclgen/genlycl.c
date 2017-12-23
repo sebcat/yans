@@ -57,7 +57,10 @@ static const char *get_msg_initializer(struct yclgen_msg *msg) {
 
   if (msg->nfields == 0) {
     initializer = "";
-  } else if (msg->flags & MSGF_HASDATA) {
+  } else if (msg->flags == MSGF_HASDATA) {
+    /* certain versions of clang complains about missing braces if something
+     * just contains nested structs and is initialized with single braces,
+     * or I'm misinterpreting the error messages */
     initializer = " = {{0}}";
   } else {
     initializer = " = {0}";

@@ -1,0 +1,44 @@
+#!/bin/sh
+# PROVIDE: stored
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the group and user:
+#   pw groupadd stored
+#   pw useradd stored -d @LOCALSTATEDIR@/stored -g stored -s /usr/sbin/nologin
+#
+# The daemon drops user privs itself, which is why stored_user, stored_group
+# is not used
+: ${stored_duser:="stored"}
+: ${stored_dgroup:="stored"}
+
+name="stored"
+rcvar="stored_enable"
+command="@BINDIR@/stored"
+command_args="-u ${stored_duser} -g ${stored_dgroup} -b @LOCALSTATEDIR@/stored"
+start_precmd="stored_precmd"
+pidfile="@LOCALSTATEDIR@/stored/stored.pid"
+
+stored_precmd()
+{
+  if [ ! -d "@LOCALSTATEDIR@/stored" ]; then
+    mkdir -p "@LOCALSTATEDIR@/stored"
+  fi
+
+  chmod 770 "@LOCALSTATEDIR@/stored" || {
+    warn "Failed to set correct permissions of @LOCALSTATEDIR@/stored"
+    return 1
+  }
+
+  chown "${stored_duser}:${stored_dgroup}" "@LOCALSTATEDIR@/stored" || {
+    warn "Failed to set correct ownership of @LOCALSTATEDIR@/stored"
+    return 1
+  }
+
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

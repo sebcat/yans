@@ -14,8 +14,6 @@
 : ${ethd_duser:="ethd"}
 : ${ethd_dgroup:="ethd"}
 
-
-
 # devfs needs to be mounted inside the chroot of ethd so that
 # it is possible for ethd to access the bpf device. The ID
 # of this ruleset must be set in /etc/rc.conf.
@@ -38,30 +36,13 @@ pidfile="@LOCALSTATEDIR@/ethd/ethd.pid"
 
 ethd_precmd()
 {
-  if [ -z "${ethd_devfs_ruleset}" ]; then
-    warn "ethd_devfs_ruleset is not set"
-    return 1
-  fi
-
-  case ${ethd_devfs_ruleset} in
-    ''|*[!0-9]*)
-      warn "ethd_devfs_ruleset must be a number"
+  if [ ! -d "@LOCALSTATEDIR@/ethd/dev" ]; then
+    mkdir -p "@LOCALSTATEDIR@/ethd/dev"
+    mount -t devfs devfs @LOCALSTATEDIR@/ethd/dev || {
+      warn "unable to mount devfs"
       return 1
-      ;;
-  esac
-
-  if [ -d @LOCALSTATEDIR@/ethd/dev ]; then
-    umount @LOCALSTATEDIR@/ethd/dev 2>/dev/null
+    }
   fi
-
-  if [ -d @LOCALSTATEDIR@/ethd ]; then
-    rm -rf @LOCALSTATEDIR@/ethd
-  fi
-
-  mkdir @LOCALSTATEDIR@/ethd || {
-    warn "Unable to create @LOCALSTATEDIR@/ethd"
-    return 1
-  }
 
   chmod 770 @LOCALSTATEDIR@/ethd || {
     warn "Failed to set correct permissions of @LOCALSTATEDIR@/ethd"
@@ -73,18 +54,6 @@ ethd_precmd()
     return 1
   }
 
-  # mount devfs in chroot
-  mkdir @LOCALSTATEDIR@/ethd/dev
-  mount -t devfs -o ruleset=${ethd_devfs_ruleset} \
-      devfs @LOCALSTATEDIR@/ethd/dev || {
-    warn "Failed to mount ethd devfs"
-    return 1
-  }
-
-  # Set correct owner:group for bpf device
-  # this should probably be in /etc/devfs.conf, or /etc/devfs.rules,
-  # own  bpf* <user>:<group>
-  # perm bpf* 0660
   chown "${ethd_duser}:${ethd_dgroup}" @LOCALSTATEDIR@/ethd/dev/bpf || {
     warn "Failed to chown bpf device for ethd"
     return 1

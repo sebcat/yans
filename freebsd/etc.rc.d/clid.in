@@ -1,0 +1,47 @@
+#!/bin/sh
+# PROVIDE: clid
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the group and user:
+#   pw groupadd clid
+#   pw useradd clid -d @LOCALSTATEDIR@/clid -g clid -s /usr/sbin/nologin
+#
+#   pw -R <rootdir> ... for images/buildroots/jails
+#
+# The daemon drops user privs itself, which is why clid_user, clid_group
+# is not used
+: ${clid_duser:="clid"}
+: ${clid_dgroup:="clid"}
+
+name="clid"
+rcvar="clid_enable"
+command="@BINDIR@/clid"
+command_args="-u ${clid_duser} -g ${clid_dgroup} -b @LOCALSTATEDIR@/clid"
+start_precmd="clid_precmd"
+pidfile="@LOCALSTATEDIR@/clid/clid.pid"
+
+clid_precmd()
+{
+  # this is needed for /dev/null
+  if [ ! -d "@LOCALSTATEDIR@/clid" ]; then
+    mkdir -p "@LOCALSTATEDIR@/clid"
+  fi
+
+  chmod 770 "@LOCALSTATEDIR@/clid" || {
+    warn "Failed to set correct permissions of @LOCALSTATEDIR@/clid"
+    return 1
+  }
+
+  chown "${clid_duser}:${clid_dgroup}" "@LOCALSTATEDIR@/clid" || {
+    warn "Failed to set correct ownership of @LOCALSTATEDIR@/clid"
+    return 1
+  }
+
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

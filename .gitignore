@@ -20,3 +20,4 @@ lib/util/u8_test
 apps/clid/clid
 freebsd/etc.rc.d/ethd
 freebsd/etc.rc.d/stored
+freebsd/etc.rc.d/clid

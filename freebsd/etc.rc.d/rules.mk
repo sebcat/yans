@@ -8,3 +8,8 @@ freebsd/etc.rc.d/stored: freebsd/etc.rc.d/stored.in
 		-e "s,@LOCALSTATEDIR@,$(LOCALSTATEDIR)," \
 		< freebsd/etc.rc.d/stored.in > freebsd/etc.rc.d/stored
 
+freebsd/etc.rc.d/clid: freebsd/etc.rc.d/clid.in
+	sed -e "s,@BINDIR@,$(BINDIR)," \
+		-e "s,@LOCALSTATEDIR@,$(LOCALSTATEDIR)," \
+		< freebsd/etc.rc.d/clid.in > freebsd/etc.rc.d/clid
+

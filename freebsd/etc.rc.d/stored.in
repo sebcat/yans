@@ -23,8 +23,13 @@ pidfile="@LOCALSTATEDIR@/stored/stored.pid"
 
 stored_precmd()
 {
-  if [ ! -d "@LOCALSTATEDIR@/stored" ]; then
-    mkdir -p "@LOCALSTATEDIR@/stored"
+  # this is needed for /dev/null
+  if [ ! -d "@LOCALSTATEDIR@/stored/dev" ]; then
+    mkdir -p "@LOCALSTATEDIR@/stored/dev"
+    mount -t devfs devfs @LOCALSTATEDIR@/stored/dev || {
+      warn "unable to mount devfs"
+      return 1
+    }
   fi
 
   chmod 770 "@LOCALSTATEDIR@/stored" || {

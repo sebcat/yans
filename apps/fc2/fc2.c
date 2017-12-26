@@ -645,5 +645,13 @@ int main(int argc, char *argv[]) {
     status = EXIT_FAILURE;
   }
 
+  if (!opts.no_daemon) {
+    ret = os_daemon_remove_pidfile(&os, &daemon_opts);
+    if (ret != OS_OK) {
+      ylog_error("unable to remove pidfile: %s", os_strerror(&os));
+      status = EXIT_FAILURE;
+    }
+  }
+
   return status;
 }

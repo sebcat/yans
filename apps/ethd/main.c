@@ -107,9 +107,8 @@ static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
   return 0;
 }
 
-void chroot_or_die(struct opts *opts) {
-  os_t os;
-  struct os_daemon_opts daemon_opts = {0};
+void chroot_or_die(os_t *os, struct os_daemon_opts *daemon_opts,
+    struct opts *opts) {
 
   /* for Linux: Set the "keep capabilities" flag to 1 and drop the permitted,
    * inheritable and effective capabilities to only include the ones needed
@@ -143,13 +142,13 @@ void chroot_or_die(struct opts *opts) {
   } while(0);
 #endif
 
-  daemon_opts.name = DAEMON_NAME;
-  daemon_opts.path = opts->basepath;
-  daemon_opts.uid = opts->uid;
-  daemon_opts.gid = opts->gid;
-  daemon_opts.nagroups = 0;
-  if (os_daemonize(&os, &daemon_opts) != OS_OK) {
-    ylog_error("%s", os_strerror(&os));
+  daemon_opts->name = DAEMON_NAME;
+  daemon_opts->path = opts->basepath;
+  daemon_opts->uid = opts->uid;
+  daemon_opts->gid = opts->gid;
+  daemon_opts->nagroups = 0;
+  if (os_daemonize(os, daemon_opts) != OS_OK) {
+    ylog_error("%s", os_strerror(os));
     exit(EXIT_FAILURE);
   }
   /* For Linux: After chrooting, drop the capabilities that was needed to
@@ -177,6 +176,8 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
 }
 
 int main(int argc, char *argv[]) {
+  os_t os;
+  struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
       .name = "pcap",
@@ -209,6 +210,7 @@ int main(int argc, char *argv[]) {
   };
   struct opts opts;
   int status = EXIT_SUCCESS;
+  int ret;
 
   parse_args_or_die(&opts, argc, argv);
   if (opts.no_daemon) {
@@ -219,7 +221,7 @@ int main(int argc, char *argv[]) {
     }
   } else {
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
-    chroot_or_die(&opts);
+    chroot_or_die(&os, &daemon_opts, &opts);
   }
 
   if (opts.single != NULL) {
@@ -232,6 +234,14 @@ int main(int argc, char *argv[]) {
     ylog_info("Starting ethd services");
     if (eds_serve(services) < 0) {
       ylog_error("eds_serve: failed");
+      status = EXIT_FAILURE;
+    }
+  }
+
+  if (!opts.no_daemon) {
+    ret = os_daemon_remove_pidfile(&os, &daemon_opts);
+    if (ret != OS_OK) {
+      ylog_error("unable to remove pidfile: %s", os_strerror(&os));
       status = EXIT_FAILURE;
     }
   }

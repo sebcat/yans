@@ -148,6 +148,24 @@ fail:
   return OS_ERR;
 }
 
+int os_daemon_remove_pidfile(os_t *os, struct os_daemon_opts *opts) {
+  char buf[1024];
+  int ret;
+
+  CLEARERRBUF(os);
+  /* path assumes os_daemonize has been called and set the CWD */
+  snprintf(buf, sizeof(buf), "%.*s.pid", (int)sizeof(buf)-8, opts->name);
+  ret = unlink(buf);
+  if (ret < 0) {
+    os_setpatherr(os, "unlink", opts->path, "%s", strerror(errno));
+    goto fail;
+  }
+
+  return OS_OK;
+fail:
+  return OS_ERR;
+}
+
 int os_daemonize(os_t *os, struct os_daemon_opts *opts) {
   uid_t uid;
   pid_t pid;

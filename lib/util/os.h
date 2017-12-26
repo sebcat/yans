@@ -53,6 +53,7 @@ struct os_daemon_opts {
  *
  *   Must be called as root */
 int os_daemonize(os_t *os, struct os_daemon_opts *opts);
+int os_daemon_remove_pidfile(os_t *os, struct os_daemon_opts *opts);
 
 int os_getuid(os_t *os, const char *user, uid_t *uid);
 int os_getgid(os_t *os, const char *group, gid_t *gid);

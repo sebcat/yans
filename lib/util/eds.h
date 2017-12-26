@@ -52,6 +52,8 @@ struct eds_client {
 /* --- internal type representing the process supervisor --- */
 struct eds_service_supervisor {
   pid_t *pids;
+  time_t last_restart;
+  int nrestarts;
 };
 
 /* --- internal type representing a service process */

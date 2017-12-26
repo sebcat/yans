@@ -28,6 +28,9 @@
 #define EDS_CLIENT_RSUSPEND    (1 << 2)
 #define EDS_CLIENT_IN_USE      (1 << 3)
 
+/* number of maximum restarts per second allowed */
+#define MAX_SERVICE_RESTARTS_PER_SEC 5
+
 /* in a listener process, this field gets the currently running service.
  * Used for graceful shutdown on HUP, TERM, INT signals */
 static struct eds_service *running_service;
@@ -744,11 +747,29 @@ static void handle_supervisor_shutdown(int sig) {
   }
 }
 
+static int test_restart_interval(struct eds_service *svc) {
+  struct eds_service_supervisor *sup = &EDS_SERVICE_SUPERVISOR(svc);
+  time_t curr;
+
+  curr = time(NULL);
+  if (curr == sup->last_restart) {
+    sup->nrestarts++;
+    if (sup->nrestarts >= MAX_SERVICE_RESTARTS_PER_SEC) {
+      return -1;
+    }
+  } else {
+    sup->last_restart = curr;
+    sup->nrestarts = 1;
+  }
+  return 0;
+}
+
 static int supervise_service_listeners(struct eds_service *svcs) {
   struct eds_service *svc;
   pid_t pid;
   int status;
   unsigned int i;
+  int ret;
 
 wait:
   pid = wait(&status);
@@ -781,6 +802,15 @@ wait:
               "%s: child:%u PID:%d terminated (signal: %d)",
               svc->name, i, pid, WTERMSIG(status));
         }
+
+        /* return error if we have repeating restarts. */
+        ret = test_restart_interval(svc);
+        if (ret < 0) {
+          EDS_SERVE_ERR(svc, "%s: too many restarts", svc->name);
+          return -1;
+        }
+
+        /* restart the service listener */
         if (fork_service_listener(svc, i) < 0) {
           EDS_SERVE_ERR(svc, "%s: restart failure (child:%u)",
               svc->name, i);

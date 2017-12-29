@@ -13,6 +13,8 @@
 #include <apps/stored/nullfd.h>
 #include <apps/stored/store.h>
 
+#define STORE_PATH "store"
+
 #define STOREFL_HASMSGBUF (1 << 0)
 
 #define MAXTRIES_GENSTORE 128
@@ -43,9 +45,25 @@ static void gen_store_path(char *data, size_t len) {
 int store_init(struct eds_service *svc) {
   time_t t;
   uint32_t seed;
+  int ret;
+
+  /* create the store subdirectory (unless it exists) or error out */
+  ret = mkdir(STORE_PATH, 0700);
+  if (ret < 0 && errno != EEXIST) {
+    ylog_error("store: failed to create \"" STORE_PATH "\" directory: %s",
+        strerror(errno));
+    goto fail;
+  }
+
+  /* chdir to the store subdir or error out */
+  ret = chdir(STORE_PATH);
+  if (ret < 0) {
+    ylog_error("store: chdir \"" STORE_PATH "\" failure: %s", strerror(errno));
+    goto fail;
+  }
 
   /* we use the PRNG for directory/file names, so it should be fine seeding
-   * it with the current time */
+   * it with the current time (famous last words) */
   t = time(NULL);
   if (t == (time_t)-1) {
     ylog_error("store: failed to obtain initial seed (%s)", strerror(errno));

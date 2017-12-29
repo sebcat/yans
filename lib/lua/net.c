@@ -580,9 +580,9 @@ static int l_unmarshal_routes(lua_State *L) {
   size_t ip6_sz = 0;
   size_t ip4_sz = 0;
   size_t ifaces_sz = 0;
-  const char *ip6_data;
-  const char *ip4_data;
-  const char *ifaces_data;
+  const char *ip6_data = NULL;
+  const char *ip4_data = NULL;
+  const char *ifaces_data = NULL;
   int t;
 
   luaL_checktype(L, 1, LUA_TTABLE);

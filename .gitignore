@@ -21,3 +21,4 @@ apps/clid/clid
 freebsd/etc.rc.d/ethd
 freebsd/etc.rc.d/stored
 freebsd/etc.rc.d/clid
+lib/util/flagset_test

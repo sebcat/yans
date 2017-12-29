@@ -5,7 +5,7 @@
 
 #include <lib/util/flagset.h>
 
-int flagset_from_str(struct flagset_map *m, const char *s,
+int flagset_from_str(const struct flagset_map *m, const char *s,
     struct flagset_result *out) {
   size_t len;
   size_t i;

@@ -25,7 +25,7 @@ struct flagset_result {
 };
 
 /* returns -1 on error, 0 on success. Fills in flagset_result accordingly */
-int flagset_from_str(struct flagset_map *m, const char *s,
+int flagset_from_str(const struct flagset_map *m, const char *s,
     struct flagset_result *out);
 
 

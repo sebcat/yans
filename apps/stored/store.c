@@ -10,6 +10,7 @@
 #include <lib/util/prng.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
+#include <apps/stored/nullfd.h>
 #include <apps/stored/store.h>
 
 #define STOREFL_HASMSGBUF (1 << 0)
@@ -29,7 +30,6 @@
     ylog_info("storecli%d: " fmt, (fd), __VA_ARGS__)
 
 static struct prng_ctx g_prng;
-static int g_nullfd = -1; /* for signaling errors with sendfd */
 
 static void gen_store_path(char *data, size_t len) {
   if (data == NULL || len == 0) {
@@ -43,12 +43,6 @@ static void gen_store_path(char *data, size_t len) {
 int store_init(struct eds_service *svc) {
   time_t t;
   uint32_t seed;
-
-  g_nullfd = open("/dev/null", O_RDWR);
-  if (g_nullfd < 0) {
-    ylog_error("store: unable to open /dev/null: %s", strerror(errno));
-    goto fail;
-  }
 
   /* we use the PRNG for directory/file names, so it should be fine seeding
    * it with the current time */
@@ -64,10 +58,6 @@ int store_init(struct eds_service *svc) {
   return 0;
 
 fail:
-  if (g_nullfd >= 0) {
-    close(g_nullfd);
-    g_nullfd = -1;
-  }
   return -1;
 }
 
@@ -179,7 +169,7 @@ static void on_sendfd(struct eds_client *cli, int fd) {
     return;
   }
 
-  if (ecli->open_fd != g_nullfd) {
+  if (ecli->open_fd != nullfd_get()) {
     close(ecli->open_fd);
   }
 
@@ -218,7 +208,7 @@ static void on_readopen(struct eds_client *cli, int fd) {
   }
 
   /* initialize response fd fields */
-  ecli->open_fd = g_nullfd;
+  ecli->open_fd = nullfd_get();
   ecli->open_errno = EACCES;
 
   if (req.path == NULL || *req.path == '\0') {

@@ -9,6 +9,7 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
+#include <apps/stored/nullfd.h>
 #include <apps/stored/store.h>
 
 #define DAEMON_NAME "stored"
@@ -128,6 +129,13 @@ int main(int argc, char *argv[]) {
   int ret;
 
   parse_args_or_die(&opts, argc, argv);
+
+  ret = nullfd_init();
+  if (ret < 0) {
+    ylog_error("nullfd_init: %s", strerror(errno));
+    return EXIT_FAILURE;
+  }
+
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {
@@ -168,5 +176,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  nullfd_cleanup();
   return status;
 }

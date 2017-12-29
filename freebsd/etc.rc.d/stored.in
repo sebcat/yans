@@ -23,11 +23,9 @@ pidfile="@LOCALSTATEDIR@/stored/stored.pid"
 
 stored_precmd()
 {
-  # this is needed for /dev/null
-  if [ ! -d "@LOCALSTATEDIR@/stored/dev" ]; then
-    mkdir -p "@LOCALSTATEDIR@/stored/dev"
-    mount -t devfs devfs @LOCALSTATEDIR@/stored/dev || {
-      warn "unable to mount devfs"
+  if [ ! -d "@LOCALSTATEDIR@/stored" ]; then
+    mkdir -p "@LOCALSTATEDIR@/stored" || {
+      warn "Failed to create stored directory"
       return 1
     }
   fi

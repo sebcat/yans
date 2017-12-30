@@ -2,6 +2,8 @@ nodist_BINS =
 BINS =
 OBJS =
 CODEGEN =
+RCFILES =
+GENERATED_RCFILES =
 CFLAGS ?= -Os -pipe
 CFLAGS += -Wall -Werror -I.
 
@@ -10,12 +12,14 @@ INSTALL = install
 STRIP = strip -s
 
 DESTDIR ?=
+RCFILESDIR ?= /etc/rc.d
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 DATAROOTDIR = $(PREFIX)/share
 LOCALSTATEDIR = /var
 
 # set MAYBE_VALGRIND to the valgrind command if USE_VALGRIND is set to 1
+# used for make check
 MAYBE_VALGRIND_1 = valgrind --error-exitcode=1 --leak-check=full
 MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
@@ -23,12 +27,13 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
 include files.mk
 
-all: $(nodist_BINS) $(BINS)
+all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES)
 
 clean:
 	rm -f $(nodist_BINS) $(BINS)
 	rm -f $(CTESTS)
 	rm -f $(OBJS)
+	rm -f $(GENERATED_RCFILES)
 
 distclean: clean
 	rm -f $(CODEGEN)
@@ -53,6 +58,12 @@ install-strip: install
 	for B in $(BINS); do \
 		B=$$(basename $$B); \
 		$(STRIP) $(DESTDIR)$(BINDIR)/$$B; \
+	done
+
+install-rcfiles: $(RCFILES) $(GENERATED_RCFILES)
+	mkdir -p $(DESTDIR)$(RCFILESDIR)
+	for RC in $(RCFILES) $(GENERATED_RCFILES); do \
+		$(INSTALL) $$RC $(DESTDIR)$(RCFILESDIR); \
 	done
 
 include rules.mk

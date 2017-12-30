@@ -18,7 +18,7 @@ lib/util/conf_test
 lib/util/netstring_test
 lib/util/u8_test
 apps/clid/clid
-freebsd/etc.rc.d/ethd
-freebsd/etc.rc.d/stored
-freebsd/etc.rc.d/clid
+tools/freebsd/etc.rc.d/ethd
+tools/freebsd/etc.rc.d/stored
+tools/freebsd/etc.rc.d/clid
 lib/util/flagset_test

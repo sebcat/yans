@@ -1,9 +1,14 @@
-#!/bin/sh
+#!/bin/sh -e
+#
+# build.sh - build script aimed for release builds
+#
 
-export CC=gcc
+[ -z "$NCPUS" ] && NCPUS=2
+
+export CC=clang40
 export CFLAGS="-Os -g -pipe -Wall -Werror -fvisibility=hidden \
 -ffunction-sections -fdata-sections -fomit-frame-pointer \
 -DNDEBUG -fstack-protector-strong"
-export LDFLAGS=" -Wl,--gc-sections"
+export LDFLAGS="-Wl,--gc-sections"
 # -Wl,--build-id=none
-make -j2
+make -j${NCPUS}

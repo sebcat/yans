@@ -7,8 +7,8 @@ BUILDWORLDCONF=$MKJAILDIR/src.conf.buildworld
 INSTALLWORLDCONF=$MKJAILDIR/src.conf.installworld
 WS=$(printf ' \r\n\t')
 NCPUS=$(sysctl -n hw.ncpu)
-JAILUSERS="ethd clid storaged"
-JAILGROUPS="ethd clid storaged"
+JAILUSERS="ethd clid stored"
+JAILGROUPS="ethd clid stored"
 
 # args
 JAILDIR=
@@ -76,11 +76,11 @@ make -C /usr/src installworld DESTDIR="$JAILDIR" \
 make -C /usr/src distribution DESTDIR="$JAILDIR" \
     SRCCONF="$INSTALLWORLDCONF" || die "distribution failure"
 
-pkg -r "$JAILDIR" install nginx || die "nginx installation failure"
-NCPUS=$(sysctl -n hw.ncpus) ./build.sh || die "yans build failure"
+pkg -r "$JAILDIR" install --yes nginx || die "nginx installation failure"
+NCPUS=$NCPUS ./build.sh || die "yans build failure"
 make install-strip DESTDIR="$JAILDIR" || die "yans install failure"
 make install-rcfiles DESTDIR="$JAILDIR" || die "yans install-rcfiles failure"
-install -m 644 "$MKJAILDIR/jailconf/rc.conf" "$DESTDIR/etc" || \
+install -m 644 "$MKJAILDIR/jailconf/rc.conf" "$JAILDIR/etc" || \
     die "unable to install jail rc.conf"
 
 #TODO:
@@ -96,6 +96,7 @@ for U in $JAILUSERS; do
   pw -R "$JAILDIR" useradd $U -d /var/$U -g $U -s /usr/sbin/nologin
 done
 
+chflags -R noschg "$JAILDIR/var"
 rm -rf "$JAILDIR/var" || die "unable to clear jail /var"
 mkdir -p "$JAILDIR/var" || die "unable to create /var mountpoint"
 
@@ -118,7 +119,7 @@ add path bpf mode 660 unhide
 
 # /etc/jail.conf:
 $JAILNAME {
-  path = $JAILDIR;
+  path = ${JAILDIR}_ro;
   allow.raw_sockets;
   allow.mount;
   allow.mount.devfs;
@@ -137,5 +138,8 @@ $JAILNAME {
 $JAILDIR ${JAILDIR}_ro nullfs ro 0 0
 tmpfs ${JAILDIR}_ro/tmp tmpfs rw,size=10M 0 0
 tmpfs ${JAILDIR}_ro/var tmpfs rw,size=10M 0 0
+
+# create ro mountpoint
+mkdir -p ${JAILDIR}_ro
 EOF
 

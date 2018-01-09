@@ -4,8 +4,6 @@ OBJS =
 CODEGEN =
 RCFILES =
 GENERATED_RCFILES =
-CFLAGS ?= -Os -pipe
-CFLAGS += -Wall -Werror -I.
 
 UNAME_S != uname -s
 INSTALL = install
@@ -17,6 +15,11 @@ PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 DATAROOTDIR = $(PREFIX)/share
 LOCALSTATEDIR = /var
+
+CFLAGS ?= -Os -pipe
+CFLAGS += -Wall -Werror -I.
+CFLAGS += -DBINDIR=\"$(BINDIR)\" -DDATAROOTDIR=\"$(DATAROOTDIR)\"
+CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
 
 # set MAYBE_VALGRIND to the valgrind command if USE_VALGRIND is set to 1
 # used for make check
@@ -53,6 +56,8 @@ install: $(nodist_BINS) $(BINS)
 	for B in $(BINS); do \
 		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
     done
+	mkdir -p $(DESTDIR)$(DATAROOTDIR)
+	cp -R lib/yans $(DESTDIR)$(DATAROOTDIR)
 
 install-strip: install
 	for B in $(BINS); do \

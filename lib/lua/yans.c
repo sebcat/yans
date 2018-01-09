@@ -23,6 +23,14 @@
 #define YREPL_CONTP   "    "
 #define YREPL_SHIST   "/s "
 
+#ifndef DATAROOTDIR
+#define DATAROOTDIR "/666noexist"
+#endif
+
+#define YANS_PATH DATAROOTDIR "/yans/?.yans;" \
+    DATAROOTDIR "/yans/?/init.yans;" \
+    "./?.yans;./?/init.yans"
+
 static void repl_print(lua_State *L, int nkeep) {
   int nelems = lua_gettop(L)-nkeep;
   if (nelems > 0) {
@@ -111,6 +119,7 @@ static void repl(lua_State *L) {
 static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
   lua_State *L;
   int i;
+  int t;
   static const struct {
     const char *name;
     int (*openfunc)(lua_State *);
@@ -152,6 +161,15 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
   for (i = 0; libs[i].name != NULL; i++) {
     luaL_requiref(L, libs[i].name, libs[i].openfunc, 1);
   }
+
+  /* setup package.path */
+  t = lua_getglobal(L, "package");
+  if (t == LUA_TTABLE) {
+    lua_pushstring(L, YANS_PATH);
+    lua_setfield(L, -2, "path");
+  }
+  lua_pop(L, 1);
+
   return L;
 }
 

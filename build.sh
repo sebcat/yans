@@ -6,7 +6,7 @@
 [ -z "$NCPUS" ] && NCPUS=2
 
 export CC=clang40
-export CFLAGS="-Os -g -pipe -Wall -Werror -fvisibility=hidden \
+export CFLAGS="-Os -pipe -fvisibility=hidden \
 -ffunction-sections -fdata-sections -fomit-frame-pointer \
 -DNDEBUG -fstack-protector-strong"
 export LDFLAGS="-Wl,--gc-sections"

@@ -334,6 +334,23 @@ int io_recvfd(io_t *io, int *out) {
   return IO_OK;
 }
 
+int io_setcloexec(io_t *io, int val) {
+  int flags = fcntl(io->fd, F_GETFD);
+
+  if (val == 0) {
+    flags = flags & ~FD_CLOEXEC;
+  } else {
+    flags = flags | FD_CLOEXEC;
+  }
+
+  if (fcntl(io->fd, F_SETFD, flags) == -1) {
+    IO_PERROR(io, "fcntl");
+    return IO_ERR;
+  }
+
+  return IO_OK;
+}
+
 int io_setnonblock(io_t *io, int val) {
   int flags = fcntl(io->fd, F_GETFL);
 
@@ -346,9 +363,9 @@ int io_setnonblock(io_t *io, int val) {
   if (fcntl(io->fd, F_SETFL, flags) == -1) {
     IO_PERROR(io, "fcntl");
     return IO_ERR;
-  } else {
-    return IO_OK;
   }
+
+  return IO_OK;
 }
 
 int io_readbuf(io_t *io, buf_t *buf, size_t *nread) {

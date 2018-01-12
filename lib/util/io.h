@@ -56,6 +56,7 @@ int io_tofp(io_t *io, const char *mode, FILE **out);
 int io_sendfd(io_t *io, int fd, int err);
 int io_recvfd(io_t *io, int *out);
 
+int io_setcloexec(io_t *io, int val);
 int io_setnonblock(io_t *io, int val);
 
 int io_readbuf(io_t *io, buf_t *buf, size_t *nread);

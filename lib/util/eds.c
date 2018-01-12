@@ -197,6 +197,7 @@ struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
 
   IO_INIT(&io, fd);
   io_setnonblock(&io, 1);
+  io_setcloexec(&io, 1);
   if (fd > l->maxfd) {
     /* XXX: currently, l->maxfd is never decreased */
     l->maxfd = fd;
@@ -422,7 +423,7 @@ select:
       EDS_SERVE_ERR(svc, "%s: failed to add new client", svc->name);
     }
 
-    FD_CLR(svc->cmdfd, &rfds); /* So we don't treat it as a client below */
+    FD_CLR(svc->cmdfd, &rfds); /* So we don't treat cmdfd as a client below */
     num_fds--;
   }
 

@@ -323,7 +323,7 @@ int io_recvfd(io_t *io, int *out) {
   }
 
   /* If an error is signaled in m, a valid fd still needs to be passed.
-   * That's why we close fd if m != 0 **/
+   * That's why we close fd if m != 0 */
   if (m != 0) {
     close(fd);
     IO_SETERR(io, "%s", strerror(m));
@@ -335,34 +335,42 @@ int io_recvfd(io_t *io, int *out) {
 }
 
 int io_setcloexec(io_t *io, int val) {
-  int flags = fcntl(io->fd, F_GETFD);
+  int newflags;
+  int flags;
 
+  flags = fcntl(io->fd, F_GETFD);
   if (val == 0) {
-    flags = flags & ~FD_CLOEXEC;
+    newflags = flags & ~FD_CLOEXEC;
   } else {
-    flags = flags | FD_CLOEXEC;
+    newflags = flags | FD_CLOEXEC;
   }
 
-  if (fcntl(io->fd, F_SETFD, flags) == -1) {
-    IO_PERROR(io, "fcntl");
-    return IO_ERR;
+  if (newflags != flags) {
+    if (fcntl(io->fd, F_SETFD, newflags) == -1) {
+      IO_PERROR(io, "fcntl");
+      return IO_ERR;
+    }
   }
 
   return IO_OK;
 }
 
 int io_setnonblock(io_t *io, int val) {
-  int flags = fcntl(io->fd, F_GETFL);
+  int newflags;
+  int flags;
 
+  flags = fcntl(io->fd, F_GETFL);
   if (val == 0) {
-    flags = flags & ~O_NONBLOCK;
+    newflags = flags & ~O_NONBLOCK;
   } else {
-    flags = flags | O_NONBLOCK;
+    newflags = flags | O_NONBLOCK;
   }
 
-  if (fcntl(io->fd, F_SETFL, flags) == -1) {
-    IO_PERROR(io, "fcntl");
-    return IO_ERR;
+  if (flags != newflags) {
+    if (fcntl(io->fd, F_SETFL, newflags) == -1) {
+      IO_PERROR(io, "fcntl");
+      return IO_ERR;
+    }
   }
 
   return IO_OK;

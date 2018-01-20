@@ -77,8 +77,10 @@ struct eds_service {
   /* callback called on service error with string describing the error */
   void (*on_svc_error)(struct eds_service *svc, const char *err);
   /* callback called on reaped child for every eds_client in use */
-  void (*on_reaped_child)(struct eds_service *svc, struct eds_client *cli,
+  void (*on_cli_reaped_child)(struct eds_service *svc, struct eds_client *cli,
       pid_t pid, int status);
+  /* callback called on reaped child once for the eds_service */
+  void (*on_svc_reaped_child)(struct eds_service *svc, pid_t pid, int status);
 
   /* init, fini routines, if any. Called once per process  */
   int (*mod_init)(struct eds_service *svc); /* ret < 0 means failure */

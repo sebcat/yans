@@ -311,11 +311,14 @@ static void reap_listener_children(struct eds_service *svc) {
 
 again:
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    if (svc->on_reaped_child) {
+    if (svc->on_svc_reaped_child) {
+      svc->on_svc_reaped_child(svc, pid, status);
+    }
+    if (svc->on_cli_reaped_child) {
       for (i = 0; i < l->maxfd; i++) {
         cli = eds_service_client_from_fd(svc, i);
         if (cli->flags & EDS_CLIENT_IN_USE) {
-          svc->on_reaped_child(svc, cli, pid, status);
+          svc->on_cli_reaped_child(svc, cli, pid, status);
         }
       }
     }

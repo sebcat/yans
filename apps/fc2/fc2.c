@@ -479,13 +479,14 @@ static void on_done(struct eds_client *cli, int fd) {
   ylog_info("%scli%d: done", cli->svc->name, fd);
 }
 
-void on_reaped_child(struct eds_service *svc, struct eds_client *cli,
-    pid_t pid, int status) {
+static void on_cli_reaped_child(struct eds_service *svc,
+    struct eds_client *cli, pid_t pid, int status) {
   struct fc2_ctx *ctx = ctx = FC2_CTX(cli);
   if (ctx->cgi_pid == pid) {
     ctx->exit_status = status;
   }
 }
+
 static void on_svc_error(struct eds_service *svc, const char *err) {
   ylog_error("%s", err);
 }
@@ -596,7 +597,7 @@ int main(int argc, char *argv[]) {
         .on_done = on_done,
       },
       .on_svc_error = on_svc_error,
-      .on_reaped_child = on_reaped_child,
+      .on_cli_reaped_child = on_cli_reaped_child,
       /* in daemon mode we'll have multiple processes to handle slow readers.
        * from a performance standpoint, forking and running the CGIs
        * themselves will probably be a larger bottle neck than the fc2

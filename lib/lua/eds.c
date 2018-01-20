@@ -104,7 +104,6 @@ static void init_lds_client(struct eds_client *cli, int fd) {
     "on_readable",
     "on_writable",
     "on_done",
-    "on_reaped_child",
     "on_eval_error",
     NULL,
   };
@@ -348,27 +347,6 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
   }
 }
 
-static void on_reaped_child(struct eds_service *svc, struct eds_client *cli,
-      pid_t pid, int status) {
-  /* XXX: Nothing in the Lua bindings uses this yet */
-  struct lds_client *lds_cli = get_lds_client(cli);
-  struct lua_State *L;
-  if (lds_cli != NULL) {
-    L = lds_cli->L;
-    lua_rawgeti(L, LUA_REGISTRYINDEX, lds_cli->tblref);
-    if (lua_getfield(L, -1, "on_reaped_child") == LUA_TFUNCTION) {
-      /* S: {clitbl} func */
-      /* TODO: we probably want clictx and selfref here */
-      lua_pushinteger(L, (lua_Integer)pid);
-      lua_pushinteger(L, (lua_Integer)status);
-      lua_pcall(L, 2, 0, 0);
-      lua_pop(L, 1);
-    } else {
-      lua_pop(L, 2);
-    }
-  }
-}
-
 static int l_service(lua_State *L, struct lds_services *svcs, size_t svcpos) {
   int tp;
   struct eds_service *svc;
@@ -450,11 +428,6 @@ static int l_service(lua_State *L, struct lds_services *svcs, size_t svcpos) {
 
   if (lua_getfield(L, -1, "on_svc_error") == LUA_TFUNCTION) {
     svc->on_svc_error = on_svc_error;
-  }
-  lua_pop(L, 1);
-
-  if (lua_getfield(L, -1, "on_reaped_child") == LUA_TFUNCTION) {
-    svc->on_reaped_child = on_reaped_child;
   }
   lua_pop(L, 1);
 

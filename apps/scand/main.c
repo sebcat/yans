@@ -120,6 +120,7 @@ int main(int argc, char *argv[]) {
       },
       .on_svc_reaped_child = scanner_on_svc_reaped_child,
       .on_svc_error = on_svc_error,
+      .mod_fini = scanner_mod_fini,
       .nprocs = 1,
     },
     {0},

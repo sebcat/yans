@@ -451,3 +451,9 @@ void scanner_on_finalize(struct eds_client *cli) {
     ecli->flags &= ~SCANNERFL_HASMSGBUF;
   }
 }
+
+void scanner_mod_fini(struct eds_service *svc) {
+  /* TODO: we need to kill all the children gracefully (SIGTERM, sleep,
+   *       reap, SIGKILL what's left) */
+}
+

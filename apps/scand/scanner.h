@@ -18,5 +18,6 @@ void scanner_on_done(struct eds_client *cli, int fd);
 void scanner_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status);
 void scanner_on_finalize(struct eds_client *cli);
+void scanner_mod_fini(struct eds_service *svc);
 
 #endif

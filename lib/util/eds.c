@@ -611,11 +611,6 @@ static void eds_service_cleanup(struct eds_service *svc) {
   struct eds_client *cli;
   int i;
 
-  /* call mod_fini, if any */
-  if (svc->mod_fini != NULL) {
-    svc->mod_fini(svc);
-  }
-
   /* cleanup connected clients */
   for (i = 0; i < svc->nfds; i++) {
     cli = eds_service_client_from_fd(svc, i);
@@ -623,6 +618,11 @@ static void eds_service_cleanup(struct eds_service *svc) {
       eds_service_remove_client(svc, cli);
     }
     eds_service_finalize_client(svc, cli);
+  }
+
+  /* call mod_fini, if any */
+  if (svc->mod_fini != NULL) {
+    svc->mod_fini(svc);
   }
 
   /* cleanup command file descriptor */

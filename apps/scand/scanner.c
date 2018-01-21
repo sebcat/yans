@@ -1,5 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
+#include <time.h>
 #include <signal.h>
 #include <assert.h>
 #include <fcntl.h>
@@ -94,13 +96,13 @@ static char *constr(const char *name, const char *value) {
   return str;
 }
 
-#define ENVP_FIELD(name__, field__)          \
-  if ((field__) != NULL) {                   \
-    envp[off] = constr((name__), (field__)); \
-    if (envp[off] == NULL) {                 \
-      goto fail;                             \
-    }                                        \
-    off++;                                   \
+#define ENVP_FIELD(name__, field__)              \
+  if ((field__) != NULL && *(field__) != '\0') { \
+    envp[off] = constr((name__), (field__));     \
+    if (envp[off] == NULL) {                     \
+      goto fail;                                 \
+    }                                            \
+    off++;                                       \
   }
 
 /* build the environment from the scand request */
@@ -161,6 +163,7 @@ static struct scan_ctx *scan_new(struct ycl_msg_scand_req *req,
   /* TODO: Get ID */
   s->id = "DUMMY";
 
+  /* TODO: Don't feed parent process, open fd to log and /dev/null for stdin */
   ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sfds);
   if (ret < 0) {
     *err = "socketpair failure";
@@ -453,7 +456,42 @@ void scanner_on_finalize(struct eds_client *cli) {
 }
 
 void scanner_mod_fini(struct eds_service *svc) {
-  /* TODO: we need to kill all the children gracefully (SIGTERM, sleep,
-   *       reap, SIGKILL what's left) */
+  int nprocs = 0;
+  struct scan_ctx *curr;
+  struct scan_ctx *next;
+  struct timespec sleep;
+  struct timespec remaining;
+  pid_t pid;
+  int status;
+
+  for (curr = scans_; curr != NULL; curr = curr->next) {
+    kill(curr->pid, SIGTERM);
+    nprocs++;
+  }
+
+  if (nprocs > 0) {
+    sleep.tv_sec = 1;
+    sleep.tv_nsec = 0;
+    while (nanosleep(&sleep, &remaining) < 0) {
+      sleep = remaining;
+    }
+
+    for (curr = scans_; curr != NULL; curr = next) {
+      kill(curr->pid, SIGKILL);
+      next = curr->next;
+      scan_free(curr);
+    }
+
+    while (nprocs > 0) {
+      pid = wait(&status);
+      if (pid < 0) {
+        ylog_error("shutdown wait: nprocs:%d error:\"%s\"", nprocs,
+            strerror(errno));
+        break;
+      }
+      ylog_info("killed scan pid:%d", pid);
+      nprocs--;
+    }
+  }
 }
 

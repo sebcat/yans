@@ -58,3 +58,15 @@ route_resp {
   data ip6_routes;
   data ifaces;
 }
+
+##
+## scand messages
+##
+
+scand_req {
+  str action;
+  str id;
+  str type;
+  str targets;
+  str tcp_ports;
+}

@@ -10,3 +10,5 @@ include apps/stored/files.mk
 include apps/ethd/files.mk
 include apps/fc2/files.mk
 include apps/clid/files.mk
+include apps/scand/files.mk
+include apps/scan/files.mk

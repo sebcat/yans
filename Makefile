@@ -12,9 +12,9 @@ STRIP = strip -s
 DESTDIR ?=
 RCFILESDIR ?= /etc/rc.d
 PREFIX ?= /usr/local
-BINDIR = $(PREFIX)/bin
-DATAROOTDIR = $(PREFIX)/share
-LOCALSTATEDIR = /var
+BINDIR ?= $(PREFIX)/bin
+DATAROOTDIR ?= $(PREFIX)/share
+LOCALSTATEDIR ?= /var
 
 CFLAGS ?= -Os -pipe
 CFLAGS += -Wall -Werror -I.
@@ -58,6 +58,7 @@ install: $(nodist_BINS) $(BINS)
     done
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)
 	cp -R lib/yans $(DESTDIR)$(DATAROOTDIR)
+	cp -R apps/yscans $(DESTDIR)$(DATAROOTDIR)
 
 install-strip: install
 	for B in $(BINS); do \

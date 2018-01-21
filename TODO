@@ -1,3 +1,20 @@
+## scand
+  - daemon for starting/running/querying/stopping/removing scans
+  - scand_req:
+    {
+      "action": <"start", "status", "stop", "remove">,
+      "id": "...", # applies to status, stop, remove
+
+      "targets": "example.com,127.0.0.1,192.168.0.1",
+      "tcp_ports": "22",
+      ...
+    }
+  - the rest can probably use status_resp
+
+## scan
+  - CLI for scand
+  - scan start, scan status, scan stop, scan remove
+
 ## ethframe
   - SSDP, MDNS, ICMP multicasts
   - choose sequential/procedurally generated/PRNG source port within suitable
@@ -20,7 +37,6 @@
 
 ## new services
 
-  - scand: daemon for starting/stopping/removing scans
   - bannerd: UDP/TCP banner grabbing with (D)TLS support (libressl?)
   - tlshellod: TLS negotiation w/ STARTTLS
   - spiderd: HTTP crawler (or HTTP proxy?)

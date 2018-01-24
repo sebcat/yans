@@ -11,11 +11,11 @@ knegd_DEPS = \
 knegd_DEPSOBJS = ${knegd_DEPS:.c=.o}
 
 knegd_SOURCES = \
-    apps/knegd/scanner.c \
+    apps/knegd/kng.c \
     apps/knegd/main.c
 
 knegd_HEADERS = \
-    apps/knegd/scanner.h
+    apps/knegd/kng.h
 
 knegd_OBJS = ${knegd_SOURCES:.c=.o}
 

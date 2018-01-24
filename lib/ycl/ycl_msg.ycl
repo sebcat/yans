@@ -60,10 +60,10 @@ route_resp {
 }
 
 ##
-## scand messages
+## knegd messages
 ##
 
-scand_req {
+knegd_req {
   str action;
   str id;
   str type;

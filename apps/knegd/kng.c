@@ -13,7 +13,7 @@
 
 #include <lib/util/ylog.h>
 #include <lib/ycl/ycl_msg.h>
-#include <apps/scand/scanner.h>
+#include <apps/knegd/kng.h>
 
 #ifndef DATAROOTDIR
 #define DATAROOTDIR "/usr/local/share"
@@ -29,18 +29,18 @@
    ((ch__) >= '0' && (ch__) <= '9') || \
    ((ch__) == '-'))
 
-#define SCANNERFL_HASMSGBUF (1 << 0)
+#define KNGFL_HASMSGBUF (1 << 0)
 
-#define LOGERR(fd__, ...) \
-    ylog_error("scannercli%d: %s", (fd__), __VA_ARGS__)
+#define LOGERR(...) \
+    ylog_error(__VA_ARGS__)
 
-#define LOGINFOF(fd__, fmt, ...) \
-    ylog_info("scannercli%d: " fmt, (fd__), __VA_ARGS__)
+#define LOGINFO(...) \
+    ylog_info(__VA_ARGS__)
 
 #define MAX_ENVPARAMS 128
 
-struct scan_ctx {
-  struct scan_ctx *next;
+struct kng_ctx {
+  struct kng_ctx *next;
   char *id;
   pid_t pid;
   int sock;
@@ -105,8 +105,8 @@ static char *constr(const char *name, const char *value) {
     off++;                                       \
   }
 
-/* build the environment from the scand request */
-static char **mkenvp(struct ycl_msg_scand_req *req) {
+/* build the environment from the knegd request */
+static char **mkenvp(struct ycl_msg_knegd_req *req) {
   size_t off = 0;
   char **envp;
 
@@ -128,9 +128,9 @@ fail:
   return NULL;
 }
 
-static struct scan_ctx *scan_new(struct ycl_msg_scand_req *req,
+static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     const char **err) {
-  struct scan_ctx *s = NULL;
+  struct kng_ctx *s = NULL;
   int fd = -1;
   int sfds[2] = {-1, -1};
   int ret;
@@ -146,7 +146,7 @@ static struct scan_ctx *scan_new(struct ycl_msg_scand_req *req,
     goto fail;
   }
 
-  s = calloc(1, sizeof(struct scan_ctx));
+  s = calloc(1, sizeof(struct kng_ctx));
   envp = mkenvp(req);
   if (s == NULL || envp == NULL) {
     *err = "insufficient memory";
@@ -216,7 +216,7 @@ fail:
   return NULL;
 }
 
-static void scan_free(struct scan_ctx *s) {
+static void kng_free(struct kng_ctx *s) {
   if (s != NULL) {
     if (s->sock >= 0) {
       close(s->sock);
@@ -226,7 +226,7 @@ static void scan_free(struct scan_ctx *s) {
   }
 }
 
-static void scan_stop(struct scan_ctx *s) {
+static void kng_stop(struct kng_ctx *s) {
   assert(s != NULL);
   kill(s->pid, SIGTERM);
   /* TODO: mark for removal and SIGKILL in the future if we havn't reaped the
@@ -234,9 +234,9 @@ static void scan_stop(struct scan_ctx *s) {
 }
 
 /* list of running scans */
-struct scan_ctx *scans_;
+struct kng_ctx *scans_;
 
-static void scans_add(struct scan_ctx *s) {
+static void scans_add(struct kng_ctx *s) {
   assert(s != NULL);
   assert(s->id != NULL);
 
@@ -244,8 +244,8 @@ static void scans_add(struct scan_ctx *s) {
   scans_ = s;
 }
 
-static struct scan_ctx *scans_find_by_id(const char *id) {
-  struct scan_ctx *curr;
+static struct kng_ctx *scans_find_by_id(const char *id) {
+  struct kng_ctx *curr;
 
   assert(id != NULL);
 
@@ -270,20 +270,20 @@ static const char *scans_status(const char *id) {
 }
 
 static void scans_stop(const char *id) {
-  struct scan_ctx *curr;
+  struct kng_ctx *curr;
 
   assert(id != NULL);
   curr = scans_find_by_id(id);
   if (curr != NULL) {
-    scan_stop(curr);
+    kng_stop(curr);
   }
 }
 
 
 /* NB: Must only be called after the child is reaped by eds */
 static void scans_remove(pid_t pid) {
-  struct scan_ctx *curr;
-  struct scan_ctx *prev;
+  struct kng_ctx *curr;
+  struct kng_ctx *prev;
 
   assert(pid > 0);
 
@@ -303,21 +303,21 @@ static void scans_remove(pid_t pid) {
     prev->next = curr->next;
   }
 
-  scan_free(curr);
+  kng_free(curr);
 }
 
 static void write_err_response(struct eds_client *cli, int fd,
     const char *errmsg) {
-  struct scanner_cli *ecli = SCANNER_CLI(cli);
+  struct kng_cli *ecli = KNG_CLI(cli);
   struct ycl_msg_status_resp resp = {0};
   int ret;
 
-  LOGERR(fd, errmsg);
+  LOGERR("failure: %s fd:%d", errmsg, fd);
   eds_client_clear_actions(cli);
   resp.errmsg = errmsg;
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
-    LOGERR(fd, "error response serialization error");
+    LOGERR("error response serialization error fd:%d", fd);
   } else {
     eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
         ycl_msg_nbytes(&ecli->msgbuf), NULL);
@@ -326,7 +326,7 @@ static void write_err_response(struct eds_client *cli, int fd,
 
 static void write_ok_response(struct eds_client *cli, int fd,
     const char *msg) {
-  struct scanner_cli *ecli = SCANNER_CLI(cli);
+  struct kng_cli *ecli = KNG_CLI(cli);
   struct ycl_msg_status_resp resp = {0};
   int ret;
 
@@ -334,7 +334,7 @@ static void write_ok_response(struct eds_client *cli, int fd,
   resp.okmsg = msg;
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
-    LOGERR(fd, "OK response serialization error");
+    LOGERR("OK response serialization error fd:%d", fd);
   } else {
     eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
         ycl_msg_nbytes(&ecli->msgbuf), NULL);
@@ -349,9 +349,9 @@ static void start_stream_log(struct eds_client *cli, int fd,
 static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   const char *okmsg = "OK";
-  struct scanner_cli *ecli = SCANNER_CLI(cli);
-  struct ycl_msg_scand_req req = {0};
-  struct scan_ctx *scan;
+  struct kng_cli *ecli = KNG_CLI(cli);
+  struct ycl_msg_knegd_req req = {0};
+  struct kng_ctx *scan;
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -362,9 +362,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  ret = ycl_msg_parse_scand_req(&ecli->msgbuf, &req);
+  ret = ycl_msg_parse_knegd_req(&ecli->msgbuf, &req);
   if (ret != YCL_OK) {
-    errmsg = "scand request parse error";
+    errmsg = "knegd request parse error";
     goto fail;
   }
 
@@ -375,14 +375,14 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* check if the client wants a scan to start */
   if (strcmp(req.action, "start") == 0) {
-    scan = scan_new(&req, &errmsg);
+    scan = kng_new(&req, &errmsg);
     if (scan == NULL) {
       goto fail;
     }
     scans_add(scan);
     /* TODO: add on_readable callback for scan->sock for log */
     okmsg = scan->id; /* XXX: NOT GOOD, scan may not live past sending ID */
-    LOGINFOF(fd, "started scan type:\"%s\" pid:%d", req.type, scan->pid);
+    LOGINFO("started scan fd:%d type:\"%s\" pid:%d", fd, req.type, scan->pid);
     write_ok_response(cli, fd, okmsg);
     return;
   }
@@ -415,20 +415,20 @@ fail:
   write_err_response(cli, fd, errmsg);
 }
 
-void scanner_on_readable(struct eds_client *cli, int fd) {
-  struct scanner_cli *ecli = SCANNER_CLI(cli);
+void kng_on_readable(struct eds_client *cli, int fd) {
+  struct kng_cli *ecli = KNG_CLI(cli);
   int ret;
 
   ycl_init(&ecli->ycl, fd);
-  if (ecli->flags & SCANNERFL_HASMSGBUF) {
+  if (ecli->flags & KNGFL_HASMSGBUF) {
     ycl_msg_reset(&ecli->msgbuf);
   } else {
     ret = ycl_msg_init(&ecli->msgbuf);
     if (ret != YCL_OK) {
-      LOGERR(fd, "ycl_msg_init failure");
+      LOGERR("ycl_msg_init failure fd:%d", fd);
       goto fail;
     }
-    ecli->flags |= SCANNERFL_HASMSGBUF;
+    ecli->flags |= KNGFL_HASMSGBUF;
   }
   eds_client_set_on_readable(cli, on_readreq, 0);
   return;
@@ -437,28 +437,28 @@ fail:
   eds_client_clear_actions(cli);
 }
 
-void scanner_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
+void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status) {
-  ylog_info("scan done pid:%d status:0x%x", pid, status);
+  LOGINFO("scan done pid:%d status:0x%x", pid, status);
   scans_remove(pid);
 }
 
-void scanner_on_done(struct eds_client *cli, int fd) {
+void kng_on_done(struct eds_client *cli, int fd) {
   /* TODO: Implement */
 }
 
-void scanner_on_finalize(struct eds_client *cli) {
-  struct scanner_cli *ecli = SCANNER_CLI(cli);
-  if (ecli->flags & SCANNERFL_HASMSGBUF) {
+void kng_on_finalize(struct eds_client *cli) {
+  struct kng_cli *ecli = KNG_CLI(cli);
+  if (ecli->flags & KNGFL_HASMSGBUF) {
     ycl_msg_cleanup(&ecli->msgbuf);
-    ecli->flags &= ~SCANNERFL_HASMSGBUF;
+    ecli->flags &= ~KNGFL_HASMSGBUF;
   }
 }
 
-void scanner_mod_fini(struct eds_service *svc) {
+void kng_mod_fini(struct eds_service *svc) {
   int nprocs = 0;
-  struct scan_ctx *curr;
-  struct scan_ctx *next;
+  struct kng_ctx *curr;
+  struct kng_ctx *next;
   struct timespec sleep;
   struct timespec remaining;
   pid_t pid;
@@ -479,17 +479,17 @@ void scanner_mod_fini(struct eds_service *svc) {
     for (curr = scans_; curr != NULL; curr = next) {
       kill(curr->pid, SIGKILL);
       next = curr->next;
-      scan_free(curr);
+      kng_free(curr);
     }
 
     while (nprocs > 0) {
       pid = wait(&status);
       if (pid < 0) {
-        ylog_error("shutdown wait: nprocs:%d error:\"%s\"", nprocs,
+        LOGERR("shutdown wait: nprocs:%d error:\"%s\"", nprocs,
             strerror(errno));
         break;
       }
-      ylog_info("killed scan pid:%d", pid);
+      LOGINFO("killed scan pid:%d", pid);
       nprocs--;
     }
   }

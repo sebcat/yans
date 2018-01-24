@@ -11,7 +11,7 @@
 #define LOCALSTATEDIR "/var"
 #endif
 
-#define DFL_SCANDSOCK LOCALSTATEDIR "/scand/scand.sock"
+#define DFL_SCANDSOCK LOCALSTATEDIR "/knegd/knegd.sock"
 #define TARGET_BUFSZ 1024 /* initial target buffer size */
 
 struct subcmd {
@@ -29,7 +29,7 @@ struct start_opts {
 
 static int run_start(struct start_opts *opts) {
   struct ycl_ctx ctx = {0};
-  struct ycl_msg_scand_req req = {0};
+  struct ycl_msg_knegd_req req = {0};
   struct ycl_msg_status_resp resp = {0};
   struct ycl_msg msg = {{0}};
   int ret;
@@ -51,9 +51,9 @@ static int run_start(struct start_opts *opts) {
   req.type = opts->type;
   req.targets = opts->targets.data;
   req.tcp_ports = opts->tcp_ports;
-  ret = ycl_msg_create_scand_req(&msg, &req);
+  ret = ycl_msg_create_knegd_req(&msg, &req);
   if (ret != YCL_OK) {
-    fprintf(stderr, "failed to create scand request\n");
+    fprintf(stderr, "failed to create knegd request\n");
     goto ycl_msg_cleanup;
   }
 
@@ -144,7 +144,7 @@ static int start(int argc, char **argv) {
   }
 
   if (opts.type == NULL) {
-    fprintf(stderr, "scan type (-t) missing\n");
+    fprintf(stderr, "kneg type (-t) missing\n");
     goto fail;
   }
 
@@ -161,8 +161,8 @@ usage:
       "options:\n"
       "  -h|--help      - this text\n"
       "  -p|--tcp-ports - list of TCP ports, if any\n"
-      "  -s|--socket    - path to scand socket (dfl: %s)\n"
-      "  -t|--type      - scan type\n",
+      "  -s|--socket    - path to knegd socket (dfl: %s)\n"
+      "  -t|--type      - kneg type\n",
       DFL_SCANDSOCK);
 fail:
   buf_cleanup(&opts.targets);
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0 ||
       strcmp(argv[1], "--help") == 0) {
-    usage(argv[0] == NULL ? "scan" : argv[0], subcmds);
+    usage(argv[0] == NULL ? "kneg" : argv[0], subcmds);
   }
 
   for (i = 0; subcmds[i].name != NULL; i++) {

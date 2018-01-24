@@ -9,9 +9,9 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
-#include <apps/scand/scanner.h>
+#include <apps/knegd/kng.h>
 
-#define DAEMON_NAME "scand"
+#define DAEMON_NAME "knegd"
 
 struct opts {
   const char *single;
@@ -112,15 +112,15 @@ int main(int argc, char *argv[]) {
     {
       .name = DAEMON_NAME,
       .path = DAEMON_NAME ".sock",
-      .udata_size = sizeof(struct scanner_cli),
+      .udata_size = sizeof(struct kng_cli),
       .actions = {
-        .on_readable = scanner_on_readable,
-        .on_done = scanner_on_done,
-        .on_finalize = scanner_on_finalize,
+        .on_readable = kng_on_readable,
+        .on_done = kng_on_done,
+        .on_finalize = kng_on_finalize,
       },
-      .on_svc_reaped_child = scanner_on_svc_reaped_child,
+      .on_svc_reaped_child = kng_on_svc_reaped_child,
       .on_svc_error = on_svc_error,
-      .mod_fini = scanner_mod_fini,
+      .mod_fini = kng_mod_fini,
       .nprocs = 1,
     },
     {0},

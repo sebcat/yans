@@ -10,5 +10,5 @@ include apps/stored/rules.mk
 include apps/ethd/rules.mk
 include apps/fc2/rules.mk
 include apps/clid/rules.mk
-include apps/scand/rules.mk
-include apps/scan/rules.mk
+include apps/knegd/rules.mk
+include apps/kneg/rules.mk

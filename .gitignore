@@ -22,5 +22,5 @@ tools/freebsd/etc.rc.d/ethd
 tools/freebsd/etc.rc.d/stored
 tools/freebsd/etc.rc.d/clid
 lib/util/flagset_test
-apps/scand/scand
-apps/scan/scan
+apps/knegd/knegd
+apps/kneg/kneg

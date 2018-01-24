@@ -37,8 +37,6 @@
 #define LOGINFO(...) \
     ylog_info(__VA_ARGS__)
 
-#define MAX_ENVPARAMS 128
-
 struct kng_ctx {
   struct kng_ctx *next;
   char *id;
@@ -67,17 +65,14 @@ static void free_envp(char **envp) {
   size_t i;
 
   if (envp) {
-    for (i = 0; i < MAX_ENVPARAMS; i++) {
-      if (envp[i] == NULL) {
-        break;
-      }
+    for (i = 0; envp[i] != NULL; i++) {
       free(envp[i]);
     }
     free(envp);
   }
 }
 
-static char *constr(const char *name, const char *value) {
+static char *consk(const char *name, const char *value) {
   size_t namelen;
   size_t valuelen;
   size_t totlen;
@@ -96,31 +91,64 @@ static char *constr(const char *name, const char *value) {
   return str;
 }
 
-#define ENVP_FIELD(name__, field__)              \
-  if ((field__) != NULL && *(field__) != '\0') { \
-    envp[off] = constr((name__), (field__));     \
-    if (envp[off] == NULL) {                     \
-      goto fail;                                 \
-    }                                            \
-    off++;                                       \
+static char *consp(const char *prefix, const char *param) {
+  size_t prefixlen;
+  size_t paramlen;
+  size_t totlen;
+  char *str;
+
+  assert(prefix != NULL);
+  assert(param != NULL);
+  prefixlen = strlen(prefix);
+  paramlen = strlen(param);
+  totlen = prefixlen + paramlen + 2;
+  str = malloc(totlen);
+  if (str == NULL) {
+    return NULL;
   }
+  snprintf(str, totlen, "%s_%s", prefix, param);
+  return str;
+}
+
+/* known, constant names */
+#define ENVP_VAR(name__, value__) \
+    if ((value__) != NULL && *(value__) != '\0') {   \
+      envp[off] = consk((name__), (value__));        \
+      if (envp[off] == NULL) {                       \
+        goto fail;                                   \
+      }                                              \
+      off++;                                         \
+    }
+
+/* arbitrary vars prefixed with known, constant prefix */
+#define ENVP_PARAM(prefix__, param__)                \
+    if ((param__) != NULL && *(param__) != '\0') {   \
+      envp[off] = consp((prefix__), (param__));      \
+      if (envp[off] == NULL) {                       \
+        goto fail;                                   \
+      }                                              \
+      off++;                                         \
+    }
+
 
 /* build the environment from the knegd request */
-static char **mkenvp(struct ycl_msg_knegd_req *req) {
+static char **mkenvp(struct ycl_msg_knegd_req *req, const char *id) {
   size_t off = 0;
+  size_t i;
   char **envp;
 
-  envp = calloc(MAX_ENVPARAMS, sizeof(char*));
+  envp = calloc(req->nparams + 3, sizeof(char*));
   if (envp == NULL) {
     return NULL;
   }
 
-  /* NB: If you add something, make sure you do not exceed MAX_ENVPARAMS */
-  ENVP_FIELD("SCAND_ID", req->id);
-  ENVP_FIELD("SCAND_TYPE", req->type);
-  ENVP_FIELD("SCAND_TARGETS", req->targets);
-  ENVP_FIELD("SCAND_TCP_PORTS", req->tcp_ports);
-  assert(off < MAX_ENVPARAMS);
+  ENVP_VAR("KNEGD_ID", id);
+  ENVP_VAR("KNEGD_TYPE", req->type);
+  for (i = 0; i < req->nparams; i++) {
+    ENVP_PARAM("KNEGDP", req->params[i]);
+  }
+
+  assert(off <= req->nparams + 2);
   return envp;
 
 fail:
@@ -147,33 +175,38 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   }
 
   s = calloc(1, sizeof(struct kng_ctx));
-  envp = mkenvp(req);
-  if (s == NULL || envp == NULL) {
+  if (s == NULL) {
     *err = "insufficient memory";
-    goto fail;
-  }
-
-  snprintf(path, sizeof(path), "%s/%s", YSCANSDIR, req->type);
-  fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    *err = (errno == ENOENT) ? "no such scan type" : "scan type failure";
     goto fail;
   }
 
   /* TODO: Get ID */
   s->id = "DUMMY";
 
+  envp = mkenvp(req, s->id);
+  if (envp == NULL) {
+    *err = "insufficient memory";
+    goto cleanup_s;
+  }
+
+  snprintf(path, sizeof(path), "%s/%s", YSCANSDIR, req->type);
+  fd = open(path, O_RDONLY);
+  if (fd < 0) {
+    *err = (errno == ENOENT) ? "no such scan type" : "scan type failure";
+    goto cleanup_envp;
+  }
+
   /* TODO: Don't feed parent process, open fd to log and /dev/null for stdin */
   ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sfds);
   if (ret < 0) {
     *err = "socketpair failure";
-    goto fail;
+    goto cleanup_fd;
   }
 
   pid = fork();
   if (pid < 0) {
     *err = "fork failure";
-    goto fail;
+    goto cleanup_socketpair;
   } else if (pid == 0) {
     char *argv[2] = {path, NULL};
     dup2(sfds[1], STDIN_FILENO);
@@ -192,27 +225,17 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   s->sock = sfds[0];
   return s;
 
+cleanup_socketpair:
+  close(sfds[0]);
+  close(sfds[1]);
+cleanup_fd:
+  close(fd);
+cleanup_envp:
+  free_envp(envp);
+cleanup_s:
+  free(s);
+
 fail:
-  if (s != NULL) {
-    free(s);
-  }
-
-  if (envp != NULL) {
-    free_envp(envp);
-  }
-
-  if (fd >= 0) {
-    close(fd);
-  }
-
-  if (sfds[0] >= 0) {
-    close(sfds[0]);
-  }
-
-  if (sfds[1] >= 0) {
-    close(sfds[1]);
-  }
-
   return NULL;
 }
 

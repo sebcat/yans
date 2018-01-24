@@ -67,6 +67,5 @@ knegd_req {
   str action;
   str id;
   str type;
-  str targets;
-  str tcp_ports;
+  str[] params;
 }

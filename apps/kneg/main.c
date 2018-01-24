@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <errno.h>
 
 #include <lib/util/buf.h>
 #include <lib/ycl/ycl.h>
@@ -22,9 +23,8 @@ struct subcmd {
 struct start_opts {
   const char *sock;
   const char *type;
-  const char *tcp_ports;
-  buf_t targets;
-
+  char **params;
+  size_t nparams;
 };
 
 static int run_start(struct start_opts *opts) {
@@ -49,8 +49,8 @@ static int run_start(struct start_opts *opts) {
 
   req.action = "start";
   req.type = opts->type;
-  req.targets = opts->targets.data;
-  req.tcp_ports = opts->tcp_ports;
+  req.params = (const char**)opts->params;
+  req.nparams = opts->nparams;
   ret = ycl_msg_create_knegd_req(&msg, &req);
   if (ret != YCL_OK) {
     fprintf(stderr, "failed to create knegd request\n");
@@ -97,12 +97,14 @@ ycl_cleanup:
 
 static int start(int argc, char **argv) {
   int ch;
-  int i;
   int ret;
   const char *optstr = "hp:s:t:";
+  char **params = NULL;
+  char **tmp;
+  size_t nparams = 0;
   static struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
-    {"tcp-ports", required_argument, NULL, 'p'},
+    {"param", required_argument, NULL, 'p'},
     {"socket", required_argument, NULL, 's'},
     {"type", required_argument, NULL, 't'},
     {NULL, 0, NULL, 0},
@@ -110,11 +112,8 @@ static int start(int argc, char **argv) {
   struct start_opts opts = {
     .sock = DFL_SCANDSOCK,
     .type = NULL,
-    .tcp_ports = NULL,
-    .targets = {0},
   };
 
-  buf_init(&opts.targets, TARGET_BUFSZ);
   while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
     switch(ch) {
     case 's':
@@ -124,22 +123,20 @@ static int start(int argc, char **argv) {
       opts.type = optarg;
       break;
     case 'p':
-      opts.tcp_ports = optarg;
+      tmp = realloc(params, sizeof(char *) * (nparams + 1));
+      if (tmp == NULL) {
+        fprintf(stderr, "%s\n", strerror(errno));
+        if (params != NULL) {
+          free(params);
+        }
+        exit(EXIT_FAILURE);
+      }
+      params = tmp;
+      params[nparams++] = optarg;
       break;
     case 'h':
     case '?':
       goto usage;
-    }
-  }
-
-  argc -= optind + 1;
-  argv += optind + 1;
-  for (i = 0; i < argc; i++) {
-    buf_adata(&opts.targets, argv[i], strlen(argv[i]));
-    if (i < argc-1) {
-      buf_achar(&opts.targets, ' ');
-    } else {
-      buf_achar(&opts.targets, '\0');
     }
   }
 
@@ -148,24 +145,27 @@ static int start(int argc, char **argv) {
     goto fail;
   }
 
+  opts.params = params;
+  opts.nparams = nparams;
   ret = run_start(&opts);
+  if (params != NULL) {
+    free(params);
+  }
   if (ret < 0) {
     goto fail;
   }
 
-  buf_cleanup(&opts.targets);
   return EXIT_SUCCESS;
 
 usage:
-  fprintf(stderr, "usage: [opts] [target-list]"
+  fprintf(stderr, "usage: [opts]\n"
       "options:\n"
-      "  -h|--help      - this text\n"
-      "  -p|--tcp-ports - list of TCP ports, if any\n"
-      "  -s|--socket    - path to knegd socket (dfl: %s)\n"
-      "  -t|--type      - kneg type\n",
+      "  -h|--help           - this text\n"
+      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      "  -t|--type   <type>  - kneg type\n"
+      "  -p|--param  <param> - kneg parameter\n",
       DFL_SCANDSOCK);
 fail:
-  buf_cleanup(&opts.targets);
   return EXIT_FAILURE;
 }
 

@@ -16,6 +16,7 @@
 struct opts {
   const char *single;
   const char *basepath;
+  const char *knegdir;
   uid_t uid;
   gid_t gid;
   int no_daemon;
@@ -28,30 +29,32 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  " DAEMON_NAME " [-s <name>] -u <user> -g <group> -b <basepath>\n"
-      "  " DAEMON_NAME " [-s <name>] -n -b <basepath>\n"
+      "  " DAEMON_NAME " [opts] -u <user> -g <group> -b <basepath>\n"
+      "  " DAEMON_NAME " [opts] -n -b <basepath>\n"
       "  " DAEMON_NAME " -h\n"
       "\n"
       "options:\n"
-      "  -u, --user:      daemon user\n"
-      "  -g, --group:     daemon group\n"
-      "  -b, --basepath:  working directory basepath\n"
-      "  -s, --single:    name of single service to start\n"
-      "  -n, --no-daemon: do not daemonize\n"
-      "  -h, --help:      this text\n");
+      "  -u|--user <user>     daemon user\n"
+      "  -g|--group <group>   daemon group\n"
+      "  -b|--basepath <path> working directory basepath\n"
+      "  -s|--single <name>   name of single service to start\n"
+      "  -n|--no-daemon       do not daemonize\n"
+      "  -k|--knegdir <path>  path do kneg directory\n"
+      "  -h|--help            this text\n");
   exit(EXIT_FAILURE);
 }
 
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:ns:h";
+  static const char *optstr = "u:g:b:ns:k:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
     {"basepath", required_argument, NULL, 'b'},
     {"single", required_argument, NULL, 's'},
     {"no-daemon", no_argument, NULL, 'n'},
+    {"knegdir", required_argument, NULL, 'k'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -59,6 +62,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   /* init default values */
   opts->basepath = NULL;
   opts->single = NULL;
+  opts->knegdir = NULL;
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
@@ -85,6 +89,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'n':
         opts->no_daemon = 1;
+        break;
+      case 'k':
+        opts->knegdir = optarg;
         break;
       case 'h':
       default:
@@ -115,7 +122,6 @@ int main(int argc, char *argv[]) {
       .udata_size = sizeof(struct kng_cli),
       .actions = {
         .on_readable = kng_on_readable,
-        .on_done = kng_on_done,
         .on_finalize = kng_on_finalize,
       },
       .on_svc_reaped_child = kng_on_svc_reaped_child,
@@ -129,6 +135,11 @@ int main(int argc, char *argv[]) {
   int ret;
 
   parse_args_or_die(&opts, argc, argv);
+
+  if (opts.knegdir != NULL) {
+    kng_set_knegdir(opts.knegdir);
+  }
+
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {

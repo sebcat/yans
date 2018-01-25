@@ -15,14 +15,6 @@
 #include <lib/ycl/ycl_msg.h>
 #include <apps/knegd/kng.h>
 
-#ifndef DATAROOTDIR
-#define DATAROOTDIR "/usr/local/share"
-#endif
-
-#ifndef YSCANSDIR
-#define YSCANSDIR DATAROOTDIR "/yscans"
-#endif
-
 /* valid characters for scan types - must not contain path chars &c */
 #define VALID_TYPECH(ch__) \
   (((ch__) >= 'a' && (ch__) <= 'z') || \
@@ -43,6 +35,21 @@ struct kng_ctx {
   pid_t pid;
   int sock;
 };
+
+struct kng_opts {
+  const char *knegdir;
+};
+
+/* list of running scans */
+struct kng_ctx *scans_;
+
+struct kng_opts opts_ = {
+  .knegdir = DFL_KNEGDIR,
+};
+
+void kng_set_knegdir(const char *dir) {
+  opts_.knegdir = dir;
+}
 
 static int is_valid_type(const char *t) {
   char ch;
@@ -162,7 +169,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   int fd = -1;
   int sfds[2] = {-1, -1};
   int ret;
-  char path[256];
+  char path[1024];
   pid_t pid = -1;
   char **envp = NULL;
 
@@ -189,7 +196,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     goto cleanup_s;
   }
 
-  snprintf(path, sizeof(path), "%s/%s", YSCANSDIR, req->type);
+  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type);
   fd = open(path, O_RDONLY);
   if (fd < 0) {
     *err = (errno == ENOENT) ? "no such scan type" : "scan type failure";
@@ -255,9 +262,6 @@ static void kng_stop(struct kng_ctx *s) {
   /* TODO: mark for removal and SIGKILL in the future if we havn't reaped the
    *       process within N seconds */
 }
-
-/* list of running scans */
-struct kng_ctx *scans_;
 
 static void scans_add(struct kng_ctx *s) {
   assert(s != NULL);
@@ -464,10 +468,6 @@ void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status) {
   LOGINFO("scan done pid:%d status:0x%x", pid, status);
   scans_remove(pid);
-}
-
-void kng_on_done(struct eds_client *cli, int fd) {
-  /* TODO: Implement */
 }
 
 void kng_on_finalize(struct eds_client *cli) {

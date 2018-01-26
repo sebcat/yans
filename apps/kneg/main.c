@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <lib/util/buf.h>
 #include <lib/ycl/ycl.h>
@@ -23,6 +24,7 @@ struct subcmd {
 struct start_opts {
   const char *sock;
   const char *type;
+  long timeout;
   char **params;
   size_t nparams;
 };
@@ -48,6 +50,7 @@ static int run_start(struct start_opts *opts) {
   }
 
   req.action = "start";
+  req.timeout = opts->timeout;
   req.type = opts->type;
   req.params = (const char**)opts->params;
   req.nparams = opts->nparams;
@@ -98,6 +101,7 @@ ycl_cleanup:
 static int start(int argc, char **argv) {
   int ch;
   int ret;
+  long l;
   const char *optstr = "hp:s:t:";
   char **params = NULL;
   char **tmp;
@@ -106,11 +110,12 @@ static int start(int argc, char **argv) {
     {"help", no_argument, NULL, 'h'},
     {"param", required_argument, NULL, 'p'},
     {"socket", required_argument, NULL, 's'},
-    {"type", required_argument, NULL, 't'},
+    {"timeout", required_argument, NULL, 't'},
     {NULL, 0, NULL, 0},
   };
   struct start_opts opts = {
     .sock = DFL_SCANDSOCK,
+    .timeout = 0,
     .type = NULL,
   };
 
@@ -120,7 +125,12 @@ static int start(int argc, char **argv) {
       opts.sock = optarg;
       break;
     case 't':
-      opts.type = optarg;
+      l = strtol(optarg, NULL, 10);
+      if (l <= 0 || l == LONG_MAX) {
+        fprintf(stderr, "invalid timeout\n");
+        exit(EXIT_FAILURE);
+      }
+      opts.timeout = l;
       break;
     case 'p':
       tmp = realloc(params, sizeof(char *) * (nparams + 1));
@@ -140,8 +150,14 @@ static int start(int argc, char **argv) {
     }
   }
 
+  argc -= optind + 1;
+  argv += optind + 1;
+  if (argc > 0) {
+    opts.type = argv[0];
+  }
+
   if (opts.type == NULL) {
-    fprintf(stderr, "kneg type (-t) missing\n");
+    fprintf(stderr, "kneg type missing\n");
     goto fail;
   }
 
@@ -158,7 +174,7 @@ static int start(int argc, char **argv) {
   return EXIT_SUCCESS;
 
 usage:
-  fprintf(stderr, "usage: [opts]\n"
+  fprintf(stderr, "usage: [opts] <type>\n"
       "options:\n"
       "  -h|--help           - this text\n"
       "  -s|--socket <path>  - path to knegd socket (%s)\n"

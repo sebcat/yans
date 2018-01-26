@@ -64,6 +64,7 @@ route_resp {
 ##
 
 knegd_req {
+  long timeout;
   str action;
   str id;
   str type;

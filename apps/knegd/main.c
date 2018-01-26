@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 
 #include <lib/util/eds.h>
 #include <lib/util/ylog.h>
@@ -17,6 +18,7 @@ struct opts {
   const char *single;
   const char *basepath;
   const char *knegdir;
+  long timeout;
   uid_t uid;
   gid_t gid;
   int no_daemon;
@@ -40,14 +42,17 @@ static void usage() {
       "  -s|--single <name>   name of single service to start\n"
       "  -n|--no-daemon       do not daemonize\n"
       "  -k|--knegdir <path>  path do kneg directory\n"
-      "  -h|--help            this text\n");
+      "  -t|--timeout <secs>  default timeout, in seconds (%d)\n"
+      "  -h|--help            this text\n",
+      DFL_TIMEOUT);
   exit(EXIT_FAILURE);
 }
 
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:ns:k:h";
+  long l;
+  static const char *optstr = "u:g:b:ns:k:t:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -55,6 +60,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"single", required_argument, NULL, 's'},
     {"no-daemon", no_argument, NULL, 'n'},
     {"knegdir", required_argument, NULL, 'k'},
+    {"timeout", required_argument, NULL, 't'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -66,6 +72,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
+  opts->timeout = 0;
 
   while ((ch = getopt_long(argc, argv, optstr, longopts, NULL)) != -1) {
     switch (ch) {
@@ -92,6 +99,14 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'k':
         opts->knegdir = optarg;
+        break;
+      case 't':
+        l = strtol(optarg, NULL, 10);
+        if (l <= 0 || l == LONG_MAX) {
+          fprintf(stderr, "invalid timeout\n");
+          exit(EXIT_FAILURE);
+        }
+        opts->timeout = l;
         break;
       case 'h':
       default:
@@ -120,12 +135,14 @@ int main(int argc, char *argv[]) {
       .name = DAEMON_NAME,
       .path = DAEMON_NAME ".sock",
       .udata_size = sizeof(struct kng_cli),
+      .tick_slice_us = 5 * 1000000,
       .actions = {
         .on_readable = kng_on_readable,
         .on_finalize = kng_on_finalize,
       },
       .on_svc_reaped_child = kng_on_svc_reaped_child,
       .on_svc_error = on_svc_error,
+      .on_svc_tick = kng_on_tick,
       .mod_fini = kng_mod_fini,
       .nprocs = 1,
     },
@@ -138,6 +155,10 @@ int main(int argc, char *argv[]) {
 
   if (opts.knegdir != NULL) {
     kng_set_knegdir(opts.knegdir);
+  }
+
+  if (opts.timeout > 0) {
+    kng_set_timeout(opts.timeout);
   }
 
   if (opts.no_daemon) {

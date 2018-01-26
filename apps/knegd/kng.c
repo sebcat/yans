@@ -15,7 +15,7 @@
 #include <lib/ycl/ycl_msg.h>
 #include <apps/knegd/kng.h>
 
-/* valid characters for scan types - must not contain path chars &c */
+/* valid characters for job types - must not contain path chars &c */
 #define VALID_TYPECH(ch__) \
   (((ch__) >= 'a' && (ch__) <= 'z') || \
    ((ch__) >= '0' && (ch__) <= '9') || \
@@ -29,8 +29,13 @@
 #define LOGINFO(...) \
     ylog_info(__VA_ARGS__)
 
+#define KNG_SENTSIGTERM (1 << 0)
+
 struct kng_ctx {
   struct kng_ctx *next;
+  int flags;
+  struct timespec started; /* CLOCK_MONOTONIC time of start */
+  time_t timeout;
   char *id;
   pid_t pid;
   int sock;
@@ -38,17 +43,25 @@ struct kng_ctx {
 
 struct kng_opts {
   const char *knegdir;
+  time_t timeout;
 };
 
-/* list of running scans */
-struct kng_ctx *scans_;
+/* list of running jobs */
+struct kng_ctx *jobs_;
 
 struct kng_opts opts_ = {
   .knegdir = DFL_KNEGDIR,
+  .timeout = DFL_TIMEOUT,
 };
 
 void kng_set_knegdir(const char *dir) {
   opts_.knegdir = dir;
+}
+
+void kng_set_timeout(long timeout) {
+  if (timeout > 0) {
+    opts_.timeout = (time_t)timeout;
+  }
 }
 
 static int is_valid_type(const char *t) {
@@ -177,7 +190,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   assert(err != NULL);
 
   if (!is_valid_type(req->type)) {
-    *err = "empty or invalid scan type";
+    *err = "empty or invalid job type";
     goto fail;
   }
 
@@ -199,7 +212,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type);
   fd = open(path, O_RDONLY);
   if (fd < 0) {
-    *err = (errno == ENOENT) ? "no such scan type" : "scan type failure";
+    *err = (errno == ENOENT) ? "no such job type" : "job type failure";
     goto cleanup_envp;
   }
 
@@ -208,6 +221,18 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   if (ret < 0) {
     *err = "socketpair failure";
     goto cleanup_fd;
+  }
+
+  ret = clock_gettime(CLOCK_MONOTONIC, &s->started);
+  if (ret < 0) {
+    *err = "clock_gettime failure";
+    goto cleanup_socketpair;
+  }
+
+  if (req->timeout > 0) {
+    s->timeout = (time_t)req->timeout;
+  } else {
+    s->timeout = opts_.timeout;
   }
 
   pid = fork();
@@ -222,7 +247,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     close(sfds[0]);
     close(sfds[1]);
     fexecve(fd, argv, envp);
-    exit(EXIT_FAILURE);
+    _exit(EXIT_FAILURE);
   }
 
   free_envp(envp);
@@ -263,20 +288,20 @@ static void kng_stop(struct kng_ctx *s) {
    *       process within N seconds */
 }
 
-static void scans_add(struct kng_ctx *s) {
+static void jobs_add(struct kng_ctx *s) {
   assert(s != NULL);
   assert(s->id != NULL);
 
-  s->next = scans_;
-  scans_ = s;
+  s->next = jobs_;
+  jobs_ = s;
 }
 
-static struct kng_ctx *scans_find_by_id(const char *id) {
+static struct kng_ctx *jobs_find_by_id(const char *id) {
   struct kng_ctx *curr;
 
   assert(id != NULL);
 
-  for (curr = scans_; curr != NULL; curr = curr->next) {
+  for (curr = jobs_; curr != NULL; curr = curr->next) {
     if (strcmp(curr->id, id) == 0) {
       return curr;
     }
@@ -285,37 +310,66 @@ static struct kng_ctx *scans_find_by_id(const char *id) {
   return NULL;
 }
 
-static const char *scans_status(const char *id) {
+static void jobs_check_times() {
+  struct kng_ctx *curr;
+  struct timespec tv;
+  int ret;
+  time_t nsecs;
+
+  ret = clock_gettime(CLOCK_MONOTONIC, &tv);
+  if (ret < 0) {
+    LOGERR("jobs_check_times: clock_gettime: %s", strerror(errno));
+    return;
+  }
+
+  for (curr = jobs_; curr != NULL; curr = curr->next) {
+    if (curr->flags & KNG_SENTSIGTERM) {
+      LOGERR("timeout reached SIGKILL pid:%d", curr->pid);
+      kill(curr->pid, SIGKILL);
+      continue;
+    }
+
+    nsecs = tv.tv_sec - curr->started.tv_sec;
+    if (nsecs >= curr->timeout) {
+      LOGERR("timeout reached SIGTERM pid:%d", curr->pid);
+      kill(curr->pid, SIGTERM);
+      curr->flags |= KNG_SENTSIGTERM;
+      continue;
+    }
+  }
+}
+
+
+static const char *jobs_status(const char *id) {
   assert(id != NULL);
   /* TODO: Replace "status" with "pid" and return -1 on no PID */
 
-  if (scans_find_by_id(id)) {
+  if (jobs_find_by_id(id)) {
     return "ACTIVE";
   }
 
   return "INACTIVE";
 }
 
-static void scans_stop(const char *id) {
+static void jobs_stop(const char *id) {
   struct kng_ctx *curr;
 
   assert(id != NULL);
-  curr = scans_find_by_id(id);
+  curr = jobs_find_by_id(id);
   if (curr != NULL) {
     kng_stop(curr);
   }
 }
 
-
 /* NB: Must only be called after the child is reaped by eds */
-static void scans_remove(pid_t pid) {
+static void jobs_remove(pid_t pid) {
   struct kng_ctx *curr;
   struct kng_ctx *prev;
 
   assert(pid > 0);
 
   /* find the element, if any */
-  for (curr = scans_; curr != NULL; curr = curr->next) {
+  for (curr = jobs_; curr != NULL; curr = curr->next) {
     if (curr->pid == pid) {
       break;
     }
@@ -324,8 +378,8 @@ static void scans_remove(pid_t pid) {
 
   if (curr == NULL) {
     return;
-  } else if (curr == scans_) {
-    scans_ = curr->next;
+  } else if (curr == jobs_) {
+    jobs_ = curr->next;
   } else {
     prev->next = curr->next;
   }
@@ -378,7 +432,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
   const char *okmsg = "OK";
   struct kng_cli *ecli = KNG_CLI(cli);
   struct ycl_msg_knegd_req req = {0};
-  struct kng_ctx *scan;
+  struct kng_ctx *job;
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -400,23 +454,23 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  /* check if the client wants a scan to start */
+  /* check if the client wants a job to start */
   if (strcmp(req.action, "start") == 0) {
-    scan = kng_new(&req, &errmsg);
-    if (scan == NULL) {
+    job = kng_new(&req, &errmsg);
+    if (job == NULL) {
       goto fail;
     }
-    scans_add(scan);
-    /* TODO: add on_readable callback for scan->sock for log */
-    okmsg = scan->id; /* XXX: NOT GOOD, scan may not live past sending ID */
-    LOGINFO("started scan fd:%d type:\"%s\" pid:%d", fd, req.type, scan->pid);
+    jobs_add(job);
+    /* TODO: add on_readable callback for job->sock for log */
+    okmsg = job->id; /* XXX: NOT GOOD, job may not live past sending ID */
+    LOGINFO("started job fd:%d type:\"%s\" pid:%d", fd, req.type, job->pid);
     write_ok_response(cli, fd, okmsg);
     return;
   }
 
   /* anything past this point requires ID, so check it */
   if (req.id == NULL) {
-    errmsg = "missing scan ID";
+    errmsg = "missing job ID";
     goto fail;
   }
 
@@ -428,9 +482,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* check req/resp actions, or error out on unknown action */
   if (strcmp(req.action, "status") == 0) {
-    okmsg = scans_status(req.id);
+    okmsg = jobs_status(req.id);
   } else if (strcmp(req.action, "stop") == 0) {
-    scans_stop(req.id);
+    jobs_stop(req.id);
   } else {
     errmsg = "unknown action";
     goto fail;
@@ -466,8 +520,8 @@ fail:
 
 void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status) {
-  LOGINFO("scan done pid:%d status:0x%x", pid, status);
-  scans_remove(pid);
+  LOGINFO("job done pid:%d status:0x%x", pid, status);
+  jobs_remove(pid);
 }
 
 void kng_on_finalize(struct eds_client *cli) {
@@ -487,7 +541,7 @@ void kng_mod_fini(struct eds_service *svc) {
   pid_t pid;
   int status;
 
-  for (curr = scans_; curr != NULL; curr = curr->next) {
+  for (curr = jobs_; curr != NULL; curr = curr->next) {
     kill(curr->pid, SIGTERM);
     nprocs++;
   }
@@ -499,7 +553,7 @@ void kng_mod_fini(struct eds_service *svc) {
       sleep = remaining;
     }
 
-    for (curr = scans_; curr != NULL; curr = next) {
+    for (curr = jobs_; curr != NULL; curr = next) {
       kill(curr->pid, SIGKILL);
       next = curr->next;
       kng_free(curr);
@@ -512,9 +566,12 @@ void kng_mod_fini(struct eds_service *svc) {
             strerror(errno));
         break;
       }
-      LOGINFO("killed scan pid:%d", pid);
+      LOGINFO("killed job pid:%d", pid);
       nprocs--;
     }
   }
 }
 
+void kng_on_tick(struct eds_service *svc) {
+  jobs_check_times();
+}

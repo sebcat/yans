@@ -382,9 +382,17 @@ static int eds_serve_single_mainloop(struct eds_service *svc) {
   FD_SET(svc->cmdfd, &l->rfds);
   l->maxfd = svc->cmdfd;
 
-  /* select timeout is used for tickers. Initially, no tickers exists, so
-   * we initialize the select timeout to NULL (meaning no timeout) */
-  tvp = NULL;
+  /* select timeout is used for tickers. Initially, no client tickers exists,
+   * so we initialize the select timeout to NULL (meaning no timeout), unless
+   * a service ticker exists, in which case we set the timeout accordingly */
+  if (svc->on_svc_tick) {
+    tv.tv_sec = svc->tick_slice_us / 1000000;
+    tv.tv_usec = svc->tick_slice_us % 1000000;
+    tvp = &tv;
+  } else {
+    tvp = NULL;
+  }
+
   clock_gettime(CLOCK_MONOTONIC, &last);
 
 select:
@@ -498,11 +506,14 @@ select:
     }
   }
 
-  if (l->ntickers > 0) {
+  if (l->ntickers > 0 || svc->on_svc_tick) {
     clock_gettime(CLOCK_MONOTONIC, &now);
     expired_us = timespec_delta_us(&last, &now);
     if (expired_us >= svc->tick_slice_us) {
       run_tickers(svc, l);
+      if (svc->on_svc_tick) {
+        svc->on_svc_tick(svc);
+      }
       last = now;
       tv.tv_sec = svc->tick_slice_us / 1000000;
       tv.tv_usec = svc->tick_slice_us % 1000000;

@@ -81,6 +81,8 @@ struct eds_service {
       pid_t pid, int status);
   /* callback called on reaped child once for the eds_service */
   void (*on_svc_reaped_child)(struct eds_service *svc, pid_t pid, int status);
+  /* callback called on tick, per service */
+  void (*on_svc_tick)(struct eds_service *svc);
 
   /* init, fini routines, if any. Called once per process  */
   int (*mod_init)(struct eds_service *svc); /* ret < 0 means failure */

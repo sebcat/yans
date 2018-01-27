@@ -111,8 +111,8 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
-      .name = "store",
-      .path = "store.sock",
+      .name = DAEMON_NAME,
+      .path = DAEMON_NAME ".sock",
       .udata_size = sizeof(struct store_cli),
       .actions = {
         .on_readable = store_on_readable,

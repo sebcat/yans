@@ -7,8 +7,8 @@ BUILDWORLDCONF=$MKJAILDIR/src.conf.buildworld
 INSTALLWORLDCONF=$MKJAILDIR/src.conf.installworld
 WS=$(printf ' \r\n\t')
 NCPUS=$(sysctl -n hw.ncpu)
-JAILUSERS="ethd clid stored"
-JAILGROUPS="ethd clid stored"
+JAILUSERS="ethd clid stored knegd"
+JAILGROUPS="ethd clid stored knegd"
 
 # args
 JAILDIR=

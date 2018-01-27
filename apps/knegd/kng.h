@@ -21,6 +21,7 @@ struct kng_cli {
   int flags;
   struct ycl_ctx ycl;
   struct ycl_msg msgbuf;
+  char buf[48]; /* used for ID and pid */
 };
 
 void kng_set_knegdir(const char *dir);

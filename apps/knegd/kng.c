@@ -30,6 +30,7 @@
     ylog_info(__VA_ARGS__)
 
 #define KNG_SENTSIGTERM (1 << 0)
+#define KNG_STOPPED     (1 << 1)
 
 struct kng_ctx {
   struct kng_ctx *next;
@@ -284,8 +285,7 @@ static void kng_free(struct kng_ctx *s) {
 static void kng_stop(struct kng_ctx *s) {
   assert(s != NULL);
   kill(s->pid, SIGTERM);
-  /* TODO: mark for removal and SIGKILL in the future if we havn't reaped the
-   *       process within N seconds */
+  s->flags |= KNG_STOPPED;
 }
 
 static void jobs_add(struct kng_ctx *s) {
@@ -324,14 +324,24 @@ static void jobs_check_times() {
 
   for (curr = jobs_; curr != NULL; curr = curr->next) {
     if (curr->flags & KNG_SENTSIGTERM) {
-      LOGERR("timeout reached SIGKILL pid:%d", curr->pid);
+      LOGERR("sending SIGKILL to pid:%d", curr->pid);
       kill(curr->pid, SIGKILL);
+      continue;
+    }
+
+    if (curr->flags & KNG_STOPPED) {
+      /* if reached, we've at a recent past sent SIGTERM due to a user
+       * stopping the job. We don't want to SIGKILL it the first time we tick
+       * because that may be immediately after the stopping action, so we
+       * set KNG_SENTSIGTERM at the first tick instead, and send SIGKILL on
+       * the next tick if we're still alive */
+      curr->flags |= KNG_SENTSIGTERM;
       continue;
     }
 
     nsecs = tv.tv_sec - curr->started.tv_sec;
     if (nsecs >= curr->timeout) {
-      LOGERR("timeout reached SIGTERM pid:%d", curr->pid);
+      LOGERR("timeout reached pid:%d", curr->pid);
       kill(curr->pid, SIGTERM);
       curr->flags |= KNG_SENTSIGTERM;
       continue;
@@ -340,15 +350,16 @@ static void jobs_check_times() {
 }
 
 
-static const char *jobs_status(const char *id) {
+static pid_t jobs_pid(const char *id) {
+  struct kng_ctx *s;
   assert(id != NULL);
-  /* TODO: Replace "status" with "pid" and return -1 on no PID */
 
-  if (jobs_find_by_id(id)) {
-    return "ACTIVE";
+  s = jobs_find_by_id(id);
+  if (s != NULL) {
+    return s->pid;
   }
 
-  return "INACTIVE";
+  return -1;
 }
 
 static void jobs_stop(const char *id) {
@@ -422,17 +433,13 @@ static void write_ok_response(struct eds_client *cli, int fd,
   }
 }
 
-static void start_stream_log(struct eds_client *cli, int fd,
-    const char *id) {
-  /* TODO: Implement */
-}
-
 static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   const char *okmsg = "OK";
   struct kng_cli *ecli = KNG_CLI(cli);
   struct ycl_msg_knegd_req req = {0};
   struct kng_ctx *job;
+  pid_t pid;
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -461,10 +468,10 @@ static void on_readreq(struct eds_client *cli, int fd) {
       goto fail;
     }
     jobs_add(job);
-    /* TODO: add on_readable callback for job->sock for log */
-    okmsg = job->id; /* XXX: NOT GOOD, job may not live past sending ID */
-    LOGINFO("started job fd:%d type:\"%s\" pid:%d", fd, req.type, job->pid);
-    write_ok_response(cli, fd, okmsg);
+    snprintf(ecli->buf, sizeof(ecli->buf), "%s", job->id);
+    LOGINFO("started job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd, req.type,
+        job->pid, job->id);
+    write_ok_response(cli, fd, ecli->buf);
     return;
   }
 
@@ -474,17 +481,14 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  /* check streaming actions, resulting in non-simple req/resp comm */
-  if (strcmp(req.action, "log") == 0) {
-    start_stream_log(cli, fd, req.id);
-    return;
-  }
-
   /* check req/resp actions, or error out on unknown action */
-  if (strcmp(req.action, "status") == 0) {
-    okmsg = jobs_status(req.id);
+  if (strcmp(req.action, "pid") == 0) {
+    pid = jobs_pid(req.id);
+    snprintf(ecli->buf, sizeof(ecli->buf), "%d", pid);
+    okmsg = ecli->buf;
   } else if (strcmp(req.action, "stop") == 0) {
     jobs_stop(req.id);
+    LOGINFO("stop request received id:\"%s\"", req.id);
   } else {
     errmsg = "unknown action";
     goto fail;
@@ -520,7 +524,21 @@ fail:
 
 void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status) {
-  LOGINFO("job done pid:%d status:0x%x", pid, status);
+  int code;
+
+  /* NB: anything but exit code 0 is logged as an error */
+  if (WIFEXITED(status)) {
+    code = WEXITSTATUS(status);
+    if (code == 0) {
+      LOGINFO("job exited code:0 pid:%d", pid);
+    } else {
+      LOGERR("job exited code:%d pid:%d", code, pid);
+    }
+  } else if (WIFSIGNALED(status)) {
+    LOGERR("job terminated signal:%d pid:%d", WTERMSIG(status), pid);
+  } else {
+    LOGERR("job terminated pid:%d status:0x%x", pid, status);
+  }
   jobs_remove(pid);
 }
 

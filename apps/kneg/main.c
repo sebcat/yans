@@ -13,7 +13,7 @@
 #define LOCALSTATEDIR "/var"
 #endif
 
-#define DFL_SCANDSOCK LOCALSTATEDIR "/knegd/knegd.sock"
+#define DFL_KNEGDSOCK LOCALSTATEDIR "/knegd/knegd.sock"
 #define TARGET_BUFSZ 1024 /* initial target buffer size */
 
 struct subcmd {
@@ -29,15 +29,14 @@ struct start_opts {
   size_t nparams;
 };
 
-static int run_start(struct start_opts *opts) {
+static int reqresp(const char *path, struct ycl_msg_knegd_req *req) {
   struct ycl_ctx ctx = {0};
-  struct ycl_msg_knegd_req req = {0};
   struct ycl_msg_status_resp resp = {0};
   struct ycl_msg msg = {{0}};
   int ret;
   int res = -1;
 
-  ret = ycl_connect(&ctx, opts->sock);
+  ret = ycl_connect(&ctx, path);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
     return -1;
@@ -49,12 +48,7 @@ static int run_start(struct start_opts *opts) {
     goto ycl_cleanup;
   }
 
-  req.action = "start";
-  req.timeout = opts->timeout;
-  req.type = opts->type;
-  req.params = (const char**)opts->params;
-  req.nparams = opts->nparams;
-  ret = ycl_msg_create_knegd_req(&msg, &req);
+  ret = ycl_msg_create_knegd_req(&msg, req);
   if (ret != YCL_OK) {
     fprintf(stderr, "failed to create knegd request\n");
     goto ycl_msg_cleanup;
@@ -98,6 +92,112 @@ ycl_cleanup:
   return res;
 }
 
+static int pid(int argc, char **argv) {
+  int ret;
+  int ch;
+  struct ycl_msg_knegd_req req = {0};
+  const char *optstr = "hs:";
+  const char *argv0 = argv[0];
+  const char *sock = DFL_KNEGDSOCK;
+  static struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      sock = optarg;
+      break;
+    case 'h':
+    case '?':
+      goto usage;
+    }
+  }
+
+  argc -= optind + 1;
+  argv += optind + 1;
+  if (argc <= 0) {
+    fprintf(stderr, "missing id\n");
+    goto usage;
+  }
+
+  req.action = "pid";
+  req.id = argv[0];
+  ret = reqresp(sock, &req);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+
+usage:
+  fprintf(stderr, "usage: %s pid [opts] <id>\n"
+      "opts:\n"
+      "  -h|--help           - this text\n"
+      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      , argv0, DFL_KNEGDSOCK);
+  return EXIT_FAILURE;
+}
+
+static int stop(int argc, char **argv) {
+  int ret;
+  int ch;
+  struct ycl_msg_knegd_req req = {0};
+  const char *optstr = "hs:";
+  const char *argv0 = argv[0];
+  const char *sock = DFL_KNEGDSOCK;
+  static struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      sock = optarg;
+      break;
+    case 'h':
+    case '?':
+      goto usage;
+    }
+  }
+
+  argc -= optind + 1;
+  argv += optind + 1;
+  if (argc <= 0) {
+    fprintf(stderr, "missing id\n");
+    goto usage;
+  }
+
+  req.action = "stop";
+  req.id = argv[0];
+  ret = reqresp(sock, &req);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+
+usage:
+  fprintf(stderr, "usage: %s stop [opts] <id>\n"
+      "opts:\n"
+      "  -h|--help           - this text\n"
+      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      , argv0, DFL_KNEGDSOCK);
+  return EXIT_FAILURE;
+}
+
+static int run_start(struct start_opts *opts) {
+  struct ycl_msg_knegd_req req = {0};
+  req.action = "start";
+  req.timeout = opts->timeout;
+  req.type = opts->type;
+  req.params = (const char**)opts->params;
+  req.nparams = opts->nparams;
+  return reqresp(opts->sock, &req);
+}
+
 static int start(int argc, char **argv) {
   int ch;
   int ret;
@@ -114,7 +214,7 @@ static int start(int argc, char **argv) {
     {NULL, 0, NULL, 0},
   };
   struct start_opts opts = {
-    .sock = DFL_SCANDSOCK,
+    .sock = DFL_KNEGDSOCK,
     .timeout = 0,
     .type = NULL,
   };
@@ -175,12 +275,12 @@ static int start(int argc, char **argv) {
 
 usage:
   fprintf(stderr, "usage: [opts] <type>\n"
-      "options:\n"
+      "opts:\n"
       "  -h|--help           - this text\n"
       "  -s|--socket <path>  - path to knegd socket (%s)\n"
       "  -t|--type   <type>  - kneg type\n"
       "  -p|--param  <param> - kneg parameter\n",
-      DFL_SCANDSOCK);
+      DFL_KNEGDSOCK);
 fail:
   return EXIT_FAILURE;
 }
@@ -203,6 +303,8 @@ int main(int argc, char *argv[]) {
   int i;
   static const struct subcmd subcmds[] = {
     {"start", start},
+    {"pid", pid},
+    {"stop", stop},
     {NULL, NULL},
   };
 

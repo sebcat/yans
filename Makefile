@@ -58,7 +58,6 @@ install: $(nodist_BINS) $(BINS)
     done
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)
 	cp -R lib/yans $(DESTDIR)$(DATAROOTDIR)
-	cp -R apps/yscans $(DESTDIR)$(DATAROOTDIR)
 
 install-strip: install
 	for B in $(BINS); do \

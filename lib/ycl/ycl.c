@@ -13,10 +13,6 @@
 
 #define DFL_MAXMSGSZ (1 << 20)
 
-/* the reason this is here, is because the build system is/should be
- * using -fvisibility=hidden, except for library code, which this is */
-#pragma GCC visibility push(default)
-
 void ycl_init(struct ycl_ctx *ycl, int fd) {
   ycl->fd = fd;
   ycl->flags = 0;
@@ -243,5 +239,3 @@ void ycl_msg_cleanup(struct ycl_msg *msg) {
     buf_cleanup(&msg->optbuf);
   }
 }
-
-#pragma GCC visibility pop

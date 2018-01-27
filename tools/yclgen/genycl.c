@@ -645,7 +645,6 @@ static int write_parse_impl(FILE *fp, struct yclgen_msg *msg) {
 static int write_impl(struct yclgen_ctx *ctx, FILE *fp, const char *hdrpath) {
   struct yclgen_msg *curr;
   int ret;
-  static const char post[] = "#pragma GCC visibility pop\n";
   struct yclgen_msg *msgs = ctx->latest_msg;
 
   /* write preamble */
@@ -655,8 +654,7 @@ static int write_impl(struct yclgen_ctx *ctx, FILE *fp, const char *hdrpath) {
       "#include <stdlib.h>\n"
       "#include <unistd.h>\n\n"
       "#include <lib/util/netstring.h>\n"
-      "#include <%s>\n\n"
-      "#pragma GCC visibility push(default)\n", hdrpath);
+      "#include <%s>\n\n", hdrpath);
   if (ret <= 0) {
     return -1;
   }
@@ -676,10 +674,6 @@ static int write_impl(struct yclgen_ctx *ctx, FILE *fp, const char *hdrpath) {
     if (ret < 0) {
       return -1;
     }
-  }
-
-  if (fwrite(post, sizeof(post)-1, 1, fp) != 1) {
-    return -1;
   }
 
   return 0;

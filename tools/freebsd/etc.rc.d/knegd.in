@@ -1,0 +1,47 @@
+#!/bin/sh
+# PROVIDE: knegd
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the group and user:
+#   pw groupadd knegd
+#   pw useradd knegd -d @LOCALSTATEDIR@/knegd -g knegd -s /usr/sbin/nologin
+#
+# The daemon drops user privs itself, which is why knegd_user, knegd_group
+# is not used
+: ${knegd_duser:="knegd"}
+: ${knegd_dgroup:="knegd"}
+
+name="knegd"
+rcvar="knegd_enable"
+command="@BINDIR@/knegd"
+command_args="-u ${knegd_duser} -g ${knegd_dgroup} -b @LOCALSTATEDIR@/knegd"
+start_precmd="knegd_precmd"
+pidfile="@LOCALSTATEDIR@/knegd/knegd.pid"
+
+knegd_precmd()
+{
+  if [ ! -d "@LOCALSTATEDIR@/knegd" ]; then
+    mkdir -p "@LOCALSTATEDIR@/knegd" || {
+      warn "Failed to create knegd directory"
+      return 1
+    }
+  fi
+
+  chmod 770 "@LOCALSTATEDIR@/knegd" || {
+    warn "Failed to set correct permissions of @LOCALSTATEDIR@/knegd"
+    return 1
+  }
+
+  chown "${knegd_duser}:${knegd_dgroup}" "@LOCALSTATEDIR@/knegd" || {
+    warn "Failed to set correct ownership of @LOCALSTATEDIR@/knegd"
+    return 1
+  }
+
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

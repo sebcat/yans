@@ -21,6 +21,7 @@ apps/clid/clid
 tools/freebsd/etc.rc.d/ethd
 tools/freebsd/etc.rc.d/stored
 tools/freebsd/etc.rc.d/clid
+tools/freebsd/etc.rc.d/knegd
 lib/util/flagset_test
 apps/knegd/knegd
 apps/kneg/kneg

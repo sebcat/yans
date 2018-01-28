@@ -22,6 +22,7 @@ struct opts {
   uid_t uid;
   gid_t gid;
   int no_daemon;
+  const char *storesock;
 };
 
 static void on_svc_error(struct eds_service *svc, const char *err) {
@@ -36,15 +37,16 @@ static void usage() {
       "  " DAEMON_NAME " -h\n"
       "\n"
       "options:\n"
-      "  -u|--user <user>     daemon user\n"
-      "  -g|--group <group>   daemon group\n"
-      "  -b|--basepath <path> working directory basepath\n"
-      "  -s|--single <name>   name of single service to start\n"
-      "  -n|--no-daemon       do not daemonize\n"
-      "  -k|--knegdir <path>  path do kneg directory\n"
-      "  -t|--timeout <secs>  default timeout, in seconds (%d)\n"
-      "  -h|--help            this text\n",
-      DFL_TIMEOUT);
+      "  -u|--user <user>      daemon user\n"
+      "  -g|--group <group>    daemon group\n"
+      "  -b|--basepath <path>  working directory basepath\n"
+      "  -s|--single <name>    name of single service to start\n"
+      "  -n|--no-daemon        do not daemonize\n"
+      "  -k|--knegdir <path>   path do kneg directory\n"
+      "  -t|--timeout <secs>   default timeout, in seconds (%d)\n"
+      "  -S|--storesock <path> path to store socket (%s)\n"
+      "  -h|--help             this text\n",
+      DFL_TIMEOUT, DFL_STORESOCK);
   exit(EXIT_FAILURE);
 }
 
@@ -52,7 +54,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
   long l;
-  static const char *optstr = "u:g:b:ns:k:t:h";
+  static const char *optstr = "u:g:b:ns:k:t:S:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -61,6 +63,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"no-daemon", no_argument, NULL, 'n'},
     {"knegdir", required_argument, NULL, 'k'},
     {"timeout", required_argument, NULL, 't'},
+    {"storesock", required_argument, NULL, 'S'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -73,6 +76,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->gid = 0;
   opts->no_daemon = 0;
   opts->timeout = 0;
+  opts->storesock = DFL_STORESOCK;
 
   while ((ch = getopt_long(argc, argv, optstr, longopts, NULL)) != -1) {
     switch (ch) {
@@ -107,6 +111,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
           exit(EXIT_FAILURE);
         }
         opts->timeout = l;
+        break;
+      case 'S':
+        opts->storesock = optarg;
         break;
       case 'h':
       default:
@@ -153,6 +160,7 @@ int main(int argc, char *argv[]) {
 
   parse_args_or_die(&opts, argc, argv);
 
+  kng_set_storesock(opts.storesock);
   if (opts.knegdir != NULL) {
     kng_set_knegdir(opts.knegdir);
   }

@@ -37,14 +37,14 @@ struct kng_ctx {
   int flags;
   struct timespec started; /* CLOCK_MONOTONIC time of start */
   time_t timeout;
-  char *id;
   pid_t pid;
-  int sock;
+  char id[48];
 };
 
 struct kng_opts {
   const char *knegdir;
   time_t timeout;
+  const char *storesock;
 };
 
 /* list of running jobs */
@@ -53,10 +53,15 @@ struct kng_ctx *jobs_;
 struct kng_opts opts_ = {
   .knegdir = DFL_KNEGDIR,
   .timeout = DFL_TIMEOUT,
+  .storesock = DFL_STORESOCK,
 };
 
 void kng_set_knegdir(const char *dir) {
   opts_.knegdir = dir;
+}
+
+void kng_set_storesock(const char *path) {
+  opts_.storesock = path;
 }
 
 void kng_set_timeout(long timeout) {
@@ -180,12 +185,17 @@ fail:
 static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     const char **err) {
   struct kng_ctx *s = NULL;
-  int fd = -1;
-  int sfds[2] = {-1, -1};
+  int logfd;
   int ret;
-  char path[1024];
+  int closed_ycls = 0;
+  char path[256];
   pid_t pid = -1;
   char **envp = NULL;
+  struct ycl_ctx ctx;
+  struct ycl_msg msg;
+  struct ycl_msg_store_enter entermsg = {0};
+  struct ycl_msg_store_open openmsg = {0};
+  struct ycl_msg_status_resp resp = {0};
 
   assert(req != NULL);
   assert(err != NULL);
@@ -201,33 +211,90 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     goto fail;
   }
 
-  /* TODO: Get ID */
-  s->id = "DUMMY";
-
-  envp = mkenvp(req, s->id);
-  if (envp == NULL) {
-    *err = "insufficient memory";
+  /* we do a fresh connect for every new job to avoid transient errors
+   * affecting too much */
+  ret = ycl_connect(&ctx, opts_.storesock);
+  if (ret != YCL_OK) {
+    *err = "store connection failure";
     goto cleanup_s;
   }
 
+  ret = ycl_msg_init(&msg);
+  if (ret != YCL_OK) {
+    *err = "ycl msg initialization failure";
+    goto cleanup_ycl;
+  }
+
+  ret = ycl_msg_create_store_enter(&msg, &entermsg);
+  if (ret != YCL_OK) {
+    *err = "enter request serialization error";
+    goto cleanup_ycl_msg;
+  }
+
+  ret = ycl_sendmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    *err = "failed to send enter request";
+    goto cleanup_ycl_msg;
+  }
+
+  ycl_msg_reset(&msg);
+  ret = ycl_recvmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    *err = "failed to receive enter response";
+    goto cleanup_ycl_msg;
+  }
+
+  ret = ycl_msg_parse_status_resp(&msg, &resp);
+  if (ret != YCL_OK) {
+    *err = "failed to parse enter response";
+    goto cleanup_ycl_msg;
+  }
+
+  if (resp.errmsg != NULL && *resp.errmsg != '\0') {
+    *err = "enter request failed";
+    goto cleanup_ycl_msg;
+  }
+
+  if (resp.okmsg == NULL || *resp.okmsg == '\0') {
+    *err = "failed to receive store ID";
+    goto cleanup_ycl_msg;
+  }
+
+  strncpy(s->id, resp.okmsg, sizeof(s->id));
+  s->id[sizeof(s->id)-1] = '\0';
+  envp = mkenvp(req, s->id);
+  if (envp == NULL) {
+    *err = "insufficient memory";
+    goto cleanup_ycl_msg;
+  }
+
   snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type);
-  fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    *err = (errno == ENOENT) ? "no such job type" : "job type failure";
+  openmsg.path = "kneg.log";
+  openmsg.flags = O_WRONLY|O_CREAT;
+  openmsg.mode = 0700;
+  ret = ycl_msg_create_store_open(&msg, &openmsg);
+  if (ret != YCL_OK) {
+    *err = "failed to create store open message";
     goto cleanup_envp;
   }
 
-  /* TODO: Don't feed parent process, open fd to log and /dev/null for stdin */
-  ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sfds);
-  if (ret < 0) {
-    *err = "socketpair failure";
-    goto cleanup_fd;
+  ret = ycl_sendmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    *err = "failed to send store open message";
+    goto cleanup_envp;
+  }
+
+  ret = ycl_recvfd(&ctx, &logfd);
+  if (ret != YCL_OK) {
+    LOGERR("store open: %s\n", ycl_strerror(&ctx));
+    *err = "failed to open log file";
+    goto cleanup_envp;
   }
 
   ret = clock_gettime(CLOCK_MONOTONIC, &s->started);
   if (ret < 0) {
     *err = "clock_gettime failure";
-    goto cleanup_socketpair;
+    goto cleanup_logfd;
   }
 
   if (req->timeout > 0) {
@@ -236,35 +303,49 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     s->timeout = opts_.timeout;
   }
 
+  /* NB: We cleanup before fork because we dont want to inherit the ycl fd */
+  ycl_msg_cleanup(&msg);
+  ycl_close(&ctx);
+  closed_ycls = 1;
+
   pid = fork();
   if (pid < 0) {
     *err = "fork failure";
-    goto cleanup_socketpair;
+    goto cleanup_logfd;
   } else if (pid == 0) {
     char *argv[2] = {path, NULL};
-    dup2(sfds[1], STDIN_FILENO);
-    dup2(sfds[1], STDOUT_FILENO);
-    dup2(sfds[1], STDERR_FILENO);
-    close(sfds[0]);
-    close(sfds[1]);
-    fexecve(fd, argv, envp);
+    dup2(logfd, STDIN_FILENO);
+    dup2(logfd, STDOUT_FILENO);
+    dup2(logfd, STDERR_FILENO);
+    close(logfd);
+    /* client sockets should be CLOEXEC, but cmdfd and potentially others
+     * are not. A bit hacky, but... */
+    for (ret = 3; ret < 10; ret++) {
+    }
+    ret = execve(path, argv, envp);
+    if (ret < 0) {
+      fprintf(stderr, "execve: %s\n", strerror(errno));
+    }
     _exit(EXIT_FAILURE);
   }
 
   free_envp(envp);
-  close(sfds[1]);
-  close(fd);
+  close(logfd);
   s->pid = pid;
-  s->sock = sfds[0];
   return s;
 
-cleanup_socketpair:
-  close(sfds[0]);
-  close(sfds[1]);
-cleanup_fd:
-  close(fd);
+cleanup_logfd:
+  close(logfd);
 cleanup_envp:
   free_envp(envp);
+cleanup_ycl_msg:
+  if (!closed_ycls) {
+    ycl_msg_cleanup(&msg);
+  }
+cleanup_ycl:
+  if (!closed_ycls) {
+    ycl_close(&ctx);
+  }
 cleanup_s:
   free(s);
 
@@ -274,10 +355,6 @@ fail:
 
 static void kng_free(struct kng_ctx *s) {
   if (s != NULL) {
-    if (s->sock >= 0) {
-      close(s->sock);
-      s->sock = -1;
-    }
     free(s);
   }
 }

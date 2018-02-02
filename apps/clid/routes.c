@@ -48,10 +48,14 @@ void on_read_req(struct eds_client *cli, int fd) {
 write_resp:
   resp.ip4_routes.data = (const char *)rt.entries_ip4;
   resp.ip4_routes.len = sizeof(*rt.entries_ip4) * rt.nentries_ip4;
+  resp.ip4_srcs.data = (const char *)ifs.ip4srcs;
+  resp.ip4_srcs.len = sizeof(*ifs.ip4srcs) * ifs.nip4srcs;
   resp.ip6_routes.data = (const char *)rt.entries_ip6;
   resp.ip6_routes.len = sizeof(*rt.entries_ip6) * rt.nentries_ip6;
-  resp.ifaces.data = (const char *)ifs.entries;
-  resp.ifaces.len = sizeof(*ifs.entries) * ifs.nentries;
+  resp.ip6_srcs.data = (const char *)ifs.ip6srcs;
+  resp.ip6_srcs.len = sizeof(*ifs.ip6srcs) * ifs.nip6srcs;
+  resp.ifaces.data = (const char *)ifs.ifaces;
+  resp.ifaces.len = sizeof(*ifs.ifaces) * ifs.nifaces;
   ret = ycl_msg_create_route_resp(&ecli->msgbuf, &resp);
   iface_cleanup(&ifs);
   route_table_cleanup(&rt);

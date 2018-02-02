@@ -54,9 +54,11 @@ route_req {
 
 route_resp {
   str err;
+  data ifaces;
+  data ip4_srcs;
   data ip4_routes;
   data ip6_routes;
-  data ifaces;
+  data ip6_srcs;
 }
 
 ##

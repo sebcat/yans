@@ -885,8 +885,8 @@ int ethframe_init(struct eds_service *svc) {
     return -1;
   }
 
-  for (dst = 0, i = 0; i < NBR_IFACES && i < ifs.nentries; i++) {
-    ent = &ifs.entries[i];
+  for (dst = 0, i = 0; i < NBR_IFACES && i < ifs.nifaces; i++) {
+    ent = &ifs.ifaces[i];
 
     /* skip loopbacks, interfaces like pflogN, &c */
     if (memcmp(ent->addr, "\0\0\0\0\0\0", IFACE_ADDRSZ) == 0) {

@@ -63,6 +63,8 @@ struct frame_builder {
   const char *(*build)(struct frameconf *cfg, size_t *len);
 };
 
+static void on_read_req(struct eds_client *cli, int fd);
+
 static uint32_t ip_csum(uint32_t sum, void *data, size_t size) {
   uint16_t *curr = data;
 
@@ -917,10 +919,20 @@ void ethframe_fini(struct eds_service *svc) {
   }
 }
 
+static void on_next_req(struct eds_client *cli, int fd) {
+  struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
+  ycl_msg_reset(&ecli->msgbuf);
+  eds_client_set_on_readable(cli, on_read_req, 0);
+}
+
 static void write_ok_response(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   struct ycl_msg_status_resp resp = {0};
   int ret;
+  struct eds_transition trans = {
+    .flags = EDS_TFLREAD,
+    .on_readable = on_next_req,
+  };
 
   eds_client_set_ticker(cli, NULL);
   eds_client_clear_actions(cli);
@@ -932,7 +944,7 @@ static void write_ok_response(struct eds_client *cli, int fd) {
   }
 
   eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
-      ycl_msg_nbytes(&ecli->msgbuf), NULL);
+      ycl_msg_nbytes(&ecli->msgbuf), &trans);
 }
 
 static void write_err_response(struct eds_client *cli, int fd,
@@ -1102,8 +1114,11 @@ static void on_read_req(struct eds_client *cli, int fd) {
   if (ret == YCL_AGAIN) {
     return;
   } else if (ret != YCL_OK) {
-    errmsg = ycl_strerror(&ecli->ycl);
-    goto fail;
+    /* TODO: For the case where the client is disconnects, we don't want any
+     * error messages. We could get other errors here though, which we may
+     * want to check for explocitly and log. */
+    eds_client_clear_actions(cli);
+    return;
   }
 
   ret = ycl_msg_parse_ethframe_req(&ecli->msgbuf, &req);
@@ -1112,6 +1127,14 @@ static void on_read_req(struct eds_client *cli, int fd) {
     goto fail;
   }
 
+  /* cleanup prior state, if any */
+  ecli->tpp = 0;
+  ecli->tppcount = 0;
+  ecli->npackets = 0;
+  cleanup_frameconf(&ecli->cfg);
+
+  /* setup the frameconf struct, containing information on ethernet frames
+   * to send, from the request */
   ret = setup_frameconf(&ecli->cfg, &req, errbuf, sizeof(errbuf));
   if (ret < 0) {
     errmsg = errbuf;
@@ -1125,7 +1148,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  ylog_info("ethframecli%d: iface:\"%s\"", fd, ecli->cfg.iface);
+  ylog_info("ethframecli%d: send-request iface:\"%s\"", fd, ecli->cfg.iface);
 
   eds_client_set_on_readable(cli, on_term, EDS_DEFER);
 
@@ -1157,6 +1180,9 @@ void ethframe_on_readable(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   int ret;
 
+  /* called on a newly connected client. We shouldn't keep any request
+   * specific stuff here, since ethframe supports multiple subsequent req/resp
+   * pairs */
   ycl_init(&ecli->ycl, fd);
   if (!(ecli->flags & CLIFLAG_HASMSGBUF)) {
     ret = ycl_msg_init(&ecli->msgbuf);
@@ -1169,9 +1195,6 @@ void ethframe_on_readable(struct eds_client *cli, int fd) {
     ycl_msg_reset(&ecli->msgbuf);
   }
 
-  ecli->tpp = 0;
-  ecli->tppcount = 0;
-  ecli->npackets = 0;
   eds_client_set_on_readable(cli, on_read_req, 0);
   return;
 fail:
@@ -1179,9 +1202,7 @@ fail:
 }
 
 void ethframe_on_done(struct eds_client *cli, int fd) {
-  struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   ylog_info("ethframecli%d: done", fd);
-  cleanup_frameconf(&ecli->cfg);
 }
 
 void ethframe_on_finalize(struct eds_client *cli) {

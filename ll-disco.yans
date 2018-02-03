@@ -1,0 +1,117 @@
+#!/usr/bin/env yans
+
+local SVC_ROUTE = "./lel/routes.sock"
+local SVC_ETHFRAME = "./lel/ethframe.sock"
+local SVC_PCAP = "./lel/pcap.sock"
+
+local function netconf_from_routes(routes)
+  -- get local references for 'routes' members
+  local ifaces = routes.ifaces
+  local ip4_routes = routes.ip4_routes
+  local ip6_routes = routes.ip6_routes
+  local ip4_srcs = routes.ip4_srcs
+  local ip6_srcs = routes.ip6_srcs
+
+  -- setup temporary tables
+  local ifnames = {}
+  local ethaddrs = {}
+  local ip4srcs = {}
+  local ip6srcs = {}
+  local ip4dsts = {}
+
+  -- determine suitable interfaces
+  for k,v in pairs(ifaces) do
+    if v.up and not v.loopback then
+      ifnames[v.index] = v.name
+      ethaddrs[v.index] = v.addr
+      ip4srcs[v.name] = {}
+      ip6srcs[v.name] = {}
+      ip4dsts[v.index] = {}
+    end
+  end
+
+  -- get IPv4 source addresses for suitable interfaces
+  for k,v in pairs(ip4_srcs) do
+    local ifname = v[1]
+    if ip4srcs[ifname] then
+      local srcaddr = v[2]
+      table.insert(ip4srcs[ifname], tostring(srcaddr))
+    end
+  end
+
+  -- get IPv6 source addresses for suitable interfaces
+  for k,v in pairs(ip6_srcs) do
+    local ifname = v[1]
+    if ip6srcs[ifname] then
+      local srcaddr = v[2]
+      table.insert(ip6srcs[ifname], tostring(srcaddr))
+    end
+  end
+
+  -- determine IPv4 addresses routed to the local network
+  for k,v in pairs(ip4_routes) do
+    if ifnames[v.gw_ifindex] and v.gw_ifindex == v.ifindex then
+      table.insert(ip4dsts[v.gw_ifindex], tostring(v.block))
+    end
+  end
+
+  -- format response
+  local resp = {}
+  for index, name in pairs(ifnames) do
+    local entry = {}
+    entry.ifname = name
+    entry.ifaddr = tostring(ethaddrs[index])
+    entry.ip4_srcs = ip4srcs[name]
+    entry.ip6_srcs = ip6srcs[name]
+    entry.ip4_dsts = ip4dsts[index]
+    table.insert(resp, entry)
+  end
+  return resp
+end
+
+local function get_netconf(route_sock, msgbuf)
+  msgbuf:create_route_req{}
+  route_sock:sendmsg(msgbuf)
+  route_sock:recvmsg(msgbuf)
+  local resp = msgbuf:parse_route_resp()
+  local routes = ip.unmarshal_routes(resp)
+  return netconf_from_routes(routes)
+end
+
+local function print_netconf(netconf)
+  for _, entry in pairs(netconf) do
+    print("ifname  ", entry.ifname)
+    print("ifaddr  ", entry.ifaddr)
+    print("ip4_srcs", table.concat(entry.ip4_srcs, " "))
+    print("ip6_srcs", table.concat(entry.ip6_srcs, " "))
+    print("ip4_dsts", table.concat(entry.ip4_dsts, " "))
+  end
+end
+
+-- set up sockets
+local route_sock = ycl.connect(SVC_ROUTE)
+local ethframe_sock = ycl.connect(SVC_ETHFRAME)
+
+-- enter sandbox
+local params = cgi.init()
+
+local msgbuf = ycl.msg()
+
+local netconf = get_netconf(route_sock, msgbuf)
+print_netconf(netconf)
+
+-- TODO: Make it possible to do multiple req/resps
+msgbuf:create_ethframe_req{
+  pps = 300,
+  iface = netconf[1].ifname,
+  categories = "arp-req|ll-disco",
+  eth_src = netconf[1].ifaddr,
+  ip_src = netconf[1].ip4_srcs[1],
+  ip_dsts = table.concat(netconf[1].ip4_dsts, " "),
+}
+ethframe_sock:sendmsg(msgbuf)
+ethframe_sock:recvmsg(msgbuf)
+local resp = msgbuf:parse_status_resp()
+if resp.errmsg then
+  error(resp.errmsg)
+end

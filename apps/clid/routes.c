@@ -85,6 +85,8 @@ void routes_on_readable(struct eds_client *cli, int fd) {
       goto fail;
     }
     ecli->flags |= CLIFLAG_HASMSGBUF;
+  } else {
+    ycl_msg_reset(&ecli->msgbuf);
   }
 
   eds_client_set_on_readable(cli, on_read_req, 0);
@@ -94,9 +96,7 @@ fail:
 }
 
 void routes_on_done(struct eds_client *cli, int fd) {
-  struct routes_client *ecli = ROUTES_CLIENT(cli);
   ylog_info("routescli%d: done", fd);
-  ycl_msg_reset(&ecli->msgbuf);
 }
 
 void routes_on_finalize(struct eds_client *cli) {

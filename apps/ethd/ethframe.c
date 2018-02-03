@@ -1165,6 +1165,8 @@ void ethframe_on_readable(struct eds_client *cli, int fd) {
       goto fail;
     }
     ecli->flags |= CLIFLAG_HASMSGBUF;
+  } else {
+    ycl_msg_reset(&ecli->msgbuf);
   }
 
   ecli->tpp = 0;
@@ -1180,7 +1182,6 @@ void ethframe_on_done(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
   ylog_info("ethframecli%d: done", fd);
   cleanup_frameconf(&ecli->cfg);
-  ycl_msg_reset(&ecli->msgbuf);
 }
 
 void ethframe_on_finalize(struct eds_client *cli) {

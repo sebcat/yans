@@ -253,12 +253,12 @@ void port_ranges_cleanup(struct port_ranges *rs) {
   if (rs != NULL) {
     if (rs->ranges != NULL) {
       free(rs->ranges);
+      rs->ranges = NULL;
     }
     rs->nranges = 0;
     rs->curr_range = 0;
     rs->curr_port = 0;
   }
-
 }
 
 int port_ranges_next(struct port_ranges *rs, uint16_t *out) {

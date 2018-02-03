@@ -54,8 +54,12 @@ int iface_init(struct iface_entries *ifs) {
 
   /* init the result to a known state */
   ifs->err = 0;
-  ifs->nifaces = 0;
   ifs->ifaces = NULL;
+  ifs->nifaces = 0;
+  ifs->ip4srcs = NULL;
+  ifs->nip4srcs = 0;
+  ifs->ip6srcs = NULL;
+  ifs->nip6srcs = 0;
 
   /* get a list of all the links */
   ret = getifaddrs(&addrs);
@@ -159,12 +163,24 @@ done:
 }
 
 void iface_cleanup(struct iface_entries *ifs) {
-  if (ifs && ifs->ifaces) {
-    free(ifs->ifaces);
-    ifs->ifaces = NULL;
+  if (ifs) {
+    if (ifs->ifaces) {
+      free(ifs->ifaces);
+      ifs->ifaces = NULL;
+    }
+    if (ifs->ip4srcs) {
+      free(ifs->ip4srcs);
+      ifs->ip4srcs = NULL;
+    }
+    if (ifs->ip6srcs) {
+      free(ifs->ip6srcs);
+      ifs->ip6srcs = NULL;
+    }
+    ifs->nifaces = 0;
+    ifs->nip4srcs = 0;
+    ifs->nip6srcs = 0;
+    ifs->err = 0;
   }
-  ifs->nifaces = 0;
-  ifs->err = 0;
 }
 
 const char *iface_strerror(struct iface_entries *ifs) {

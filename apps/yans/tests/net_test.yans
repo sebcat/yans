@@ -295,7 +295,7 @@ assert(type(ROUTES) == "table")
 
 -- init iface index -> name map
 local index2name = {}
-for _, iface in pairs(IFACES) do
+for _, iface in pairs(IFACES.ifaces) do
   index2name[iface.index] = iface.name
 end
 
@@ -317,12 +317,12 @@ end
 
 -- print the routing table to excercise the code paths
 print("IP4")
-print_routes(ROUTES.ip4)
+print_routes(ROUTES.ip4_routes)
 print("IP6")
-print_routes(ROUTES.ip6)
+print_routes(ROUTES.ip6_routes)
 
 local function get_loopback_ifname()
-  for _,iface in pairs(IFACES) do
+  for _,iface in pairs(IFACES.ifaces) do
     if iface.loopback then return iface.name end
   end
 end

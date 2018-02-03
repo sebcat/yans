@@ -16,6 +16,7 @@
 #include <lib/lua/ylog.h>
 #include <lib/lua/eds.h>
 #include <lib/lua/ycl.h>
+#include <lib/lua/util.h>
 #include <lib/lua/yans.h>
 
 #define YREPL_HISTORY 2000
@@ -136,6 +137,7 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
     {"ylog", luaopen_ylog},
     {"eds", luaopen_eds},
     {"ycl", luaopen_ycl},
+    {"util", luaopen_util},
     {NULL, NULL},
   };
 

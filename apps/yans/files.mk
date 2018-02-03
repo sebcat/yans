@@ -29,7 +29,8 @@ yans_DEPS = \
     lib/lua/opts.c \
     lib/lua/yans.c \
     lib/lua/ylog.c \
-    lib/lua/ypcap.c
+    lib/lua/ypcap.c \
+    lib/lua/util.c
 
 yans_DEPSOBJS = ${yans_DEPS:.c=.o}
 

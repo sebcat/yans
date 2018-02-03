@@ -3,6 +3,7 @@
 local SVC_ROUTE = "./lel/routes.sock"
 local SVC_ETHFRAME = "./lel/ethframe.sock"
 local SVC_PCAP = "./lel/pcap.sock"
+local PPS = 300
 
 local function netconf_from_routes(routes)
   -- get local references for 'routes' members
@@ -100,18 +101,39 @@ local msgbuf = ycl.msg()
 local netconf = get_netconf(route_sock, msgbuf)
 print_netconf(netconf)
 
--- TODO: Make it possible to do multiple req/resps
-msgbuf:create_ethframe_req{
-  pps = 300,
-  iface = netconf[1].ifname,
-  categories = "arp-req|ll-disco",
-  eth_src = netconf[1].ifaddr,
-  ip_src = netconf[1].ip4_srcs[1],
-  ip_dsts = table.concat(netconf[1].ip4_dsts, " "),
-}
-ethframe_sock:sendmsg(msgbuf)
-ethframe_sock:recvmsg(msgbuf)
-local resp = msgbuf:parse_status_resp()
-if resp.errmsg then
-  error(resp.errmsg)
+for _, entry in pairs(netconf) do
+  -- Send IPv4 link-local discovery frames for all IPv4 source addresses
+  for _, ip4_src in pairs(entry.ip4_srcs) do
+    msgbuf:create_ethframe_req{
+      pps = PPS,
+      iface = entry.ifname,
+      categories = "arp-req|ll-disco",
+      eth_src = entry.ifaddr,
+      ip_src = ip4_src,
+      ip_dsts = table.concat(entry.ip4_dsts, " "),
+    }
+    ethframe_sock:sendmsg(msgbuf)
+    ethframe_sock:recvmsg(msgbuf)
+    local resp = msgbuf:parse_status_resp()
+    if resp.errmsg then
+      error(resp.errmsg)
+    end
+  end
+
+  -- Send IPv6 link-local discovery frames for all IPv6 source addresses
+  for _, ip6_src in pairs(entry.ip6_srcs) do
+    msgbuf:create_ethframe_req{
+      pps = PPS,
+      iface = entry.ifname,
+      categories = "ll-disco",
+      eth_src = entry.ifaddr,
+      ip_src = entry.ip6_srcs[1],
+    }
+    ethframe_sock:sendmsg(msgbuf)
+    ethframe_sock:recvmsg(msgbuf)
+    local resp = msgbuf:parse_status_resp()
+    if resp.errmsg then
+      error(resp.errmsg)
+    end
+  end
 end

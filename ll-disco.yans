@@ -1,10 +1,5 @@
 #!/usr/bin/env yans
 
-local SVC_ROUTE = "./lel/routes.sock"
-local SVC_ETHFRAME = "./lel/ethframe.sock"
-local SVC_PCAP = "./lel/pcap.sock"
-local PPS = 300
-
 local function netconf_from_routes(routes)
   -- get local references for 'routes' members
   local ifaces = routes.ifaces
@@ -70,70 +65,132 @@ local function netconf_from_routes(routes)
   return resp
 end
 
-local function get_netconf(route_sock, msgbuf)
-  msgbuf:create_route_req{}
-  route_sock:sendmsg(msgbuf)
-  route_sock:recvmsg(msgbuf)
-  local resp = msgbuf:parse_route_resp()
+local Scanner = {
+  SVC_ROUTE = "./lel/routes.sock",
+  SVC_ETHFRAME = "./lel/ethframe.sock",
+  SVC_PCAP = "./lel/pcap.sock",
+  SVC_STORE = "./lel/stored.sock",
+  PPS = 300,
+}
+
+function Scanner:new(o)
+  o = o or {}
+  o.route_sock = ycl.connect(self.SVC_ROUTE)
+  o.ethframe_sock = ycl.connect(self.SVC_ETHFRAME)
+  o.store_sock = ycl.connect(self.SVC_STORE)
+  o.pcap_sock = ycl.connect(self.SVC_PCAP)
+  o.msgbuf = ycl.msg()
+  setmetatable(o, self)
+  self.__index = self
+  return o
+end
+
+function Scanner:get_netconf()
+  self.msgbuf:create_route_req{}
+  self.route_sock:sendmsg(self.msgbuf)
+  self.route_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_route_resp()
   local routes = ip.unmarshal_routes(resp)
   return netconf_from_routes(routes)
 end
 
-local function print_netconf(netconf)
+function Scanner:print_netconf(netconf)
   for _, entry in pairs(netconf) do
     print("ifname  ", entry.ifname)
     print("ifaddr  ", entry.ifaddr)
     print("ip4_srcs", table.concat(entry.ip4_srcs, " "))
     print("ip6_srcs", table.concat(entry.ip6_srcs, " "))
     print("ip4_dsts", table.concat(entry.ip4_dsts, " "))
+    print("---")
   end
 end
 
--- set up sockets
-local route_sock = ycl.connect(SVC_ROUTE)
-local ethframe_sock = ycl.connect(SVC_ETHFRAME)
+function Scanner:store_enter(store_id)
+  assert(not self.store_id, "attempted entering store more than once")
+  self.msgbuf:create_store_enter{
+    store_id = store_id,
+  }
+  self.store_sock:sendmsg(self.msgbuf)
+  self.store_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+  store_id = resp.okmsg
+  assert(store_id and #store_id > 0, "invalid store ID from service")
+  self.store_id = store_id
+  return store_id
+end
 
--- enter sandbox
-local params = cgi.init()
+function Scanner:store_open(path, flags, mode)
+  assert(self.store_id, "store_open without preceding store_enter")
+  self.msgbuf:create_store_open{
+    path = path,
+    flags = flags,
+    mode = mode,
+  }
+  self.store_sock:sendmsg(self.msgbuf)
+  return self.store_sock:recvfd()
+end
 
-local msgbuf = ycl.msg()
+function Scanner:pcap_start(fd, iface, filter)
+  self.msgbuf:create_pcap_req{
+    iface = iface,
+    filter = filter,
+  }
+  self.pcap_sock:sendfd(fd)
+  self.pcap_sock:sendmsg(self.msgbuf)
+  self.pcap_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+  fd:close()
+end
 
-local netconf = get_netconf(route_sock, msgbuf)
-print_netconf(netconf)
+function Scanner:send_packets(opts)
+  opts.pps = opts.pps or self.PPS
+  self.msgbuf:create_ethframe_req(opts)
+  self.ethframe_sock:sendmsg(self.msgbuf)
+  self.ethframe_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+end
 
-for _, entry in pairs(netconf) do
-  -- Send IPv4 link-local discovery frames for all IPv4 source addresses
-  for _, ip4_src in pairs(entry.ip4_srcs) do
-    msgbuf:create_ethframe_req{
-      pps = PPS,
-      iface = entry.ifname,
-      categories = "arp-req|ll-disco",
-      eth_src = entry.ifaddr,
-      ip_src = ip4_src,
-      ip_dsts = table.concat(entry.ip4_dsts, " "),
-    }
-    ethframe_sock:sendmsg(msgbuf)
-    ethframe_sock:recvmsg(msgbuf)
-    local resp = msgbuf:parse_status_resp()
-    if resp.errmsg then
-      error(resp.errmsg)
+local function main()
+  local scanner = Scanner:new() -- setup the scanner
+  local params = cgi.init()     -- enter sandbox
+
+  -- setup the store
+  local store_id = scanner:store_enter("aaaaaaaaaabbbbbbbbbb")
+  print("STORE", store_id)
+
+  -- get a file descriptor for the pcap log (448 == 0700)
+  local fd = scanner:store_open("disco.pcap", ycl.O_CREAT|ycl.O_WRONLY, 448)
+
+  -- TODO: open one for each interface, and set appropriate filter
+  scanner:pcap_start(fd, "em0")
+
+  -- get the network configuration
+  local netconf = scanner:get_netconf()
+  scanner:print_netconf(netconf)
+
+  -- send link-local discovery frames for all source addresses
+  for _, entry in pairs(netconf) do
+    for _, ip4_src in pairs(entry.ip4_srcs) do
+      scanner:send_packets{
+        iface = entry.ifname,
+        categories = "arp-req|ll-disco",
+        eth_src = entry.ifaddr,
+        ip_src = ip4_src,
+        ip_dsts = table.concat(entry.ip4_dsts, " "),
+      }
     end
-  end
-
-  -- Send IPv6 link-local discovery frames for all IPv6 source addresses
-  for _, ip6_src in pairs(entry.ip6_srcs) do
-    msgbuf:create_ethframe_req{
-      pps = PPS,
-      iface = entry.ifname,
-      categories = "ll-disco",
-      eth_src = entry.ifaddr,
-      ip_src = entry.ip6_srcs[1],
-    }
-    ethframe_sock:sendmsg(msgbuf)
-    ethframe_sock:recvmsg(msgbuf)
-    local resp = msgbuf:parse_status_resp()
-    if resp.errmsg then
-      error(resp.errmsg)
+    for _, ip6_src in pairs(entry.ip6_srcs) do
+      scanner:send_packets{
+        iface = entry.ifname,
+        categories = "ll-disco",
+        eth_src = entry.ifaddr,
+        ip_src = ip6_src,
+      }
     end
   end
 end
+
+main()

@@ -21,14 +21,40 @@
 /* struct pcap_client flags */
 #define FLAGS_HASMSGBUF (1 << 0)
 
-static void on_terminate(struct eds_client *cli, int fd) {
-  eds_client_clear_actions(cli);
-}
-
 enum resptype {
   RESPTYPE_OK,
   RESPTYPE_ERR,
 };
+
+static void on_read_fd(struct eds_client *cli, int fd);
+
+static void cleanup_capture(struct eds_client *cli) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+
+  if (pcapcli->dumpf != NULL) {
+    fclose(pcapcli->dumpf);
+    pcapcli->dumpf = NULL;
+  }
+  if (pcapcli->pcap != NULL) {
+    pcap_close(pcapcli->pcap);
+    pcapcli->pcap = NULL;
+  }
+  if (pcapcli->dumper != NULL) {
+    pcap_dump_close(pcapcli->dumper);
+    pcapcli->dumper = NULL;
+  }
+  if (pcapcli->dumpcli != NULL) {
+    eds_service_remove_client(cli->svc, pcapcli->dumpcli);
+    pcapcli->dumpcli = NULL;
+  }
+}
+
+static void on_after_capture(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  cleanup_capture(cli);
+  ycl_msg_reset(&pcapcli->common.msgbuf);
+  eds_client_set_on_readable(cli, on_read_fd, 0);
+}
 
 static void sendresp(struct eds_client *cli, enum resptype t,
     const char *msg) {
@@ -91,7 +117,6 @@ static void dumpcli_set_parent(struct eds_client *cli,
     struct eds_client *parent) {
   struct pcap_client_dumper *dumpcli = PCAP_CLIENT_DUMPER(cli);
   dumpcli->parent = parent;
-
 }
 
 static void on_readreq(struct eds_client *cli, int fd) {
@@ -117,13 +142,6 @@ static void on_readreq(struct eds_client *cli, int fd) {
   if (ret != YCL_OK) {
     ylog_error("pcapcli%d: invalid request message", fd);
     goto fail;
-  }
-
-  /* check if we have more data. Since the only thing we expect more than the
-   * initial request is a termination message, we're done if we do. */
-  if (ycl_recvmsg(&pcapcli->ycl, &pcapcli->common.msgbuf) != YCL_AGAIN) {
-    eds_client_clear_actions(cli);
-    return;
   }
 
   if (req.iface == NULL) {
@@ -193,9 +211,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
   eds_client_set_externalfd(dumpcli);
   pcapcli->dumpcli = dumpcli;
 
-  /* send OK response and terminate the client whenever we get data */
+  /* send OK response and enter on_after_capture at next readable event */
   sendresp(cli, RESPTYPE_OK, "started");
-  eds_client_set_on_readable(cli, on_terminate, EDS_DEFER);
+  eds_client_set_on_readable(cli, on_after_capture, EDS_DEFER);
   return;
 
 fail:
@@ -203,28 +221,38 @@ fail:
   sendresp(cli, RESPTYPE_ERR, errmsg);
 }
 
-/* initial on_readable event */
-void pcap_on_readable(struct eds_client *cli, int fd) {
+static void on_read_fd(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   int pcapfd;
   FILE *fp;
-  int ret;
 
-  ycl_init(&pcapcli->ycl, fd);
   if (ycl_recvfd(&pcapcli->ycl, &pcapfd) != YCL_OK) {
-    ylog_error("pcapcli%d: ycl_recvfd: %s", fd, ycl_strerror(&pcapcli->ycl));
-    goto fail;
+    /* this could be erroneous, but it could also be a successful shutdown */
+    goto done;
   }
 
   fp = fdopen(pcapfd, "w");
   if (fp == NULL) {
     ylog_error("pcapcli%d: fdopen: %s", fd, strerror(errno));
-    close(pcapfd);
-    goto fail;
-  } else {
-    pcapcli->dumpf = fp; /* will be closed by on_done */
+    goto cleanup_pcapfd;
   }
 
+  pcapcli->dumpf = fp; /* will be closed by on_done */
+  eds_client_set_on_readable(cli, on_readreq, 0);
+  return;
+
+cleanup_pcapfd:
+  close(pcapfd);
+done:
+  eds_client_clear_actions(cli);
+}
+
+/* initial on_readable event */
+void pcap_on_readable(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  int ret;
+
+  ycl_init(&pcapcli->ycl, fd);
   /* if this is the first time we run on this client, allocate the
    * ycl_msg buffer, which will be reused for subsequent clients */
   if (!(pcapcli->common.flags & FLAGS_HASMSGBUF)) {
@@ -238,7 +266,7 @@ void pcap_on_readable(struct eds_client *cli, int fd) {
     ycl_msg_reset(&pcapcli->common.msgbuf);
   }
 
-  eds_client_set_on_readable(cli, on_readreq, 0);
+  eds_client_set_on_readable(cli, on_read_fd, 0);
   return;
 
 fail:
@@ -246,26 +274,8 @@ fail:
 }
 
 void pcap_on_done(struct eds_client *cli, int fd) {
-  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
-
   ylog_info("pcapcli%d: done", fd);
-
-  if (pcapcli->dumpf != NULL) {
-    fclose(pcapcli->dumpf);
-    pcapcli->dumpf = NULL;
-  }
-  if (pcapcli->pcap != NULL) {
-    pcap_close(pcapcli->pcap);
-    pcapcli->pcap = NULL;
-  }
-  if (pcapcli->dumper != NULL) {
-    pcap_dump_close(pcapcli->dumper);
-    pcapcli->dumper = NULL;
-  }
-  if (pcapcli->dumpcli != NULL) {
-    eds_service_remove_client(cli->svc, pcapcli->dumpcli);
-    pcapcli->dumpcli = NULL;
-  }
+  cleanup_capture(cli);
 }
 
 void pcap_on_finalize(struct eds_client *cli) {
@@ -273,7 +283,7 @@ void pcap_on_finalize(struct eds_client *cli) {
 
   if (ccli->flags & FLAGS_HASMSGBUF) {
     ycl_msg_cleanup(&ccli->msgbuf);
-    ccli->flags &= ~(FLAGS_HASMSGBUF);
+    ccli->flags &= ~FLAGS_HASMSGBUF;
   }
 }
 

@@ -162,33 +162,37 @@ local function main()
   print("STORE   ", store_id)
   print("---")
 
-  -- get a file descriptor for the pcap log (448 == 0700)
-  local fd = scanner:store_open("disco.pcap", ycl.O_CREAT|ycl.O_WRONLY, 448)
-
-  -- TODO: open one for each interface, and set appropriate filter
-  scanner:pcap_start(fd, "em0")
-  util.nanosleep(0, 500000000)
-
   -- get the network configuration
   local netconf = scanner:get_netconf()
   scanner:print_netconf(netconf)
 
   -- send link-local discovery frames for all source addresses
   for _, entry in pairs(netconf) do
+    -- setup the capture for this interface (mode: 448 == 0700)
+    -- XXX: This filter does not guarantee hosts to be on the local network
+    local ifname, ifaddr = entry.ifname, entry.ifaddr
+    local fmt = "(not ether src %s) and (arp[6:2] = 2 or icmp or udp or ip6)"
+    local filter = string.format(fmt, ifaddr)
+    local filename = string.format("disco-%s.pcap", ifname)
+    local fd = scanner:store_open(filename, ycl.O_CREAT|ycl.O_WRONLY, 448)
+    print(string.format("%s: %s", filename, filter))
+    scanner:pcap_start(fd, ifname, filter)
+    util.nanosleep(0, 500000000)
+
     for _, ip4_src in pairs(entry.ip4_srcs) do
       scanner:send_packets{
-        iface = entry.ifname,
+        iface = ifname,
         categories = "arp-req|ll-disco",
-        eth_src = entry.ifaddr,
+        eth_src = ifaddr,
         ip_src = ip4_src,
         ip_dsts = table.concat(entry.ip4_dsts, " "),
       }
     end
     for _, ip6_src in pairs(entry.ip6_srcs) do
       scanner:send_packets{
-        iface = entry.ifname,
+        iface = ifname,
         categories = "ll-disco",
-        eth_src = entry.ifaddr,
+        eth_src = ifaddr,
         ip_src = ip6_src,
       }
     end

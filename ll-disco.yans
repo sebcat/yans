@@ -155,17 +155,19 @@ end
 
 local function main()
   local scanner = Scanner:new() -- setup the scanner
-  local params = cgi.init()     -- enter sandbox
+  local params = cgi.init()     -- get env.vars and enter sandbox
 
   -- setup the store
-  local store_id = scanner:store_enter("aaaaaaaaaabbbbbbbbbb")
-  print("STORE", store_id)
+  local store_id = scanner:store_enter()
+  print("STORE   ", store_id)
+  print("---")
 
   -- get a file descriptor for the pcap log (448 == 0700)
   local fd = scanner:store_open("disco.pcap", ycl.O_CREAT|ycl.O_WRONLY, 448)
 
   -- TODO: open one for each interface, and set appropriate filter
   scanner:pcap_start(fd, "em0")
+  util.nanosleep(0, 500000000)
 
   -- get the network configuration
   local netconf = scanner:get_netconf()
@@ -191,6 +193,7 @@ local function main()
       }
     end
   end
+  util.nanosleep(3,0)
 end
 
 main()

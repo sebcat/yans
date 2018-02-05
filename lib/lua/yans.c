@@ -27,9 +27,16 @@
 #define DATAROOTDIR "/666noexist"
 #endif
 
+#ifdef YANS_DEBUG
+#define YANS_PATH "./lib/yans/?.yans;./lib/yans/?/init.yans"
+#else
+#ifndef YANS_PATH
 #define YANS_PATH DATAROOTDIR "/yans/?.yans;" \
     DATAROOTDIR "/yans/?/init.yans;" \
     "./?.yans;./?/init.yans"
+#endif
+#endif
+
 
 static void repl_print(lua_State *L, int nkeep) {
   int nelems = lua_gettop(L)-nkeep;

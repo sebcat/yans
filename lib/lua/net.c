@@ -1,8 +1,6 @@
 /* vim: set tabstop=2 shiftwidth=2 expandtab ai: */
 #include <string.h>
 
-#include <pcap/pcap.h>
-
 #include <lib/net/ip.h>
 #include <lib/net/ports.h>
 #include <lib/net/eth.h>

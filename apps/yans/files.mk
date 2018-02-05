@@ -29,7 +29,6 @@ yans_DEPS = \
     lib/lua/opts.c \
     lib/lua/yans.c \
     lib/lua/ylog.c \
-    lib/lua/ypcap.c \
     lib/lua/util.c
 
 yans_DEPSOBJS = ${yans_DEPS:.c=.o}
@@ -49,7 +48,7 @@ yans_YANSTESTS = \
 yans_OBJS = ${yans_SOURCES:.c=.o}
 
 yans_LDADD_Linux = -lseccomp
-yans_LDADD := -lpcap -lm ${yans_LDADD_${UNAME_S}}
+yans_LDADD := -lm ${yans_LDADD_${UNAME_S}}
 
 yans_BIN = apps/yans/yans
 

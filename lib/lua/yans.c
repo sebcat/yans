@@ -8,7 +8,6 @@
 
 #include <lib/lua/net.h>
 #include <lib/lua/http.h>
-#include <lib/lua/ypcap.h>
 #include <lib/lua/json.h>
 #include <lib/lua/cgi.h>
 #include <lib/lua/fts.h>
@@ -128,7 +127,6 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
     {"ip", luaopen_ip},
     {"eth", luaopen_eth},
     {"http", luaopen_http},
-    {"ypcap", luaopen_ypcap},
     {"lpeg", luaopen_lpeg},
     {"json", luaopen_json},
     {"cgi", luaopen_cgi},

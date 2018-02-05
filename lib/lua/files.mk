@@ -8,7 +8,6 @@ lib_lua_SOURCES = \
     lib/lua/opts.c \
     lib/lua/yans.c \
     lib/lua/ylog.c \
-    lib/lua/ypcap.c \
     lib/lua/util.c
 
 lib_lua_HEADERS = \
@@ -22,7 +21,6 @@ lib_lua_HEADERS = \
     lib/lua/yans.h \
     lib/lua/ycl.h \
     lib/lua/ylog.h \
-    lib/lua/ypcap.h \
     lib/lua/util.h
 
 lib_lua_CODEGEN = \

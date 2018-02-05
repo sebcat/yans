@@ -26,3 +26,4 @@ lib/util/flagset_test
 apps/knegd/knegd
 apps/kneg/kneg
 apps/store/store
+/.lastbuild

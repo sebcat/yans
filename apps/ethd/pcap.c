@@ -49,13 +49,6 @@ static void cleanup_capture(struct eds_client *cli) {
   }
 }
 
-static void on_after_capture(struct eds_client *cli, int fd) {
-  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
-  cleanup_capture(cli);
-  ycl_msg_reset(&pcapcli->common.msgbuf);
-  eds_client_set_on_readable(cli, on_read_fd, 0);
-}
-
 static void sendresp(struct eds_client *cli, enum resptype t,
     const char *msg) {
   struct ycl_msg_status_resp resp = {0};
@@ -94,6 +87,42 @@ static void sendresp(struct eds_client *cli, enum resptype t,
 
   eds_client_send(cli, ycl_msg_bytes(&pcapcli->common.msgbuf),
       ycl_msg_nbytes(&pcapcli->common.msgbuf), &trans);
+}
+
+static void on_read_close(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  struct ycl_msg_pcap_close closemsg;
+  int ret;
+
+  ret = ycl_recvmsg(&pcapcli->ycl, &pcapcli->common.msgbuf);
+  if (ret == YCL_AGAIN) {
+    return;
+  } else if (ret != YCL_OK) {
+    ylog_error("pcapcli%d: expected close message, got error: %s", fd,
+        ycl_strerror(&pcapcli->ycl));
+    goto fail;
+  }
+
+  ret = ycl_msg_parse_pcap_close(&pcapcli->common.msgbuf, &closemsg);
+  if (ret != YCL_OK) {
+    ylog_error("pcapcli%d: invalid request message", fd);
+    goto fail;
+  }
+
+  ylog_info("pcapcli%d: closed capture", fd);
+  eds_client_set_on_readable(cli, on_read_fd, 0);
+  sendresp(cli, RESPTYPE_OK, "stopped");
+  return;
+
+fail:
+  eds_client_clear_actions(cli);
+}
+
+static void on_after_capture(struct eds_client *cli, int fd) {
+  struct pcap_client *pcapcli = PCAP_CLIENT(cli);
+  cleanup_capture(cli);
+  ycl_msg_reset(&pcapcli->common.msgbuf);
+  eds_client_set_on_readable(cli, on_read_close, 0);
 }
 
 static void on_gotpkg(struct eds_client *cli, int fd) {

@@ -52,32 +52,14 @@ local eth_decoders = {
 function _M.decode(frame)
   if #frame < 14 then return end
   local res = {
-    eth_dst = yans.EthAddr(string.sub(frame, 1, 6)),
-    eth_src = yans.EthAddr(string.sub(frame, 7, 12)),
+    eth_dst = eth.addr(string.sub(frame, 1, 6)),
+    eth_src = eth.addr(string.sub(frame, 7, 12)),
     eth_typ = string.sub(frame, 13, 14),
   }
   local dec = eth_decoders[res.eth_typ]
   if dec then
     local rest = string.sub(frame, 15)
     dec(rest, res)
-  end
-  return res
-end
-
--- enumerate local source addresses
-function _M.get_local_hwaddrs(devs)
-  devs = devs or yans.devices()
-  local res = {}
-  for _, device in pairs(devs) do
-    local addrs = device.addresses
-    if addrs then
-      for _, addr in pairs(addrs) do
-        local addr = tostring(addr.addr)
-        if addr:match("%x%x?:%x%x?:%x%x?:%x%x?:%x%x?:%x%x?") then
-          table.insert(res, addr)
-        end
-      end
-    end
   end
   return res
 end

@@ -1,4 +1,3 @@
-#!/usr/bin/env lua
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
 local _M = {}
@@ -49,7 +48,7 @@ local eth_decoders = {
   ["\x86\xdd"] = decode_ip6,
 }
 
-function _M.decode(frame)
+function _M:decode(frame)
   if #frame < 14 then return end
   local res = {
     eth_dst = eth.addr(string.sub(frame, 1, 6)),
@@ -67,7 +66,7 @@ end
 local tcp_flags = {"FIN", "SYN", "RST", "PSH",
     "ACK", "URG", "ECE", "CWR", "NS"}
 
-function _M.format_tcp_flags(flags)
+function _M:format_tcp_flags(flags)
   local bit, res = 1, {}
   for i, val in ipairs(tcp_flags) do
     if flags & bit ~= 0 then

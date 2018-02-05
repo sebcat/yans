@@ -1,0 +1,163 @@
+
+local _M = {
+  SVC_ROUTE = "./lel/routes.sock",
+  SVC_ETHFRAME = "./lel/ethframe.sock",
+  SVC_PCAP = "./lel/pcap.sock",
+  SVC_STORE = "./lel/stored.sock",
+  PPS = 300,
+}
+
+local function netconf_from_routes(routes)
+  -- get local references for 'routes' members
+  local ifaces = routes.ifaces
+  local ip4_routes = routes.ip4_routes
+  local ip6_routes = routes.ip6_routes
+  local ip4_srcs = routes.ip4_srcs
+  local ip6_srcs = routes.ip6_srcs
+
+  -- setup temporary tables
+  local ifnames = {}
+  local ethaddrs = {}
+  local ip4srcs = {}
+  local ip6srcs = {}
+  local ip4dsts = {}
+
+  -- determine suitable interfaces
+  for k,v in pairs(ifaces) do
+    if v.up and not v.loopback then
+      ifnames[v.index] = v.name
+      ethaddrs[v.index] = v.addr
+      ip4srcs[v.name] = {}
+      ip6srcs[v.name] = {}
+      ip4dsts[v.index] = {}
+    end
+  end
+
+  -- get IPv4 source addresses for suitable interfaces
+  for k,v in pairs(ip4_srcs) do
+    local ifname = v[1]
+    if ip4srcs[ifname] then
+      local srcaddr = v[2]
+      table.insert(ip4srcs[ifname], tostring(srcaddr))
+    end
+  end
+
+  -- get IPv6 source addresses for suitable interfaces
+  for k,v in pairs(ip6_srcs) do
+    local ifname = v[1]
+    if ip6srcs[ifname] then
+      local srcaddr = v[2]
+      table.insert(ip6srcs[ifname], tostring(srcaddr))
+    end
+  end
+
+  -- determine IPv4 addresses routed to the local network
+  for k,v in pairs(ip4_routes) do
+    if ifnames[v.gw_ifindex] and v.gw_ifindex == v.ifindex then
+      table.insert(ip4dsts[v.gw_ifindex], tostring(v.block))
+    end
+  end
+
+  -- format response
+  local resp = {}
+  for index, name in pairs(ifnames) do
+    local entry = {}
+    entry.ifname = name
+    entry.ifaddr = tostring(ethaddrs[index])
+    entry.ip4_srcs = ip4srcs[name]
+    entry.ip6_srcs = ip6srcs[name]
+    entry.ip4_dsts = ip4dsts[index]
+    table.insert(resp, entry)
+  end
+  return resp
+end
+
+function _M:new(o)
+  o = o or {}
+  o.route_sock = ycl.connect(self.SVC_ROUTE)
+  o.ethframe_sock = ycl.connect(self.SVC_ETHFRAME)
+  o.store_sock = ycl.connect(self.SVC_STORE)
+  o.pcap_sock = ycl.connect(self.SVC_PCAP)
+  o.msgbuf = ycl.msg()
+  setmetatable(o, self)
+  self.__index = self
+  return o
+end
+
+function _M:get_netconf()
+  self.msgbuf:create_route_req{}
+  self.route_sock:sendmsg(self.msgbuf)
+  self.route_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_route_resp()
+  local routes = ip.unmarshal_routes(resp)
+  return netconf_from_routes(routes)
+end
+
+function _M:print_netconf(netconf)
+  for _, entry in pairs(netconf) do
+    print("ifname  ", entry.ifname)
+    print("ifaddr  ", entry.ifaddr)
+    print("ip4_srcs", table.concat(entry.ip4_srcs, " "))
+    print("ip6_srcs", table.concat(entry.ip6_srcs, " "))
+    print("ip4_dsts", table.concat(entry.ip4_dsts, " "))
+    print("---")
+  end
+end
+
+function _M:store_enter(store_id)
+  assert(not self.store_id, "attempted entering store more than once")
+  self.msgbuf:create_store_enter{
+    store_id = store_id,
+  }
+  self.store_sock:sendmsg(self.msgbuf)
+  self.store_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+  store_id = resp.okmsg
+  assert(store_id and #store_id > 0, "invalid store ID from service")
+  self.store_id = store_id
+  return store_id
+end
+
+function _M:store_open(path, flags, mode)
+  assert(self.store_id, "store_open without preceding store_enter")
+  self.msgbuf:create_store_open{
+    path = path,
+    flags = flags,
+    mode = mode,
+  }
+  self.store_sock:sendmsg(self.msgbuf)
+  return self.store_sock:recvfd()
+end
+
+function _M:pcap_start(fd, iface, filter)
+  self.msgbuf:create_pcap_req{
+    iface = iface,
+    filter = filter,
+  }
+  self.pcap_sock:sendfd(fd)
+  self.pcap_sock:sendmsg(self.msgbuf)
+  self.pcap_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+  fd:close()
+end
+
+function _M:pcap_stop()
+  self.msgbuf:create_pcap_close{}
+  self.pcap_sock:sendmsg(self.msgbuf)
+  self.pcap_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+end
+
+function _M:send_packets(opts)
+  opts.pps = opts.pps or self.PPS
+  self.msgbuf:create_ethframe_req(opts)
+  self.ethframe_sock:sendmsg(self.msgbuf)
+  self.ethframe_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+end
+
+return _M

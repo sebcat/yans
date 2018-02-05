@@ -1,0 +1,74 @@
+
+local _M = {}
+
+function _M:open(stream)
+  assert(stream, "missing stream parameter")
+  --[[
+  typedef struct pcap_hdr_s {
+          uint32_t magic_number;
+          uint16_t version_major;
+          uint16_t version_minor;
+          int32_t  thiszone;      /* timezone correction*/
+          uint32_t sigfigs;       /* timestamp accuracy*/
+          uint32_t snaplen;
+          uint32_t network;       /* link type*/
+  } pcap_hdr_t;
+  sizeof(pcap_hdr_t) == 24
+  magic:
+    0xa1b2c3d4 native byte order, non-nanosec time resolution
+    0xa1b23c4d native byte irder, nanosec time resolution
+    0xd4c3b2a1 non-native byte order, non-nanosec time resolution
+    0x4d3cb2a1 non-native byte order, nanosec time resolution
+  network: 1 == ethernet. http://www.tcpdump.org/linktypes.html
+
+  typedef struct pcaprec_hdr_s {
+          guint32 ts_sec;        /* timestamp seconds */
+          guint32 ts_usec;       /* timestamp microseconds */
+          guint32 incl_len;      /* number of octets of packet saved in file */
+          guint32 orig_len;      /* actual length of packet */
+  } pcaprec_hdr_t;
+
+  ]]--
+
+  local hdr = stream:read(24)
+  if not hdr or #hdr ~= 24 then
+    return nil
+  end
+
+  local hdrfmt = "<I4" -- assume little endian to begin with
+  local framefmt = ""
+  local magic = string.unpack(hdrfmt, hdr)
+  if magic == 0xa1b2c3d4 or magic == 0xa1b23c4d then
+    hdrfmt = "<I4I2I2i4I4I4I4"
+    framefmt = "<I4I4I4I4"
+  elseif magic == 0xd4c3b2a1 or magic == 0x4d3cb2a1 then
+    hdrfmt = ">I4I2I2i4I4I4I4"
+    framefmt = ">I4I4I4I4"
+  else
+    error(string.format("unknown magic: 0x%08x", magic))
+  end
+
+  local o = {stream = stream, framefmt = framefmt}
+  o.magic, o.major, o.minor, o.thiszone, o.sigfigs,
+      o.snaplen, o.network = string.unpack(hdrfmt,hdr)
+  setmetatable(o, self)
+  self.__index = self
+  return o
+end
+
+function _M:next(stream)
+  return function()
+    local hdr = self.stream:read(16)
+    if not hdr or #hdr < 16 then
+      return nil
+    end
+    local sec, frac, inc_len = string.unpack(self.framefmt, hdr)
+    local data = self.stream:read(inc_len)
+    if not data or #data < inc_len then
+      return nil -- if a frame is truncated, skip it and stop iterating
+    end
+    return sec, frac, data
+  end
+end
+
+return _M

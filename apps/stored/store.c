@@ -202,6 +202,19 @@ static void on_sendfd(struct eds_client *cli, int fd) {
   eds_client_set_on_readable(cli, on_readopen, 0);
 }
 
+static const char *get_flagstr(int flags) {
+  switch(flags & (O_RDONLY | O_WRONLY | O_RDWR)) {
+  case O_RDONLY:
+    return "r";
+  case O_WRONLY:
+    return "w";
+  case O_RDWR:
+    return "rw";
+  default:
+    return "?";
+  }
+}
+
 static void on_readopen(struct eds_client *cli, int fd) {
   char dirpath[STORE_MAXDIRPATH];
   const char *errmsg = "an internal error occurred";
@@ -251,7 +264,8 @@ static void on_readopen(struct eds_client *cli, int fd) {
     LOGERRF(fd, "%s: failed to open %s: %s", STORE_ID(ecli), req.path,
         strerror(errno));
   } else {
-    LOGINFOF(fd, "%s: opened %s", STORE_ID(ecli), req.path);
+    const char *flagstr = get_flagstr((int)req.flags);
+    LOGINFOF(fd, "%s: opened %s (%s)", STORE_ID(ecli), req.path, flagstr);
     ecli->open_fd = open_fd;
     ecli->open_errno = 0;
   }

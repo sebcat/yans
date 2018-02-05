@@ -286,6 +286,7 @@ static const struct luaL_Reg yclfd_m[] = {
   {"close", l_fdclose},
   {"get", l_fdget},
   {"to_stream", l_fdtostream},
+  {NULL, NULL},
 };
 
 static const struct luaL_Reg ycl_f[] = {

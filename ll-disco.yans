@@ -216,6 +216,14 @@ function Scanner:pcap_start(fd, iface, filter)
   fd:close()
 end
 
+function Scanner:pcap_stop()
+  self.msgbuf:create_pcap_close{}
+  self.pcap_sock:sendmsg(self.msgbuf)
+  self.pcap_sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+end
+
 function Scanner:send_packets(opts)
   opts.pps = opts.pps or self.PPS
   self.msgbuf:create_ethframe_req(opts)
@@ -249,7 +257,7 @@ local function main()
     local fd = scanner:store_open(filename, ycl.O_CREAT|ycl.O_WRONLY, 448)
     print(string.format("%s: %s", filename, filter))
     scanner:pcap_start(fd, ifname, filter)
-    util.nanosleep(0, 500000000)
+    util.nanosleep(0, 500000000) -- wait a bit to establish the capture
 
     for _, ip4_src in pairs(entry.ip4_srcs) do
       scanner:send_packets{
@@ -260,6 +268,7 @@ local function main()
         ip_dsts = table.concat(entry.ip4_dsts, " "),
       }
     end
+
     for _, ip6_src in pairs(entry.ip6_srcs) do
       scanner:send_packets{
         iface = ifname,
@@ -268,10 +277,10 @@ local function main()
         ip_src = ip6_src,
       }
     end
-  end
-  util.nanosleep(3,0)
 
-  -- TODO: close current capture (add support for it first)
+    util.nanosleep(3,0) -- wait a bit for incoming frames
+    scanner:pcap_stop()
+  end
 
   -- read captured frames
   for _, entry in pairs(netconf) do
@@ -290,7 +299,9 @@ local function main()
         print(string.format("%d.%d: %d bytes", sec-fsec, frac-ffrac, #data))
       end
     end
+    stream:close()
   end
 end
 
 main()
+

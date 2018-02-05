@@ -2,6 +2,19 @@
 
 local _M = {}
 
+local function fmt_eth_addr(data, startoff)
+  startoff = startoff or 1
+  local endoff = startoff + 5
+  local substr = string.sub(data, startoff, endoff)
+  return string.format("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x",
+      string.unpack("BBBBBB", substr))
+end
+
+local function fmt_ip4_addr(ipnum)
+  return string.format("%d.%d.%d.%d", ipnum >> 24, (ipnum >> 16) & 0xff,
+      (ipnum >> 8) & 0xff, ipnum & 0xff)
+end
+
 local function decode_tcp(data, res)
   if #data < 20 then return end
   local off_flags, doff
@@ -30,8 +43,11 @@ local ip4_decoders = {
 local function decode_ip4(data, res)
   if #data < 20 then return end
   local ver_ihl
-  ver_ihl, res.ip4_ttl, res.ip4_proto, res.ip4_src, res.ip4_dst =
+  local ip4_src, ip4_dst
+  ver_ihl, res.ip4_ttl, res.ip4_proto, ip4_src, ip4_dst =
       string.unpack(">BxxxxxxxBBxxI4I4", data)
+  res.ip4_src = fmt_ip4_addr(ip4_src)
+  res.ip4_dst = fmt_ip4_addr(ip4_dst)
   local dec = ip4_decoders[res.ip4_proto]
   if dec then
     local rest = string.sub(data, ((ver_ihl & 0x0f) << 2) + 1)
@@ -39,21 +55,33 @@ local function decode_ip4(data, res)
   end
 end
 
+local function decode_arp(data, res)
+  if #data < 28 then return end
+  local arp_spa, arp_tpa
+  res.arp_oper, arp_spa, arp_tpa =
+      string.unpack(">xxxxxxI2xxxxxxI4xxxxxxI4", data)
+  res.arp_sha = fmt_eth_addr(data, 9)
+  res.arp_tha = fmt_eth_addr(data, 19)
+  res.arp_spa = fmt_ip4_addr(arp_spa)
+  res.arp_tpa = fmt_ip4_addr(arp_tpa)
+end
+
 local function decode_ip6(data, res)
-  -- TODO: Implement
+  print("decode_ip6: NYI")
 end
 
 local eth_decoders = {
-  ["\x08\x00"] = decode_ip4,
-  ["\x86\xdd"] = decode_ip6,
+  [0x0800] = decode_ip4,
+  [0x0806] = decode_arp,
+  [0x86dd] = decode_ip6,
 }
 
 function _M:decode(frame)
   if #frame < 14 then return end
   local res = {
-    eth_dst = eth.addr(string.sub(frame, 1, 6)),
-    eth_src = eth.addr(string.sub(frame, 7, 12)),
-    eth_typ = string.sub(frame, 13, 14),
+    eth_dst = fmt_eth_addr(frame, 1),
+    eth_src = fmt_eth_addr(frame, 7),
+    eth_typ = string.unpack(">xxxxxxxxxxxxI2", frame)
   }
   local dec = eth_decoders[res.eth_typ]
   if dec then

@@ -2,25 +2,13 @@
 
 Scanner = require"scanner"
 PacketReader = require"ethframe.reader"
+PacketDecoder = require"ethframe.decoder"
 
-
-local function main()
-  local scanner = Scanner:new() -- setup the scanner
-  local params = cgi.init()     -- get env.vars and enter sandbox
-
-  -- setup the store
-  local store_id = scanner:store_enter()
-  print("STORE   ", store_id)
-  print("---")
-
-  -- get the network configuration
-  local netconf = scanner:get_netconf()
-  scanner:print_netconf(netconf)
-
+local function send_packets(scanner, netconf)
   -- send link-local discovery frames for all source addresses
   for _, entry in pairs(netconf) do
     -- setup the capture for this interface (mode: 448 == 0700)
-    -- XXX: This filter does not guarantee hosts to be on the local network
+    -- XXX: This filter does not guarantee hosts to be on the local network.
     local ifname, ifaddr = entry.ifname, entry.ifaddr
     local fmt = "(not ether src %s) and (arp[6:2] = 2 or icmp or udp or ip6)"
     local filter = string.format(fmt, ifaddr)
@@ -52,26 +40,60 @@ local function main()
     util.nanosleep(3,0) -- wait a bit for incoming frames
     scanner:pcap_stop()
   end
+end
 
-  -- read captured frames
+local function main()
+  local scanner = Scanner:new() -- setup the scanner
+  local params = cgi.init()     -- get env.vars and enter sandbox
+
+  -- setup the store
+  local store_id = scanner:store_enter()
+  print("STORE   ", store_id)
+  print("---")
+
+  -- get the network configuration
+  local netconf = scanner:get_netconf()
+  scanner:print_netconf(netconf)
+
+  send_packets(scanner, netconf)
+
+  -- Aggregate result from captured frames. Avoid keeping too much data in
+  -- memory at the same time. We use tables for deduplication, and we keep
+  -- the output format simple. Since interfaces, IP and Ethernet addresses are
+  -- of a specific character set, and lines are easy to parse, we use CSV.
+  -- However, care should be taken to be absolutely sure that the data does
+  -- not contain any delimiters, because escaping in CSV is a PITA across
+  -- different parsers. We may want to consider other formats for that.
+
+  local reswriter = scanner:store_open("result.csv",
+      ycl.O_WRONLY | ycl.O_CREAT, 448):to_stream("wb")
+
   for _, entry in pairs(netconf) do
+    local dedup = {}
     local ifname, ifaddr = entry.ifname, entry.ifaddr
     local filename = string.format("disco-%s.pcap", ifname)
-    local fd = scanner:store_open(filename, ycl.O_RDONLY)
-    local stream = fd:to_stream("rb")
-    print(fd, stream)
-    local packets = PacketReader:open(stream)
-    if packets then
-      local iter = packets:next()
-      local fsec, ffrac, data = iter()
-      print(string.format("0.0: %d bytes", #data))
-      for sec, frac, data in iter do
-        if sec-fsec > 0 then ffrac = 0 end
-        print(string.format("%d.%d: %d bytes", sec-fsec, frac-ffrac, #data))
+    local stream = scanner:store_open(filename, ycl.O_RDONLY):to_stream("rb")
+    local reader = PacketReader:open(stream)
+    if reader then
+      for sec, frac, data in reader:next() do
+        local res = PacketDecoder:decode(data)
+        if res then
+          if res.arp_oper == 2 and
+              res.arp_tha == res.eth_dst and
+              res.arp_sha == res.eth_src then
+            local dedupstr = string.format("%s_%s", res.arp_spa, res.eth_src)
+            if not dedup[dedupstr] then
+              reswriter:write(string.format("%s|%s|%s\n", ifname, res.arp_spa,
+                  res.eth_src))
+              dedup[dedupstr] = true
+            end
+          end
+        end -- TODO: log unknown response packet?
       end
     end
     stream:close()
   end
+  reswriter:close()
 end
 
 main()

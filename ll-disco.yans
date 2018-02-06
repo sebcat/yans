@@ -42,12 +42,11 @@ local function send_packets(scanner, netconf)
   end
 end
 
-local function main()
-  local scanner = Scanner:new() -- setup the scanner
-  local params = cgi.init()     -- get env.vars and enter sandbox
+local function lldisco(scanner, params)
+  params = params or {}
 
   -- setup the store
-  local store_id = scanner:store_enter()
+  local store_id = scanner:store_enter(params.store)
   print("STORE   ", store_id)
   print("---")
 
@@ -55,7 +54,9 @@ local function main()
   local netconf = scanner:get_netconf()
   scanner:print_netconf(netconf)
 
-  send_packets(scanner, netconf)
+  if not params.scanless then
+    send_packets(scanner, netconf)
+  end
 
   -- Aggregate result from captured frames. Avoid keeping too much data in
   -- memory at the same time. We use tables for deduplication, and we keep
@@ -83,8 +84,15 @@ local function main()
               res.arp_sha == res.eth_src then
             local dedupstr = string.format("%s_%s", res.arp_spa, res.eth_src)
             if not dedup[dedupstr] then
-              reswriter:write(string.format("%s|%s|%s\n", ifname, res.arp_spa,
-                  res.eth_src))
+              reswriter:write(string.format("arp|%s|%s|%s\n", ifname,
+                  res.arp_spa, res.eth_src))
+              dedup[dedupstr] = true
+            end
+          elseif res.ip4_src then
+            local dedupstr = string.format("%s_%s", res.ip4_src, res.eth_src)
+            if not dedup[dedupstr] then
+              reswriter:write(string.format("ip4|%s|%s|%s\n", ifname,
+                  res.arp_spa, res.eth_src))
               dedup[dedupstr] = true
             end
           end
@@ -96,5 +104,16 @@ local function main()
   reswriter:close()
 end
 
-main()
+local p = opts:new()
+p:flag("scanless", "n", "do not send or receive any data")
+p:str("store", "s", "store ID to use")
+p:flag("help", "h", "this text")
+local params = p:parse(args)
+if params.help then
+  io.stdout:write(p:usage())
+else
+  local scanner = Scanner:new() -- setup the scanner
+  cgi.init()                    -- enter sandbox (TODO: params from env.vars)
+  lldisco(scanner, params)
+end
 

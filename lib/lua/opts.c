@@ -243,7 +243,11 @@ static int l_optsparse(lua_State *L) {
     str = lua_tostring(L, -1);
     if (str == NULL) {
       lua_pop(L, 1);
-      continue;
+      break;
+    } else if (str[0] == '-' && str[1] == '-' && str[2] == '\0') {
+      lua_pop(L, 1);
+      i++; /* skip '--' in arg count */
+      break;
     } else if (str[0] == '-' && str[1] != '-' && str[1] != '\0') {
       /* shortname */
       index = opts_findshortname(opts, str[1]);

@@ -13,7 +13,8 @@ local function send_packets(scanner, netconf)
     local fmt = "(not ether src %s) and (arp[6:2] = 2 or icmp or udp or ip6)"
     local filter = string.format(fmt, ifaddr)
     local filename = string.format("disco-%s.pcap", ifname)
-    local fd = scanner:store_open(filename, ycl.O_CREAT|ycl.O_WRONLY, 448)
+    local fd = scanner:store_open(filename,
+        ycl.O_CREAT | ycl.O_WRONLY | ycl.O_TRUNC, 448)
     print(string.format("%s: %s", filename, filter))
     scanner:pcap_start(fd, ifname, filter)
     util.nanosleep(0, 500000000) -- wait a bit to establish the capture
@@ -67,11 +68,11 @@ local function lldisco(scanner, params)
   -- different parsers. We may want to consider other formats for that.
 
   local reswriter = scanner:store_open("result.csv",
-      ycl.O_WRONLY | ycl.O_CREAT, 448):to_stream("wb")
+      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448):to_stream("wb")
 
   for _, entry in pairs(netconf) do
     local dedup = {}
-    local ifname, ifaddr = entry.ifname, entry.ifaddr
+    local ifname = entry.ifname
     local filename = string.format("disco-%s.pcap", ifname)
     local stream = scanner:store_open(filename, ycl.O_RDONLY):to_stream("rb")
     local reader = PacketReader:open(stream)

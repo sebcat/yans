@@ -110,7 +110,7 @@ static void on_read_close(struct eds_client *cli, int fd) {
   }
 
   ylog_info("pcapcli%d: closed capture", fd);
-  eds_client_set_on_readable(cli, on_read_fd, 0);
+  eds_client_set_on_readable(cli, on_read_fd, EDS_DEFER);
   sendresp(cli, RESPTYPE_OK, "stopped");
   return;
 
@@ -253,9 +253,13 @@ fail:
 static void on_read_fd(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   int pcapfd;
+  int ret;
   FILE *fp;
 
-  if (ycl_recvfd(&pcapcli->ycl, &pcapfd) != YCL_OK) {
+  ret = ycl_recvfd(&pcapcli->ycl, &pcapfd);
+  if (ret == YCL_AGAIN) {
+    return;
+  } else if (ret != YCL_OK) {
     /* this could be erroneous, but it could also be a successful shutdown */
     goto done;
   }
@@ -266,6 +270,7 @@ static void on_read_fd(struct eds_client *cli, int fd) {
     goto cleanup_pcapfd;
   }
 
+  ycl_msg_reset(&pcapcli->common.msgbuf);
   pcapcli->dumpf = fp; /* will be closed by on_done */
   eds_client_set_on_readable(cli, on_readreq, 0);
   return;

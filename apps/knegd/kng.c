@@ -271,7 +271,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
 
   snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type);
   openmsg.path = "kneg.log";
-  openmsg.flags = O_WRONLY|O_CREAT;
+  openmsg.flags = O_WRONLY|O_CREAT|O_TRUNC;
   openmsg.mode = 0700;
   ret = ycl_msg_create_store_open(&msg, &openmsg);
   if (ret != YCL_OK) {

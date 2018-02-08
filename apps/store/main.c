@@ -190,7 +190,7 @@ static int run_put(const char *socket, const char *id, const char *filename) {
   }
 
   openmsg.path = filename;
-  openmsg.flags = O_WRONLY | O_CREAT;
+  openmsg.flags = O_WRONLY | O_CREAT | O_TRUNC;
   openmsg.mode = 0700;
   ret = ycl_msg_create_store_open(&msg, &openmsg);
   if (ret != YCL_OK) {

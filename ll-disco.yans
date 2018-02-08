@@ -95,6 +95,14 @@ local function lldisco(scanner, params)
                   res.ip4_src, res.eth_src))
               dedup[dedupstr] = true
             end
+          elseif res.ip6_src and res.ip6_src ~= "::" then
+            print(res.ip6_src)
+            local dedupstr = string.format("%s_%s", res.ip6_src, res.eth_src)
+            if not dedup[dedupstr] then
+              reswriter:write(string.format("ip6|%s|%s|%s\n", ifname,
+                  res.ip6_src, res.eth_src))
+              dedup[dedupstr] = true
+            end
           end
         end -- TODO: log unknown response packet?
       end

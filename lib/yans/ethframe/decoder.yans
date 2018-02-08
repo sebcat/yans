@@ -15,6 +15,15 @@ local function fmt_ip4_addr(ipnum)
       (ipnum >> 8) & 0xff, ipnum & 0xff)
 end
 
+local function fmt_ip6_addr(data, startoff)
+  startoff = startoff or 1
+  local endoff = startoff + 15
+  local substr = string.sub(data, startoff, endoff)
+  -- this is pretty ugly, move to a C function?
+  return tostring(ip.addr(string.format("%x:%x:%x:%x:%x:%x:%x:%x",
+      string.unpack(">I2I2I2I2I2I2I2I2", substr))))
+end
+
 local function decode_tcp(data, res)
   if #data < 20 then return end
   local off_flags, doff
@@ -67,7 +76,9 @@ local function decode_arp(data, res)
 end
 
 local function decode_ip6(data, res)
-  print("decode_ip6: NYI")
+  if #data < 20 then return end
+  res.ip6_src = fmt_ip6_addr(data, 9)
+  res.ip6_dst = fmt_ip6_addr(data, 25)
 end
 
 local eth_decoders = {

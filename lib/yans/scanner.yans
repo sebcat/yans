@@ -61,13 +61,16 @@ local function netconf_from_routes(routes)
   -- format response
   local resp = {}
   for index, name in pairs(ifnames) do
-    local entry = {}
-    entry.ifname = name
-    entry.ifaddr = tostring(ethaddrs[index])
-    entry.ip4_srcs = ip4srcs[name]
-    entry.ip6_srcs = ip6srcs[name]
-    entry.ip4_dsts = ip4dsts[index]
-    table.insert(resp, entry)
+    local ip4_srcs, ip6_srcs = ip4srcs[name], ip6srcs[name]
+    if #ip4_srcs + #ip6_srcs > 0 then
+      table.insert(resp, {
+        ifname = name,
+        ifaddr = tostring(ethaddrs[index]),
+        ip4_srcs = ip4_srcs,
+        ip6_srcs = ip6_srcs,
+        ip4_dsts = ip4dsts[index],
+      })
+    end
   end
   return resp
 end

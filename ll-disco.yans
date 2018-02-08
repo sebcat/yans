@@ -54,7 +54,7 @@ local function lldisco(scanner, params)
   local netconf = scanner:get_netconf()
   scanner:print_netconf(netconf)
 
-  if not params.scanless then
+  if not params.nonet then
     send_packets(scanner, netconf)
   end
 
@@ -105,7 +105,7 @@ local function lldisco(scanner, params)
 end
 
 local p = opts:new()
-p:flag("scanless", "n", "do not send or receive any data")
+p:flag("nonet", "n", "do not send or receive any data")
 p:str("store", "s", "store ID to use")
 p:flag("help", "h", "this text")
 local params = p:parse(args)

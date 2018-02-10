@@ -1,121 +1,13 @@
 #!/usr/bin/env yans
 
 Scanner = require"scanner"
-PacketReader = require"ethframe.reader"
-PacketDecoder = require"ethframe.decoder"
-
-local function send_packets(scanner, netconf)
-  -- send link-local discovery frames for all source addresses
-  for _, entry in pairs(netconf) do
-    -- setup the capture for this interface (mode: 448 == 0700)
-    -- XXX: This filter does not guarantee hosts to be on the local network.
-    local ifname, ifaddr = entry.ifname, entry.ifaddr
-    local fmt = "(not ether src %s) and (arp[6:2] = 2 or icmp or udp or ip6)"
-    local filter = string.format(fmt, ifaddr)
-    local filename = string.format("disco-%s.pcap", ifname)
-    local fd = scanner:store_open(filename,
-        ycl.O_CREAT | ycl.O_WRONLY | ycl.O_TRUNC, 448)
-    print(string.format("%s: %s", filename, filter))
-    scanner:pcap_start(fd, ifname, filter)
-    util.nanosleep(0, 500000000) -- wait a bit to establish the capture
-
-    for _, ip4_src in pairs(entry.ip4_srcs) do
-      scanner:send_packets{
-        iface = ifname,
-        categories = "arp-req|ll-disco",
-        eth_src = ifaddr,
-        ip_src = ip4_src,
-        ip_dsts = table.concat(entry.ip4_dsts, " "),
-      }
-    end
-
-    for _, ip6_src in pairs(entry.ip6_srcs) do
-      scanner:send_packets{
-        iface = ifname,
-        categories = "ll-disco",
-        eth_src = ifaddr,
-        ip_src = ip6_src,
-      }
-    end
-
-    util.nanosleep(3,0) -- wait a bit for incoming frames
-    scanner:pcap_stop()
-  end
-end
-
-local function lldisco(scanner, params)
-  params = params or {}
-
-  -- setup the store
-  local store_id = scanner:store_enter(params.store)
-  print("STORE   ", store_id)
-  print("---")
-
-  -- get the network configuration
-  local netconf = scanner:get_netconf()
-  scanner:print_netconf(netconf)
-
-  if not params.nonet then
-    send_packets(scanner, netconf)
-  end
-
-  -- Aggregate result from captured frames. Avoid keeping too much data in
-  -- memory at the same time. We use tables for deduplication, and we keep
-  -- the output format simple. Since interfaces, IP and Ethernet addresses are
-  -- of a specific character set, and lines are easy to parse, we use CSV.
-  -- However, care should be taken to be absolutely sure that the data does
-  -- not contain any delimiters, because escaping in CSV is a PITA across
-  -- different parsers. We may want to consider other formats for that.
-
-  local reswriter = scanner:store_open("result.csv",
-      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448):to_stream("wb")
-
-  for _, entry in pairs(netconf) do
-    local dedup = {}
-    local ifname = entry.ifname
-    local filename = string.format("disco-%s.pcap", ifname)
-    local stream = scanner:store_open(filename, ycl.O_RDONLY):to_stream("rb")
-    local reader = PacketReader:open(stream)
-    if reader then
-      for sec, frac, data in reader:next() do
-        local res = PacketDecoder:decode(data)
-        if res then
-          if res.arp_oper == 2 and
-              res.arp_tha == res.eth_dst and
-              res.arp_sha == res.eth_src then
-            local dedupstr = string.format("%s_%s", res.arp_spa, res.eth_src)
-            if not dedup[dedupstr] then
-              reswriter:write(string.format("arp|%s|%s|%s\n", ifname,
-                  res.arp_spa, res.eth_src))
-              dedup[dedupstr] = true
-            end
-          elseif res.ip4_src then
-            local dedupstr = string.format("%s_%s", res.ip4_src, res.eth_src)
-            if not dedup[dedupstr] then
-              reswriter:write(string.format("ip4|%s|%s|%s\n", ifname,
-                  res.ip4_src, res.eth_src))
-              dedup[dedupstr] = true
-            end
-          elseif res.ip6_src and res.ip6_src ~= "::" then
-            print(res.ip6_src)
-            local dedupstr = string.format("%s_%s", res.ip6_src, res.eth_src)
-            if not dedup[dedupstr] then
-              reswriter:write(string.format("ip6|%s|%s|%s\n", ifname,
-                  res.ip6_src, res.eth_src))
-              dedup[dedupstr] = true
-            end
-          end
-        end -- TODO: log unknown response packet?
-      end
-    end
-    stream:close()
-  end
-  reswriter:close()
-end
+Disco = require"scans.disco"
 
 local p = opts:new()
 p:flag("nonet", "n", "do not send or receive any data")
 p:str("store", "s", "store ID to use")
+p:flag("passive", "p", "do not send any packets")
+p:int("linger", "l", "number of seconds to wait for incoming packets")
 p:flag("help", "h", "this text")
 local params = p:parse(args)
 if params.help then
@@ -123,6 +15,7 @@ if params.help then
 else
   local scanner = Scanner:new() -- setup the scanner
   cgi.init()                    -- enter sandbox (TODO: params from env.vars)
-  lldisco(scanner, params)
+  local disco = Disco:new(params)
+  disco:run(scanner)
 end
 

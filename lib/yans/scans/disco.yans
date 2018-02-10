@@ -1,0 +1,159 @@
+local PacketReader = require"ethframe.reader"
+local PacketDecoder = require"ethframe.decoder"
+local global_filter = [[
+
+  (arp[6:2] = 2) or
+  (src net 10.0.0.0/8) or
+  (src net 172.16.0.0/12) or
+  (src net 192.168.0.0/16) or
+  (src net 100.64.0.0/10) or
+  (src net 169.254.0.0/16) or
+  (src net fc00:0000:0000:0000:0000:0000:0000:0000/7) or
+  (src net fe80:0000:0000:0000:0000:0000:0000:0000/10) or
+  (src net fec0:0000:0000:0000:0000:0000:0000:0000/10)]]
+
+local _M = {
+  nonet = false,    -- no sending or receiving of data
+  store = nil,      -- if non-nil, the store ID to use
+  passive = false,  -- no sending of packets
+  linger = 3,       -- number of seconds to wait for packets
+}
+
+function _M:new(o)
+  o = o or {}
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:run(scanner)
+  -- setup the store
+  local store_id = scanner:store_enter(self.store)
+  print("STORE   ", store_id)
+  print("---")
+
+  -- get the network configuration
+  local netconf = scanner:get_netconf()
+  scanner:print_netconf(netconf)
+
+  local ifaces
+  if not self.nonet then
+    ifaces = self:send_recv_packets(scanner, netconf)
+  end
+
+  -- Aggregate result from captured frames. Avoid keeping too much data in
+  -- memory at the same time. We use tables for deduplication, and we keep
+  -- the output format simple. Since interfaces, IP and Ethernet addresses are
+  -- of a specific character set, and lines are easy to parse, we use CSV.
+  -- However, care should be taken to be absolutely sure that the data does
+  -- not contain any delimiters, because escaping in CSV is a PITA across
+  -- different parsers. We may want to consider other formats for that.
+  local reswriter = scanner:store_open("disco-result.csv",
+      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448):to_stream("wb")
+
+  if not ifaces then
+    ifaces = self:get_ifaces()
+  end
+
+  for ifname in string.gmatch(ifaces, "%S+") do
+    local dedup = {}
+    local filename = string.format("disco-%s.pcap", ifname)
+    local stream = scanner:store_open(filename, ycl.O_RDONLY):to_stream("rb")
+    local reader = PacketReader:open(stream)
+    if reader then
+      for sec, frac, data in reader:next() do
+        local res = PacketDecoder:decode(data)
+        if res then
+          if res.arp_oper == 2 and
+              res.arp_tha == res.eth_dst and
+              res.arp_sha == res.eth_src then
+            local dedupstr = string.format("%s_%s", res.arp_spa, res.eth_src)
+            if not dedup[dedupstr] then
+              reswriter:write(string.format("arp|%s|%s|%s\n", ifname,
+                  res.arp_spa, res.eth_src))
+              dedup[dedupstr] = true
+            end
+          elseif res.ip4_src then
+            local dedupstr = string.format("%s_%s", res.ip4_src, res.eth_src)
+            if not dedup[dedupstr] then
+              reswriter:write(string.format("ip4|%s|%s|%s\n", ifname,
+                  res.ip4_src, res.eth_src))
+              dedup[dedupstr] = true
+            end
+          elseif res.ip6_src then
+            local dedupstr = string.format("%s_%s", res.ip6_src, res.eth_src)
+            if not dedup[dedupstr] then
+              reswriter:write(string.format("ip6|%s|%s|%s\n", ifname,
+                  res.ip6_src, res.eth_src))
+              dedup[dedupstr] = true
+            end
+          end
+        end -- TODO: log unknown response packet?
+      end
+    end
+    stream:close()
+  end
+  reswriter:close()
+end
+
+function _M:store_ifaces(scanner, ifaces)
+  local data = string.format("%s\n", ifaces)
+  local stream = scanner:store_open("disco-ifaces.txt",
+      ycl.O_CREAT | ycl.O_WRONLY | ycl.O_TRUNC, 448):to_stream("wb")
+  stream:write(data)
+  stream:close()
+end
+
+function _M:get_ifaces(scanner)
+  local stream = scanner:store_open("disco-ifaces.txt",
+      ycl.O_RDONLY):to_stream("rb")
+  local ifaces = stream:read("a")
+  stream:close()
+  return ifaces
+end
+
+function _M:send_recv_packets(scanner, netconf)
+  local ifaces = {}
+  for _, entry in pairs(netconf) do
+    -- setup the capture for this interface (mode: 448 == 0700)
+    local ifname, ifaddr = entry.ifname, entry.ifaddr
+    local fmt = "(not ether src %s) and %s"
+    local filter = string.format(fmt, ifaddr, global_filter)
+    local filename = string.format("disco-%s.pcap", ifname)
+    local fd = scanner:store_open(filename,
+        ycl.O_CREAT | ycl.O_WRONLY | ycl.O_TRUNC, 448)
+    print(string.format("%s: %s", filename, filter))
+    scanner:pcap_start(fd, ifname, filter)
+    util.nanosleep(0, 500000000) -- wait a bit to establish the capture
+
+    if not self.passive then
+      for _, ip4_src in pairs(entry.ip4_srcs) do
+        scanner:send_packets{
+          iface = ifname,
+          categories = "arp-req|ll-disco",
+          eth_src = ifaddr,
+          ip_src = ip4_src,
+          ip_dsts = table.concat(entry.ip4_dsts, " "),
+        }
+      end
+
+      for _, ip6_src in pairs(entry.ip6_srcs) do
+        scanner:send_packets{
+          iface = ifname,
+          categories = "ll-disco",
+          eth_src = ifaddr,
+          ip_src = ip6_src,
+        }
+      end
+    end
+
+    util.nanosleep(self.linger, 0) -- wait a bit for incoming frames
+    scanner:pcap_stop()
+    table.insert(ifaces, ifname)
+  end
+  ifaces = table.concat(ifaces, " ")
+  self:store_ifaces(scanner, ifaces)
+  return ifaces
+end
+
+return _M

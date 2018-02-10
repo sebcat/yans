@@ -4,8 +4,8 @@
 
 ### Ubuntu
 
-- build: build-essential flex bison
-- build/run: libpcap-dev libseccomp-dev libcap-dev
+- build only: build-essential flex bison
+- build/run (without -dev): libpcap-dev libseccomp-dev libcap-dev zlib1g-dev
 
 ## Architecture
 

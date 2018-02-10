@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <lib/util/zfile.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 #include <lib/lua/ycl.h>
@@ -126,13 +127,24 @@ static int l_fdtostream(lua_State *L) {
 
   lfd = checkyclfd(L, 1);
   mode = luaL_checkstring(L, 2);
-  s = lua_newuserdata(L, sizeof(luaL_Stream));
-  luaL_setmetatable(L, LUA_FILEHANDLE);
-  fp = fdopen(lfd->fd, mode);
-  if (fp == NULL) {
-    return luaL_error(L, "%s", strerror(errno));
+
+  if (lfd->fd < 0) {
+    return luaL_error(L, "to_stream called on closed fd");
   }
 
+  if (strncmp(mode, "zlib:", 5) == 0) {
+    fp = zfile_fdopen(lfd->fd, mode + 5);
+  } else {
+    fp = fdopen(lfd->fd, mode);
+  }
+
+  if (fp == NULL) {
+    return luaL_error(L, "to_stream: %s",
+        (errno == 0) ? "unknown error" : strerror(errno));
+  }
+
+  s = lua_newuserdata(L, sizeof(luaL_Stream));
+  luaL_setmetatable(L, LUA_FILEHANDLE);
   s->f = fp;
   s->closef = &l_streamclose;
   lfd->fd = -1; /* to avoid double-close, the stream object now owns the fd */

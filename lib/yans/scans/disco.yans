@@ -48,8 +48,8 @@ function _M:run(scanner)
   -- However, care should be taken to be absolutely sure that the data does
   -- not contain any delimiters, because escaping in CSV is a PITA across
   -- different parsers. We may want to consider other formats for that.
-  local reswriter = scanner:store_open("disco-result.csv",
-      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448):to_stream("wb")
+  local reswriter = scanner:store_open("disco-result.csv.gz",
+      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448):to_stream("zlib:wb")
 
   if not ifaces then
     ifaces = self:get_ifaces()
@@ -57,8 +57,9 @@ function _M:run(scanner)
 
   for ifname in string.gmatch(ifaces, "%S+") do
     local dedup = {}
-    local filename = string.format("disco-%s.pcap", ifname)
-    local stream = scanner:store_open(filename, ycl.O_RDONLY):to_stream("rb")
+    local filename = string.format("disco-%s.pcap.gz", ifname)
+    local stream = scanner:store_open(filename,
+        ycl.O_RDONLY):to_stream("zlib:rb")
     local reader = PacketReader:open(stream)
     if reader then
       for sec, frac, data in reader:next() do
@@ -119,11 +120,11 @@ function _M:send_recv_packets(scanner, netconf)
     local ifname, ifaddr = entry.ifname, entry.ifaddr
     local fmt = "(not ether src %s) and (%s)"
     local filter = string.format(fmt, ifaddr, global_filter)
-    local filename = string.format("disco-%s.pcap", ifname)
+    local filename = string.format("disco-%s.pcap.gz", ifname)
     local fd = scanner:store_open(filename,
         ycl.O_CREAT | ycl.O_WRONLY | ycl.O_TRUNC, 448)
     print(string.format("%s: %s", filename, filter))
-    scanner:pcap_start(fd, ifname, filter)
+    scanner:pcap_start(fd, ifname, filter) -- pcap_start closes fd
     util.nanosleep(0, 500000000) -- wait a bit to establish the capture
 
     if not self.passive then

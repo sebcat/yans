@@ -10,6 +10,7 @@ yans_DEPS = \
     lib/util/eds.c \
     lib/util/sandbox.c \
     lib/util/netstring.c \
+    lib/util/zfile.c \
     lib/net/punycode.c \
     lib/net/ports.c \
     lib/net/route.c \
@@ -48,7 +49,7 @@ yans_YANSTESTS = \
 yans_OBJS = ${yans_SOURCES:.c=.o}
 
 yans_LDADD_Linux = -lseccomp
-yans_LDADD := -lm ${yans_LDADD_${UNAME_S}}
+yans_LDADD := -lz -lm ${yans_LDADD_${UNAME_S}}
 
 yans_BIN = apps/yans/yans
 

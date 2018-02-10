@@ -5,6 +5,7 @@ ethd_DEPS = \
     lib/util/netstring.c \
     lib/util/eds.c \
     lib/util/ylog.c \
+    lib/util/zfile.c \
     lib/util/flagset.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c \
@@ -27,7 +28,7 @@ ethd_HEADERS = \
 ethd_OBJS = ${ethd_SOURCES:.c=.o}
 
 ethd_LDADD_Linux = -lcap
-ethd_LDADD := -lpcap ${ethd_LDADD_${UNAME_S}}
+ethd_LDADD := -lz -lpcap ${ethd_LDADD_${UNAME_S}}
 
 ethd_BIN = apps/ethd/ethd
 

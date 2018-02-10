@@ -11,6 +11,7 @@ lib_util_SOURCES = \
     lib/util/sandbox.c \
     lib/util/u8.c \
     lib/util/ylog.c \
+    lib/util/zfile.c \
     lib/util/u8_test.c \
     lib/util/netstring_test.c \
     lib/util/conf_test.c \
@@ -29,7 +30,8 @@ lib_util_HEADERS = \
     lib/util/prng.h \
     lib/util/sandbox.h \
     lib/util/u8.h \
-    lib/util/ylog.h
+    lib/util/ylog.h \
+    lib/util/zfile.h
 
 lib_util_u8_test_DEPS = \
 	lib/util/u8.c

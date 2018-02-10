@@ -7,6 +7,7 @@
 
 #include <lib/util/io.h>
 #include <lib/util/ylog.h>
+#include <lib/util/zfile.h>
 #include <lib/util/netstring.h>
 
 #include <lib/ycl/ycl_msg.h>
@@ -264,9 +265,10 @@ static void on_read_fd(struct eds_client *cli, int fd) {
     goto done;
   }
 
-  fp = fdopen(pcapfd, "w");
+  fp = zfile_fdopen(pcapfd, "wb");
   if (fp == NULL) {
-    ylog_error("pcapcli%d: fdopen: %s", fd, strerror(errno));
+    ylog_error("pcapcli%d: zfile_open: %s", fd,
+        (errno == 0) ? "unknown error" : strerror(errno));
     goto cleanup_pcapfd;
   }
 

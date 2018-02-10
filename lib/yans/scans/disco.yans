@@ -117,7 +117,7 @@ function _M:send_recv_packets(scanner, netconf)
   for _, entry in pairs(netconf) do
     -- setup the capture for this interface (mode: 448 == 0700)
     local ifname, ifaddr = entry.ifname, entry.ifaddr
-    local fmt = "(not ether src %s) and %s"
+    local fmt = "(not ether src %s) and (%s)"
     local filter = string.format(fmt, ifaddr, global_filter)
     local filename = string.format("disco-%s.pcap", ifname)
     local fd = scanner:store_open(filename,

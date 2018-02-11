@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include <apps/dnstres/resolver.h>
+#include <lib/net/dnstres.h>
 
 struct dnstres_hosts {
   /* while next and prev are a part of dnstres_hosts, they are guarded by

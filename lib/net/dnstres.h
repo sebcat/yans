@@ -1,14 +1,16 @@
 /* dnstres - threaded DNS resolver
  *
- * creates a threadpool for DNS lookups.
+ * creates a threadpool for DNS (A, AAAA) lookups using getaddrinfo,
+ * getnameinfo.
  *
  * The reason this exists is because
  *   1) getaddrinfo, getnameinfo are blocking
  *   2) getaddrinfo, getnameinfo are complex
  *
- * we want to behave the same way the system resolver does, so we might
- * as well use it. Especially if we have a local caching resolver on the
- * system, or configured search paths, or a number of other cases.
+ * In the normal case when we resolve hosts, we want to behave the same way
+ * the system resolver does, so we might as well use it. Especially if we have
+ * a local caching resolver on the system, or configured search paths, or a
+ * number of other cases.
  */
 
 #ifndef YANS_DNSTRES_H__

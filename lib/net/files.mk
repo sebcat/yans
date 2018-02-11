@@ -6,6 +6,7 @@ lib_net_SOURCES = \
     lib/net/ports.c \
     lib/net/punycode.c \
     lib/net/route.c \
+    lib/net/dnstres.c \
     lib/net/url.c
 
 lib_net_HEADERS = \
@@ -16,6 +17,7 @@ lib_net_HEADERS = \
     lib/net/ports.h \
     lib/net/punycode.h \
     lib/net/route.h \
+    lib/net/dnstres.h \
     lib/net/url.h
 
 lib_net_CTESTSRCS = \

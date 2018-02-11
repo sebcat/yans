@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include <apps/dnstres/resolver.h>
+#include <lib/net/dnstres.h>
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t donecond = PTHREAD_COND_INITIALIZER;
@@ -76,7 +76,6 @@ int main(int argc, char *argv[]) {
     pthread_cond_wait(&donecond, &mutex);
   }
   pthread_mutex_unlock(&mutex);
-
   dnstres_pool_free(p);
   return 0;
 }

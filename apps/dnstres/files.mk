@@ -1,14 +1,17 @@
-tresdns_SOURCES = \
-    apps/dnstres/resolver.c \
-    apps/dnstres/tresdns.c
+dnstres_DEPS = \
+    lib/net/dnstres.c
 
-tresdns_HEADERS = \
-    apps/dnstres/resolver.h
+dnstres_DEPSOBJS = ${dnstres_DEPS:.c=.o}
 
-tresdns_OBJS = ${tresdns_SOURCES:.c=.o}
+dnstres_SOURCES = \
+    apps/dnstres/dnstres.c
 
-tresdns_LDADD = -lpthread
+dnstres_OBJS = ${dnstres_SOURCES:.c=.o}
 
-nodist_BINS += apps/dnstres/tresdns
-OBJS += $(tresdns_OBJS)
+dnstres_LDADD = -lpthread
+
+dnstres_BIN = apps/dnstres/dnstres
+
+OBJS += $(dnstres_OBJS)
+nodist_BINS += $(dnstres_BIN)
 

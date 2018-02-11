@@ -1,5 +1,6 @@
 
-$(tresdns_OBJS): $(tresdns_SOURCES) $(tresdns_HEADERS)
+$(dnstres_OBJS): $(dnstres_DEPSOBJS) $(dnstres_SOURCES) $(dnstres_HEADERS)
 
-apps/dnstres/tresdns: $(tresdns_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(tresdns_OBJS) $(LDFLAGS) $(tresdns_LDADD)
+$(dnstres_BIN): $(dnstres_OBJS)
+	$(CC) $(CFLAGS) -o $(dnstres_BIN) $(dnstres_DEPSOBJS) $(dnstres_OBJS) \
+		$(LDFLAGS) $(dnstres_LDADD)

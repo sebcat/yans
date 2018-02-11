@@ -1,4 +1,3 @@
-/* clang -g -o ff -I. apps/dnstres/resolver.c apps/dnstres/tresdns.c -lpthread */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,23 +18,24 @@ static void my_on_done(void *data) {
 
 static void my_on_resolved(void *data, const char *host, const char *addr) {
   flockfile(stdout);
-  fprintf(stdout, "host:\"%s\" addr:\"%s\"\n", host, addr);
+  fprintf(stdout, "%s %s\n", host, addr);
   funlockfile(stdout);
 }
 
 int main(int argc, char *argv[]) {
-  struct dtr_pool *p;
+  struct dnstres_pool *p;
   size_t nstarted;
   char buf[256];
   int nthreads;
-  struct dtr_request req = {
+  int stacksize = 0;
+  struct dnstres_request req = {
     .on_resolved = my_on_resolved,
     .on_done = my_on_done,
   };
-  struct dtr_pool_opts opts = {0};
+  struct dnstres_pool_opts opts = {0};
 
-  if (argc != 2) {
-    fprintf(stderr, "usage: %s <nthreads>\n", argv[0]);
+  if (argc < 2) {
+    fprintf(stderr, "usage: %s <nthreads> [stacksize] \n", argv[0]);
     return EXIT_FAILURE;
   }
 
@@ -45,18 +45,29 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  if (argc >= 3) {
+    stacksize = atoi(argv[2]);
+    if (stacksize <= PTHREAD_STACK_MIN) {
+      stacksize = 0;
+    }
+  }
+
   opts.nthreads = (unsigned short)nthreads;
-  p = dtr_pool_new(&opts);
+  opts.stacksize = (stacksize > 0) ? (size_t)stacksize : 0;
+  p = dnstres_pool_new(&opts);
   if (p == NULL) {
-    fprintf(stderr, "dtr_pool_new failure\n");
+    fprintf(stderr, "dnstres_pool_new failure\n");
     return EXIT_FAILURE;
   }
 
-  /* start all the jobs until EOF (ctrl+D usually). They may become done
-   * before we start checking done status */
+  fprintf(stderr, "started %d threads, stacksize: %d (0=default)\n",
+    nthreads, stacksize);
+
+  /* start all the jobs until EOF (ctrl+D or end of piped data). The requests
+   * may complete before we start checking done status, but that's OK. */
   for(nstarted = 0; fgets(buf, sizeof(buf), stdin); nstarted++) {
     req.hosts = buf;
-    dtr_pool_add_hosts(p, &req);
+    dnstres_pool_add_hosts(p, &req);
   }
 
   /* wait for completion */
@@ -66,6 +77,6 @@ int main(int argc, char *argv[]) {
   }
   pthread_mutex_unlock(&mutex);
 
-  dtr_pool_free(p);
+  dnstres_pool_free(p);
   return 0;
 }

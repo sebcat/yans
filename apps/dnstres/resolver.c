@@ -10,40 +10,40 @@
 
 #include <apps/dnstres/resolver.h>
 
-struct dtr_hosts {
-  /* while next and prev are a part of dtr_hosts, they are guarded by
-   * the mutex in dtr_pool. */
-  struct dtr_hosts *prev;
-  struct dtr_hosts *next;
+struct dnstres_hosts {
+  /* while next and prev are a part of dnstres_hosts, they are guarded by
+   * the mutex in dnstres_pool. */
+  struct dnstres_hosts *prev;
+  struct dnstres_hosts *next;
   _Atomic(int) refcount; /* inited to 1, when it reaches zero, obj is freed */
-  struct dtr_request req; /* not protected by a lock, user must lock */
+  struct dnstres_request req; /* not protected by a lock, user must lock */
   pthread_mutex_t host_mutex; /* protects next_host, hosts */
   char *next_host; /* ptr into hosts to the start of the next entry, or end */
   char hosts[];    /* string of DTR_DELIMS separated hosts to resolve */
 };
 
-struct dtr_pool {
+struct dnstres_pool {
   pthread_mutex_t mutex;
   pthread_cond_t nonempty; /* broadcasted condition on insertion */
   bool done;
-  const struct dtr_pool_opts opts;
+  const struct dnstres_pool_opts opts;
   /* first_host and last_host are the start and end of a non-circular
-   * double-linked list of dtr_hosts */
-  struct dtr_hosts *first_host;
-  struct dtr_hosts *last_host;
+   * double-linked list of dnstres_hosts */
+  struct dnstres_hosts *first_host;
+  struct dnstres_hosts *last_host;
   pthread_t threads[]; /* thread IDs of spawned threads */
 };
 
 static void *resolver(void *data); /* resolver thread */
 
-/* create a new dtr_hosts entry, which contains a NULL-terminated string
+/* create a new dnstres_hosts entry, which contains a NULL-terminated string
  * of DTR_DELIMS-separated hosts to resolve. The '\0'-terminator is added by
- * dtr_hosts_new when the string is copied from hoststr. The internal
+ * dnstres_hosts_new when the string is copied from hoststr. The internal
  * string is modified to chunk out pointers to the string for various threads
  * to work with. */
-static struct dtr_hosts *dtr_hosts_new(struct dtr_request *req) {
+static struct dnstres_hosts *dnstres_hosts_new(struct dnstres_request *req) {
   int ret;
-  struct dtr_hosts *res;
+  struct dnstres_hosts *res;
   size_t len;
 
   if (req->hosts == NULL) {
@@ -51,7 +51,7 @@ static struct dtr_hosts *dtr_hosts_new(struct dtr_request *req) {
   }
 
   len = strlen(req->hosts);
-  res = calloc(1, sizeof(struct dtr_hosts) + len + 1);
+  res = calloc(1, sizeof(struct dnstres_hosts) + len + 1);
   if (res == NULL) {
     return NULL;
   }
@@ -69,7 +69,7 @@ static struct dtr_hosts *dtr_hosts_new(struct dtr_request *req) {
   return res;
 }
 
-static void _dtr_hosts_cleanup(struct dtr_hosts *h) {
+static void _dnstres_hosts_cleanup(struct dnstres_hosts *h) {
   if (h->req.on_done) {
     h->req.on_done(h->req.data);
   }
@@ -77,25 +77,26 @@ static void _dtr_hosts_cleanup(struct dtr_hosts *h) {
   free(h);
 }
 
-/* give back a reference to dtr_hosts, free it if there's no more references
- * to it */
-static inline void dtr_hosts_put(struct dtr_hosts *h) {
+/* give back a reference to dnstres_hosts, free it if there's no more
+ * references to it */
+static inline void dnstres_hosts_put(struct dnstres_hosts *h) {
   /* the '1' is not a typo -- it's fetch_sub and not sub_fetch */
   if (atomic_fetch_sub(&h->refcount, 1) == 1) {
-    _dtr_hosts_cleanup(h);
+    _dnstres_hosts_cleanup(h);
   }
 }
 
-/* get a reference to a dtr_hosts */
-static inline void dtr_hosts_get(struct dtr_hosts *h) {
+/* get a reference to a dnstres_hosts */
+static inline void dnstres_hosts_get(struct dnstres_hosts *h) {
   atomic_fetch_add(&h->refcount, 1);
 }
 
 /* modifies h->hosts. Returns a pointer to the next DTR_DELIMS delimited host
  * name, or NULL if the end is reached. the optional 'outlen' is filled with
  * the length of the name, not including the terminator. Multiple threads
- * can hold pointers into h->hosts, which is why dtr_hosts are refcounted. */
-static char *_dtr_hosts_next(struct dtr_hosts *h, size_t *outlen) {
+ * can hold pointers into h->hosts, which is why dnstres_hosts are
+ * refcounted. */
+static char *_dnstres_hosts_next(struct dnstres_hosts *h, size_t *outlen) {
   size_t off;
   char *curr;
 
@@ -125,18 +126,18 @@ static char *_dtr_hosts_next(struct dtr_hosts *h, size_t *outlen) {
   return curr;
 }
 
-static char *dtr_hosts_next(struct dtr_hosts *h, size_t *outlen) {
+static char *dnstres_hosts_next(struct dnstres_hosts *h, size_t *outlen) {
   char *ret;
 
   pthread_mutex_lock(&h->host_mutex);
-  ret = _dtr_hosts_next(h, outlen);
+  ret = _dnstres_hosts_next(h, outlen);
   pthread_mutex_unlock(&h->host_mutex);
   return ret;
 }
 
-void dtr_pool_free(struct dtr_pool *p) {
-  struct dtr_hosts *curr;
-  struct dtr_hosts *next;
+void dnstres_pool_free(struct dnstres_pool *p) {
+  struct dnstres_hosts *curr;
+  struct dnstres_hosts *next;
   size_t i;
 
   pthread_mutex_lock(&p->mutex);
@@ -147,7 +148,7 @@ void dtr_pool_free(struct dtr_pool *p) {
   pthread_cond_broadcast(&p->nonempty);
   while (curr) {
     next = curr->next;
-    dtr_hosts_put(curr);
+    dnstres_hosts_put(curr);
     curr = next;
   }
 
@@ -158,13 +159,14 @@ void dtr_pool_free(struct dtr_pool *p) {
   }
 }
 
-struct dtr_pool *dtr_pool_new(struct dtr_pool_opts *opts) {
+struct dnstres_pool *dnstres_pool_new(struct dnstres_pool_opts *opts) {
+  pthread_attr_t attrs;
   unsigned short curr_thread;
-  struct dtr_pool *p;
+  struct dnstres_pool *p;
   int ret;
-  /* opts in dtr_pool should be const, so we set up a temporary struct
+  /* opts in dnstres_pool should be const, so we set up a temporary struct
    * on the stack and memcpy it to p */
-  struct dtr_pool tmp = {
+  struct dnstres_pool tmp = {
     .first_host = NULL,
     .last_host = NULL,
     .opts = *opts,
@@ -191,22 +193,36 @@ struct dtr_pool *dtr_pool_new(struct dtr_pool_opts *opts) {
     goto cleanup_mutex;
   }
 
+  ret = pthread_attr_init(&attrs);
+  if (ret != 0) {
+    goto cleanup_cond;
+  }
+
+  if (opts->stacksize > PTHREAD_STACK_MIN) {
+    pthread_attr_setstacksize(&attrs, opts->stacksize);
+  }
+
   for (curr_thread = 0; curr_thread < opts->nthreads; curr_thread++) {
     ret = pthread_create(&p->threads[curr_thread], NULL, resolver, p);
     if (ret != 0 && curr_thread == 0) {
       /* we couldn't start the first thread - error out */
-      goto cleanup_cond;
+      goto cleanup_attr;
     }
   }
 
   /* NB: Since this is intended to run as a daemon, we don't wait for the
-   *     threads to actually start. If we call dtr_pool_add_hosts and follow
-   *     that by calling dtr_pool_free, it is likely that the done flag will
-   *     be set before the threads are started, causing them to terminate
-   *     immediately without doing any resolving */
+   *   threads to actually start. If we call dnstres_pool_add_hosts and follow
+   *   that by calling dnstres_pool_free, it is likely that the done flag will
+   *   be set before the threads are started, causing them to terminate
+   *   immediately without doing any resolving. If we want to resolve
+   *   everything before termination, or have any other semantics, that can
+   *   usually be implemented in the user callbacks. */
 
+  pthread_attr_destroy(&attrs);
   return p;
 
+cleanup_attr:
+  pthread_attr_destroy(&attrs);
 cleanup_cond:
   pthread_cond_destroy(&p->nonempty);
 cleanup_mutex:
@@ -217,11 +233,12 @@ fail:
   return NULL;
 }
 
-void dtr_pool_add_hosts(struct dtr_pool *p, struct dtr_request *req) {
-  struct dtr_hosts *h;
+void dnstres_pool_add_hosts(struct dnstres_pool *p,
+    struct dnstres_request *req) {
+  struct dnstres_hosts *h;
 
   /* allocate a new hosts entry */
-  h = dtr_hosts_new(req);
+  h = dnstres_hosts_new(req);
   if (h == NULL) {
     if (req->on_done) {
       req->on_done(req->data);
@@ -235,7 +252,7 @@ void dtr_pool_add_hosts(struct dtr_pool *p, struct dtr_request *req) {
   pthread_mutex_lock(&p->mutex);
   if (p->done) {
     pthread_mutex_unlock(&p->mutex);
-    dtr_hosts_put(h);
+    dnstres_hosts_put(h);
     return;
   } else if (p->last_host == NULL) {
     assert(p->first_host == NULL);
@@ -250,20 +267,20 @@ void dtr_pool_add_hosts(struct dtr_pool *p, struct dtr_request *req) {
 }
 
 /* NB: needs to be called while holding p->mutex */
-static char *dtr_pool_get_host(struct dtr_pool *p, size_t *hostlen,
-    struct dtr_hosts **outh) {
+static char *dnstres_pool_get_host(struct dnstres_pool *p, size_t *hostlen,
+    struct dnstres_hosts **outh) {
   char *cptr;
-  struct dtr_hosts *h;
+  struct dnstres_hosts *h;
 
   if (p->first_host == NULL) {
     /* we have no host entries at all, exit */
     goto empty;
   }
 
-  while ((cptr = dtr_hosts_next(p->first_host, hostlen)) == NULL) {
+  while ((cptr = dnstres_hosts_next(p->first_host, hostlen)) == NULL) {
     /* we have a host entry, but it's depleted. Remove it. */
     h = p->first_host->next;
-    dtr_hosts_put(p->first_host);
+    dnstres_hosts_put(p->first_host);
     p->first_host = h;
 
     if (h == NULL) {
@@ -277,10 +294,10 @@ static char *dtr_pool_get_host(struct dtr_pool *p, size_t *hostlen,
   }
 
   /* at this point, we have a non-empty host value pointed to by cptr. This
-   * value points into a dtr_hosts structure, so we take a reference to it.
+   * value points into a dnstres_hosts structure, so we take a reference to it.
    * The reference count must be decremented when we're done with the host
-   * value, which is why we pass along the dtr_hosts entry to the caller */
-  dtr_hosts_get(p->first_host);
+   * value, which is why we pass along the dnstres_hosts entry to the caller */
+  dnstres_hosts_get(p->first_host);
   *outh = p->first_host;
   return cptr;
 
@@ -288,7 +305,8 @@ empty:
   return NULL;
 }
 
-static void resolve(struct dtr_hosts *h, const char *host, size_t hostlen) {
+static void resolve(struct dnstres_hosts *h, const char *host,
+    size_t hostlen) {
   struct addrinfo hints = {0};
   struct addrinfo *addrs;
   struct addrinfo *curr;
@@ -321,8 +339,8 @@ static void resolve(struct dtr_hosts *h, const char *host, size_t hostlen) {
 static void *resolver(void *data) {
   char *host;
   size_t hostlen;
-  struct dtr_pool *p = data;
-  struct dtr_hosts *h;
+  struct dnstres_pool *p = data;
+  struct dnstres_hosts *h;
 
   while (1) {
     pthread_mutex_lock(&p->mutex);
@@ -331,13 +349,13 @@ again:
       pthread_mutex_unlock(&p->mutex);
       return NULL;
     }
-    if ((host = dtr_pool_get_host(p, &hostlen, &h)) == NULL) {
+    if ((host = dnstres_pool_get_host(p, &hostlen, &h)) == NULL) {
       pthread_cond_wait(&p->nonempty, &p->mutex);
       goto again;
     }
     pthread_mutex_unlock(&p->mutex);
     resolve(h, host, hostlen);
-    dtr_hosts_put(h);
+    dnstres_hosts_put(h);
   }
 }
 

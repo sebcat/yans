@@ -1,5 +1,7 @@
 /* dnstres - threaded DNS resolver
  *
+ * creates a threadpool for DNS lookups.
+ *
  * The reason this exists is because
  *   1) getaddrinfo, getnameinfo are blocking
  *   2) getaddrinfo, getnameinfo are complex
@@ -15,15 +17,15 @@
 /* string representing a set of delimiters */
 #define DTR_DELIMS "\r\n\t ,"
 
+typedef struct dnstres_pool dnstres_pool_t;
 
-typedef struct dtr_pool dtr_pool_t;
-
-struct dtr_pool_opts {
-  unsigned short nthreads;
+struct dnstres_pool_opts {
+  unsigned short nthreads; /* number of threads in the threadpool */
+  size_t stacksize; /* thread stack size -- be careful with this one */
 };
 
 /* resolve request. Callbacks will be called from threads, so lock your data */
-struct dtr_request {
+struct dnstres_request {
   /* hosts: \0-terminated string of hosts to resolve separated by char(s)
    * in DTR_DELIMS */
   const char *hosts;
@@ -33,8 +35,13 @@ struct dtr_request {
 };
 
 /* create a new resolver pool */
-dtr_pool_t *dtr_pool_new(struct dtr_pool_opts *opts);
-void dtr_pool_free(dtr_pool_t *p);
-void dtr_pool_add_hosts(struct dtr_pool *p, struct dtr_request *req);
+dnstres_pool_t *dnstres_pool_new(struct dnstres_pool_opts *opts);
+
+/* free an existing pool - currently ongoing requests needs to be completed
+ * but queued requests will be removed */
+void dnstres_pool_free(dnstres_pool_t *p);
+
+/* add a list of domains to the resolve queue */
+void dnstres_pool_add_hosts(struct dnstres_pool *p, struct dnstres_request *req);
 
 #endif

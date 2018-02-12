@@ -5,23 +5,29 @@ clid_DEPS = \
     lib/util/eds.c \
     lib/util/ylog.c \
     lib/util/netstring.c \
+    lib/util/zfile.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c \
     lib/net/iface.c \
+    lib/net/dnstres.c \
     lib/net/route.c
 
 clid_DEPSOBJS = ${clid_DEPS:.c=.o}
 
 clid_SOURCES = \
     apps/clid/routes.c \
+    apps/clid/resolver.c \
     apps/clid/main.c
 
 clid_HEADERS = \
+    apps/clid/resolver.h \
     apps/clid/routes.h
 
 clid_OBJS = ${clid_SOURCES:.c=.o}
 
 clid_BIN = apps/clid/clid
+
+clid_LDADD = -lz -lpthread
 
 OBJS += $(clid_OBJS)
 BINS += $(clid_BIN)

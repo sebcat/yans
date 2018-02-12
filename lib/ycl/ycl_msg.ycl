@@ -61,6 +61,10 @@ route_resp {
   data ip6_srcs;
 }
 
+resolver_req {
+  str hosts;
+}
+
 ##
 ## knegd messages
 ##

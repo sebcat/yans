@@ -10,6 +10,7 @@
 #include <lib/util/os.h>
 
 #include <apps/clid/routes.h>
+#include <apps/clid/resolver.h>
 
 #define DAEMON_NAME "clid"
 
@@ -19,6 +20,7 @@ struct opts {
   uid_t uid;
   gid_t gid;
   int no_daemon;
+  int nresolvers;
 };
 
 static void on_svc_error(struct eds_service *svc, const char *err) {
@@ -28,8 +30,8 @@ static void on_svc_error(struct eds_service *svc, const char *err) {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  " DAEMON_NAME " [-s <name>] -u <user> -g <group> -b <basepath>\n"
-      "  " DAEMON_NAME " [-s <name>] -n -b <basepath>\n"
+      "  " DAEMON_NAME " [opts] -u <user> -g <group> -b <basepath>\n"
+      "  " DAEMON_NAME " [opts] -n -b <basepath>\n"
       "  " DAEMON_NAME " -h\n"
       "\n"
       "options:\n"
@@ -38,6 +40,7 @@ static void usage() {
       "  -b, --basepath:  working directory basepath\n"
       "  -s, --single:    name of single service to start\n"
       "  -n, --no-daemon: do not daemonize\n"
+      "  -r, --resolvers: number of concurrent resolvers\n"
       "  -h, --help:      this text\n");
   exit(EXIT_FAILURE);
 }
@@ -45,13 +48,14 @@ static void usage() {
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:ns:h";
+  static const char *optstr = "u:g:b:ns:r:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
     {"basepath", required_argument, NULL, 'b'},
     {"single", required_argument, NULL, 's'},
     {"no-daemon", no_argument, NULL, 'n'},
+    {"resolvers", required_argument, NULL, 'r'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -62,6 +66,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
+  opts->nresolvers = 0;
 
   while ((ch = getopt_long(argc, argv, optstr, longopts, NULL)) != -1) {
     switch (ch) {
@@ -86,6 +91,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
       case 'n':
         opts->no_daemon = 1;
         break;
+      case 'r':
+        opts->nresolvers = atoi(optarg);
+        break;
       case 'h':
       default:
         usage();
@@ -94,13 +102,17 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
 
   /* sanity check opts */
   if (opts->basepath == NULL) {
+    fprintf(stderr, "missing basepath\n");
     usage();
   } else if (opts->basepath[0] != '/') {
     fprintf(stderr, "basepath must be an absolute path\n");
-    exit(EXIT_FAILURE);
+    usage();
   } else if (opts->no_daemon == 0 && (opts->gid == 0 || opts->uid == 0)) {
     fprintf(stderr, "daemon must run as unprivileged user:group\n");
-    exit(EXIT_FAILURE);
+    usage();
+  } else if (opts->nresolvers < 0 || opts->nresolvers > 100) {
+    fprintf(stderr, "invalid resolver argument\n");
+    usage();
   }
 }
 
@@ -121,12 +133,28 @@ int main(int argc, char *argv[]) {
       .on_svc_error = on_svc_error,
       .nprocs = 1,
     },
+    {
+      .name = "resolver",
+      .path = "resolver.sock",
+      .udata_size = sizeof(struct resolver_cli),
+      .actions = {
+        .on_readable = resolver_on_readable,
+        .on_done = resolver_on_done,
+      },
+      .mod_init = resolver_init,
+      .on_svc_error = on_svc_error,
+      .nprocs = 1,
+    },
     {0},
   };
   int status = EXIT_SUCCESS;
   int ret;
 
   parse_args_or_die(&opts, argc, argv);
+  if (opts.nresolvers > 0) {
+    resolver_set_nresolvers((unsigned short)opts.nresolvers);
+  }
+
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {

@@ -1,0 +1,21 @@
+Store = require "svcs.store"
+Resolver = require "svcs.resolver"
+
+store = Store:new{path="./lel/stored.sock"}
+resolver = Resolver:new{sockpath="./lel/resolver.sock", store=store}
+
+cgi.init() -- enter sandbox
+
+local id = store:enter()
+print("STORE:", id)
+
+resolver:resolve("trololo.gz", "www.svd.se www.aftonbladet.se www.reddit.com")
+for line in resolver:get_result_stream("trololo.gz"):lines() do
+  print(line)
+end
+
+resolver:resolve("trololo.gz", {"niagara.se", "boston.com", "example.com"})
+for line in resolver:get_result_stream("trololo.gz"):lines() do
+  print(line)
+end
+

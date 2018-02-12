@@ -11,10 +11,15 @@
  * the system resolver does, so we might as well use it. Especially if we have
  * a local caching resolver on the system, or configured search paths, or a
  * number of other cases.
+ *
+ * Since this is threaded, care should be taken when using it in processes that
+ * needs to handle signals (e.g., daemons).
  */
 
 #ifndef YANS_DNSTRES_H__
 #define YANS_DNSTRES_H__
+
+#include <stddef.h>
 
 /* string representing a set of delimiters */
 #define DTR_DELIMS "\r\n\t ,"

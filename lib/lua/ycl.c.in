@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
+
 #include <lib/util/zfile.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
@@ -106,6 +108,25 @@ static int l_fdget(lua_State *L) {
   lfd = checkyclfd(L, 1);
   lua_pushinteger(L, (lua_Integer)lfd->fd);
   return 1;
+}
+
+static int l_fdwait(lua_State *L) {
+  struct pollfd pfd;
+  struct l_fd *lfd;
+  int ret;
+
+  lfd = checkyclfd(L, 1);
+  pfd.fd = lfd->fd;
+  pfd.events = POLLIN | POLLERR;
+  do {
+    ret = poll(&pfd, 1, INFTIM);
+  } while (ret < 0 && errno == EINTR);
+
+  if (ret < 0) {
+    return luaL_error(L, "poll: %s", strerror(errno));
+  }
+
+  return 0;
 }
 
 static int l_streamclose(lua_State *L) {
@@ -297,6 +318,7 @@ static const struct luaL_Reg yclfd_m[] = {
   {"__gc", l_fdclose},
   {"close", l_fdclose},
   {"get", l_fdget},
+  {"wait", l_fdwait},
   {"to_stream", l_fdtostream},
   {NULL, NULL},
 };

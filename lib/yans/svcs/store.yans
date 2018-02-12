@@ -1,0 +1,41 @@
+local _M = {
+
+}
+
+function _M:new(o)
+  assert(o.path, "missing store path")
+  o.sock = ycl.connect(o.path)
+  o.msgbuf = ycl.msg()
+  o.store_id = nil -- will be set on when enter is called, set here for doc
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:enter(store_id)
+  assert(not self.store_id, "attempted entering store more than once")
+  self.msgbuf:create_store_enter{
+    store_id = store_id,
+  }
+  self.sock:sendmsg(self.msgbuf)
+  self.sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+  store_id = resp.okmsg
+  assert(store_id and #store_id > 0, "invalid store ID from service")
+  self.store_id = store_id
+  return store_id
+end
+
+function _M:open(path, flags, mode)
+  assert(self.store_id, "open called in store that was not entered")
+  self.msgbuf:create_store_open{
+    path = path,
+    flags = flags,
+    mode = mode,
+  }
+  self.sock:sendmsg(self.msgbuf)
+  return self.sock:recvfd()
+end
+
+return _M

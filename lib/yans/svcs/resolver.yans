@@ -1,0 +1,47 @@
+local _M = {
+
+}
+
+function _M:new(o)
+  assert(o.sockpath, "missing sockpath")
+  assert(o.store, "missing store")
+  o.sock = ycl.connect(o.sockpath)
+  o.msgbuf = ycl.msg()
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:resolve(dstfile, hosts)
+  -- validate parameters
+  assert(type(dstfile) == "string", "missing or invalid dstfile")
+  if type(hosts) == "table" then
+    hosts = table.concat(hosts, " ")
+  elseif type(hosts) ~= "string" then
+    error("missing or invalid hosts")
+  end
+
+  -- create the resolver request
+  self.msgbuf:create_resolver_req{hosts = hosts}
+
+  -- open the destination file for writing (448 == 0700) and send it
+  local dstfd = self.store:open(dstfile,
+      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448)
+  self.sock:sendfd(dstfd)
+
+  -- send the resolver request
+  self.sock:sendmsg(self.msgbuf)
+
+  -- receive the fd which signals done
+  local closefd = self.sock:recvfd()
+
+  -- wait for completion
+  closefd:wait()
+  closefd:close()
+end
+
+function _M:get_result_stream(file)
+  return self.store:open(file, ycl.O_RDONLY):to_stream("zlib:rb")
+end
+
+return _M

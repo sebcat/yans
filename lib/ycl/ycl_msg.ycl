@@ -65,6 +65,16 @@ resolver_req {
   str hosts;
 }
 
+connector_req {
+  long nretries;
+  long reuse_addr;
+  str proto;
+  str bindaddr;
+  str bindport;
+  str dstaddr;
+  str dstport;
+}
+
 ##
 ## knegd messages
 ##

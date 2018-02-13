@@ -49,17 +49,17 @@ static void *sigthread(void *data) {
 
   ret = sigwait(&sigset_, &sig);
   if (ret != 0) {
-    ylog_error("sigwait failure");
+    LOGERR("sigwait failure");
     exit(1);
   }
 
   if (sig == SIGHUP || sig == SIGINT || sig == SIGTERM) {
     /* TODO: we should probably have a thread safe ylog backend for this */
-    ylog_error("caught signal %d, shutting down", sig);
+    LOGERR("caught signal %d, shutting down", sig);
     dnstres_pool_free(trespool_);
     exit(0);
   } else {
-    ylog_error("unexpected signal %d", sig);
+    LOGERR("unexpected signal %d", sig);
     exit(1);
   }
   return NULL;
@@ -82,14 +82,14 @@ int resolver_init(struct eds_service *svc) {
   sigaddset(&sigset_, SIGTERM);
   ret = pthread_sigmask(SIG_BLOCK, &sigset_, NULL);
   if (ret != 0) {
-    ylog_error("resolver: sigmask setup failure");
+    LOGERR("resolver: sigmask setup failure");
     return -1;
   }
 
   /* create the pool of resolver threads */
   trespool_ = dnstres_pool_new(&opts);
   if (trespool_ == NULL) {
-    ylog_error("resolver: failed to start resolver pool");
+    LOGERR("resolver: failed to start resolver pool");
     return -1;
   }
 
@@ -97,7 +97,7 @@ int resolver_init(struct eds_service *svc) {
    * created */
   ret = pthread_create(&sigthread_, NULL, sigthread, NULL);
   if (ret != 0) {
-    ylog_error("resolver: unable to create signal handler thread");
+    LOGERR("resolver: unable to create signal handler thread");
     dnstres_pool_free(trespool_);
     return -1;
   }

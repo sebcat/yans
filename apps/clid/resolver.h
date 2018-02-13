@@ -19,5 +19,6 @@ void resolver_set_nresolvers(unsigned short nresolvers);
 int resolver_init(struct eds_service *svc);
 void resolver_on_readable(struct eds_client *cli, int fd);
 void resolver_on_done(struct eds_client *cli, int fd);
+void resolver_on_finalize(struct eds_client *cli);
 
 #endif

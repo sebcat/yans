@@ -8,9 +8,9 @@
 
 #include <lib/util/ylog.h>
 #include <lib/util/prng.h>
+#include <lib/util/nullfd.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
-#include <apps/stored/nullfd.h>
 #include <apps/stored/store.h>
 
 #define STORE_PATH "store"

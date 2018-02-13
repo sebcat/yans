@@ -9,7 +9,7 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
-#include <apps/stored/nullfd.h>
+#include <lib/util/nullfd.h>
 #include <apps/stored/store.h>
 
 #define DAEMON_NAME "stored"

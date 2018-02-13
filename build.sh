@@ -9,7 +9,7 @@ CFLAGS_release="-Os -pipe -fvisibility=hidden \
 LDFLAGS_release="-Wl,--gc-sections"
 # -Wl,--build-id=none
 
-CFLAGS_debug="-O0 -g -DYANS_DEBUG -fsanitize=address"
+CFLAGS_debug="-O0 -g -DYANS_DEBUG -fsanitize=address -fstack-protector-strong"
 LDFLAGS_debug=""
 
 die() {

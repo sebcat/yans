@@ -6,11 +6,13 @@
 #include <getopt.h>
 
 #include <lib/util/eds.h>
-#include <lib/util/ylog.h>
+#include <lib/util/nullfd.h>
 #include <lib/util/os.h>
+#include <lib/util/ylog.h>
 
 #include <apps/clid/routes.h>
 #include <apps/clid/resolver.h>
+#include <apps/clid/connector.h>
 
 #define DAEMON_NAME "clid"
 
@@ -140,8 +142,21 @@ int main(int argc, char *argv[]) {
       .actions = {
         .on_readable = resolver_on_readable,
         .on_done = resolver_on_done,
+        .on_finalize = resolver_on_finalize,
       },
       .mod_init = resolver_init,
+      .on_svc_error = on_svc_error,
+      .nprocs = 1,
+    },
+    {
+      .name = "connector",
+      .path = "connector.sock",
+      .udata_size = sizeof(struct connector_cli),
+      .actions = {
+        .on_readable = connector_on_readable,
+        .on_done = connector_on_done,
+        .on_finalize = connector_on_finalize,
+      },
       .on_svc_error = on_svc_error,
       .nprocs = 1,
     },
@@ -155,11 +170,17 @@ int main(int argc, char *argv[]) {
     resolver_set_nresolvers((unsigned short)opts.nresolvers);
   }
 
+  ret = nullfd_init();
+  if (ret < 0) {
+    ylog_error("failed to initialize nullfd: %s", strerror(errno));
+    return EXIT_FAILURE;
+  }
+
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {
       ylog_error("chdir %s: %s", opts.basepath, strerror(errno));
-      return EXIT_FAILURE;
+      goto fail;
     }
   } else {
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
@@ -170,7 +191,7 @@ int main(int argc, char *argv[]) {
     daemon_opts.nagroups = 0;
     if (os_daemonize(&os, &daemon_opts) != OS_OK) {
       ylog_error("%s", os_strerror(&os));
-      return EXIT_FAILURE;
+      goto fail;
     }
   }
 
@@ -195,5 +216,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  nullfd_cleanup();
   return status;
+fail:
+  nullfd_cleanup();
+  return EXIT_FAILURE;
 }

@@ -2,6 +2,7 @@ stored_DEPS = \
     lib/util/io.c \
     lib/util/buf.c \
     lib/util/netstring.c \
+    lib/util/nullfd.c \
     lib/util/os.c \
     lib/util/ylog.c \
     lib/util/eds.c \
@@ -12,12 +13,10 @@ stored_DEPS = \
 stored_DEPSOBJS = ${stored_DEPS:.c=.o}
 
 stored_SOURCES = \
-    apps/stored/nullfd.c \
     apps/stored/store.c \
     apps/stored/main.c
 
 stored_HEADERS = \
-    apps/stored/nullfd.h \
     apps/stored/store.h
 
 stored_OBJS = ${stored_SOURCES:.c=.o}

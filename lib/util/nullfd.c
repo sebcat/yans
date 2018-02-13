@@ -1,7 +1,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <apps/stored/nullfd.h>
+#include <lib/util/nullfd.h>
 
 static int nullfd_ = -1;
 

@@ -1,25 +1,29 @@
 clid_DEPS = \
-    lib/util/io.c \
-    lib/util/os.c \
     lib/util/buf.c \
     lib/util/eds.c \
-    lib/util/ylog.c \
+    lib/util/io.c \
     lib/util/netstring.c \
+    lib/util/nullfd.c \
+    lib/util/os.c \
+    lib/util/ylog.c \
     lib/util/zfile.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c \
     lib/net/iface.c \
+    lib/net/sconn.c \
     lib/net/dnstres.c \
     lib/net/route.c
 
 clid_DEPSOBJS = ${clid_DEPS:.c=.o}
 
 clid_SOURCES = \
+    apps/clid/connector.c \
     apps/clid/routes.c \
     apps/clid/resolver.c \
     apps/clid/main.c
 
 clid_HEADERS = \
+    apps/clid/connector.h \
     apps/clid/resolver.h \
     apps/clid/routes.h
 

@@ -5,6 +5,7 @@ lib_util_SOURCES = \
     lib/util/flagset.c \
     lib/util/io.c \
     lib/util/netstring.c \
+    lib/util/nullfd.c \
     lib/util/os.c \
     lib/util/os_test.c \
     lib/util/prng.c \

@@ -1,0 +1,31 @@
+local _M = {
+
+}
+
+function _M:new(o)
+  assert(o.path, "missing connector path")
+  o.sock = ycl.connect(o.path)
+  o.msgbuf = ycl.msg()
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:connect(opts)
+  assert(opts.proto, "missing proto")
+  assert(opts.dstaddr, "missing dstaddr")
+  assert(opts.dstaddr, "missing dstport")
+  self.msgbuf:create_connector_req{
+    nretries = opts.nretries,
+    reuse_addr = opts.reuse_addr,
+    proto = opts.proto,
+    bindaddr = opts.bindaddr,
+    bindport = opts.bindport,
+    dstaddr = opts.dstaddr,
+    dstport = opts.dstport,
+  }
+  self.sock:sendmsg(self.msgbuf)
+  return self.sock:recvfd()
+end
+
+return _M

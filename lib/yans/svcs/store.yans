@@ -27,12 +27,11 @@ function _M:enter(store_id)
   return store_id
 end
 
-function _M:open(path, flags, mode)
+function _M:open(path, flags)
   assert(self.store_id, "open called in store that was not entered")
   self.msgbuf:create_store_open{
     path = path,
     flags = flags,
-    mode = mode,
   }
   self.sock:sendmsg(self.msgbuf)
   return self.sock:recvfd()

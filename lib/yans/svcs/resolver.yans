@@ -24,9 +24,9 @@ function _M:resolve(dstfile, hosts)
   -- create the resolver request
   self.msgbuf:create_resolver_req{hosts = hosts}
 
-  -- open the destination file for writing (448 == 0700) and send it
+  -- open the destination file for writing and send it
   local dstfd = self.store:open(dstfile,
-      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC, 448)
+      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC)
   self.sock:sendfd(dstfd)
 
   -- send the resolver request

@@ -122,12 +122,11 @@ function _M:store_enter(store_id)
   return store_id
 end
 
-function _M:store_open(path, flags, mode)
+function _M:store_open(path, flags)
   assert(self.store_id, "store_open without preceding store_enter")
   self.msgbuf:create_store_open{
     path = path,
     flags = flags,
-    mode = mode,
   }
   self.store_sock:sendmsg(self.msgbuf)
   return self.store_sock:recvfd()

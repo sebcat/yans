@@ -42,7 +42,6 @@ store_enter {
 store_open {
   str path;
   long flags;
-  long mode;
 }
 
 ##

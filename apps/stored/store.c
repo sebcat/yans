@@ -258,7 +258,11 @@ static void on_readopen(struct eds_client *cli, int fd) {
   }
 
   snprintf(dirpath, sizeof(dirpath), "%s/%s", ecli->store_path, req.path);
-  open_fd = open(dirpath, (int)req.flags, (mode_t)req.mode);
+  if ((int)req.flags & O_CREAT) {
+    open_fd = open(dirpath, (int)req.flags, 0600);
+  } else {
+    open_fd = open(dirpath, (int)req.flags);
+  }
   if (open_fd < 0) {
     ecli->open_errno = errno;
     LOGERRF(fd, "%s: failed to open %s: %s", STORE_ID(ecli), req.path,

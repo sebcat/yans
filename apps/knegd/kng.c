@@ -169,10 +169,10 @@ static char **mkenvp(struct ycl_msg_knegd_req *req, const char *id) {
   }
 
   ENVP_VAR("PATH", "/usr/local/bin:/bin:/usr/bin");
-  ENVP_VAR("KNEGD_ID", id);
-  ENVP_VAR("KNEGD_TYPE", req->type);
+  ENVP_VAR("YANS_ID", id);
+  ENVP_VAR("YANS_TYPE", req->type);
   for (i = 0; i < req->nparams; i++) {
-    ENVP_PARAM("KNEGDP", req->params[i]);
+    ENVP_PARAM("YANSP", req->params[i]);
   }
 
   assert(off <= req->nparams + 2);

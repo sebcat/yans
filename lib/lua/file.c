@@ -1,9 +1,9 @@
-#include <lib/lua/fts.h>
+#include <lib/lua/file.h>
 #include <fts.h>
 #include <string.h>
 #include <errno.h>
 
-#define MTNAME_FTS "fts.T"
+#define MTNAME_FTS "file.FTS"
 #define DFL_MAXDEPTH 128
 
 #define checkfts(L, i) \
@@ -39,15 +39,15 @@ static int l_walk_iter(lua_State *L) {
   return 3;
 }
 
-static int l_walk(lua_State *L) {
+static int l_fts(lua_State *L) {
   struct fts_data *data;
-  const char * path[2];
+  const char *path[2];
   lua_Integer maxdepth;
   int isnum = 0;
 
   path[1] = NULL;
   path[0] = luaL_checkstring(L, 1);
-  maxdepth = lua_tointegerx (L, 2, &isnum);
+  maxdepth = lua_tointegerx(L, 2, &isnum);
   if (!isnum) {
     maxdepth = DFL_MAXDEPTH;
   }
@@ -67,7 +67,7 @@ static int l_walk(lua_State *L) {
   return 1;
 }
 
-static int l_gc(lua_State *L) {
+static int l_ftsgc(lua_State *L) {
   struct fts_data *data;
 
   data = checkfts(L, 1);
@@ -78,12 +78,12 @@ static int l_gc(lua_State *L) {
 }
 
 static const struct luaL_Reg fts_f[] = {
-  {"walk", l_walk},
+  {"fts", l_fts},
   {NULL, NULL}
 };
 
 static const struct luaL_Reg fts_t[] = {
-  {"__gc", l_gc},
+  {"__gc", l_ftsgc},
   {NULL, NULL},
 };
 
@@ -91,22 +91,22 @@ static const struct {
   const char *name;
   lua_Integer val;
 } g_intconsts[] = {
-  {"D", FTS_D},
-  {"DC", FTS_DC},
-  {"DEFAULT", FTS_DEFAULT},
-  {"DNR", FTS_DNR},
-  {"DOT",FTS_DOT},
-  {"DP", FTS_DP},
-  {"ERR", FTS_ERR},
-  {"F", FTS_F},
-  {"NS", FTS_NS},
-  {"NSOK", FTS_NSOK},
-  {"SL", FTS_SL},
-  {"SLNONE", FTS_SLNONE},
+  {"FTS_D", FTS_D},
+  {"FTS_DC", FTS_DC},
+  {"FTS_DEFAULT", FTS_DEFAULT},
+  {"FTS_DNR", FTS_DNR},
+  {"FTS_DOT",FTS_DOT},
+  {"FTS_DP", FTS_DP},
+  {"FTS_ERR", FTS_ERR},
+  {"FTS_F", FTS_F},
+  {"FTS_NS", FTS_NS},
+  {"FTS_NSOK", FTS_NSOK},
+  {"FTS_SL", FTS_SL},
+  {"FTS_SLNONE", FTS_SLNONE},
   {NULL, 0},
 };
 
-int luaopen_fts(lua_State *L) {
+int luaopen_file(lua_State *L) {
   int i;
 
   luaL_newmetatable(L, MTNAME_FTS);

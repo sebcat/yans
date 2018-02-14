@@ -23,7 +23,7 @@ yans_DEPS = \
     lib/lua/ycl.c \
     lib/lua/cgi.c \
     lib/lua/eds.c \
-    lib/lua/fts.c \
+    lib/lua/file.c \
     lib/lua/http.c \
     lib/lua/json.c \
     lib/lua/net.c \

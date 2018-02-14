@@ -9,9 +9,9 @@ CFLAGS_release="-Os -pipe -fvisibility=hidden \
 LDFLAGS_release="-Wl,--gc-sections"
 # -Wl,--build-id=none
 
-CFLAGS_debug="-O0 -g -pipe -DYANS_DEBUG -fsanitize=address \
+CFLAGS_dev="-O0 -g -pipe -DYANS_DEBUG -fsanitize=address \
 -fstack-protector-strong"
-LDFLAGS_debug=""
+LDFLAGS_dev=""
 
 die() {
   printf '%s\n' "$1" >&2
@@ -19,7 +19,7 @@ die() {
 }
 
 [ -z "$NCPUS" ] && NCPUS=2
-[ "$1" != release -a "$1" != debug ] && die "usage: $0 <release|debug>"
+[ "$1" != release -a "$1" != dev ] && die "usage: $0 <release|dev>"
 BUILDTYPE=$1
 LASTBUILD=$(cat .lastbuild 2>/dev/null || exit 0)
 
@@ -29,9 +29,9 @@ export CC=$(command -v clang40 || command -v clang || command -v gcc)
 if [ "$BUILDTYPE" = release ]; then
   export CFLAGS=$CFLAGS_release
   export LDFLAGS=$LDFLAGS_release
-elif [ "$BUILDTYPE" = debug ]; then
-  export CFLAGS=$CFLAGS_debug
-  export LDFLAGS=$LDFLAGS_debug
+elif [ "$BUILDTYPE" = dev ]; then
+  export CFLAGS=$CFLAGS_dev
+  export LDFLAGS=$LDFLAGS_dev
 else
   die "invalid build type"
 fi

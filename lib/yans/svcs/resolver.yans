@@ -26,7 +26,7 @@ function _M:resolve(dstfile, hosts)
 
   -- open the destination file for writing and send it
   local dstfd = self.store:open(dstfile,
-      ycl.O_WRONLY | ycl.O_CREAT | ycl.O_TRUNC)
+      file.O_WRONLY | file.O_CREAT | file.O_TRUNC)
   self.sock:sendfd(dstfd)
 
   -- send the resolver request
@@ -40,8 +40,8 @@ function _M:resolve(dstfile, hosts)
   closefd:close()
 end
 
-function _M:get_result_stream(file)
-  return self.store:open(file, ycl.O_RDONLY):to_stream("zlib:rb")
+function _M:get_result_stream(srcfile)
+  return self.store:open(srcfile, file.O_RDONLY):to_stream("zlib:rb")
 end
 
 return _M

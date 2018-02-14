@@ -1,13 +1,21 @@
-#include <lib/lua/file.h>
 #include <fts.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <poll.h>
+
+#include <lib/lua/file.h>
+#include <lib/util/zfile.h>
 
 #define MTNAME_FTS "file.FTS"
 #define DFL_MAXDEPTH 128
 
 #define checkfts(L, i) \
     ((struct fts_data *)luaL_checkudata((L), (i), MTNAME_FTS))
+
+#define checkyclfd(L, i) \
+  ((struct file_fd *)luaL_checkudata(L, (i), FILE_MTNAME_FD))
 
 struct fts_data {
   FTS *fts;
@@ -77,15 +85,92 @@ static int l_ftsgc(lua_State *L) {
   return 0;
 }
 
-static const struct luaL_Reg fts_f[] = {
-  {"fts", l_fts},
-  {NULL, NULL}
-};
+int file_mkfd(lua_State *L, int fd) {
+  struct file_fd *lfd;
+  lfd = lua_newuserdata(L, sizeof(struct file_fd));
+  lfd->fd = fd;
+  luaL_setmetatable(L, FILE_MTNAME_FD);
+  return 1;
+}
 
-static const struct luaL_Reg fts_t[] = {
-  {"__gc", l_ftsgc},
-  {NULL, NULL},
-};
+static int l_fdclose(lua_State *L) {
+  struct file_fd *lfd;
+  lfd = checkyclfd(L, 1);
+  if (lfd->fd >= 0) {
+    close(lfd->fd);
+    lfd->fd = -1;
+  }
+  return 0;
+}
+
+static int l_fdget(lua_State *L) {
+  struct file_fd *lfd;
+  lfd = checkyclfd(L, 1);
+  lua_pushinteger(L, (lua_Integer)lfd->fd);
+  return 1;
+}
+
+static int l_fdwait(lua_State *L) {
+  struct pollfd pfd;
+  struct file_fd *lfd;
+  int ret;
+
+  lfd = checkyclfd(L, 1);
+  pfd.fd = lfd->fd;
+  pfd.events = POLLIN | POLLERR;
+  do {
+    ret = poll(&pfd, 1, INFTIM);
+  } while (ret < 0 && errno == EINTR);
+
+  if (ret < 0) {
+    return luaL_error(L, "poll: %s", strerror(errno));
+  }
+
+  return 0;
+}
+
+static int l_streamclose(lua_State *L) {
+  luaL_Stream *s;
+
+  s = (luaL_Stream*)luaL_checkudata(L, 1, LUA_FILEHANDLE);
+  if (s->f) {
+    fclose(s->f);
+  }
+  s->f = NULL;
+  return 0;
+}
+
+static int l_fdtostream(lua_State *L) {
+  struct file_fd *lfd;
+  luaL_Stream *s;
+  const char *mode;
+  FILE *fp;
+
+  lfd = checkyclfd(L, 1);
+  mode = luaL_checkstring(L, 2);
+
+  if (lfd->fd < 0) {
+    return luaL_error(L, "to_stream called on closed fd");
+  }
+
+  if (strncmp(mode, "zlib:", 5) == 0) {
+    fp = zfile_fdopen(lfd->fd, mode + 5);
+  } else {
+    fp = fdopen(lfd->fd, mode);
+  }
+
+  if (fp == NULL) {
+    return luaL_error(L, "to_stream: %s",
+        (errno == 0) ? "unknown error" : strerror(errno));
+  }
+
+  s = lua_newuserdata(L, sizeof(luaL_Stream));
+  luaL_setmetatable(L, LUA_FILEHANDLE);
+  s->f = fp;
+  s->closef = &l_streamclose;
+  lfd->fd = -1; /* to avoid double-close, the stream object now owns the fd */
+  return 1;
+}
 
 static const struct {
   const char *name;
@@ -103,15 +188,55 @@ static const struct {
   {"FTS_NSOK", FTS_NSOK},
   {"FTS_SL", FTS_SL},
   {"FTS_SLNONE", FTS_SLNONE},
+  {"O_APPEND", O_APPEND},
+  {"O_CREAT", O_CREAT},
+  {"O_EXCL", O_EXCL},
+  {"O_NOCTTY", O_NOCTTY},
+  {"O_NONBLOCK", O_NONBLOCK},
+  {"O_RDONLY", O_RDONLY},
+  {"O_RDWR", O_RDWR},
+  {"O_SYNC", O_SYNC},
+  {"O_TRUNC", O_TRUNC},
+  {"O_WRONLY", O_WRONLY},
   {NULL, 0},
+};
+
+static const struct luaL_Reg fd_m[] = {
+  {"__gc", l_fdclose},
+  {"close", l_fdclose},
+  {"get", l_fdget},
+  {"wait", l_fdwait},
+  {"to_stream", l_fdtostream},
+  {NULL, NULL},
+};
+
+static const struct luaL_Reg fts_m[] = {
+  {"__gc", l_ftsgc},
+  {NULL, NULL},
+};
+
+static const struct luaL_Reg file_f[] = {
+  {"fts", l_fts},
+  {NULL, NULL}
 };
 
 int luaopen_file(lua_State *L) {
   int i;
 
+  /* create the fts metatable */
   luaL_newmetatable(L, MTNAME_FTS);
-  luaL_setfuncs(L, fts_t, 0);
-  luaL_newlib(L, fts_f);
+  lua_pushvalue(L, -1);
+  lua_setfield(L, -2, "__index");
+  luaL_setfuncs(L, fts_m, 0);
+
+  /* create the fd metatable */
+  luaL_newmetatable(L, FILE_MTNAME_FD);
+  lua_pushvalue(L, -1);
+  lua_setfield(L, -2, "__index");
+  luaL_setfuncs(L, fd_m, 0);
+
+  /* setup the 'file' library and push constants to it */
+  luaL_newlib(L, file_f);
   for (i = 0; g_intconsts[i].name != NULL; i++) {
     lua_pushinteger(L, g_intconsts[i].val);
     lua_setfield(L, -2, g_intconsts[i].name);

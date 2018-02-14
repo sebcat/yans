@@ -9,7 +9,8 @@ CFLAGS_release="-Os -pipe -fvisibility=hidden \
 LDFLAGS_release="-Wl,--gc-sections"
 # -Wl,--build-id=none
 
-CFLAGS_debug="-O0 -g -DYANS_DEBUG -fsanitize=address -fstack-protector-strong"
+CFLAGS_debug="-O0 -g -pipe -DYANS_DEBUG -fsanitize=address \
+-fstack-protector-strong"
 LDFLAGS_debug=""
 
 die() {
@@ -40,4 +41,4 @@ if [ "$LASTBUILD" != "$BUILDTYPE" ]; then
   make -j${NCPUS} distclean
 fi
 
-make -j${NCPUS}
+make -j${NCPUS} all

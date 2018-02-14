@@ -17,7 +17,7 @@ DATAROOTDIR ?= $(PREFIX)/share
 LOCALSTATEDIR ?= /var
 
 CFLAGS ?= -Os -pipe
-CFLAGS += -Wall -Werror -I.
+CFLAGS += -Wall -Werror -Wformat -Wformat-security -I.
 CFLAGS += -DBINDIR=\"$(BINDIR)\" -DDATAROOTDIR=\"$(DATAROOTDIR)\"
 CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
 

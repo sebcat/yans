@@ -1,19 +1,26 @@
-## scand
-  - daemon for starting/running/querying/stopping/removing scans
-  - scand_req:
-    {
-      "action": <"start", "status", "stop", "remove">,
-      "id": "...", # applies to status, stop, remove
+## ethd
+  - interfaces and stuff are loaded at boot, may change during uptime
 
-      "targets": "example.com,127.0.0.1,192.168.0.1",
-      "tcp_ports": "22",
-      ...
-    }
-  - the rest can probably use status_resp
+## lua
+  - move fd from ycl to its own lib, maybe move fts to the same lib (file?)
+  - receive/transmit buffers for fd
+  - event driven poll
+  - callback system in lua, similar to eds. on_next_fd, on_readable,
+    on_writable, on_done
 
-## scan
-  - CLI for scand
-  - scan start, scan status, scan stop, scan remove
+Netfsm = require "netfsm"
+Cli = {...} -- load like: require"drivers.foo"
+function Cli:new(opts) ... end
+function Cli:on_next_fd() ... end
+function Cli:on_readable(fd) ... end
+function Cli:on_writable(fd) ... end
+function Cli:on_done(fd) ... end
+driver = Cli:new()
+Netfsm:new{
+  nconcurrent = 10,
+  nsec_timeout = 10,
+  driver = driver,
+}:run()
 
 ## ethframe
   - SSDP, MDNS, ICMP multicasts
@@ -21,18 +28,11 @@
     range instead of hard-coding?
   - generate packet generators from DSL?
 
-## clid
-  - getaddrinfo/getnameinfo service with threadpool for doing A/AAAA, PTR
-    lookups with the system resolver
-  - routing tables & interfaces
-    - implement route table support for lunix
-  - socket(2), connect(2) thingy
-
 ## lib/net/url
   - url_normalize: if we have a percent-encoding to a valid char, decode it?
 
 ## lib/net/ip
-  - make it possible to add an address to a range (r:add(ip))
+  - make it possible to add/remove an address/range to/from a range
   - have contains work on current instead of first?
 
 ## new services

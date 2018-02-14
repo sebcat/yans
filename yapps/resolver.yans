@@ -5,7 +5,7 @@ Resolver = require "svcs.resolver"
 store = Store:new{path="./lel/stored.sock"}
 resolver = Resolver:new{sockpath="./lel/resolver.sock", store=store}
 
-cgi.init() -- enter sandbox
+yans.cgi.init() -- enter sandbox
 
 local id = store:enter()
 print("STORE:", id)

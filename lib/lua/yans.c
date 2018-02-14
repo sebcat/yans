@@ -134,8 +134,6 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
     {"ip", luaopen_ip},
     {"eth", luaopen_eth},
     {"http", luaopen_http},
-    {"lpeg", luaopen_lpeg},
-    {"json", luaopen_json},
     {"cgi", luaopen_cgi},
     {"file", luaopen_file},
     {"opts", luaopen_opts},
@@ -152,11 +150,13 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+  /* setup arg0 variable, containing name of application */
   if (arg0 != NULL) {
     lua_pushstring(L, arg0);
     lua_setglobal(L, "arg0");
   }
 
+  /* setup args table, containing application arguments */
   lua_newtable(L);
   for (i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);
@@ -164,10 +164,21 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
   }
   lua_setglobal(L, "args");
 
+  /* open standard Lua libraries */
   luaL_openlibs(L);
+
+  /* load yans libraries under the 'yans' table in the global namespace */
+  lua_newtable(L);
   for (i = 0; libs[i].name != NULL; i++) {
-    luaL_requiref(L, libs[i].name, libs[i].openfunc, 1);
+    luaL_requiref(L, libs[i].name, libs[i].openfunc, 0);
+    lua_setfield(L, -2, libs[i].name);
   }
+  lua_setglobal(L, "yans");
+
+  /* load 3rd party libraries, or wrappers for 3rd party libraries, to the
+   * global namespace */
+  luaL_requiref(L, "lpeg", luaopen_lpeg, 1);
+  luaL_requiref(L, "json", luaopen_json, 1);
 
   /* setup package.path */
   t = lua_getglobal(L, "package");

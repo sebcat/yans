@@ -5,6 +5,7 @@ local _M = {
 function _M:new(o)
   assert(o.sockpath, "missing sockpath")
   assert(o.store, "missing store")
+  local ycl = yans.ycl
   o.sock = ycl.connect(o.sockpath)
   o.msgbuf = ycl.msg()
   self.__index = self
@@ -25,6 +26,7 @@ function _M:resolve(dstfile, hosts)
   self.msgbuf:create_resolver_req{hosts = hosts}
 
   -- open the destination file for writing and send it
+  local file = yans.file
   local dstfd = self.store:open(dstfile,
       file.O_WRONLY | file.O_CREAT | file.O_TRUNC)
   self.sock:sendfd(dstfd)
@@ -41,7 +43,7 @@ function _M:resolve(dstfile, hosts)
 end
 
 function _M:get_result_stream(srcfile)
-  return self.store:open(srcfile, file.O_RDONLY):to_stream("zlib:rb")
+  return self.store:open(srcfile, yans.file.O_RDONLY):to_stream("zlib:rb")
 end
 
 return _M

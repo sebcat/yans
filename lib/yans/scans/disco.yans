@@ -48,6 +48,7 @@ function _M:run(scanner)
   -- However, care should be taken to be absolutely sure that the data does
   -- not contain any delimiters, because escaping in CSV is a PITA across
   -- different parsers. We may want to consider other formats for that.
+  local file = yans.file
   local reswriter = scanner:store_open("disco-result.csv.gz",
       file.O_WRONLY | file.O_CREAT | file.O_TRUNC):to_stream("zlib:wb")
 
@@ -98,6 +99,7 @@ function _M:run(scanner)
 end
 
 function _M:store_ifaces(scanner, ifaces)
+  local file = yans.file
   local data = string.format("%s\n", ifaces)
   local stream = scanner:store_open("disco-ifaces.txt",
       file.O_CREAT | file.O_WRONLY | file.O_TRUNC):to_stream("wb")
@@ -107,13 +109,15 @@ end
 
 function _M:get_ifaces(scanner)
   local stream = scanner:store_open("disco-ifaces.txt",
-      file.O_RDONLY):to_stream("rb")
+      yans.file.O_RDONLY):to_stream("rb")
   local ifaces = stream:read("a")
   stream:close()
   return ifaces
 end
 
 function _M:send_recv_packets(scanner, netconf)
+  local file = yans.file
+  local util = yans.util
   local ifaces = {}
   for _, entry in pairs(netconf) do
     -- setup the capture for this interface

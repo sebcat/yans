@@ -20,7 +20,7 @@ local function fmt_ip6_addr(data, startoff)
   local endoff = startoff + 15
   local substr = string.sub(data, startoff, endoff)
   -- this is pretty ugly, move to a C function?
-  return tostring(ip.addr(string.format("%x:%x:%x:%x:%x:%x:%x:%x",
+  return tostring(yans.ip.addr(string.format("%x:%x:%x:%x:%x:%x:%x:%x",
       string.unpack(">I2I2I2I2I2I2I2I2", substr))))
 end
 

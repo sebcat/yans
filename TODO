@@ -2,13 +2,12 @@
   - interfaces and stuff are loaded at boot, may change during uptime
 
 ## lua
-  - move fd from ycl to its own lib, maybe move fts to the same lib (file?)
   - receive/transmit buffers for fd
   - event driven poll
   - callback system in lua, similar to eds. on_next_fd, on_readable,
     on_writable, on_done
 
-Netfsm = require "netfsm"
+Netfsm = require "netfsm" -- poll wrapper
 Cli = {...} -- load like: require"drivers.foo"
 function Cli:new(opts) ... end
 function Cli:on_next_fd() ... end

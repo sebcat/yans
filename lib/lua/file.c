@@ -114,12 +114,18 @@ static int l_fdwait(lua_State *L) {
   struct pollfd pfd;
   struct file_fd *lfd;
   int ret;
+  lua_Integer timeout;
 
   lfd = checkyclfd(L, 1);
+  timeout = luaL_optinteger(L, 2, INFTIM);
+  if (timeout < -1 || timeout > INT_MAX) {
+    return luaL_error(L, "invalid timeout value");
+  }
+
   pfd.fd = lfd->fd;
   pfd.events = POLLIN | POLLERR;
   do {
-    ret = poll(&pfd, 1, INFTIM);
+    ret = poll(&pfd, 1, (int)timeout);
   } while (ret < 0 && errno == EINTR);
 
   if (ret < 0) {

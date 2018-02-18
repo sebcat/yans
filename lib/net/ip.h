@@ -13,6 +13,8 @@
 
 #define YANS_IP_ADDR_MAXLEN 512
 
+#define IP_R4BLK_OVERFLOWED (1 << 0)
+
 typedef struct ip_addr_t {
 	union {
 		struct sockaddr sa;
@@ -33,6 +35,25 @@ struct ip_blocks {
   /* iteration state */
   size_t curr_block;
   ip_addr_t curr_addr;
+};
+
+/* 32-bit reordering block */
+struct ip_r4block {
+  int flags;
+  uint32_t mask;   /* mask (power of two modulus) */
+  uint32_t first;  /* first in range */
+  uint32_t last;   /* last in range */
+  uint32_t curr;   /* current LCG value */
+  uint32_t nitems; /* number of items in range */
+  uint32_t ival;   /* current range iterator value */
+};
+
+struct ip_r4blocks {
+  struct ip_blocks *blocks;
+  int *blockmap;
+  struct ip_r4block *ip4blocks;
+  ip_addr_t *ip6_curraddrs;
+  size_t mapindex;
 };
 
 #define ip_blocks_reset(blks)                     \
@@ -60,10 +81,18 @@ int ip_blocks_init(struct ip_blocks *blks, const char *s, int *err);
 void ip_blocks_cleanup(struct ip_blocks *blks);
 int ip_blocks_to_buf(struct ip_blocks *blks, buf_t *buf, int *err);
 
-/* Takes the first address from blks, puts it in addr and removes it from blks.
+/* Takes the first address from blks, puts it in addr and prepares the next
+ * one. When an iteration cycle is complete, the blocks are reset.
  * Returns -1 on error, 0 when blks is empty, 1 when addr is properly set */
 int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr);
 int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr);
 const char *ip_blocks_strerror(int code);
+
+void ip_r4block_init(struct ip_r4block *blk, uint32_t start, uint32_t end);
+int ip_r4block_next(struct ip_r4block *blk, uint32_t *out);
+
+int ip_r4blocks_init(struct ip_r4blocks *r4, struct ip_blocks *blks);
+void ip_r4blocks_cleanup(struct ip_r4blocks *blks);
+int ip_r4blocks_next(struct ip_r4blocks *blks, ip_addr_t *addr);
 
 #endif

@@ -13,6 +13,7 @@
 #define MTNAME_ETHADDR    "yans.EthAddr"
 #define MTNAME_BLOCK      "yans.IPBlock"
 #define MTNAME_BLOCKS     "yans.IPBlocks"
+#define MTNAME_R4BLOCKS   "yans.IPR4Blocks"
 
 #define checkipaddr(L, i) \
     ((ip_addr_t*)luaL_checkudata(L, (i), MTNAME_IPADDR))
@@ -28,6 +29,10 @@
 
 #define checkblocks(L, i) \
     ((struct ip_blocks *)luaL_checkudata(L, (i), MTNAME_BLOCKS))
+
+#define checkr4blocks(L, i) \
+    ((struct ip_r4blocks *)luaL_checkudata(L, (i), MTNAME_R4BLOCKS))
+
 
 static inline ip_addr_t *l_newipaddr(lua_State *L) {
   ip_addr_t *addr;
@@ -66,6 +71,15 @@ static inline struct ip_blocks *l_newipblocks(lua_State *L) {
 
   blks = lua_newuserdata(L, sizeof(struct ip_blocks));
   luaL_setmetatable(L, MTNAME_BLOCKS);
+  return blks;
+}
+
+static inline struct ip_r4blocks *l_newipr4blocks(lua_State *L) {
+  struct ip_r4blocks *blks;
+
+  blks = lua_newuserdata(L, sizeof(struct ip_r4blocks));
+  luaL_setmetatable(L, MTNAME_R4BLOCKS);
+  memset(blks, 0, sizeof(*blks));
   return blks;
 }
 
@@ -421,6 +435,38 @@ static int l_ipblocks_next_iter(lua_State *L) {
 static int l_ipblocks_next(lua_State *L) {
   checkblocks(L, 1);
   lua_pushcclosure(L, l_ipblocks_next_iter, 1);
+  return 1;
+}
+
+static int l_ipr4blocks_gc(lua_State *L) {
+  struct ip_r4blocks *blks = checkr4blocks(L, 1);
+  ip_r4blocks_cleanup(blks);
+  return 0;
+}
+
+static int l_ipblocks_nextr4_iter(lua_State *L) {
+  struct ip_r4blocks *iter;
+  ip_addr_t *addr;
+
+  iter = checkr4blocks(L, lua_upvalueindex(2));
+  addr = l_newipaddr(L);
+  return ip_r4blocks_next(iter, addr);
+}
+
+static int l_ipblocks_nextr4(lua_State *L) {
+  struct ip_blocks *blks;
+  struct ip_r4blocks *iter;
+  int ret;
+
+  blks = checkblocks(L, 1);
+  iter = l_newipr4blocks(L);
+  ret = ip_r4blocks_init(iter, blks);
+  if (ret < 0) {
+    return 0;
+  }
+
+  /* we keep blks in the closure for ref */
+  lua_pushcclosure(L, l_ipblocks_nextr4_iter, 2);
   return 1;
 }
 
@@ -845,7 +891,13 @@ static const struct luaL_Reg yansblocks_m[] = {
   {"__tostring", l_ipblocks_tostring},
   {"__gc", l_ipblocks_gc},
   {"next", l_ipblocks_next},
+  {"nextr4", l_ipblocks_nextr4},
   {"contains", l_ipblocks_contains},
+  {NULL, NULL},
+};
+
+static const struct luaL_Reg yansr4blocks_m[] = {
+  {"__gc", l_ipr4blocks_gc},
   {NULL, NULL},
 };
 
@@ -887,6 +939,7 @@ int luaopen_ip(lua_State *L) {
     {MTNAME_IPPORTS, yansipports_m},
     {MTNAME_BLOCK, yansblock_m},
     {MTNAME_BLOCKS, yansblocks_m},
+    {MTNAME_R4BLOCKS, yansr4blocks_m},
     {NULL, NULL},
   };
 

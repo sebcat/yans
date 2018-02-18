@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #if defined(__FreeBSD__)
 #define s6_addr8  __u6_addr.__u6_addr8
@@ -686,3 +687,247 @@ const char *ip_blocks_strerror(int code) {
   return gai_strerror(code);
 }
 
+/* returns a mask that can be used as the next power of two modulus for
+ * numbers in the range 'nitems' */
+static uint32_t calc_r4block_mask(uint32_t nitems) {
+  size_t i;
+  uint32_t mask = 0xffffffff;
+
+  for (i = 0; i < 8 * sizeof(nitems); i++) {
+    if (nitems & (1 << ((sizeof(nitems)*8 - 1) - i))) {
+      break;
+    }
+    mask = mask >> 1;
+  }
+
+  return mask;
+}
+
+void ip_r4block_init(struct ip_r4block *blk, uint32_t first, uint32_t last) {
+  uint32_t tmp;
+  uint32_t nitems;
+
+  /* make sure end is >= start */
+  if (last < first) {
+    tmp = first;
+    first = last;
+    last = tmp;
+  }
+
+  nitems = last - first;
+  blk->flags = 0;
+  blk->mask = calc_r4block_mask(nitems);
+  blk->first = blk->curr = first; /* seed curr with first & mask (& in next) */
+  blk->last = last;
+  blk->nitems = nitems;
+  blk->ival = 0;
+}
+
+int ip_r4block_next(struct ip_r4block *blk, uint32_t *out) {
+  uint32_t ival;
+  /* So, some explanation is in order. We're using an LCG
+   * (linear congruential generator) with constant parameters to
+   * deterministically reorder a range.
+   *
+   *   x_next = a * x_curr + c (mod m)
+   *
+   * The LCG with the constant parameters fullfills the Hull-Dobell theorem:
+   *   THEOREM 1. The sequence defined by the congruence relation (1) has full
+   *   period m, provided that
+   *     (i)   c is relatively prime to m;
+   *     (ii)  a == 1 (mod p) if p is a prime factor of m;
+   *     (iii) a == 1 (mod 4) if 4 is a factor of m
+   *
+   * In our case, m is the closest power of two for the range we want to
+   * reorder. c is one and a is five.
+   *
+   * Since the period will be a power of two and our range will maybe be
+   * a bit less, we reject values outside of our range. This gives us a
+   * period of our range.
+   *
+   * Further reading: RANDOM NUMBER GENERATORS, T. E. HULL and A. R. DOBELL
+   */
+
+   /* have we reached the end and potentially overflowed? reset the iterator
+    * and signal end. */
+   if (blk->ival > blk->nitems || blk->flags & IP_R4BLK_OVERFLOWED) {
+     ip_r4block_init(blk, blk->first, blk->last);
+     return 0;
+   }
+
+   do {
+     blk->curr = (blk->curr * 5 + 1) & blk->mask;
+   } while (blk->curr > blk->nitems);
+
+   *out = blk->first + blk->curr;
+   ival = blk->ival + 1;
+   if (ival < blk->ival) {
+     blk->flags &= IP_R4BLK_OVERFLOWED;
+   }
+   blk->ival = ival;
+   return 1;
+}
+
+static int ip_r4blocks_reset(struct ip_r4blocks *blks) {
+  struct ip_block_t *currblk;
+  struct ip_r4block mapgen;
+  size_t nblocks;
+  size_t i;
+  uint32_t mapval;
+  int af;
+
+  nblocks = blks->blocks->nblocks;
+  /* setup blockmap */
+  ip_r4block_init(&mapgen, 0, nblocks - 1);
+  for (i = 0; i < nblocks; i++) {
+    ip_r4block_next(&mapgen, &mapval);
+    blks->blockmap[i] = (int)mapval;
+  }
+
+  /* setup blocks and curraddrs */
+  for (i = 0; i < nblocks; i++) {
+    currblk = &blks->blocks->blocks[i];
+    af = currblk->first.u.sa.sa_family;
+    if (af == AF_INET) {
+      ip_r4block_init(&blks->ip4blocks[i],
+          ntohl(currblk->first.u.sin.sin_addr.s_addr),
+          ntohl(currblk->last.u.sin.sin_addr.s_addr));
+    } else if (af == AF_INET6) {
+      blks->ip6_curraddrs[i] = currblk->first;
+    } else {
+      /* unsupported AF */
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+int ip_r4blocks_init(struct ip_r4blocks *r4, struct ip_blocks *blks) {
+  int *blockmap;
+  struct ip_r4block *ip4blocks;
+  ip_addr_t *ip6_curraddrs;
+  int ret;
+
+  /* we use negative indices for depleted ranges, so we only support
+   * INT_MAX ranges */
+  if (blks->nblocks > INT_MAX) {
+    return -1;
+  }
+
+  r4->blocks = blks;
+
+  /* invariant: empty range */
+  if (blks->nblocks == 0) {
+    return 0;
+  }
+
+  blockmap = calloc(1, sizeof(*blockmap) * blks->nblocks);
+  if (blockmap == NULL) {
+    goto fail;
+  }
+
+  ip4blocks = calloc(1, sizeof(*ip4blocks) * blks->nblocks);
+  if (ip4blocks == NULL) {
+    goto cleanup_blockmap;
+  }
+
+  ip6_curraddrs = calloc(1, sizeof(*ip6_curraddrs) * blks->nblocks);
+  if (ip6_curraddrs == NULL) {
+    goto cleanup_ip4blocks;
+  }
+
+  r4->blockmap = blockmap;
+  r4->ip4blocks = ip4blocks;
+  r4->ip6_curraddrs = ip6_curraddrs;
+  r4->mapindex = 0;
+  ret = ip_r4blocks_reset(r4);
+  if (ret < 0) {
+    goto cleanup_ip6_curraddrs;
+  }
+
+  return 0;
+
+cleanup_ip6_curraddrs:
+  free(ip6_curraddrs);
+cleanup_ip4blocks:
+  free(ip4blocks);
+cleanup_blockmap:
+  free(blockmap);
+fail:
+  return -1;
+}
+
+void ip_r4blocks_cleanup(struct ip_r4blocks *blks) {
+  if (blks != NULL) {
+    if (blks->ip6_curraddrs) {
+      free(blks->ip6_curraddrs);
+    }
+    if (blks->ip4blocks) {
+      free(blks->ip4blocks);
+    }
+    if (blks->blockmap) {
+      free(blks->blockmap);
+    }
+    /* blks->blocks is not owned by ip_r4blocks, so not free'd here */
+  }
+}
+
+int ip_r4blocks_next(struct ip_r4blocks *blks, ip_addr_t *addr) {
+  size_t nblocks;
+  size_t curr;
+  size_t mapped_index;
+  struct ip_block_t *blk;
+  struct ip_addr_t *curraddr;
+  int af;
+  int ret;
+  uint32_t next4;
+
+  nblocks = blks->blocks->nblocks;
+  if (nblocks == 0) {
+    return 0;
+  }
+
+  /* get the next block index */
+again:
+  curr = blks->mapindex;
+  do {
+    curr = (curr + 1) % nblocks;
+  } while(curr != blks->mapindex && blks->blockmap[curr] < 0);
+
+  /* check if iterator is depleted */
+  if (curr == blks->mapindex && blks->blockmap[curr] < 0) {
+    ip_r4blocks_reset(blks);
+    return 0;
+  }
+
+  /* update mapindex with the new index and map the current block */
+  blks->mapindex = curr;
+  mapped_index = blks->blockmap[curr];
+  blk = &blks->blocks->blocks[mapped_index];
+
+  af = blk->first.u.sa.sa_family;
+  if (af == AF_INET) {
+    ret = ip_r4block_next(&blks->ip4blocks[mapped_index], &next4);
+    if (ret == 0) {
+      /* mark block as depleted and try again */
+      blks->blockmap[curr] = -1;
+      goto again;
+    }
+
+    /* copy the generated address to the result */
+    addr->u.sa.sa_family = AF_INET;
+    addr->u.sin.sin_port = 0;
+    addr->u.sin.sin_addr.s_addr = htonl(next4);
+  } else if (af == AF_INET6) {
+    curraddr = &blks->ip6_curraddrs[mapped_index];
+    *addr = *curraddr;
+    if (ip_addr_cmp(curraddr, &blk->last, NULL) < 0) {
+      ip_addr_add(curraddr, 1);
+    } else {
+      blks->blockmap[curr] = -1;
+    }
+  }
+
+  return 1;
+}

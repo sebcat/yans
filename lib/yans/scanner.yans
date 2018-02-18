@@ -63,13 +63,12 @@ local function netconf_from_routes(routes)
   for index, name in pairs(ifnames) do
     local ip4_srcs, ip6_srcs = ip4srcs[name], ip6srcs[name]
     if #ip4_srcs + #ip6_srcs > 0 then
-      table.insert(resp, {
-        ifname = name,
+      resp[name] = {
         ifaddr = tostring(ethaddrs[index]),
         ip4_srcs = ip4_srcs,
         ip6_srcs = ip6_srcs,
         ip4_dsts = ip4dsts[index],
-      })
+      }
     end
   end
   return resp
@@ -98,8 +97,8 @@ function _M:get_netconf()
 end
 
 function _M:print_netconf(netconf)
-  for _, entry in pairs(netconf) do
-    print("ifname  ", entry.ifname)
+  for ifname, entry in pairs(netconf) do
+    print("ifname  ", ifname)
     print("ifaddr  ", entry.ifaddr)
     print("ip4_srcs", table.concat(entry.ip4_srcs, " "))
     print("ip6_srcs", table.concat(entry.ip6_srcs, " "))

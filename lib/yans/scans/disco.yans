@@ -119,9 +119,9 @@ function _M:send_recv_packets(scanner, netconf)
   local file = yans.file
   local util = yans.util
   local ifaces = {}
-  for _, entry in pairs(netconf) do
+  for ifname, entry in pairs(netconf) do
     -- setup the capture for this interface
-    local ifname, ifaddr = entry.ifname, entry.ifaddr
+    local ifaddr = entry.ifaddr
     local fmt = "(not ether src %s) and (%s)"
     local filter = string.format(fmt, ifaddr, global_filter)
     local filename = string.format("disco-%s.pcap.gz", ifname)

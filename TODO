@@ -7,19 +7,31 @@
   - callback system in lua, similar to eds. on_next_fd, on_readable,
     on_writable, on_done
 
-Netfsm = require "netfsm" -- poll wrapper
-Cli = {...} -- load like: require"drivers.foo"
-function Cli:new(opts) ... end
-function Cli:on_next_fd() ... end
-function Cli:on_readable(fd) ... end
-function Cli:on_writable(fd) ... end
-function Cli:on_done(fd) ... end
-driver = Cli:new()
-Netfsm:new{
+Events = require "file.events" -- poll wrapper
+FooDriver = {...} -- load like: require"drivers.foo"
+function FooDriver:new{...} ... end
+function FooDriver:register(ev) ... end
+function FooDriver:on_next_fd() ... end
+function FooDriver:on_readable(ev, fd) ... end
+function FooDriver:on_writable(ev, fd) ... end
+function FooDriver:on_eval_error(ev, fd) ... end
+function FooDriver:on_done(ev, fd) ... end
+Events:new{
   nconcurrent = 10,
   nsec_timeout = 10,
-  driver = driver,
+  driver = FooDriver:new{...},
 }:run()
+
+Buffer = require"yans.file.buf"
+buf = Buffer:new{initial = ..., max = ...}
+nread, err = fd:read(buf)
+nleft, err = fd:write(buf)
+ev:register(
+ev:clear_actions(fd)
+ev:set_on_readable(fd, rfunc)
+ev:set_on_writable(fd, wfunc)
+ev:clear_on_readable(fd)
+ev:clear_on_writable(fd)
 
 ## ethframe
   - SSDP, MDNS, ICMP multicasts

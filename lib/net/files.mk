@@ -3,6 +3,7 @@ lib_net_SOURCES = \
     lib/net/fcgi.c \
     lib/net/iface.c \
     lib/net/ip.c \
+    lib/net/neigh.c \
     lib/net/ports.c \
     lib/net/punycode.c \
     lib/net/route.c \
@@ -15,6 +16,7 @@ lib_net_HEADERS = \
     lib/net/fcgi.h \
     lib/net/iface.h \
     lib/net/ip.h \
+    lib/net/neigh.h \
     lib/net/ports.h \
     lib/net/punycode.h \
     lib/net/route.h \

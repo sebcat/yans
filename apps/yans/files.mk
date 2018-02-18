@@ -15,6 +15,7 @@ yans_DEPS = \
     lib/net/punycode.c \
     lib/net/ports.c \
     lib/net/route.c \
+    lib/net/neigh.c \
     lib/net/eth.c \
     lib/net/url.c \
     lib/net/ip.c \

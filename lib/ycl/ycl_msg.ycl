@@ -58,6 +58,8 @@ route_resp {
   data ip4_routes;
   data ip6_routes;
   data ip6_srcs;
+  data ip4_neigh;
+  data ip6_neigh;
 }
 
 resolver_req {

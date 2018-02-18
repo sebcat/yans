@@ -2,6 +2,7 @@
 
 #include <lib/net/route.h>
 #include <lib/net/iface.h>
+#include <lib/net/neigh.h>
 #include <apps/clid/routes.h>
 
 #define CLIFLAG_HASMSGBUF (1 << 0)
@@ -15,6 +16,10 @@ void on_read_req(struct eds_client *cli, int fd) {
   struct routes_client *ecli = ROUTES_CLIENT(cli);
   struct route_table rt = {0};
   struct iface_entries ifs = {0};
+  struct neigh_ip4_entry *ip4_neigh = NULL;
+  struct neigh_ip6_entry *ip6_neigh = NULL;
+  size_t nip4_neigh = 0;
+  size_t nip6_neigh = 0;
   char errbuf[128];
   int ret;
 
@@ -45,6 +50,9 @@ void on_read_req(struct eds_client *cli, int fd) {
     goto write_resp;
   }
 
+  ip4_neigh = neigh_get_ip4_entries(&nip4_neigh, NULL);
+  ip6_neigh = neigh_get_ip6_entries(&nip6_neigh, NULL);
+
 write_resp:
   resp.ip4_routes.data = (const char *)rt.entries_ip4;
   resp.ip4_routes.len = sizeof(*rt.entries_ip4) * rt.nentries_ip4;
@@ -56,9 +64,23 @@ write_resp:
   resp.ip6_srcs.len = sizeof(*ifs.ip6srcs) * ifs.nip6srcs;
   resp.ifaces.data = (const char *)ifs.ifaces;
   resp.ifaces.len = sizeof(*ifs.ifaces) * ifs.nifaces;
+  if (nip4_neigh > 0) {
+    resp.ip4_neigh.data = (const char *)ip4_neigh;
+    resp.ip4_neigh.len = nip4_neigh * sizeof(struct neigh_ip4_entry);
+  }
+  if (nip6_neigh > 0) {
+    resp.ip6_neigh.data = (const char *)ip6_neigh;
+    resp.ip6_neigh.len = nip6_neigh * sizeof(struct neigh_ip6_entry);
+  }
   ret = ycl_msg_create_route_resp(&ecli->msgbuf, &resp);
   iface_cleanup(&ifs);
   route_table_cleanup(&rt);
+  if (ip4_neigh != NULL) {
+    neigh_free_ip4_entries(ip4_neigh);
+  }
+  if (ip6_neigh != NULL) {
+    neigh_free_ip6_entries(ip6_neigh);
+  }
   if (ret != YCL_OK) {
     ylog_error("routescli%d: response message creation failure", fd);
     goto done;

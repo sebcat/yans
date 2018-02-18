@@ -10,6 +10,7 @@ clid_DEPS = \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c \
     lib/net/iface.c \
+    lib/net/neigh.c \
     lib/net/sconn.c \
     lib/net/dnstres.c \
     lib/net/route.c

@@ -19,7 +19,7 @@ function test_url_parse(builder, urlstr, expected)
   end
 end
 
-local builder = http.url_builder()
+local builder = yans.http.url_builder()
 test_url_parse(builder, "", {})
 test_url_parse(builder, "//example.com", {
   auth="example.com",
@@ -134,7 +134,7 @@ test_url_parse(builder, "foo://wiie:foö@[::1%1]:22/?foo#bar", {
   fragment="bar",
 })
 
-builder = http.url_builder{remove_empty_query=true}
+builder = yans.http.url_builder{remove_empty_query=true}
 test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?", {
   scheme="foo",
   auth="wiie:foo@[::1%1]:22",
@@ -170,7 +170,7 @@ test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?#", {
   path="/",
   fragment="",
 })
-builder = http.url_builder{remove_empty_fragment=true}
+builder = yans.http.url_builder{remove_empty_fragment=true}
 test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?", {
   scheme="foo",
   auth="wiie:foo@[::1%1]:22",
@@ -208,7 +208,7 @@ test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?#", {
   path="/",
   query="",
 })
-builder = http.url_builder{remove_empty_query=true, remove_empty_fragment=true}
+builder = yans.http.url_builder{remove_empty_query=true, remove_empty_fragment=true}
 test_url_parse(builder, "foo://wiie:foo@[::1%1]:22/?", {
   scheme="foo",
   auth="wiie:foo@[::1%1]:22",
@@ -288,7 +288,7 @@ function test_url_inverse(builder, urlstr, expected)
   end
 end
 
-builder = http.url_builder()
+builder = yans.http.url_builder()
 test_url_inverse(builder, "")
 test_url_inverse(builder, "?")
 test_url_inverse(builder, "#")
@@ -381,7 +381,7 @@ function test_url_resolve(builder, base, ref, expected)
     error(string.format("resolve: expected:%q actual:%q", expected, actual))
   end
 end
-builder = http.url_builder{remove_empty_query=true, remove_empty_fragment=true}
+builder = yans.http.url_builder{remove_empty_query=true, remove_empty_fragment=true}
 test_url_resolve(builder,"http://example.com/", "http://www.example.aom",
     "http://www.example.aom/")
 test_url_resolve(builder,"", "", "")

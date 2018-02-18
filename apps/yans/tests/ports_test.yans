@@ -1,5 +1,5 @@
 local function teq(input, expected)
-  local actual = tostring(ip.ports(input))
+  local actual = tostring(yans.ip.ports(input))
   if actual ~= expected then
     error(string.format("input:%q expected:%q actual:%q", input, expected,
         actual))
@@ -82,7 +82,7 @@ teq("1, 3,4,5,6", "1 3-6")
 
 
 local function tfail(input)
-  local actual, err = ip.ports(input)
+  local actual, err = yans.ip.ports(input)
   if not err then
     error(string.format("input:%q expected failure to parse, was:%q", input,
         tostring(actual)))
@@ -98,7 +98,7 @@ tfail("4-8 1-")
 tfail("1- 4-8")
 
 local function texpand(input, expected)
-  local res, err = ip.ports(input)
+  local res, err = yans.ip.ports(input)
   if err then error("failed to parse " .. input) end
   local i = 1
   for port in res:next() do
@@ -143,24 +143,24 @@ local function tadd(range, vals, expected)
   end
 end
 
-tadd(ip.ports"", {}, "")
-tadd(ip.ports"", {1,2,3, 5, 10}, "1-3 5 10")
-tadd(ip.ports"1", {2,3, 5, 10}, "1-3 5 10")
-tadd(ip.ports"1,2", {2,3, 5, 10}, "1-3 5 10")
-tadd(ip.ports"1,2", {3, 5, 10}, "1-3 5 10")
-tadd(ip.ports"1,2,3,5", {3, 5, 10}, "1-3 5 10")
-tadd(ip.ports"1,2,3,5", {5, 10}, "1-3 5 10")
-tadd(ip.ports"1,2,3,5", {10}, "1-3 5 10")
-tadd(ip.ports"1,2,3,5,10", {10}, "1-3 5 10")
-tadd(ip.ports"1,2,3,5,10", {}, "1-3 5 10")
-tadd(ip.ports"", {10, 5, 3, 2, 1}, "1-3 5 10")
-tadd(ip.ports"1", {10, 5, 3, 2, 1}, "1-3 5 10")
-tadd(ip.ports"1, 2", {10, 5, 3, 2, 1}, "1-3 5 10")
-tadd(ip.ports"1, 2", {10, 5, 3, 1}, "1-3 5 10")
-tadd(ip.ports"1, 2", {10, 5, 3, 2}, "1-3 5 10")
-tadd(ip.ports"1, 2", {10, 5, 3}, "1-3 5 10")
-tadd(ip.ports"1, 2 3", {10, 5}, "1-3 5 10")
-tadd(ip.ports"1, 2 3 10", {10, 5}, "1-3 5 10")
-tadd(ip.ports"1, 2 3 10", {5}, "1-3 5 10")
-tadd(ip.ports"1, 2 3 5", {10, 5}, "1-3 5 10")
-tadd(ip.ports"1, 2 3 5", {10}, "1-3 5 10")
+tadd(yans.ip.ports"", {}, "")
+tadd(yans.ip.ports"", {1,2,3, 5, 10}, "1-3 5 10")
+tadd(yans.ip.ports"1", {2,3, 5, 10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2", {2,3, 5, 10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2", {3, 5, 10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2,3,5", {3, 5, 10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2,3,5", {5, 10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2,3,5", {10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2,3,5,10", {10}, "1-3 5 10")
+tadd(yans.ip.ports"1,2,3,5,10", {}, "1-3 5 10")
+tadd(yans.ip.ports"", {10, 5, 3, 2, 1}, "1-3 5 10")
+tadd(yans.ip.ports"1", {10, 5, 3, 2, 1}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2", {10, 5, 3, 2, 1}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2", {10, 5, 3, 1}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2", {10, 5, 3, 2}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2", {10, 5, 3}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2 3", {10, 5}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2 3 10", {10, 5}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2 3 10", {5}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2 3 5", {10, 5}, "1-3 5 10")
+tadd(yans.ip.ports"1, 2 3 5", {10}, "1-3 5 10")

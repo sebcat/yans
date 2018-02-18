@@ -2,7 +2,7 @@
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
 local function test_addr_tostring_self(str)
-	addr = ip.addr(str)
+	addr = yans.ip.addr(str)
 	if tostring(addr) ~= str then
     error(tostring(addr).." ~= "..str)
   end
@@ -13,66 +13,66 @@ test_addr_tostring_self("127.0.0.1")
 test_addr_tostring_self("ff02::1")
 
 -- equals
-assert(ip.addr"127.0.0.1":equals("127.0.0.1"))
-assert(ip.addr"127.0.0.1":equals(ip.addr"127.0.0.1"))
-assert(ip.addr"127.0.0.1 127.0.6.4":equals(ip.addr"127.0.0.1"))
-assert(ip.addr"127.0.0.1 127.0.6.4":equals("127.0.0.1"))
-assert(ip.addr"\t 127.0.0.1\t ":equals(ip.addr"127.0.0.1"))
-assert(ip.addr"\t 127.0.0.1\t ":equals("127.0.0.1"))
-assert(ip.addr"127.0.0.1":equals(ip.addr"127.0.0.0") == false)
-assert(ip.addr"127.0.0.1":equals("127.0.0.0") == false)
-assert(ip.addr"127.0.0.1":equals(ip.addr"127.0.0.2") == false)
-assert(ip.addr"ff02::1":equals(ip.addr"ff02::1"))
-assert(ip.addr"ff02::1":equals("ff02::1"))
-assert(ip.addr"ff02::1":equals(ip.addr"ff02::") == false)
-assert(ip.addr"ff02::1":equals("ff02::") == false)
-assert(ip.addr"ff02::1":equals(ip.addr"ff02::2") == false)
-assert(ip.addr"ff02::1":equals("ff02::2") == false)
+assert(yans.ip.addr"127.0.0.1":equals("127.0.0.1"))
+assert(yans.ip.addr"127.0.0.1":equals(yans.ip.addr"127.0.0.1"))
+assert(yans.ip.addr"127.0.0.1 127.0.6.4":equals(yans.ip.addr"127.0.0.1"))
+assert(yans.ip.addr"127.0.0.1 127.0.6.4":equals("127.0.0.1"))
+assert(yans.ip.addr"\t 127.0.0.1\t ":equals(yans.ip.addr"127.0.0.1"))
+assert(yans.ip.addr"\t 127.0.0.1\t ":equals("127.0.0.1"))
+assert(yans.ip.addr"127.0.0.1":equals(yans.ip.addr"127.0.0.0") == false)
+assert(yans.ip.addr"127.0.0.1":equals("127.0.0.0") == false)
+assert(yans.ip.addr"127.0.0.1":equals(yans.ip.addr"127.0.0.2") == false)
+assert(yans.ip.addr"ff02::1":equals(yans.ip.addr"ff02::1"))
+assert(yans.ip.addr"ff02::1":equals("ff02::1"))
+assert(yans.ip.addr"ff02::1":equals(yans.ip.addr"ff02::") == false)
+assert(yans.ip.addr"ff02::1":equals("ff02::") == false)
+assert(yans.ip.addr"ff02::1":equals(yans.ip.addr"ff02::2") == false)
+assert(yans.ip.addr"ff02::1":equals("ff02::2") == false)
 
 -- compare
-assert(ip.addr"127.0.0.0":compare("127.0.0.1") < 0)
-assert(ip.addr"127.0.0.0":compare(ip.addr"127.0.0.1") < 0)
-assert(not(ip.addr"127.0.0.1":compare("127.0.0.1") < 0))
-assert(not(ip.addr"127.0.0.2":compare(ip.addr"127.0.0.1") < 0))
-assert(ip.addr"ff02::2":compare"ff02::1" > 0)
-assert(ip.addr"127.0.0.1":compare("127.0.0.0") > 0)
-assert(ip.addr"127.0.0.1":compare(ip.addr"127.0.0.0") > 0)
-assert(ip.addr"127.0.0.2":compare(ip.addr"127.0.0.1") > 0)
-assert(ip.addr"ff02::1":compare("ff02::2") < 0)
-assert(ip.addr"ff02::2":compare("ff02::1") > 0)
+assert(yans.ip.addr"127.0.0.0":compare("127.0.0.1") < 0)
+assert(yans.ip.addr"127.0.0.0":compare(yans.ip.addr"127.0.0.1") < 0)
+assert(not(yans.ip.addr"127.0.0.1":compare("127.0.0.1") < 0))
+assert(not(yans.ip.addr"127.0.0.2":compare(yans.ip.addr"127.0.0.1") < 0))
+assert(yans.ip.addr"ff02::2":compare"ff02::1" > 0)
+assert(yans.ip.addr"127.0.0.1":compare("127.0.0.0") > 0)
+assert(yans.ip.addr"127.0.0.1":compare(yans.ip.addr"127.0.0.0") > 0)
+assert(yans.ip.addr"127.0.0.2":compare(yans.ip.addr"127.0.0.1") > 0)
+assert(yans.ip.addr"ff02::1":compare("ff02::2") < 0)
+assert(yans.ip.addr"ff02::2":compare("ff02::1") > 0)
 
-assert(ip.addr"127.0.0.1":compare("127.0.0.1")  == 0)
-assert(ip.addr"::1":compare"::1"  == 0)
+assert(yans.ip.addr"127.0.0.1":compare("127.0.0.1")  == 0)
+assert(yans.ip.addr"::1":compare"::1"  == 0)
 -- __add
-local a = ip.addr"126.255.255.255"
+local a = yans.ip.addr"126.255.255.255"
 local res = a + 2
 assert(a:equals("126.255.255.255"))
 assert(res:equals("127.0.0.1"))
-local a = ip.addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+local a = yans.ip.addr"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 local res = a + 2
 assert(a:equals("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"))
 assert(res:equals("::1"))
 
 
 -- __sub
-local a = ip.addr"127.0.0.1"
+local a = yans.ip.addr"127.0.0.1"
 local res = a - 2
 assert(a:equals("127.0.0.1"))
 assert(res:equals("126.255.255.255"))
-local a = ip.addr"::1"
+local a = yans.ip.addr"::1"
 local res = a - 2
 assert(a:equals("::1"))
 assert(res:equals("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"))
 
 -- mutable add method
 local function addr_add(addr, n, expected)
-  actual = ip.addr(addr):add(n)
+  actual = yans.ip.addr(addr):add(n)
   if tostring(actual) ~= expected then
     error(addr.." + "..tostring(n)..": expected "..expected..
         ", was: "..tostring(actual))
   end
 end
-local a = ip.addr"127.0.0.1"
+local a = yans.ip.addr"127.0.0.1"
 a:add(1)
 assert(a:equals("127.0.0.2"))
 addr_add("255.255.255.255", 1, "0.0.0.0")
@@ -90,13 +90,13 @@ addr_add("::1", -1, "::")
 
 -- mutable sub method
 local function addr_sub(addr, n, expected)
-  actual = ip.addr(addr):sub(n)
+  actual = yans.ip.addr(addr):sub(n)
   if tostring(actual) ~= expected then
     error(addr.." + "..tostring(n)..": expected "..expected..", was: "
         ..tostring(actual))
   end
 end
-local a = ip.addr"127.0.0.1"
+local a = yans.ip.addr"127.0.0.1"
 a:sub(1)
 assert(a:equals("127.0.0.0"))
 addr_sub("255.255.255.255", -1, "0.0.0.0")
@@ -112,9 +112,9 @@ addr_sub("::1:0:0:0:0", 1, "::ffff:ffff:ffff:ffff")
 addr_sub("ff02::1", -1, "ff02::2")
 addr_sub("::1", 1, "::")
 
--- ip.block first, last
+-- yans.ip.block first, last
 local function block(s, efirst, elast)
-  blk = ip.block(s)
+  blk = yans.ip.block(s)
   afirst, alast = tostring(blk:first()), tostring(blk:last())
   if afirst ~= efirst or alast ~= elast then
     error(string.format("expected %s-%s, was %s-%s",
@@ -143,7 +143,7 @@ block("255.255.255.255/0", "0.0.0.0", "255.255.255.255")
 block("255.255.255.255/32", "255.255.255.255", "255.255.255.255")
 
 local function block_str(s, expected)
-  blk = ip.block(s)
+  blk = yans.ip.block(s)
   actual = tostring(blk)
   if actual ~= expected then
     error(string.format("expected %q, got %q", expected, actual))
@@ -169,7 +169,7 @@ block_str("255.255.255.255/0", "0.0.0.0-255.255.255.255")
 block_str("255.255.255.255/32", "255.255.255.255")
 
 local function block_err(s)
-  local ok, res = pcall(ip.block, s)
+  local ok, res = pcall(yans.ip.block, s)
   if ok then
     error("expected failure, got "..tostring(res))
   end
@@ -186,8 +186,8 @@ block_err("127.0.0.1-::1")
 block_err("::1-127.0.0.1")
 
 local function block_contains(blk, addr, expected_in)
-  blk = ip.block(blk)
-  addr = ip.addr(addr)
+  blk = yans.ip.block(blk)
+  addr = yans.ip.addr(addr)
   if blk:contains(addr) ~= expected_in then
     if expected_in then
       error(string.format("%s not in %s", addr, blk))
@@ -215,7 +215,7 @@ block_contains("2001::1/128", "2001::0", false)
 block_contains("2001::1/128", "2001::1", true)
 block_contains("2001::1/128", "2001::2", false)
 
-local blk = ip.block("0/0")
+local blk = yans.ip.block("0/0")
 assert(blk:contains("0.0.0.0"))
 assert(blk:contains("0.0.0.255"))
 assert(blk:contains("0.0.255.0"))
@@ -225,7 +225,7 @@ assert(blk:contains("127.127.127.127"))
 assert(blk:contains("255.255.255.255"))
 
 local function blocks_str(s, expected)
-  blks = ip.addrs(s)
+  blks = yans.ip.addrs(s)
   actual = tostring(blks)
   if actual ~= expected then
     error(string.format("expected %q, got %q", expected, actual))
@@ -261,7 +261,7 @@ blocks_str("127.0.0.2 127.0.0.3 ::1 127.0.0.1", "127.0.0.1-127.0.0.3 ::1")
 
 local function expand_addrs(input, expected)
   local pre = tostring(input)
-  local addrs = ip.addrs(input)
+  local addrs = yans.ip.addrs(input)
   local i = 1
   for addr in addrs:next() do
     if not addr:equals(expected[i]) then
@@ -287,8 +287,8 @@ expand_addrs("127.0.0.0 127.0.0.1 127.1.0.0 127.1.0.1 127.1.0.2 127.1.0.3", {
   "127.1.0.0", "127.1.0.1", "127.1.0.2", "127.1.0.3"})
 
 
-IFACES = eth.ifaces()
-ROUTES = ip.routes()
+IFACES = yans.eth.ifaces()
+ROUTES = yans.ip.routes()
 
 assert(type(IFACES) == "table")
 assert(type(ROUTES) == "table")

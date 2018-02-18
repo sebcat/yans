@@ -41,4 +41,4 @@ if [ "$LASTBUILD" != "$BUILDTYPE" ]; then
   make -j${NCPUS} distclean
 fi
 
-make -j${NCPUS} all
+make -j${NCPUS} all check

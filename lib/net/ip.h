@@ -10,10 +10,9 @@
 #include <stdint.h>
 
 #include <lib/util/buf.h>
+#include <lib/util/reorder.h>
 
 #define YANS_IP_ADDR_MAXLEN 512
-
-#define IP_R4BLK_OVERFLOWED (1 << 0)
 
 typedef struct ip_addr_t {
 	union {
@@ -37,21 +36,10 @@ struct ip_blocks {
   ip_addr_t curr_addr;
 };
 
-/* 32-bit reordering block */
-struct ip_r4block {
-  int flags;
-  uint32_t mask;   /* mask (power of two modulus) */
-  uint32_t first;  /* first in range */
-  uint32_t last;   /* last in range */
-  uint32_t curr;   /* current LCG value */
-  uint32_t nitems; /* number of items in range */
-  uint32_t ival;   /* current range iterator value */
-};
-
 struct ip_r4blocks {
   struct ip_blocks *blocks;
   int *blockmap;
-  struct ip_r4block *ip4blocks;
+  struct reorder32 *ip4blocks;
   ip_addr_t *ip6_curraddrs;
   size_t mapindex;
 };
@@ -88,9 +76,8 @@ int ip_blocks_next(struct ip_blocks *blks, ip_addr_t *addr);
 int ip_blocks_contains(struct ip_blocks *blks, ip_addr_t *addr);
 const char *ip_blocks_strerror(int code);
 
-void ip_r4block_init(struct ip_r4block *blk, uint32_t start, uint32_t end);
-int ip_r4block_next(struct ip_r4block *blk, uint32_t *out);
-
+/* Iteration with block and IPv4 address reordering. an ip_blocks structure
+ * must be available for as long as the ip_r4blocks is used */
 int ip_r4blocks_init(struct ip_r4blocks *r4, struct ip_blocks *blks);
 void ip_r4blocks_cleanup(struct ip_r4blocks *blks);
 int ip_r4blocks_next(struct ip_r4blocks *blks, ip_addr_t *addr);

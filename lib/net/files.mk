@@ -41,6 +41,7 @@ lib_net_punycode_test_OBJS = ${lib_net_punycode_test_SOURCES:.c=.o}
 lib_net_url_test_DEPS = \
     lib/util/buf.c \
     lib/util/u8.c \
+    lib/util/reorder.c \
     lib/net/punycode.c \
     lib/net/ip.c \
     lib/net/url.c

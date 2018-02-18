@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include <lib/net/ports.h>
 
@@ -315,4 +316,111 @@ int port_ranges_add(struct port_ranges *dst, struct port_ranges *from) {
   qsort(dst->ranges, dst->nranges, sizeof(struct port_range), rangecmp);
   dst->nranges = compress_ranges(dst);
   return 0;
+}
+
+static void port_r4ranges_reset(struct port_r4ranges *r4) {
+  uint32_t mapval;
+  struct reorder32 mapgen;
+  int i;
+
+  /* initialize the lookup for the ranges */
+  reorder32_init(&mapgen, 0, (uint32_t)r4->nranges - 1);
+  for (i = 0; i < (int)r4->nranges; i++) {
+    reorder32_next(&mapgen, &mapval);
+    r4->rangemap[i] = (int)mapval;
+  }
+
+  /* initialize the ranges themselves */
+  for (i = 0; i < (int)r4->nranges; i++) {
+    reorder32_init(&r4->ranges[i],
+        (uint32_t)r4->rs->ranges[i].start,
+        (uint32_t)r4->rs->ranges[i].end);
+  }
+}
+
+int port_r4ranges_init(struct port_r4ranges *r4, struct port_ranges *rs) {
+  struct reorder32 *ranges;
+  int *rangemap;
+
+  r4->mapindex = 0;
+  r4->nranges = rs->nranges;
+  if (r4->nranges == 0 || r4->nranges > INT_MAX) {
+    return 0;
+  }
+  r4->rs = rs;
+
+  ranges = calloc(rs->nranges, sizeof(*ranges));
+  if (ranges == NULL) {
+    goto fail;
+  }
+
+  rangemap = calloc(rs->nranges, sizeof(*rangemap));
+  if (rangemap == NULL) {
+    goto cleanup_ranges;
+  }
+
+  r4->ranges = ranges;
+  r4->rangemap = rangemap;
+  port_r4ranges_reset(r4);
+  return 0;
+
+cleanup_ranges:
+  free(ranges);
+fail:
+  return -1;
+}
+
+
+void port_r4ranges_cleanup(struct port_r4ranges *r4) {
+  if (r4 != NULL) {
+    if (r4->ranges != NULL) {
+      free(r4->ranges);
+      r4->ranges = NULL;
+    }
+    if (r4->rangemap != NULL) {
+      free(r4->rangemap);
+      r4->rangemap = NULL;
+    }
+    r4->nranges = 0;
+  }
+}
+
+int port_r4ranges_next(struct port_r4ranges *r4, uint16_t *out) {
+  size_t curr;
+  size_t mapped_index;
+  struct reorder32 *range;
+  int ret;
+  uint32_t res;
+
+  if (r4->nranges == 0) {
+    return 0;
+  }
+
+  /* get the next block index */
+again:
+  curr = r4->mapindex;
+  do {
+    curr = (curr + 1) % r4->nranges;
+  } while(curr != r4->mapindex && r4->rangemap[curr] < 0);
+
+  /* check if iterator is depleted */
+  if (curr == r4->mapindex && r4->rangemap[curr] < 0) {
+    port_r4ranges_reset(r4);
+    return 0;
+  }
+
+  /* update mapindex with the new index and map the current range */
+  r4->mapindex = curr;
+  mapped_index = r4->rangemap[curr];
+  range = &r4->ranges[mapped_index];
+
+  ret = reorder32_next(range, &res);
+  if (ret == 0) {
+    /* mark range as depleted and try again */
+    r4->rangemap[curr] = -1;
+    goto again;
+  }
+
+  *out = (uint16_t)res;
+  return 1;
 }

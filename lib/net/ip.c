@@ -687,90 +687,9 @@ const char *ip_blocks_strerror(int code) {
   return gai_strerror(code);
 }
 
-/* returns a mask that can be used as the next power of two modulus for
- * numbers in the range 'nitems' */
-static uint32_t calc_r4block_mask(uint32_t nitems) {
-  size_t i;
-  uint32_t mask = 0xffffffff;
-
-  for (i = 0; i < 8 * sizeof(nitems); i++) {
-    if (nitems & (1 << ((sizeof(nitems)*8 - 1) - i))) {
-      break;
-    }
-    mask = mask >> 1;
-  }
-
-  return mask;
-}
-
-void ip_r4block_init(struct ip_r4block *blk, uint32_t first, uint32_t last) {
-  uint32_t tmp;
-  uint32_t nitems;
-
-  /* make sure end is >= start */
-  if (last < first) {
-    tmp = first;
-    first = last;
-    last = tmp;
-  }
-
-  nitems = last - first;
-  blk->flags = 0;
-  blk->mask = calc_r4block_mask(nitems);
-  blk->first = blk->curr = first; /* seed curr with first & mask (& in next) */
-  blk->last = last;
-  blk->nitems = nitems;
-  blk->ival = 0;
-}
-
-int ip_r4block_next(struct ip_r4block *blk, uint32_t *out) {
-  uint32_t ival;
-  /* So, some explanation is in order. We're using an LCG
-   * (linear congruential generator) with constant parameters to
-   * deterministically reorder a range.
-   *
-   *   x_next = a * x_curr + c (mod m)
-   *
-   * The LCG with the constant parameters fullfills the Hull-Dobell theorem:
-   *   THEOREM 1. The sequence defined by the congruence relation (1) has full
-   *   period m, provided that
-   *     (i)   c is relatively prime to m;
-   *     (ii)  a == 1 (mod p) if p is a prime factor of m;
-   *     (iii) a == 1 (mod 4) if 4 is a factor of m
-   *
-   * In our case, m is the closest power of two for the range we want to
-   * reorder. c is one and a is five.
-   *
-   * Since the period will be a power of two and our range will maybe be
-   * a bit less, we reject values outside of our range. This gives us a
-   * period of our range.
-   *
-   * Further reading: RANDOM NUMBER GENERATORS, T. E. HULL and A. R. DOBELL
-   */
-
-   /* have we reached the end and potentially overflowed? reset the iterator
-    * and signal end. */
-   if (blk->ival > blk->nitems || blk->flags & IP_R4BLK_OVERFLOWED) {
-     ip_r4block_init(blk, blk->first, blk->last);
-     return 0;
-   }
-
-   do {
-     blk->curr = (blk->curr * 5 + 1) & blk->mask;
-   } while (blk->curr > blk->nitems);
-
-   *out = blk->first + blk->curr;
-   ival = blk->ival + 1;
-   if (ival < blk->ival) {
-     blk->flags &= IP_R4BLK_OVERFLOWED;
-   }
-   blk->ival = ival;
-   return 1;
-}
-
 static int ip_r4blocks_reset(struct ip_r4blocks *blks) {
   struct ip_block_t *currblk;
-  struct ip_r4block mapgen;
+  struct reorder32 mapgen;
   size_t nblocks;
   size_t i;
   uint32_t mapval;
@@ -778,9 +697,9 @@ static int ip_r4blocks_reset(struct ip_r4blocks *blks) {
 
   nblocks = blks->blocks->nblocks;
   /* setup blockmap */
-  ip_r4block_init(&mapgen, 0, nblocks - 1);
+  reorder32_init(&mapgen, 0, nblocks - 1);
   for (i = 0; i < nblocks; i++) {
-    ip_r4block_next(&mapgen, &mapval);
+    reorder32_next(&mapgen, &mapval);
     blks->blockmap[i] = (int)mapval;
   }
 
@@ -789,7 +708,7 @@ static int ip_r4blocks_reset(struct ip_r4blocks *blks) {
     currblk = &blks->blocks->blocks[i];
     af = currblk->first.u.sa.sa_family;
     if (af == AF_INET) {
-      ip_r4block_init(&blks->ip4blocks[i],
+      reorder32_init(&blks->ip4blocks[i],
           ntohl(currblk->first.u.sin.sin_addr.s_addr),
           ntohl(currblk->last.u.sin.sin_addr.s_addr));
     } else if (af == AF_INET6) {
@@ -805,7 +724,7 @@ static int ip_r4blocks_reset(struct ip_r4blocks *blks) {
 
 int ip_r4blocks_init(struct ip_r4blocks *r4, struct ip_blocks *blks) {
   int *blockmap;
-  struct ip_r4block *ip4blocks;
+  struct reorder32 *ip4blocks;
   ip_addr_t *ip6_curraddrs;
   int ret;
 
@@ -870,6 +789,7 @@ void ip_r4blocks_cleanup(struct ip_r4blocks *blks) {
       free(blks->blockmap);
     }
     /* blks->blocks is not owned by ip_r4blocks, so not free'd here */
+    memset(blks, 0, sizeof(*blks));
   }
 }
 
@@ -908,7 +828,7 @@ again:
 
   af = blk->first.u.sa.sa_family;
   if (af == AF_INET) {
-    ret = ip_r4block_next(&blks->ip4blocks[mapped_index], &next4);
+    ret = reorder32_next(&blks->ip4blocks[mapped_index], &next4);
     if (ret == 0) {
       /* mark block as depleted and try again */
       blks->blockmap[curr] = -1;

@@ -9,6 +9,7 @@ lib_util_SOURCES = \
     lib/util/os.c \
     lib/util/os_test.c \
     lib/util/prng.c \
+    lib/util/reorder.c \
     lib/util/sandbox.c \
     lib/util/u8.c \
     lib/util/ylog.c \
@@ -27,6 +28,7 @@ lib_util_HEADERS = \
     lib/util/flagset.h \
     lib/util/io.h \
     lib/util/netstring.h \
+    lib/util/reorder.h \
     lib/util/os.h \
     lib/util/prng.h \
     lib/util/sandbox.h \

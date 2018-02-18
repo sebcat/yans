@@ -366,3 +366,4 @@ for i = 1, 32 do
   testr4(string.format("::1-::10 ff::1 aa::2 127.0.0.1-127.0.0.%d", i))
 end
 
+collectgarbage() -- force gc for test purposes

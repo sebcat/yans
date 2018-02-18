@@ -6,6 +6,7 @@ yans_DEPS = \
     lib/util/ylog.c \
     lib/util/buf.c \
     lib/util/io.c \
+    lib/util/reorder.c \
     lib/util/u8.c \
     lib/util/eds.c \
     lib/util/sandbox.c \

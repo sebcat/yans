@@ -10,6 +10,7 @@
 
 #define MTNAME_IPADDR     "yans.IPAddr"
 #define MTNAME_IPPORTS    "yans.IPPorts"
+#define MTNAME_IPR4PORTS  "yans.IPR4Ports"
 #define MTNAME_ETHADDR    "yans.EthAddr"
 #define MTNAME_BLOCK      "yans.IPBlock"
 #define MTNAME_BLOCKS     "yans.IPBlocks"
@@ -20,6 +21,9 @@
 
 #define checkipports(L, i) \
     ((struct port_ranges *)luaL_checkudata(L, (i), MTNAME_IPPORTS))
+
+#define checkr4ports(L, i) \
+    ((struct port_r4ranges *)luaL_checkudata(L, (i), MTNAME_IPR4PORTS))
 
 #define checkethaddr(L, i) \
     ((struct eth_addr *)luaL_checkudata(L, (i), MTNAME_ETHADDR))
@@ -47,6 +51,15 @@ static inline struct port_ranges *l_newipports(lua_State *L) {
 
   rs = lua_newuserdata(L, sizeof(struct port_ranges));
   luaL_setmetatable(L, MTNAME_IPPORTS);
+  return rs;
+}
+
+static inline struct port_r4ranges *l_newipr4ports(lua_State *L) {
+  struct port_r4ranges *rs;
+
+  rs = lua_newuserdata(L, sizeof(struct port_r4ranges));
+  luaL_setmetatable(L, MTNAME_IPR4PORTS);
+  memset(rs, 0, sizeof(*rs));
   return rs;
 }
 
@@ -744,6 +757,11 @@ static int l_unmarshal_routes(lua_State *L) {
   return 1;
 }
 
+static int l_ipr4ports_gc(lua_State *L) {
+  struct port_r4ranges *r4 = checkr4ports(L, 1);
+  port_r4ranges_cleanup(r4);
+  return 0;
+}
 
 static int l_ipports(lua_State *L) {
   const char *s;
@@ -818,6 +836,35 @@ static int l_ipports_next(lua_State *L) {
   return 1;
 }
 
+static int l_ipports_nextr4_iter(lua_State *L) {
+  struct port_r4ranges *r4;
+  uint16_t port;
+
+  r4 = checkr4ports(L, lua_upvalueindex(2));
+  if (port_r4ranges_next(r4, &port) > 0) {
+    lua_pushinteger(L, (lua_Integer)port);
+    return 1;
+  }
+
+  return 0;
+}
+
+static int l_ipports_nextr4(lua_State *L) {
+  struct port_ranges *rs;
+  struct port_r4ranges *r4;
+  int ret;
+
+  rs = checkipports(L, 1);
+  r4 = l_newipr4ports(L);
+  ret = port_r4ranges_init(r4, rs);
+  if (ret < 0) {
+    return 0;
+  }
+
+  lua_pushcclosure(L, l_ipports_nextr4_iter, 2);
+  return 1;
+}
+
 static int l_ipports_tostring(lua_State *L) {
   buf_t buf;
   struct port_ranges *rs = checkipports(L, 1);
@@ -863,7 +910,13 @@ static const struct luaL_Reg yansipports_m[] = {
   {"__tostring", l_ipports_tostring},
   {"__gc", l_ipports_gc},
   {"next", l_ipports_next},
+  {"nextr4", l_ipports_nextr4},
   {"add", l_ipports_add},
+  {NULL, NULL},
+};
+
+static const struct luaL_Reg yansr4ports_m[] = {
+  {"__gc", l_ipr4ports_gc},
   {NULL, NULL},
 };
 
@@ -937,6 +990,7 @@ int luaopen_ip(lua_State *L) {
   struct mtable mt[] = {
     {MTNAME_IPADDR, yansipaddr_m},
     {MTNAME_IPPORTS, yansipports_m},
+    {MTNAME_IPR4PORTS, yansr4ports_m},
     {MTNAME_BLOCK, yansblock_m},
     {MTNAME_BLOCKS, yansblocks_m},
     {MTNAME_R4BLOCKS, yansr4blocks_m},

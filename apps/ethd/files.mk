@@ -4,6 +4,7 @@ ethd_DEPS = \
     lib/util/os.c \
     lib/util/netstring.c \
     lib/util/eds.c \
+    lib/util/reorder.c \
     lib/util/ylog.c \
     lib/util/zfile.c \
     lib/util/flagset.c \

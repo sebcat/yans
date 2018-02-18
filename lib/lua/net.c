@@ -863,7 +863,7 @@ static int l_unmarshal_routes(lua_State *L) {
       (const struct neigh_ip4_entry*)ip4_neigh_data,
       ip4_neigh_sz / sizeof(struct neigh_ip4_entry),
       (const struct neigh_ip6_entry*)ip6_neigh_data,
-      ip4_neigh_sz / sizeof(struct neigh_ip4_entry));
+      ip6_neigh_sz / sizeof(struct neigh_ip6_entry));
   add_ifaces_to_table(L, &ifs);
   /* rt, ifs is not cleaned up, because Lua owns the memory */
   return 1;

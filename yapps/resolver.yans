@@ -3,7 +3,7 @@ Store = require "svcs.store"
 Resolver = require "svcs.resolver"
 
 store = Store:new{path="./lel/stored.sock"}
-resolver = Resolver:new{sockpath="./lel/resolver.sock", store=store}
+resolver = Resolver:new{path="./lel/resolver.sock", store=store}
 
 yans.cgi.init() -- enter sandbox
 

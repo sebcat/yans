@@ -13,6 +13,8 @@
 
 #define DFL_MAXMSGSZ (1 << 20)
 
+#define BUFINITSZ 8192 /* initial buffer size for one buffer */
+
 void ycl_init(struct ycl_ctx *ycl, int fd) {
   ycl->fd = fd;
   ycl->flags = 0;
@@ -189,11 +191,11 @@ int ycl_sendfd(struct ycl_ctx *ycl, int fd, int err) {
 }
 
 int ycl_msg_init(struct ycl_msg *msg) {
-  if (buf_init(&msg->buf, 1024) == NULL) {
+  if (buf_init(&msg->buf, BUFINITSZ) == NULL) {
     return YCL_ERR;
   }
 
-  if (buf_init(&msg->mbuf, 1024) == NULL) {
+  if (buf_init(&msg->mbuf, BUFINITSZ) == NULL) {
     buf_cleanup(&msg->buf);
     return YCL_ERR;
   }
@@ -214,7 +216,7 @@ int ycl_msg_set(struct ycl_msg *msg, const void *data, size_t len) {
 
 int ycl_msg_use_optbuf(struct ycl_msg *msg) {
   if (!(msg->flags & YCLMSGF_HASOPTBUF)) {
-    if (buf_init(&msg->optbuf, 1024) == NULL) {
+    if (buf_init(&msg->optbuf, BUFINITSZ) == NULL) {
       return YCL_ERR;
     }
     msg->flags |= YCLMSGF_HASOPTBUF;

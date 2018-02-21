@@ -515,8 +515,8 @@ static int l_pushsrcaddr(lua_State *L, struct iface_srcaddr *src) {
   lua_pushstring(L, src->ifname);
   lua_rawseti(L, -2, 1);
   blk = l_newipblock(L);
-  ret = ip_block_from_addrs(blk, (ip_addr_t*)&src->u.sa,
-      (ip_addr_t*)&src->u.sa, NULL);
+  ret = ip_block_from_addrs(blk, (ip_addr_t*)&src->addr.u.sa,
+      (ip_addr_t*)&src->addr.u.sa, NULL);
   if (ret < 0) {
     lua_pop(L, 2);
     return -1;
@@ -723,25 +723,14 @@ static void add_ifaces_to_table(lua_State *L, struct iface_entries *ifs) {
   }
   lua_setfield(L, -2, "ifaces");
 
-  lua_createtable(L, ifs->nip4srcs, 0);
-  for (i = 0; i < ifs->nip4srcs; i++) {
-    ret = l_pushsrcaddr(L, &ifs->ip4srcs[i]);
+  lua_createtable(L, ifs->nipsrcs, 0);
+  for (i = 0; i < ifs->nipsrcs; i++) {
+    ret = l_pushsrcaddr(L, &ifs->ipsrcs[i]);
     if (ret == 0) {
       lua_rawseti(L, -2, (lua_Integer)i+1);
     }
   }
-  lua_setfield(L, -2, "ip4_srcs");
-
-  lua_createtable(L, ifs->nip6srcs, 0);
-  for (i = 0; i < ifs->nip6srcs; i++) {
-    ret = l_pushsrcaddr(L, &ifs->ip6srcs[i]);
-    if (ret == 0) {
-      lua_rawseti(L, -2, (lua_Integer)i+1);
-    }
-  }
-  lua_setfield(L, -2, "ip6_srcs");
-
-
+  lua_setfield(L, -2, "ip_srcs");
 }
 
 static int l_ifaces(lua_State *L) {
@@ -761,26 +750,26 @@ static int l_ifaces(lua_State *L) {
  *   - ifaces
  *   - ip4_routes
  *   - ip4_srcs
+ *   - ip4_neigh
  *   - ip6_routes
  *   - ip6_srcs
+ *   - ip6_neigh
  * which contains route_table_entry, iface_entries data. The unmarshaled
  * data is returned in a table.  */
 static int l_unmarshal_routes(lua_State *L) {
   struct route_table rt = {0};
   struct iface_entries ifs = {0};
   size_t ip6_route_sz = 0;
-  size_t ip6_src_sz = 0;
   size_t ip6_neigh_sz = 0;
   size_t ip4_route_sz = 0;
-  size_t ip4_src_sz = 0;
+  size_t ip_src_sz = 0;
   size_t ip4_neigh_sz = 0;
   size_t ifaces_sz = 0;
   const char *ip6_route_data = NULL;
-  const char *ip6_src_data = NULL;
   const char *ip6_neigh_data = NULL;
   const char *ip4_route_data = NULL;
-  const char *ip4_src_data = NULL;
   const char *ip4_neigh_data = NULL;
+  const char *ip_src_data = NULL;
   const char *ifaces_data = NULL;
   int t;
 
@@ -789,12 +778,6 @@ static int l_unmarshal_routes(lua_State *L) {
   t = lua_getfield(L, 1, "ip6_routes");
   if (t == LUA_TSTRING) {
     ip6_route_data = lua_tolstring(L, -1, &ip6_route_sz);
-  }
-  lua_pop(L, 1);
-
-  t = lua_getfield(L, 1, "ip6_srcs");
-  if (t == LUA_TSTRING) {
-    ip6_src_data = lua_tolstring(L, -1, &ip6_src_sz);
   }
   lua_pop(L, 1);
 
@@ -810,15 +793,15 @@ static int l_unmarshal_routes(lua_State *L) {
   }
   lua_pop(L, 1);
 
-  t = lua_getfield(L, 1, "ip4_srcs");
-  if (t == LUA_TSTRING) {
-    ip4_src_data = lua_tolstring(L, -1, &ip4_src_sz);
-  }
-  lua_pop(L, 1);
-
   t = lua_getfield(L, 1, "ip4_neigh");
   if (t == LUA_TSTRING) {
     ip4_neigh_data = lua_tolstring(L, -1, &ip4_neigh_sz);
+  }
+  lua_pop(L, 1);
+
+  t = lua_getfield(L, 1, "ip_srcs");
+  if (t == LUA_TSTRING) {
+    ip_src_data = lua_tolstring(L, -1, &ip_src_sz);
   }
   lua_pop(L, 1);
 
@@ -840,16 +823,10 @@ static int l_unmarshal_routes(lua_State *L) {
     rt.nentries_ip4 = ip4_route_sz / sizeof(struct route_table_entry);
   }
 
-  if (ip6_src_sz > 0 &&
-      (ip6_src_sz % sizeof(struct iface_srcaddr)) == 0) {
-    ifs.ip6srcs = (struct iface_srcaddr*)ip6_src_data;
-    ifs.nip6srcs = ip6_src_sz / sizeof(struct iface_srcaddr);
-  }
-
-  if (ip4_src_sz > 0 &&
-      (ip4_src_sz % sizeof(struct iface_srcaddr)) == 0) {
-    ifs.ip4srcs = (struct iface_srcaddr*)ip4_src_data;
-    ifs.nip4srcs = ip4_src_sz / sizeof(struct iface_srcaddr);
+  if (ip_src_sz > 0 &&
+      (ip_src_sz % sizeof(struct iface_srcaddr)) == 0) {
+    ifs.ipsrcs = (struct iface_srcaddr*)ip_src_data;
+    ifs.nipsrcs = ip_src_sz / sizeof(struct iface_srcaddr);
   }
 
   if (ifaces_sz > 0 && ifaces_sz % sizeof(struct iface_entry) == 0) {

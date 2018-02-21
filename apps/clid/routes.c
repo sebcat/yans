@@ -56,12 +56,10 @@ void on_read_req(struct eds_client *cli, int fd) {
 write_resp:
   resp.ip4_routes.data = (const char *)rt.entries_ip4;
   resp.ip4_routes.len = sizeof(*rt.entries_ip4) * rt.nentries_ip4;
-  resp.ip4_srcs.data = (const char *)ifs.ip4srcs;
-  resp.ip4_srcs.len = sizeof(*ifs.ip4srcs) * ifs.nip4srcs;
   resp.ip6_routes.data = (const char *)rt.entries_ip6;
   resp.ip6_routes.len = sizeof(*rt.entries_ip6) * rt.nentries_ip6;
-  resp.ip6_srcs.data = (const char *)ifs.ip6srcs;
-  resp.ip6_srcs.len = sizeof(*ifs.ip6srcs) * ifs.nip6srcs;
+  resp.ip_srcs.data = (const char *)ifs.ipsrcs;
+  resp.ip_srcs.len = sizeof(*ifs.ipsrcs) * ifs.nipsrcs;
   resp.ifaces.data = (const char *)ifs.ifaces;
   resp.ifaces.len = sizeof(*ifs.ifaces) * ifs.nifaces;
   if (nip4_neigh > 0) {

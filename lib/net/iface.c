@@ -41,25 +41,20 @@ int iface_init(struct iface_entries *ifs) {
   int ret;
   int fam;
   int iface_pos = 0;
-  int ip4_pos = 0;
-  int ip6_pos = 0;
+  int ip_pos = 0;
   struct ifaddrs *addrs = NULL;
   struct ifaddrs *curr = NULL;
   size_t nifaces = 0;
   struct iface_entry *ifaces = NULL;
-  struct iface_srcaddr *ip4srcs = NULL;
-  size_t nip4srcs = 0;
-  struct iface_srcaddr *ip6srcs = NULL;
-  size_t nip6srcs = 0;
+  struct iface_srcaddr *ipsrcs = NULL;
+  size_t nipsrcs = 0;
 
   /* init the result to a known state */
   ifs->err = 0;
   ifs->ifaces = NULL;
   ifs->nifaces = 0;
-  ifs->ip4srcs = NULL;
-  ifs->nip4srcs = 0;
-  ifs->ip6srcs = NULL;
-  ifs->nip6srcs = 0;
+  ifs->ipsrcs = NULL;
+  ifs->nipsrcs = 0;
 
   /* get a list of all the links */
   ret = getifaddrs(&addrs);
@@ -73,10 +68,8 @@ int iface_init(struct iface_entries *ifs) {
     fam = curr->ifa_addr->sa_family;
     if (fam == LINKAF) {
       nifaces++;
-    } else if (fam == AF_INET) {
-      nip4srcs++;
-    } else if (fam == AF_INET6) {
-      nip6srcs++;
+    } else if (fam == AF_INET || fam == AF_INET6) {
+      nipsrcs++;
     }
   }
   if (nifaces <= 0) {
@@ -90,17 +83,9 @@ int iface_init(struct iface_entries *ifs) {
     goto done;
   }
 
-  if (nip4srcs > 0) {
-    ip4srcs = calloc(nip4srcs, sizeof(struct iface_srcaddr));
-    if (ip4srcs == NULL) {
-      ifs->err = errno;
-      goto done;
-    }
-  }
-
-  if (nip6srcs > 0) {
-    ip6srcs = calloc(nip6srcs, sizeof(struct iface_srcaddr));
-    if (ip6srcs == NULL) {
+  if (nipsrcs > 0) {
+    ipsrcs = calloc(nipsrcs, sizeof(struct iface_srcaddr));
+    if (ipsrcs == NULL) {
       ifs->err = errno;
       goto done;
     }
@@ -120,28 +105,28 @@ int iface_init(struct iface_entries *ifs) {
         out->index = -1;
       }
     } else if (fam == AF_INET) {
-      struct iface_srcaddr *out = &ip4srcs[ip4_pos++];
+      struct iface_srcaddr *out = &ipsrcs[ip_pos++];
       strncpy(out->ifname, curr->ifa_name, sizeof(out->ifname));
       out->ifname[IFACE_NAMESZ-1] = '\0';
-      memcpy(&out->u.sin, curr->ifa_addr, sizeof(struct sockaddr_in));
+      memcpy(&out->addr.u.sin, curr->ifa_addr, sizeof(struct sockaddr_in));
+      memcpy(&out->mask.u.sin, curr->ifa_netmask, sizeof(struct sockaddr_in));
     } else if (fam == AF_INET6) {
-      struct iface_srcaddr *out = &ip6srcs[ip6_pos++];
+      struct iface_srcaddr *out = &ipsrcs[ip_pos++];
       strncpy(out->ifname, curr->ifa_name, sizeof(out->ifname));
       out->ifname[IFACE_NAMESZ-1] = '\0';
-      memcpy(&out->u.sin6, curr->ifa_addr, sizeof(struct sockaddr_in6));
+      memcpy(&out->addr.u.sin6, curr->ifa_addr, sizeof(struct sockaddr_in6));
+      memcpy(&out->mask.u.sin6, curr->ifa_netmask,
+          sizeof(struct sockaddr_in6));
     }
   }
 
   /* success */
   ifs->nifaces = nifaces;
   ifs->ifaces = ifaces;
-  ifs->ip4srcs = ip4srcs;
-  ifs->nip4srcs = nip4srcs;
-  ifs->ip6srcs = ip6srcs;
-  ifs->nip6srcs = nip6srcs;
+  ifs->ipsrcs = ipsrcs;
+  ifs->nipsrcs = nipsrcs;
   ifaces = NULL;
-  ip4srcs = NULL;
-  ip6srcs = NULL;
+  ipsrcs = NULL;
 done:
   if (addrs != NULL) {
     freeifaddrs(addrs);
@@ -151,12 +136,8 @@ done:
     free(ifaces);
   }
 
-  if (ip4srcs != NULL) {
-    free(ip4srcs);
-  }
-
-  if (ip6srcs != NULL) {
-    free(ip6srcs);
+  if (ipsrcs != NULL) {
+    free(ipsrcs);
   }
 
   return ifs->err == 0 ? 0 : -1;
@@ -168,17 +149,12 @@ void iface_cleanup(struct iface_entries *ifs) {
       free(ifs->ifaces);
       ifs->ifaces = NULL;
     }
-    if (ifs->ip4srcs) {
-      free(ifs->ip4srcs);
-      ifs->ip4srcs = NULL;
-    }
-    if (ifs->ip6srcs) {
-      free(ifs->ip6srcs);
-      ifs->ip6srcs = NULL;
+    if (ifs->ipsrcs) {
+      free(ifs->ipsrcs);
+      ifs->ipsrcs = NULL;
     }
     ifs->nifaces = 0;
-    ifs->nip4srcs = 0;
-    ifs->nip6srcs = 0;
+    ifs->nipsrcs = 0;
     ifs->err = 0;
   }
 }

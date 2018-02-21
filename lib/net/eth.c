@@ -180,6 +180,7 @@ ssize_t eth_sender_write(struct eth_sender *eth, const void *data,
     return -1;
   }
 
+  /* TODO: Move to eth_sender_init?*/
   memset(&lladdr, 0, sizeof(lladdr));
   lladdr.sll_family = AF_PACKET;
   lladdr.sll_ifindex = eth->index;

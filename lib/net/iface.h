@@ -11,14 +11,19 @@
 #define IFACE_UP       IFF_UP
 #define IFACE_LOOPBACK IFF_LOOPBACK
 
-struct iface_srcaddr {
-  char ifname[IFACE_NAMESZ];
+struct iface_addrent {
   union {
     struct sockaddr sa;
     struct sockaddr_in sin;
     struct sockaddr_in6 sin6;
     struct sockaddr_storage st;
   } u;
+};
+
+struct iface_srcaddr {
+  char ifname[IFACE_NAMESZ];
+  struct iface_addrent addr;
+  struct iface_addrent mask;
 };
 
 struct iface_entry {
@@ -30,11 +35,9 @@ struct iface_entry {
 
 struct iface_entries {
   struct iface_entry *ifaces;
-  struct iface_srcaddr *ip4srcs;
-  struct iface_srcaddr *ip6srcs;
+  struct iface_srcaddr *ipsrcs;
   size_t nifaces;
-  size_t nip4srcs;
-  size_t nip6srcs;
+  size_t nipsrcs;
   int err;
 };
 

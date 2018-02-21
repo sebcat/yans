@@ -2,6 +2,7 @@
   - interfaces and stuff are loaded at boot, may change during uptime
 
 ## lua
+  - get rid of YANS_DEBUG, setup path names to point in the repo instead
   - receive/transmit buffers for fd
   - event driven poll
   - callback system in lua, similar to eds. on_next_fd, on_readable,
@@ -38,6 +39,11 @@ ev:clear_on_writable(fd)
   - choose sequential/procedurally generated/PRNG source port within suitable
     range instead of hard-coding?
   - generate packet generators from DSL?
+  - only have ethframe distribute /dev/bpf sockets, rip out the frame
+    generation to a library called from lua (preferably DSL generated)
+    or maybe not - too many ethernet writer processes are maybe bad?
+    some MAC checks, &c. If that is a problem, it could be mitigated in the
+    kernel, using a custom devfs-node for accessing the NIC directly
 
 ## lib/net/url
   - url_normalize: if we have a percent-encoding to a valid char, decode it?

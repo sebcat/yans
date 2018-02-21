@@ -511,9 +511,14 @@ static int l_pushsrcaddr(lua_State *L, struct iface_srcaddr *src) {
   ip_block_t *blk;
   int ret;
 
-  lua_createtable(L, 2, 0);
+  /* create the source address table, {iface, addr, mask} */
+  lua_createtable(L, 3, 0);
+
+  /* set the iface */
   lua_pushstring(L, src->ifname);
   lua_rawseti(L, -2, 1);
+
+  /* create and set the address */
   blk = l_newipblock(L);
   ret = ip_block_from_addrs(blk, (ip_addr_t*)&src->addr.u.sa,
       (ip_addr_t*)&src->addr.u.sa, NULL);
@@ -522,6 +527,16 @@ static int l_pushsrcaddr(lua_State *L, struct iface_srcaddr *src) {
     return -1;
   }
   lua_rawseti(L, -2, 2);
+
+  /* create and set the netmask */
+  blk = l_newipblock(L);
+  ret = ip_block_netmask(blk, (ip_addr_t*)&src->addr.u.sa,
+      (ip_addr_t*)&src->mask.u.sa, NULL);
+  if (ret < 0) {
+    lua_pop(L, 2);
+    return -1;
+  }
+  lua_rawseti(L, -2, 3);
 
   return 0;
 }
@@ -748,11 +763,10 @@ static int l_ifaces(lua_State *L) {
 
 /* expects a lua table with the keys
  *   - ifaces
+ *   - ip_srcs
  *   - ip4_routes
- *   - ip4_srcs
  *   - ip4_neigh
  *   - ip6_routes
- *   - ip6_srcs
  *   - ip6_neigh
  * which contains route_table_entry, iface_entries data. The unmarshaled
  * data is returned in a table.  */

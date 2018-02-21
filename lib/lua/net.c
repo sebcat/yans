@@ -12,7 +12,6 @@
 #define MTNAME_IPADDR     "yans.IPAddr"
 #define MTNAME_IPPORTS    "yans.IPPorts"
 #define MTNAME_IPR4PORTS  "yans.IPR4Ports"
-#define MTNAME_ETHADDR    "yans.EthAddr"
 #define MTNAME_BLOCK      "yans.IPBlock"
 #define MTNAME_BLOCKS     "yans.IPBlocks"
 #define MTNAME_R4BLOCKS   "yans.IPR4Blocks"
@@ -25,9 +24,6 @@
 
 #define checkr4ports(L, i) \
     ((struct port_r4ranges *)luaL_checkudata(L, (i), MTNAME_IPR4PORTS))
-
-#define checkethaddr(L, i) \
-    ((struct eth_addr *)luaL_checkudata(L, (i), MTNAME_ETHADDR))
 
 #define checkblock(L, i) \
     ((ip_block_t*)luaL_checkudata(L, (i), MTNAME_BLOCK))
@@ -62,14 +58,6 @@ static inline struct port_r4ranges *l_newipr4ports(lua_State *L) {
   luaL_setmetatable(L, MTNAME_IPR4PORTS);
   memset(rs, 0, sizeof(*rs));
   return rs;
-}
-
-static inline struct eth_addr *l_newethaddr(lua_State *L) {
-  struct eth_addr *eth;
-
-  eth = lua_newuserdata(L, sizeof(struct eth_addr));
-  luaL_setmetatable(L, MTNAME_ETHADDR);
-  return eth;
 }
 
 static inline ip_block_t *l_newipblock(lua_State *L) {
@@ -273,54 +261,6 @@ static int l_ipaddr_sub(lua_State *L) {
   l_ipaddr_checkipnum(L, n);
   ip_addr_sub(addr, (int32_t)n);
   lua_pushvalue(L, 1);
-  return 1;
-}
-
-static int l_ethaddr(lua_State *L) {
-  struct eth_addr *eth;
-  size_t len;
-  const char *addr;
-  char ethbuf[ETH_ALEN];
-  int ret;
-
-  addr = luaL_checklstring(L, 1, &len);
-  if (len < 6) {
-    return luaL_error(L, "EthAddr: ethernet address too short");
-  } else if (len == 6) {
-    /* raw byte format */
-    eth = l_newethaddr(L);
-    eth_addr_init_bytes(eth, addr);
-  } else if (len > 6) {
-    /* assume XX:XX:XX:XX:XX:XX */
-    ret = sscanf(addr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &ethbuf[0],
-        &ethbuf[1], &ethbuf[2], &ethbuf[3], &ethbuf[4], &ethbuf[5]);
-    if (ret != 6) {
-      return luaL_error(L, "EthAddr: invalid ethernet address");
-    }
-    eth = l_newethaddr(L);
-    eth_addr_init_bytes(eth, ethbuf);
-  }
-  return 1;
-}
-
-
-static int l_ethaddr_tostring(lua_State *L) {
-  char addr[ETH_STRSZ];
-  struct eth_addr *eth = checkethaddr(L, 1);
-  eth_addr_tostring(eth, addr, ETH_STRSZ);
-  lua_pushstring(L, addr);
-  return 1;
-}
-
-static int l_ethaddr_ifindex(lua_State *L) {
-  struct eth_addr *eth = checkethaddr(L, 1);
-  lua_pushinteger(L, (lua_Integer)eth->index);
-  return 1;
-}
-
-static int l_ethaddr_bytes(lua_State *L) {
-  struct eth_addr *eth = checkethaddr(L, 1);
-  lua_pushlstring(L, (const char *)eth->addr, ETH_ALEN);
   return 1;
 }
 
@@ -608,16 +548,23 @@ static void add_routes_to_table(lua_State *L, struct route_table *rt) {
   lua_setfield(L, -2, "ip6_routes");
 }
 
-static int l_addneigh4(lua_State *L, const struct neigh_ip4_entry *e) {
-  struct eth_addr *eth;
+static int l_ethbytestostr(lua_State *L, const char *bytes) {
+  char addr[24];
+  const unsigned char *bs = (const unsigned char*)bytes;
 
+  snprintf(addr, sizeof(addr), "%02x:%02x:%02x:%02x:%02x:%02x",
+      (unsigned int)bs[0], (unsigned int)bs[1], (unsigned int)bs[2],
+      (unsigned int)bs[3], (unsigned int)bs[4], (unsigned int)bs[5]);
+  lua_pushstring(L, addr);
+  return 1;
+}
+
+static int l_addneigh4(lua_State *L, const struct neigh_ip4_entry *e) {
   if (e->iface[0] == '\0' || memcmp(e->hwaddr, "\0\0\0\0\0\0", 6) == 0) {
     /* skip empty hwaddrs or iface addrs */
     return -1;
   }
-
-  eth = l_newethaddr(L);
-  eth_addr_init_bytes(eth, e->hwaddr);
+  l_ethbytestostr(L, e->hwaddr);
   lua_setfield(L, -2, "hwaddr");
   lua_pushstring(L, e->iface);
   lua_setfield(L, -2, "iface");
@@ -627,15 +574,12 @@ static int l_addneigh4(lua_State *L, const struct neigh_ip4_entry *e) {
 }
 
 static int l_addneigh6(lua_State *L, const struct neigh_ip6_entry *e) {
-  struct eth_addr *eth;
-
   if (e->iface[0] == '\0' || memcmp(e->hwaddr, "\0\0\0\0\0\0", 6) == 0) {
     /* skip empty hwaddrs or iface addrs */
     return -1;
   }
 
-  eth = l_newethaddr(L);
-  eth_addr_init_bytes(eth, e->hwaddr);
+  l_ethbytestostr(L, e->hwaddr);
   lua_setfield(L, -2, "hwaddr");
   lua_pushstring(L, e->iface);
   lua_setfield(L, -2, "iface");
@@ -715,7 +659,6 @@ static int l_neighbors(lua_State *L) {
 
 static void add_ifaces_to_table(lua_State *L, struct iface_entries *ifs) {
   struct iface_entry *ent;
-  struct eth_addr *eth;
   int i;
   int ret;
 
@@ -723,8 +666,7 @@ static void add_ifaces_to_table(lua_State *L, struct iface_entries *ifs) {
   for (i = 0; i < ifs->nifaces; i++) {
     ent = &ifs->ifaces[i];
     lua_createtable(L, 0, 5);
-    eth = l_newethaddr(L);
-    eth_addr_init_bytes(eth, ent->addr);
+    l_ethbytestostr(L, ent->addr);
     lua_setfield(L, -2, "addr");
     lua_pushinteger(L, (lua_Integer)ent->index);
     lua_setfield(L, -2, "index");
@@ -1023,13 +965,6 @@ static const struct luaL_Reg yansr4ports_m[] = {
   {NULL, NULL},
 };
 
-static const struct luaL_Reg yansethaddr_m[] = {
-  {"__tostring", l_ethaddr_tostring},
-  {"ifindex", l_ethaddr_ifindex},
-  {"bytes", l_ethaddr_bytes},
-  {NULL, NULL}
-};
-
 static const struct luaL_Reg yansblock_m[] = {
   /* TODO:
      {"__len", NULL}, how to handle too large length? Error? LUA_MAXINTEGER?
@@ -1069,7 +1004,6 @@ static const struct luaL_Reg ip_f[] = {
 };
 
 static const struct luaL_Reg eth_f[] = {
-  {"addr", l_ethaddr},
   {"ifaces", l_ifaces},
   {NULL, NULL},
 };
@@ -1107,12 +1041,6 @@ int luaopen_ip(lua_State *L) {
 }
 
 int luaopen_eth(lua_State *L) {
-  struct mtable mt[] = {
-    {MTNAME_ETHADDR, yansethaddr_m},
-    {NULL, NULL},
-  };
-
-  init_mtable(L, mt);
   luaL_newlib(L, eth_f);
   return 1;
 }

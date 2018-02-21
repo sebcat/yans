@@ -559,21 +559,7 @@ static int l_ethbytestostr(lua_State *L, const char *bytes) {
   return 1;
 }
 
-static int l_addneigh4(lua_State *L, const struct neigh_ip4_entry *e) {
-  if (e->iface[0] == '\0' || memcmp(e->hwaddr, "\0\0\0\0\0\0", 6) == 0) {
-    /* skip empty hwaddrs or iface addrs */
-    return -1;
-  }
-  l_ethbytestostr(L, e->hwaddr);
-  lua_setfield(L, -2, "hwaddr");
-  lua_pushstring(L, e->iface);
-  lua_setfield(L, -2, "iface");
-  l_pushipaddr(L, (struct sockaddr *)&e->sin);
-  lua_setfield(L, -2, "ipaddr");
-  return 0;
-}
-
-static int l_addneigh6(lua_State *L, const struct neigh_ip6_entry *e) {
+static int l_addneigh(lua_State *L, const struct neigh_entry *e) {
   if (e->iface[0] == '\0' || memcmp(e->hwaddr, "\0\0\0\0\0\0", 6) == 0) {
     /* skip empty hwaddrs or iface addrs */
     return -1;
@@ -583,42 +569,27 @@ static int l_addneigh6(lua_State *L, const struct neigh_ip6_entry *e) {
   lua_setfield(L, -2, "hwaddr");
   lua_pushstring(L, e->iface);
   lua_setfield(L, -2, "iface");
-  l_pushipaddr(L, (struct sockaddr *)&e->sin6);
+  l_pushipaddr(L, (struct sockaddr *)&e->u.sa);
   lua_setfield(L, -2, "ipaddr");
   return 0;
 }
 
 static void add_neigh_to_table(lua_State *L,
-    const struct neigh_ip4_entry *ip4_neigh, size_t nip4_neigh,
-    const struct neigh_ip6_entry *ip6_neigh, size_t nip6_neigh) {
+    const struct neigh_entry *ip_neigh, size_t nip_neigh) {
   size_t i;
 
-  if (nip4_neigh > 0) {
-    lua_createtable(L, nip4_neigh, 0);
-    for (i = 0; i < nip4_neigh; i++) {
+  if (nip_neigh > 0) {
+    lua_createtable(L, nip_neigh, 0);
+    for (i = 0; i < nip_neigh; i++) {
       lua_newtable(L); /* a single neighbor table entry */
-      if (l_addneigh4(L, &ip4_neigh[i]) < 0) {
+      if (l_addneigh(L, &ip_neigh[i]) < 0) {
         lua_pop(L, 1);
         continue;
       }
       lua_rawseti(L, -2, i+1);
     }
-    lua_setfield(L, -2, "ip4_neigh");
+    lua_setfield(L, -2, "ip_neigh");
   }
-
-  if (nip6_neigh > 0) {
-    lua_createtable(L, nip6_neigh, 0);
-    for (i = 0; i < nip6_neigh; i++) {
-      lua_newtable(L); /* a single neighbor table entry */
-      if (l_addneigh6(L, &ip6_neigh[i]) < 0) {
-        lua_pop(L, 1);
-        continue;
-      }
-      lua_rawseti(L, -2, i+1);
-    }
-    lua_setfield(L, -2, "ip6_neigh");
-  }
-
 }
 
 static int l_routes(lua_State *L) {
@@ -637,21 +608,14 @@ static int l_routes(lua_State *L) {
 }
 
 static int l_neighbors(lua_State *L) {
-  struct neigh_ip4_entry *ip4_neigh = NULL;
-  struct neigh_ip6_entry *ip6_neigh = NULL;
-  size_t nip4_neigh = 0;
-  size_t nip6_neigh = 0;
+  struct neigh_entry *ip_neigh = NULL;
+  size_t nip_neigh = 0;
 
-  ip4_neigh = neigh_get_ip4_entries(&nip4_neigh, NULL);
-  ip6_neigh = neigh_get_ip6_entries(&nip6_neigh, NULL);
+  ip_neigh = neigh_get_entries(&nip_neigh, NULL);
   lua_createtable(L, 0, 2);
-  add_neigh_to_table(L, ip4_neigh, nip4_neigh, ip6_neigh, nip6_neigh);
-  if (ip4_neigh) {
-    neigh_free_ip4_entries(ip4_neigh);
-  }
-
-  if (ip6_neigh) {
-    neigh_free_ip6_entries(ip6_neigh);
+  add_neigh_to_table(L, ip_neigh, nip_neigh);
+  if (ip_neigh) {
+    neigh_free_entries(ip_neigh);
   }
 
   return 1;
@@ -706,25 +670,22 @@ static int l_ifaces(lua_State *L) {
 /* expects a lua table with the keys
  *   - ifaces
  *   - ip_srcs
+ *   - ip_neigh
  *   - ip4_routes
- *   - ip4_neigh
  *   - ip6_routes
- *   - ip6_neigh
  * which contains route_table_entry, iface_entries data. The unmarshaled
  * data is returned in a table.  */
 static int l_unmarshal_routes(lua_State *L) {
   struct route_table rt = {0};
   struct iface_entries ifs = {0};
   size_t ip6_route_sz = 0;
-  size_t ip6_neigh_sz = 0;
   size_t ip4_route_sz = 0;
   size_t ip_src_sz = 0;
-  size_t ip4_neigh_sz = 0;
+  size_t ip_neigh_sz = 0;
   size_t ifaces_sz = 0;
   const char *ip6_route_data = NULL;
-  const char *ip6_neigh_data = NULL;
   const char *ip4_route_data = NULL;
-  const char *ip4_neigh_data = NULL;
+  const char *ip_neigh_data = NULL;
   const char *ip_src_data = NULL;
   const char *ifaces_data = NULL;
   int t;
@@ -737,21 +698,15 @@ static int l_unmarshal_routes(lua_State *L) {
   }
   lua_pop(L, 1);
 
-  t = lua_getfield(L, 1, "ip6_neigh");
-  if (t == LUA_TSTRING) {
-    ip6_neigh_data = lua_tolstring(L, -1, &ip6_neigh_sz);
-  }
-  lua_pop(L, 1);
-
   t = lua_getfield(L, 1, "ip4_routes");
   if (t == LUA_TSTRING) {
     ip4_route_data = lua_tolstring(L, -1, &ip4_route_sz);
   }
   lua_pop(L, 1);
 
-  t = lua_getfield(L, 1, "ip4_neigh");
+  t = lua_getfield(L, 1, "ip_neigh");
   if (t == LUA_TSTRING) {
-    ip4_neigh_data = lua_tolstring(L, -1, &ip4_neigh_sz);
+    ip_neigh_data = lua_tolstring(L, -1, &ip_neigh_sz);
   }
   lua_pop(L, 1);
 
@@ -793,10 +748,8 @@ static int l_unmarshal_routes(lua_State *L) {
   lua_createtable(L, 0, 5);
   add_routes_to_table(L, &rt);
   add_neigh_to_table(L,
-      (const struct neigh_ip4_entry*)ip4_neigh_data,
-      ip4_neigh_sz / sizeof(struct neigh_ip4_entry),
-      (const struct neigh_ip6_entry*)ip6_neigh_data,
-      ip6_neigh_sz / sizeof(struct neigh_ip6_entry));
+      (const struct neigh_entry*)ip_neigh_data,
+      ip_neigh_sz / sizeof(struct neigh_entry));
   add_ifaces_to_table(L, &ifs);
   /* rt, ifs is not cleaned up, because Lua owns the memory */
   return 1;

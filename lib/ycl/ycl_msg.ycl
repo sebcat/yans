@@ -55,10 +55,9 @@ route_resp {
   str err;
   data ifaces;
   data ip_srcs;
+  data ip_neigh;
   data ip4_routes;
   data ip6_routes;
-  data ip4_neigh;
-  data ip6_neigh;
 }
 
 resolver_req {

@@ -63,28 +63,17 @@ fail:
   return NULL;
 }
 
-struct neigh_ip4_entry *neigh_get_ip4_entries(size_t *nentries, int *err) {
-  char *rt;
+static size_t count_entries(char *rt, char *end) {
+  size_t count = 0;
   char *curr;
-  char *end;
   struct rt_msghdr *rtm;
-  struct sockaddr_in *sin;
+  struct sockaddr *sa;
   struct sockaddr_dl *sdl;
-  struct neigh_ip4_entry *entries;
-  size_t count;
-  size_t i;
 
-  *nentries = 0;
-  rt = get_rt(AF_INET, &end);
-  if (rt == NULL) {
-    goto fail;
-  }
-
-  count = 0;
   for (curr = rt; curr < end; curr += rtm->rtm_msglen) {
     rtm = (struct rt_msghdr *)curr;
-    sin = (struct sockaddr_in *)(rtm + 1);
-    sdl = (struct sockaddr_dl *)((char *)sin + SA_SIZE(sin));
+    sa = (struct sockaddr *)(rtm + 1);
+    sdl = (struct sockaddr_dl *)((char *)sa + SA_SIZE(sa));
 
     if (sdl->sdl_family != AF_LINK || !(rtm->rtm_flags & RTF_HOST)) {
       continue;
@@ -92,100 +81,76 @@ struct neigh_ip4_entry *neigh_get_ip4_entries(size_t *nentries, int *err) {
     count++;
   }
 
-  entries = calloc(count, sizeof(*entries));
-  if (entries == NULL) {
-    goto cleanup_rt;
-  }
+  return count;
+}
 
-  for (i = 0, curr = rt; curr < end; curr += rtm->rtm_msglen) {
+static size_t copy_entries(struct neigh_entry *entries, size_t offset,
+    char *rt, char *end) {
+  char *curr;
+  struct rt_msghdr *rtm;
+  struct sockaddr *sa;
+  struct sockaddr_dl *sdl;
+
+  for (curr = rt; curr < end; curr += rtm->rtm_msglen) {
     rtm = (struct rt_msghdr *)curr;
-    sin = (struct sockaddr_in *)(rtm + 1);
-    sdl = (struct sockaddr_dl *)((char *)sin + SA_SIZE(sin));
+    sa = (struct sockaddr *)(rtm + 1);
+    sdl = (struct sockaddr_dl *)((char *)sa + SA_SIZE(sa));
 
     if (sdl->sdl_family != AF_LINK || !(rtm->rtm_flags & RTF_HOST)) {
       continue;
     }
 
-    /* XXX: assumes ethernet interfaces */
-    entries[i].sin = *sin;
-    if_indextoname(LLINDEX(sdl), entries[i].iface);
+    memcpy(&entries[offset].u.sa, sa,
+        sa->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) :
+          sizeof(struct sockaddr_in));
+    if_indextoname(LLINDEX(sdl), entries[offset].iface);
     if (sdl->sdl_alen == NEIGH_ETHSIZ) {
-      memcpy(&entries[i].hwaddr, LLADDR(sdl), NEIGH_ETHSIZ);
+      /* XXX: assumes ethernet interfaces */
+      memcpy(&entries[offset].hwaddr, LLADDR(sdl), NEIGH_ETHSIZ);
     }
-    i++;
+    offset++;
   }
 
-  free(rt);
-  *nentries = count;
-  return entries;
-
-cleanup_rt:
-  free(rt);
-fail:
-  if (err) {
-    *err = errno;
-  }
-  return NULL;
+  return offset;
 }
 
-struct neigh_ip6_entry *neigh_get_ip6_entries(size_t *nentries, int *err) {
-  char *rt;
-  char *curr;
-  char *end;
-  struct rt_msghdr *rtm;
-  struct sockaddr_in6 *sin6;
-  struct sockaddr_dl *sdl;
-  struct neigh_ip6_entry *entries;
+struct neigh_entry *neigh_get_entries(size_t *nentries, int *err) {
+  char *rt4;
+  char *end4;
+  char *rt6;
+  char *end6;
+  struct neigh_entry *entries;
   size_t count;
   size_t i;
 
   *nentries = 0;
-  rt = get_rt(AF_INET6, &end);
-  if (rt == NULL) {
+  rt4 = get_rt(AF_INET, &end4);
+  if (rt4 == NULL) {
     goto fail;
   }
 
-  count = 0;
-  for (curr = rt; curr < end; curr += rtm->rtm_msglen) {
-    rtm = (struct rt_msghdr *)curr;
-    sin6 = (struct sockaddr_in6 *)(rtm + 1);
-    sdl = (struct sockaddr_dl *)((char *)sin6 + SA_SIZE(sin6));
-
-    if (sdl->sdl_family != AF_LINK || !(rtm->rtm_flags & RTF_HOST)) {
-      continue;
-    }
-    count++;
+  rt6 = get_rt(AF_INET6, &end6);
+  if (rt6 == NULL) {
+    goto cleanup_rt4;
   }
 
+  count = count_entries(rt4, end4) + count_entries(rt6, end6);
   entries = calloc(count, sizeof(*entries));
   if (entries == NULL) {
-    goto cleanup_rt;
+    goto cleanup_rt6;
   }
 
-  for (i = 0, curr = rt; curr < end; curr += rtm->rtm_msglen) {
-    rtm = (struct rt_msghdr *)curr;
-    sin6 = (struct sockaddr_in6 *)(rtm + 1);
-    sdl = (struct sockaddr_dl *)((char *)sin6 + SA_SIZE(sin6));
-
-    if (sdl->sdl_family != AF_LINK || !(rtm->rtm_flags & RTF_HOST)) {
-      continue;
-    }
-
-    /* XXX: assumes ethernet interfaces */
-    entries[i].sin6 = *sin6;
-    if_indextoname(LLINDEX(sdl), entries[i].iface);
-    if (sdl->sdl_alen == NEIGH_ETHSIZ) {
-      memcpy(&entries[i].hwaddr, LLADDR(sdl), NEIGH_ETHSIZ);
-    }
-    i++;
-  }
-
-  free(rt);
+  i = copy_entries(entries, 0, rt4, end4);
+  copy_entries(entries, i, rt6, end6);
+  free(rt6);
+  free(rt4);
   *nentries = count;
   return entries;
 
-cleanup_rt:
-  free(rt);
+cleanup_rt6:
+  free(rt6);
+cleanup_rt4:
+  free(rt4);
 fail:
   if (err) {
     *err = errno;
@@ -193,13 +158,7 @@ fail:
   return NULL;
 }
 
-void neigh_free_ip4_entries(struct neigh_ip4_entry *entries) {
-  if (entries) {
-    free(entries);
-  }
-}
-
-void neigh_free_ip6_entries(struct neigh_ip6_entry *entries) {
+void neigh_free_entries(struct neigh_entry *entries) {
   if (entries) {
     free(entries);
   }
@@ -215,19 +174,11 @@ const char *neigh_strerror(int err) {
 
 #else /* !defined(__FreeBSD__) */
 
-struct neigh_ip4_entry *neigh_get_ip4_entries(size_t *nentries, int *err) {
+struct neigh_entry *neigh_get_entries(size_t *nentries, int *err) {
   return NULL;
 }
 
-struct neigh_ip6_entry *neigh_get_ip6_entries(size_t *nentries, int *err) {
-  return NULL;
-}
-
-void neigh_free_ip4_entries(struct neigh_ip4_entry *entries) {
-
-}
-
-void neigh_free_ip6_entries(struct neigh_ip6_entry *entries) {
+void neigh_free_entries(struct neigh_ip4_entry *entries) {
 
 }
 

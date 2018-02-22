@@ -330,6 +330,7 @@ local function get_loopback_ifname()
 end
 
 local function print_neighbors(neigh)
+  if not neigh then return end
   for _, entry in pairs(neigh) do
     for k,v in pairs(entry) do
       print(k,v)
@@ -339,9 +340,7 @@ local function print_neighbors(neigh)
 end
 
 print("IP4\n---")
-print_neighbors(NEIGHBORS.ip4_neigh)
-print("IP6\n---")
-print_neighbors(NEIGHBORS.ip6_neigh)
+print_neighbors(NEIGHBORS.ip_neigh)
 
 
 -- Test IPv6 zone ID

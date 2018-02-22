@@ -33,8 +33,7 @@ function _M:run(scanner)
   print("---")
 
   -- get the network configuration
-  local netconf = scanner:get_netconf()
-  scanner:print_netconf(netconf)
+  local netconf = scanner.routes:get_netconf()
 
   local ifaces
   if not self.nonet then
@@ -115,13 +114,56 @@ function _M:get_ifaces(scanner)
   return ifaces
 end
 
+function _M:send_packets(scanner, ifname, ifconf)
+  local ip4_srcs, ip6_srcs, ip4_dsts = {}, {}, {}
+  local ifaddr = ifconf.ethaddr
+
+  -- split source addresses by IP version
+  for _, ip_src in pairs(ifconf.ip_srcs) do
+    local addr = ip_src.addr
+    local v = addr:version()
+    if v == 4 then
+      table.insert(ip4_srcs, addr)
+    elseif v == 6 then
+      table.insert(ip6_srcs, addr)
+    end
+  end
+
+  -- build a table of strings of all the IPv4 destination addresses, if any
+  for _,blk in pairs(ifconf.ip_dsts) do
+    if blk:version() == 4 then
+      table.insert(ip4_dsts, tostring(blk))
+    end
+  end
+
+  for _, ip4_src in pairs(ip4_srcs) do
+    scanner:send_packets{
+      iface = ifname,
+      categories = "arp-req|ll-disco",
+      eth_src = ifaddr,
+      ip_src = tostring(ip4_src),
+      ip_dsts = table.concat(ip4_dsts, " "),
+    }
+  end
+
+  for _, ip6_src in pairs(ip6_srcs) do
+    print(_, ip6_src)
+    scanner:send_packets{
+      iface = ifname,
+      categories = "ll-disco",
+      eth_src = ifaddr,
+      ip_src = tostring(ip6_src),
+    }
+  end
+end
+
 function _M:send_recv_packets(scanner, netconf)
   local file = yans.file
   local util = yans.util
   local ifaces = {}
   for ifname, entry in pairs(netconf) do
     -- setup the capture for this interface
-    local ifaddr = entry.ifaddr
+    local ifaddr = entry.ethaddr
     local fmt = "(not ether src %s) and (%s)"
     local filter = string.format(fmt, ifaddr, global_filter)
     local filename = string.format("disco-%s.pcap.gz", ifname)
@@ -132,24 +174,7 @@ function _M:send_recv_packets(scanner, netconf)
     util.nanosleep(0, 500000000) -- wait a bit to establish the capture
 
     if not self.passive then
-      for _, ip4_src in pairs(entry.ip4_srcs) do
-        scanner:send_packets{
-          iface = ifname,
-          categories = "arp-req|ll-disco",
-          eth_src = ifaddr,
-          ip_src = ip4_src,
-          ip_dsts = table.concat(entry.ip4_dsts, " "),
-        }
-      end
-
-      for _, ip6_src in pairs(entry.ip6_srcs) do
-        scanner:send_packets{
-          iface = ifname,
-          categories = "ll-disco",
-          eth_src = ifaddr,
-          ip_src = ip6_src,
-        }
-      end
+      self:send_packets(scanner, ifname, entry)
     end
 
     util.nanosleep(self.linger, 0) -- wait a bit for incoming frames

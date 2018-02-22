@@ -264,6 +264,23 @@ static int l_ipaddr_sub(lua_State *L) {
   return 1;
 }
 
+static int l_ipaddr_version(lua_State *L) {
+  ip_addr_t *addr;
+  int af;
+
+  addr = checkipaddr(L, 1);
+  af = addr->u.sa.sa_family;
+  if (af == AF_INET) {
+    lua_pushinteger(L, 4);
+  } else if (af == AF_INET6) {
+    lua_pushinteger(L, 6);
+  } else {
+    return luaL_error(L, "unknown address family: %d", af);
+  }
+
+  return 1;
+}
+
 static int l_ipblock(lua_State *L) {
   ip_block_t *blk;
   const char *s;
@@ -338,6 +355,23 @@ static int l_ipblock_contains(lua_State *L) {
   }
   ret = ip_block_contains(blk, addr);
   lua_pushboolean(L, ret);
+  return 1;
+}
+
+static int l_ipblock_version(lua_State *L) {
+  ip_block_t *blk;
+  int af;
+
+  blk = checkblock(L, 1);
+  af = blk->first.u.sa.sa_family;
+  if (af == AF_INET) {
+    lua_pushinteger(L, 4);
+  } else if (af == AF_INET6) {
+    lua_pushinteger(L, 6);
+  } else {
+    return luaL_error(L, "invalid block family: %d", af);
+  }
+
   return 1;
 }
 
@@ -447,6 +481,42 @@ static int l_ipblocks_contains(lua_State *L) {
   return 1;
 }
 
+static int l_ipblocks_nextblock_iter(lua_State *L) {
+  struct ip_blocks *blks;
+  ip_block_t *blk;
+  ip_block_t *curr;
+  int ret;
+  int err = 0;
+
+  blks = checkblocks(L, lua_upvalueindex(1));
+  if (blks->curr_block >= blks->nblocks) {
+    return 0;
+  }
+
+  blk = l_newipblock(L);
+  curr = &blks->blocks[blks->curr_block];
+  ret = ip_block_from_addrs(blk, &curr->first, &curr->last, &err);
+  if (ret < 0) {
+    return luaL_error(L, "block iterator failure: %s", ip_block_strerror(err));
+  }
+
+  blks->curr_block++;
+  return 1;
+}
+
+static int l_ipblocks_nextblock(lua_State *L) {
+  struct ip_blocks *blks;
+
+  blks = checkblocks(L, 1);
+  if (blks->nblocks == 0) {
+    return 0;
+  }
+
+  blks->curr_block = 0;
+  lua_pushcclosure(L, l_ipblocks_nextblock_iter, 1);
+  return 1;
+}
+
 static int l_pushsrcaddr(lua_State *L, struct iface_srcaddr *src) {
   ip_block_t *blk;
   int ret;
@@ -459,13 +529,7 @@ static int l_pushsrcaddr(lua_State *L, struct iface_srcaddr *src) {
   lua_rawseti(L, -2, 1);
 
   /* create and set the address */
-  blk = l_newipblock(L);
-  ret = ip_block_from_addrs(blk, (ip_addr_t*)&src->addr.u.sa,
-      (ip_addr_t*)&src->addr.u.sa, NULL);
-  if (ret < 0) {
-    lua_pop(L, 2);
-    return -1;
-  }
+  l_pushipaddr(L, &src->addr.u.sa);
   lua_rawseti(L, -2, 2);
 
   /* create and set the netmask */
@@ -901,6 +965,7 @@ static const struct luaL_Reg yansipaddr_m[] = {
   {"compare", l_ipaddr_compare},
   {"add", l_ipaddr_add},
   {"sub", l_ipaddr_sub},
+  {"version", l_ipaddr_version},
   {NULL, NULL}
 };
 
@@ -928,6 +993,7 @@ static const struct luaL_Reg yansblock_m[] = {
   {"first", l_ipblock_first},
   {"last", l_ipblock_last},
   {"contains", l_ipblock_contains},
+  {"version", l_ipblock_version},
   {NULL, NULL}
 };
 
@@ -936,6 +1002,7 @@ static const struct luaL_Reg yansblocks_m[] = {
   {"__gc", l_ipblocks_gc},
   {"next", l_ipblocks_next},
   {"nextr4", l_ipblocks_nextr4},
+  {"next_block", l_ipblocks_nextblock},
   {"contains", l_ipblocks_contains},
   {NULL, NULL},
 };

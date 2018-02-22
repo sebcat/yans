@@ -7,77 +7,12 @@ local _M = {
   PPS = 300,
 }
 
-local function netconf_from_routes(routes)
-  -- get local references for 'routes' members
-  local ifaces = routes.ifaces
-  local ip4_routes = routes.ip4_routes
-  local ip6_routes = routes.ip6_routes
-  local ip4_srcs = routes.ip4_srcs
-  local ip6_srcs = routes.ip6_srcs
-
-  -- setup temporary tables
-  local ifnames = {}
-  local ethaddrs = {}
-  local ip4srcs = {}
-  local ip6srcs = {}
-  local ip4dsts = {}
-
-  -- determine suitable interfaces
-  for k,v in pairs(ifaces) do
-    if v.up and not v.loopback then
-      ifnames[v.index] = v.name
-      ethaddrs[v.index] = v.addr
-      ip4srcs[v.name] = {}
-      ip6srcs[v.name] = {}
-      ip4dsts[v.index] = {}
-    end
-  end
-
-  -- get IPv4 source addresses for suitable interfaces
-  for k,v in pairs(ip4_srcs) do
-    local ifname = v[1]
-    if ip4srcs[ifname] then
-      local srcaddr = v[2]
-      table.insert(ip4srcs[ifname], tostring(srcaddr))
-    end
-  end
-
-  -- get IPv6 source addresses for suitable interfaces
-  for k,v in pairs(ip6_srcs) do
-    local ifname = v[1]
-    if ip6srcs[ifname] then
-      local srcaddr = v[2]
-      table.insert(ip6srcs[ifname], tostring(srcaddr))
-    end
-  end
-
-  -- determine IPv4 addresses routed to the local network
-  for k,v in pairs(ip4_routes) do
-    if ifnames[v.gw_ifindex] and v.gw_ifindex == v.ifindex then
-      table.insert(ip4dsts[v.gw_ifindex], tostring(v.block))
-    end
-  end
-
-  -- format response
-  local resp = {}
-  for index, name in pairs(ifnames) do
-    local ip4_srcs, ip6_srcs = ip4srcs[name], ip6srcs[name]
-    if #ip4_srcs + #ip6_srcs > 0 then
-      resp[name] = {
-        ifaddr = tostring(ethaddrs[index]),
-        ip4_srcs = ip4_srcs,
-        ip6_srcs = ip6_srcs,
-        ip4_dsts = ip4dsts[index],
-      }
-    end
-  end
-  return resp
-end
+local Routes = require"svcs.routes"
 
 function _M:new(o)
   o = o or {}
   local ycl = yans.ycl
-  o.route_sock = ycl.connect(self.SVC_ROUTE)
+  o.routes = Routes:new{path = self.SVC_ROUTE}
   o.ethframe_sock = ycl.connect(self.SVC_ETHFRAME)
   o.store_sock = ycl.connect(self.SVC_STORE)
   o.pcap_sock = ycl.connect(self.SVC_PCAP)
@@ -85,26 +20,6 @@ function _M:new(o)
   setmetatable(o, self)
   self.__index = self
   return o
-end
-
-function _M:get_netconf()
-  self.msgbuf:create_route_req{}
-  self.route_sock:sendmsg(self.msgbuf)
-  self.route_sock:recvmsg(self.msgbuf)
-  local resp = self.msgbuf:parse_route_resp()
-  local routes = yans.ip.unmarshal_routes(resp)
-  return netconf_from_routes(routes)
-end
-
-function _M:print_netconf(netconf)
-  for ifname, entry in pairs(netconf) do
-    print("ifname  ", ifname)
-    print("ifaddr  ", entry.ifaddr)
-    print("ip4_srcs", table.concat(entry.ip4_srcs, " "))
-    print("ip6_srcs", table.concat(entry.ip6_srcs, " "))
-    print("ip4_dsts", table.concat(entry.ip4_dsts, " "))
-    print("---")
-  end
 end
 
 function _M:store_enter(store_id)

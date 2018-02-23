@@ -48,7 +48,7 @@ function _M:run(scanner)
   -- not contain any delimiters, because escaping in CSV is a PITA across
   -- different parsers. We may want to consider other formats for that.
   local file = yans.file
-  local reswriter = scanner:store_open("disco-result.csv.gz",
+  local reswriter = scanner:store_open("lldisco-result.csv.gz",
       file.O_WRONLY | file.O_CREAT | file.O_TRUNC):to_stream("zlib:wb")
 
   if not ifaces then
@@ -57,7 +57,7 @@ function _M:run(scanner)
 
   for ifname in string.gmatch(ifaces, "%S+") do
     local dedup = {}
-    local filename = string.format("disco-%s.pcap.gz", ifname)
+    local filename = string.format("lldisco-%s.pcap.gz", ifname)
     local stream = scanner:store_open(filename,
         file.O_RDONLY):to_stream("zlib:rb")
     local reader = PacketReader:open(stream)
@@ -100,14 +100,14 @@ end
 function _M:store_ifaces(scanner, ifaces)
   local file = yans.file
   local data = string.format("%s\n", ifaces)
-  local stream = scanner:store_open("disco-ifaces.txt",
+  local stream = scanner:store_open("lldisco-ifaces.txt",
       file.O_CREAT | file.O_WRONLY | file.O_TRUNC):to_stream("wb")
   stream:write(data)
   stream:close()
 end
 
 function _M:get_ifaces(scanner)
-  local stream = scanner:store_open("disco-ifaces.txt",
+  local stream = scanner:store_open("lldisco-ifaces.txt",
       yans.file.O_RDONLY):to_stream("rb")
   local ifaces = stream:read("a")
   stream:close()
@@ -147,7 +147,6 @@ function _M:send_packets(scanner, ifname, ifconf)
   end
 
   for _, ip6_src in pairs(ip6_srcs) do
-    print(_, ip6_src)
     scanner:send_packets{
       iface = ifname,
       categories = "ll-disco",
@@ -166,7 +165,7 @@ function _M:send_recv_packets(scanner, netconf)
     local ifaddr = entry.ethaddr
     local fmt = "(not ether src %s) and (%s)"
     local filter = string.format(fmt, ifaddr, global_filter)
-    local filename = string.format("disco-%s.pcap.gz", ifname)
+    local filename = string.format("lldisco-%s.pcap.gz", ifname)
     local fd = scanner:store_open(filename,
         file.O_CREAT | file.O_WRONLY | file.O_TRUNC)
     print(string.format("%s: %s", filename, filter))

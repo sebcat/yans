@@ -2,92 +2,6 @@ local _M = {
 
 }
 
--- TODO: Make Netconf its own object with routines for lookups, and have
---       a lot of tests for those lookup routines. Maybe make unmarshal
---       routes create the table and then set its metatable here.
-local function netconf_from_routes(routes)
-  -- get local references for 'routes' members
-  local ifaces = routes.ifaces
-  local ip_srcs = routes.ip_srcs
-  local ip_neigh = routes.ip_neigh
-  local ip4_routes = routes.ip4_routes
-  local ip6_routes = routes.ip6_routes
-
-  -- setup temporary tables
-  local ifnames  = {}
-  local ethaddrs = {}
-  local hwbyname = {}
-  local ipsrcs   = {}
-  local ipdsts   = {}
-  local ipgws    = {}
-  local ipneigh  = {}
-
-  -- determine suitable interfaces
-  for k,v in pairs(ifaces) do
-    if v.up and not v.loopback then
-      hwbyname[v.name]  = v.addr
-      ifnames[v.index]  = v.name
-      ethaddrs[v.index] = v.addr
-      ipsrcs[v.name]    = {}
-      ipdsts[v.index]   = {}
-      ipgws[v.index]    = {}
-      ipneigh[v.name]   = {}
-    end
-  end
-
-  -- get IP source addresses for suitable interfaces
-  for _, v in pairs(ip_srcs) do
-    local ifname = v[1]
-    if ipsrcs[ifname] then
-      table.insert(ipsrcs[ifname], {addr=v[2], subnet=v[3]})
-    end
-  end
-
-  -- determine IPv4 addresses routed to the local network, and gateways
-  for _, v in pairs(ip4_routes) do
-    if ifnames[v.gw_ifindex] and v.gw_ifindex == v.ifindex then
-      table.insert(ipdsts[v.gw_ifindex], v.block)
-    elseif ifnames[v.ifindex] and v.gw then
-      table.insert(ipgws[v.ifindex], {addr=v.gw, subnet=v.block})
-    end
-  end
-
-  -- determine IPv6 addresses routed to the local network, and gateways
-  for _, v in pairs(ip6_routes) do
-    if ifnames[v.gw_ifindex] and v.gw_ifindex == v.ifindex then
-      table.insert(ipdsts[v.gw_ifindex], v.block)
-    elseif ifnames[v.ifindex] and v.gw then
-      table.insert(ipgws[v.ifindex], {addr=v.gw, subnet=v.block})
-    end
-  end
-
-  -- determine what IPv6 neighbors we have for our set of ifaces, if any
-  if ip_neigh then
-    for _, v in pairs(ip_neigh) do
-      local hwaddr = v.hwaddr
-      if ipsrcs[v.iface] and hwbyname[v.iface] ~= hwaddr then
-        ipneigh[v.iface][tostring(v.ipaddr)] = hwaddr
-      end
-    end
-  end
-
-  -- format response
-  local resp = {}
-  for index, name in pairs(ifnames) do
-    local ip_srcs = ipsrcs[name]
-    if #ip_srcs > 0 then
-      resp[name] = {
-        ethaddr  = ethaddrs[index],
-        ip_srcs  = ip_srcs,
-        ip_dsts  = ipdsts[index],
-        ip_gws   = ipgws[index],
-        ip_neigh = ipneigh[name],
-      }
-    end
-  end
-  return resp
-end
-
 function _M:new(o)
   assert(o.path, "missing path")
   local ycl = yans.ycl
@@ -104,12 +18,6 @@ function _M:get_routes()
   self.sock:recvmsg(self.msgbuf)
   local resp = self.msgbuf:parse_route_resp()
   return yans.ip.unmarshal_routes(resp)
-end
-
-
-function _M:get_netconf(routes)
-  routes = routes or self:get_routes()
-  return netconf_from_routes(routes)
 end
 
 return _M

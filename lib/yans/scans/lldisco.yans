@@ -1,5 +1,6 @@
 local PacketReader = require"ethframe.reader"
 local PacketDecoder = require"ethframe.decoder"
+local Netconf = require"netconf"
 local global_filter = [[
 
   (arp[6:2] = 2) or
@@ -33,7 +34,8 @@ function _M:run(scanner)
   print("---")
 
   -- get the network configuration
-  local netconf = scanner.routes:get_netconf()
+  local netconf = scanner:get_netconf()
+  netconf:print()
 
   local ifaces
   if not self.nonet then

@@ -8,6 +8,7 @@ local _M = {
 }
 
 local Routes = require"svcs.routes"
+local Netconf = require"netconf"
 
 function _M:new(o)
   o = o or {}
@@ -20,6 +21,11 @@ function _M:new(o)
   setmetatable(o, self)
   self.__index = self
   return o
+end
+
+function _M:get_netconf()
+  local r = self.routes:get_routes()
+  return Netconf:new(r)
 end
 
 function _M:store_enter(store_id)

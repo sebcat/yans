@@ -9,10 +9,6 @@ lib/util/netstring_test: $(lib_util_netstring_test_DEPSOBJS) \
 	$(CC) $(CFLAGS) -o $@ $(lib_util_netstring_test_DEPSOBJS) \
 		$(lib_util_netstring_test_OBJS) $(LDFLAGS)
 
-lib/util/conf_test: $(lib_util_conf_test_DEPSOBJS) $(lib_util_conf_test_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(lib_util_conf_test_DEPSOBJS) \
-		$(lib_util_conf_test_OBJS) $(LDFLAGS)
-
 lib/util/flagset_test: $(lib_util_flagset_test_DEPSOBJS) \
 		$(lib_util_flagset_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_flagset_test_DEPSOBJS) \

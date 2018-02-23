@@ -1,7 +1,7 @@
 #!/usr/bin/env yans
 
 Scanner = require"scanner"
-Disco = require"scans.disco"
+Disco = require"scans.lldisco"
 
 local p = yans.opts:new()
 p:flag("nonet", "n", "do not send or receive any data")

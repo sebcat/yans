@@ -7,6 +7,7 @@ local p = yans.opts:new()
 p:flag("nonet", "n", "do not send or receive any data")
 p:str("store", "s", "store ID to use")
 p:flag("passive", "p", "do not send any packets")
+p:flag("insecure", "X", "disable sandbox")
 p:int("linger", "l", "number of seconds to wait for incoming packets")
 p:flag("help", "h", "this text")
 local params = p:parse(args)
@@ -14,7 +15,9 @@ if params.help then
   io.stdout:write(p:usage())
 else
   local scanner = Scanner:new() -- setup the scanner
-  yans.cgi.init()               -- enter sandbox (TODO: params from env.vars)
+  if not params.insecure then
+    yans.cgi.init()               -- enter sandbox (TODO: params from env.vars)
+  end
   local disco = Disco:new(params)
   disco:run(scanner)
 end

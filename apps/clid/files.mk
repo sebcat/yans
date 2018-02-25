@@ -19,14 +19,14 @@ clid_DEPSOBJS = ${clid_DEPS:.c=.o}
 
 clid_SOURCES = \
     apps/clid/connector.c \
-    apps/clid/routes.c \
+    apps/clid/netconf.c \
     apps/clid/resolver.c \
     apps/clid/main.c
 
 clid_HEADERS = \
     apps/clid/connector.h \
     apps/clid/resolver.h \
-    apps/clid/routes.h
+    apps/clid/netconf.h
 
 clid_OBJS = ${clid_SOURCES:.c=.o}
 

@@ -3,17 +3,17 @@
 #include <lib/net/route.h>
 #include <lib/net/iface.h>
 #include <lib/net/neigh.h>
-#include <apps/clid/routes.h>
+#include <apps/clid/netconf.h>
 
 #define CLIFLAG_HASMSGBUF (1 << 0)
 
 #define ROUTES_CLIENT(cli__) \
-  ((struct routes_client *)((cli__)->udata))
+  ((struct netconf_client *)((cli__)->udata))
 
 void on_read_req(struct eds_client *cli, int fd) {
   struct ycl_msg_route_req req;
   struct ycl_msg_route_resp resp = {0};
-  struct routes_client *ecli = ROUTES_CLIENT(cli);
+  struct netconf_client *ecli = ROUTES_CLIENT(cli);
   struct route_table rt = {0};
   struct iface_entries ifs = {0};
   struct neigh_entry *ip_neigh = NULL;
@@ -25,13 +25,13 @@ void on_read_req(struct eds_client *cli, int fd) {
   if (ret == YCL_AGAIN) {
     return;
   } else if (ret != YCL_OK) {
-    ylog_error("routescli%d: ycl_recvmsg: %s", fd, ycl_strerror(&ecli->ycl));
+    ylog_error("netconfcli%d: ycl_recvmsg: %s", fd, ycl_strerror(&ecli->ycl));
     goto done;
   }
 
   ret = ycl_msg_parse_route_req(&ecli->msgbuf, &req);
   if (ret != YCL_OK) {
-    ylog_error("routescli%d: invalid request message", fd);
+    ylog_error("netconfcli%d: invalid request message", fd);
     goto done;
   }
 
@@ -68,7 +68,7 @@ write_resp:
     neigh_free_entries(ip_neigh);
   }
   if (ret != YCL_OK) {
-    ylog_error("routescli%d: response message creation failure", fd);
+    ylog_error("netconfcli%d: response message creation failure", fd);
     goto done;
   }
 
@@ -81,15 +81,15 @@ done:
   eds_client_clear_actions(cli);
 }
 
-void routes_on_readable(struct eds_client *cli, int fd) {
+void netconf_on_readable(struct eds_client *cli, int fd) {
   int ret;
-  struct routes_client *ecli = ROUTES_CLIENT(cli);
+  struct netconf_client *ecli = ROUTES_CLIENT(cli);
 
   ycl_init(&ecli->ycl, fd);
   if (!(ecli->flags & CLIFLAG_HASMSGBUF)) {
     ret = ycl_msg_init(&ecli->msgbuf);
     if (ret != YCL_OK) {
-      ylog_error("routescli%d: ycl_msg_init failure", fd);
+      ylog_error("netconfcli%d: ycl_msg_init failure", fd);
       goto fail;
     }
     ecli->flags |= CLIFLAG_HASMSGBUF;
@@ -103,12 +103,12 @@ fail:
   eds_client_clear_actions(cli);
 }
 
-void routes_on_done(struct eds_client *cli, int fd) {
-  ylog_info("routescli%d: done", fd);
+void netconf_on_done(struct eds_client *cli, int fd) {
+  ylog_info("netconfcli%d: done", fd);
 }
 
-void routes_on_finalize(struct eds_client *cli) {
-  struct routes_client *ecli = ROUTES_CLIENT(cli);
+void netconf_on_finalize(struct eds_client *cli) {
+  struct netconf_client *ecli = ROUTES_CLIENT(cli);
   if (ecli->flags & CLIFLAG_HASMSGBUF) {
     ycl_msg_cleanup(&ecli->msgbuf);
     ecli->flags &= ~(CLIFLAG_HASMSGBUF);

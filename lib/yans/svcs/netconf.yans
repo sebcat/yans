@@ -12,12 +12,12 @@ function _M:new(o)
   return o
 end
 
-function _M:get_routes()
+function _M:get_netconf()
   self.msgbuf:create_route_req{}
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)
   local resp = self.msgbuf:parse_route_resp()
-  return yans.ip.unmarshal_routes(resp)
+  return yans.ip.unmarshal_netconf(resp)
 end
 
 return _M

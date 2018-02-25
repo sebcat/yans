@@ -879,7 +879,7 @@ static void l_mknetconf(lua_State *L, struct netconf_data *cfg) {
  *   - ip_routes
  * which contains binary data used to build the netconf entries. The
  * unmarshaled * data is returned in a table.  */
-static int l_unmarshal_routes(lua_State *L) {
+static int l_unmarshal_netconf(lua_State *L) {
   struct netconf_data cfg = {{0}};
   size_t ip_route_sz = 0;
   size_t ip_src_sz = 0;
@@ -1143,7 +1143,7 @@ static const struct luaL_Reg ip_f[] = {
   {"ports", l_ipports},
   {"routes", l_routes},
   {"neighbors", l_neighbors},
-  {"unmarshal_routes", l_unmarshal_routes},
+  {"unmarshal_netconf", l_unmarshal_netconf},
   {NULL, NULL},
 };
 

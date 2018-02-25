@@ -1,18 +1,18 @@
 
 local _M = {
-  SVC_ROUTE = "./lel/routes.sock",
+  SVC_NETCONF = "./lel/netconf.sock",
   SVC_ETHFRAME = "./lel/ethframe.sock",
   SVC_PCAP = "./lel/pcap.sock",
   SVC_STORE = "./lel/stored.sock",
   PPS = 300,
 }
 
-local Routes = require"svcs.routes"
+local Netconf = require"svcs.netconf"
 
 function _M:new(o)
   o = o or {}
   local ycl = yans.ycl
-  o.routes = Routes:new{path = self.SVC_ROUTE}
+  o.netconf = Netconf:new{path = self.SVC_NETCONF}
   o.ethframe_sock = ycl.connect(self.SVC_ETHFRAME)
   o.store_sock = ycl.connect(self.SVC_STORE)
   o.pcap_sock = ycl.connect(self.SVC_PCAP)
@@ -23,7 +23,7 @@ function _M:new(o)
 end
 
 function _M:get_netconf()
-  return self.routes:get_routes()
+  return self.netconf:get_netconf()
 end
 
 function _M:store_enter(store_id)

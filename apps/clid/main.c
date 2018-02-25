@@ -10,7 +10,7 @@
 #include <lib/util/os.h>
 #include <lib/util/ylog.h>
 
-#include <apps/clid/routes.h>
+#include <apps/clid/netconf.h>
 #include <apps/clid/resolver.h>
 #include <apps/clid/connector.h>
 
@@ -124,13 +124,13 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
-      .name = "routes",
-      .path = "routes.sock",
-      .udata_size = sizeof(struct routes_client),
+      .name = "netconf",
+      .path = "netconf.sock",
+      .udata_size = sizeof(struct netconf_client),
       .actions = {
-        .on_readable = routes_on_readable,
-        .on_done = routes_on_done,
-        .on_finalize = routes_on_finalize,
+        .on_readable = netconf_on_readable,
+        .on_done = netconf_on_done,
+        .on_finalize = netconf_on_finalize,
       },
       .on_svc_error = on_svc_error,
       .nprocs = 1,

@@ -12,25 +12,13 @@
 #include <net/route.h>
 
 
-static char *get_rt(int af, char **end) {
+static char *get_mib(int *mib, u_int nentries, size_t *sz) {
   size_t needed;
   int ret;
   char *buf = NULL;
   char *tmp = NULL;
-  int mib[6] = {
-      CTL_NET,
-      PF_ROUTE,
-      0,
-      af,
-      NET_RT_FLAGS,
-#ifdef RTF_LLINFO
-      RTF_LLINFO,
-#else
-      0,
-#endif
-  };
 
-  ret = sysctl(mib, 6, NULL, &needed, NULL, 0);
+  ret = sysctl(mib, nentries, NULL, &needed, NULL, 0);
   if (ret < 0 || needed == 0) {
     goto fail;
   }
@@ -41,7 +29,7 @@ static char *get_rt(int af, char **end) {
       goto fail;
     }
     buf = tmp;
-    ret = sysctl(mib, 6, buf, &needed, NULL, 0);
+    ret = sysctl(mib, nentries, buf, &needed, NULL, 0);
     if (ret == 0 || errno != ENOMEM) {
       break;
     }
@@ -52,7 +40,7 @@ static char *get_rt(int af, char **end) {
     goto fail;
   }
 
-  *end = buf + needed;
+  *sz = needed;
   return buf;
 
 fail:
@@ -122,17 +110,34 @@ struct neigh_entry *neigh_get_entries(size_t *nentries, int *err) {
   struct neigh_entry *entries;
   size_t count;
   size_t i;
+  int mib[6] = {
+      CTL_NET,
+      PF_ROUTE,
+      0,
+      0, /* address family */
+      NET_RT_FLAGS,
+#ifdef RTF_LLINFO
+      RTF_LLINFO,
+#else
+      0,
+#endif
+  };
+
 
   *nentries = 0;
-  rt4 = get_rt(AF_INET, &end4);
+  mib[3] = AF_INET;
+  rt4 = get_mib(mib, 6, &i);
   if (rt4 == NULL) {
     goto fail;
   }
+  end4 = rt4 + i;
 
-  rt6 = get_rt(AF_INET6, &end6);
+  mib[3] = AF_INET6;
+  rt6 = get_mib(mib, 6, &i);
   if (rt6 == NULL) {
     goto cleanup_rt4;
   }
+  end6 = rt6 + i;
 
   count = count_entries(rt4, end4) + count_entries(rt6, end6);
   entries = calloc(count, sizeof(*entries));

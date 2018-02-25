@@ -14,7 +14,6 @@
 
 typedef union {
   struct sockaddr sa;
-  struct sockaddr_storage st;
   struct sockaddr_in sin;
   struct sockaddr_in6 sin6;
 } route_table_addr_t;
@@ -31,10 +30,8 @@ struct route_table_entry {
 };
 
 struct route_table {
-  size_t nentries_ip4;
-  size_t nentries_ip6;
-  struct route_table_entry *entries_ip4;
-  struct route_table_entry *entries_ip6;
+  size_t nentries;
+  struct route_table_entry *entries;
   char *errprefix;
   int errnum;
 };

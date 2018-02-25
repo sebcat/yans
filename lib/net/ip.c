@@ -48,7 +48,7 @@ int ip_addr(ip_addr_t *addr, const char *s, int *err) {
 
   for (curr = ai; curr != NULL; curr = curr->ai_next) {
     if (curr->ai_family == AF_INET || curr->ai_family == AF_INET6) {
-      memcpy(&addr->u.ss, curr->ai_addr, curr->ai_addrlen);
+      memcpy(addr, curr->ai_addr, curr->ai_addrlen);
       freeaddrinfo(ai);
       return 0;
     }

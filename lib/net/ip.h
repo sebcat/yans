@@ -19,7 +19,6 @@ typedef struct ip_addr_t {
 		struct sockaddr sa;
 		struct sockaddr_in sin;
 		struct sockaddr_in6 sin6;
-		struct sockaddr_storage ss;
 	} u;
 } ip_addr_t;
 

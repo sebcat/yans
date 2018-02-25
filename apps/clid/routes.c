@@ -51,10 +51,8 @@ void on_read_req(struct eds_client *cli, int fd) {
   ip_neigh = neigh_get_entries(&nip_neigh, NULL);
 
 write_resp:
-  resp.ip4_routes.data = (const char *)rt.entries_ip4;
-  resp.ip4_routes.len = sizeof(*rt.entries_ip4) * rt.nentries_ip4;
-  resp.ip6_routes.data = (const char *)rt.entries_ip6;
-  resp.ip6_routes.len = sizeof(*rt.entries_ip6) * rt.nentries_ip6;
+  resp.ip_routes.data = (const char *)rt.entries;
+  resp.ip_routes.len = sizeof(*rt.entries) * rt.nentries;
   resp.ip_srcs.data = (const char *)ifs.ipsrcs;
   resp.ip_srcs.len = sizeof(*ifs.ipsrcs) * ifs.nipsrcs;
   resp.ifaces.data = (const char *)ifs.ifaces;

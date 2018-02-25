@@ -24,8 +24,7 @@ struct route_table_entry {
   route_table_addr_t mask;
   route_table_addr_t gw;
   int gw_ifindex; /* negative if gw is an IP address, otherwise this contains
-                   * the interface index and gw should not be used
-                   * (platform dependent) */
+                   * the interface index and gw should not be used */
   int ifindex;
 };
 

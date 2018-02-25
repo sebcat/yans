@@ -18,6 +18,44 @@
   (rt__)->errprefix = (errprefix__);       \
   (rt__)->errnum = (errno__);
 
+
+static int memcmprev(const void *a, const void *b, size_t n) {
+  const unsigned char *left = a;
+  const unsigned char *right = b;
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    if (left[n-1-i] != right[n-1-i]) {
+      return (left[n-1-i] - right[n-1-i]);
+    }
+  }
+
+  return 0;
+}
+
+/* TODO: Once we have a suitable Linux implementation, move the comparator
+ *       to the platform-independent section */
+static int cmprtent(const void *a, const void *b) {
+  const struct route_table_entry *left = a;
+  const struct route_table_entry *right = b;
+
+  /* address family order */
+  if (left->addr.sa.sa_family != right->addr.sa.sa_family) {
+    return left->addr.sa.sa_family - right->addr.sa.sa_family;
+  }
+
+  /* lookup order (most-specific to least specific) */
+  if (left->addr.sa.sa_family == AF_INET) {
+    return memcmprev(&right->mask.sin.sin_addr.s_addr,
+        &left->mask.sin.sin_addr.s_addr, sizeof(in_addr_t));
+  } else if (left->addr.sa.sa_family == AF_INET6) {
+    return memcmprev(&right->mask.sin6.sin6_addr,
+        &left->mask.sin6.sin6_addr, sizeof(struct in6_addr));
+  }
+
+  return 0; /* on fallthrough for w/e reason */
+}
+
 void route_table_strerror(struct route_table *rt, char *buf, size_t len) {
   if (len > 0) {
     if (rt->errnum != 0) {
@@ -100,7 +138,7 @@ static void copy_table_entry(struct route_table_entry *ent,
     sa = (struct sockaddr *)((char*)sa + len);
   }
 
-  /* copy netmask, if any */
+  /* copy netmask, or set it to /32 or /128 if no netmask */
   if (rt_msg->rtm_addrs & RTA_NETMASK) {
     len = (sa->sa_len + sizeof(long)-1) & ~(sizeof(long)-1);
     memcpy(&ent->mask, sa,
@@ -118,6 +156,17 @@ static void copy_table_entry(struct route_table_entry *ent,
       ent->mask.sa.sa_family = AF_INET;
     }
     sa = (struct sockaddr *)((char*)sa + len);
+  } else if (af == AF_INET) {
+    /* IPv4 entry, no netmask */
+    ent->mask.sa.sa_family = AF_INET;
+    ent->mask.sin.sin_addr.s_addr = 0xffffffff;
+  } else if (af == AF_INET6) {
+    /* IPv6 entry, no netmask */
+      ent->mask.sa.sa_family = AF_INET6;
+      ent->mask.sin6.sin6_scope_id = 0;
+      ent->mask.sin6.sin6_flowinfo = 0;
+      memcpy(&ent->mask.sin6.sin6_addr, "\xff\xff\xff\xff\xff\xff\xff\xff"
+          "\xff\xff\xff\xff\xff\xff\xff\xff", 16);
   }
 
   flags = rt_msg->rtm_flags;
@@ -277,6 +326,12 @@ int route_table_init(struct route_table *rt) {
   ret = _route_table_init(rt, fibnum);
   if (ret < 0) {
     return -1;
+  }
+
+  /* sort the routes in protocol and lookup order
+   * (most-specific to least-specific) */
+  if (rt->nentries > 0) {
+    qsort(rt->entries, rt->nentries, sizeof(*rt->entries), cmprtent);
   }
 
   return 0;

@@ -5,24 +5,18 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 
+#include <lib/net/ip.h>
+
 #define IFACE_NAMESZ 16
 #define IFACE_ADDRSZ 6
 
 #define IFACE_UP       IFF_UP
 #define IFACE_LOOPBACK IFF_LOOPBACK
 
-struct iface_addrent {
-  union {
-    struct sockaddr sa;
-    struct sockaddr_in sin;
-    struct sockaddr_in6 sin6;
-  } u;
-};
-
 struct iface_srcaddr {
   char ifname[IFACE_NAMESZ];
-  struct iface_addrent addr;
-  struct iface_addrent mask;
+  ip_addr_t addr;
+  ip_addr_t mask;
 };
 
 struct iface_entry {

@@ -40,17 +40,17 @@ static int cmprtent(const void *a, const void *b) {
   const struct route_table_entry *right = b;
 
   /* address family order */
-  if (left->addr.sa.sa_family != right->addr.sa.sa_family) {
-    return left->addr.sa.sa_family - right->addr.sa.sa_family;
+  if (left->addr.u.sa.sa_family != right->addr.u.sa.sa_family) {
+    return left->addr.u.sa.sa_family - right->addr.u.sa.sa_family;
   }
 
   /* lookup order (most-specific to least specific) */
-  if (left->addr.sa.sa_family == AF_INET) {
-    return memcmprev(&right->mask.sin.sin_addr.s_addr,
-        &left->mask.sin.sin_addr.s_addr, sizeof(in_addr_t));
-  } else if (left->addr.sa.sa_family == AF_INET6) {
-    return memcmprev(&right->mask.sin6.sin6_addr,
-        &left->mask.sin6.sin6_addr, sizeof(struct in6_addr));
+  if (left->addr.u.sa.sa_family == AF_INET) {
+    return memcmprev(&right->mask.u.sin.sin_addr.s_addr,
+        &left->mask.u.sin.sin_addr.s_addr, sizeof(in_addr_t));
+  } else if (left->addr.u.sa.sa_family == AF_INET6) {
+    return memcmprev(&right->mask.u.sin6.sin6_addr,
+        &left->mask.u.sin6.sin6_addr, sizeof(struct in6_addr));
   }
 
   return 0; /* on fallthrough for w/e reason */
@@ -149,23 +149,23 @@ static void copy_table_entry(struct route_table_entry *ent,
      * netmask is left with garbage. This means it's problematic to call it
      * with e.g., getnameinfo or other socket APIs. We clean it up here. */
     if (af == AF_INET6) {
-      ent->mask.sa.sa_family = AF_INET6;
-      ent->mask.sin6.sin6_scope_id = 0;
-      ent->mask.sin6.sin6_flowinfo = 0;
+      ent->mask.u.sa.sa_family = AF_INET6;
+      ent->mask.u.sin6.sin6_scope_id = 0;
+      ent->mask.u.sin6.sin6_flowinfo = 0;
     } else if (af == AF_INET) {
-      ent->mask.sa.sa_family = AF_INET;
+      ent->mask.u.sa.sa_family = AF_INET;
     }
     sa = (struct sockaddr *)((char*)sa + len);
   } else if (af == AF_INET) {
     /* IPv4 entry, no netmask */
-    ent->mask.sa.sa_family = AF_INET;
-    ent->mask.sin.sin_addr.s_addr = 0xffffffff;
+    ent->mask.u.sa.sa_family = AF_INET;
+    ent->mask.u.sin.sin_addr.s_addr = 0xffffffff;
   } else if (af == AF_INET6) {
     /* IPv6 entry, no netmask */
-      ent->mask.sa.sa_family = AF_INET6;
-      ent->mask.sin6.sin6_scope_id = 0;
-      ent->mask.sin6.sin6_flowinfo = 0;
-      memcpy(&ent->mask.sin6.sin6_addr, "\xff\xff\xff\xff\xff\xff\xff\xff"
+      ent->mask.u.sa.sa_family = AF_INET6;
+      ent->mask.u.sin6.sin6_scope_id = 0;
+      ent->mask.u.sin6.sin6_flowinfo = 0;
+      memcpy(&ent->mask.u.sin6.sin6_addr, "\xff\xff\xff\xff\xff\xff\xff\xff"
           "\xff\xff\xff\xff\xff\xff\xff\xff", 16);
   }
 

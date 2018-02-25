@@ -5,15 +5,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include <lib/net/ip.h>
+
 #define NEIGH_IFNAMSIZ 16 /* including trailing \0 */
 #define NEIGH_ETHSIZ 6
 
 struct neigh_entry {
-  union {
-    struct sockaddr sa;
-    struct sockaddr_in sin;
-    struct sockaddr_in6 sin6;
-  } u;
+  ip_addr_t ipaddr;
   char iface[NEIGH_IFNAMSIZ];
   char hwaddr[NEIGH_ETHSIZ];
 };

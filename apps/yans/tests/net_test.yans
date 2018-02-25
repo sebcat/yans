@@ -302,7 +302,6 @@ for _, iface in pairs(IFACES.ifaces) do
 end
 
 local function print_routes(routes)
-  print(string.format("%8s %30s %s", "Netif", "Gateway", "Destination"))
   for _, route in ipairs(routes) do
     local gw
     if route.gw_ifindex then
@@ -310,15 +309,15 @@ local function print_routes(routes)
     else
       gw = route.gw
     end
-
-    local line = string.format("%8s %30s %s", index2name[route.ifindex], gw,
-        route.block)
-    print(line)
+    print("if", index2name[route.ifindex])
+    print("gw", gw)
+    print("dst", route.block)
+    print("---")
   end
 end
 
 -- print the routing table to excercise the code paths
-print("ROUTES")
+print("ROUTES\n---")
 print_routes(ROUTES.ip_routes)
 
 local function get_loopback_ifname()

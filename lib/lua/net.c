@@ -85,7 +85,8 @@ static inline struct ip_r4blocks *l_newipr4blocks(lua_State *L) {
   return blks;
 }
 
-static inline ip_addr_t *l_pushipaddr(lua_State *L, struct sockaddr *saddr) {
+static inline ip_addr_t *l_pushipaddr(lua_State *L,
+    const struct sockaddr *saddr) {
   ip_addr_t *addr;
   addr = l_newipaddr(L);
   if (saddr->sa_family == AF_INET6) {
@@ -553,16 +554,14 @@ static int l_addroute(lua_State *L, struct route_table_entry *ent) {
 
   if (ent->flags & RTENTRY_HOST) {
     /* it's a host entry */
-    ret = ip_block_from_addrs(blk, (ip_addr_t*)&ent->addr.sa,
-        (ip_addr_t*)&ent->addr.sa, NULL);
+    ret = ip_block_from_addrs(blk, &ent->addr, &ent->addr, NULL);
     if (ret < 0) {
       lua_pop(L, 1);
       return -1;
     } else {
       lua_setfield(L, -2, "block");
     }
-  } else if (ip_block_netmask(blk, (ip_addr_t*)&ent->addr.sa,
-      (ip_addr_t*)&ent->mask.sa, NULL) == 0) {
+  } else if (ip_block_netmask(blk, &ent->addr,&ent->mask, NULL) == 0) {
     /* it's a netmask entry */
     lua_setfield(L, -2, "block");
   } else {
@@ -574,7 +573,7 @@ static int l_addroute(lua_State *L, struct route_table_entry *ent) {
     lua_pushinteger(L, (lua_Integer)ent->gw_ifindex);
     lua_setfield(L, -2, "gw_ifindex");
   } else {
-    l_pushipaddr(L, &ent->gw.sa);
+    l_pushipaddr(L, &ent->gw.u.sa);
     lua_setfield(L, -2, "gw");
   }
 
@@ -622,7 +621,7 @@ static int l_addneigh(lua_State *L, const struct neigh_entry *e) {
   lua_setfield(L, -2, "hwaddr");
   lua_pushstring(L, e->iface);
   lua_setfield(L, -2, "iface");
-  l_pushipaddr(L, (struct sockaddr *)&e->u.sa);
+  l_pushipaddr(L, &e->ipaddr.u.sa);
   lua_setfield(L, -2, "ipaddr");
   return 0;
 }
@@ -720,16 +719,168 @@ static int l_ifaces(lua_State *L) {
   return 1;
 }
 
+struct netconf_data {
+  struct route_table rt;
+  struct iface_entries ifs;
+  struct neigh_entry *neighs;
+  size_t nneighs;
+};
+
+static void l_nc_ethaddr(lua_State *L, struct iface_entry *ifent) {
+  l_ethbytestostr(L, ifent->addr);
+  lua_setfield(L, -2, "ethaddr");
+}
+
+static void l_nc_neigh(lua_State *L, struct netconf_data *cfg,
+    struct iface_entry *ifent) {
+  size_t i;
+  struct neigh_entry *curr;
+  char addrbuf[64];
+  int ret;
+
+  lua_newtable(L);
+  for (i = 0; i < cfg->nneighs; i++) {
+    curr = &cfg->neighs[i];
+    /* skip this one if it's not the current interface, or if the neighbor is
+     * the the current interface itself (same address) */
+    if (strcmp(curr->iface, ifent->name) != 0 ||
+        memcmp(curr->hwaddr, ifent->addr, ETH_ALEN) == 0) {
+      continue;
+    }
+
+    /* convert the IP address to a string for use as table key */
+    ret = ip_addr_str(&curr->ipaddr, addrbuf, sizeof(addrbuf), NULL);
+    if (ret < 0) {
+      continue;
+    }
+
+    /* insert the hwaddr as the table value */
+    l_ethbytestostr(L, curr->hwaddr);
+    lua_setfield(L, -2, addrbuf);
+  }
+  lua_setfield(L, -2, "ip_neigh");
+}
+
+static void l_nc_srcs(lua_State *L, struct netconf_data *cfg,
+    struct iface_entry *ifent) {
+  size_t i;
+  struct iface_srcaddr *curr;
+  ip_block_t *blk;
+  int ret;
+  lua_Integer ipos = 1;
+
+  lua_newtable(L);
+  for (i = 0; i < cfg->ifs.nipsrcs; i++) {
+    curr = &cfg->ifs.ipsrcs[i];
+    if (strcmp(curr->ifname, ifent->name) == 0) {
+      lua_createtable(L, 0, 2); /* create current entry */
+
+      /* setup addr field */
+      l_pushipaddr(L, &curr->addr.u.sa);
+      lua_setfield(L, -2, "addr");
+
+      /* setup subnet field */
+      blk = l_newipblock(L);
+      ret = ip_block_netmask(blk, &curr->addr, &curr->mask, NULL);
+      if (ret < 0) {
+        lua_pop(L, 2); /* pop block and table (addr already in table) */
+        continue;
+      }
+      lua_setfield(L, -2, "subnet");
+
+      lua_seti(L, -2, ipos++); /* add current entry to ip_srcs table */
+    }
+  }
+  lua_setfield(L, -2, "ip_srcs"); /* add ip_srcs table to netconf[iface] */
+}
+
+static void l_nc_routes(lua_State *L, struct netconf_data *cfg,
+    struct iface_entry *ifent) {
+  lua_Integer gwpos = 1;
+  lua_Integer dstpos = 1;
+  struct route_table_entry *curr;
+  ip_block_t *blk;
+  size_t i;
+  int ret;
+
+  lua_newtable(L); /* ip_gws */
+  lua_newtable(L); /* ip_dsts */
+  for (i = 0; i < cfg->rt.nentries; i++) {
+    curr = &cfg->rt.entries[i];
+    if (!(curr->flags & RTENTRY_UP)) {
+      /* skip inactive routes */
+      continue;
+    }
+
+    if (curr->gw_ifindex == ifent->index) {
+      /* this route has it's destination on the network of the current
+       * interface - add it to ip_dsts */
+      blk = l_newipblock(L);
+      ret = ip_block_netmask(blk, &curr->addr, &curr->mask, NULL);
+      if (ret < 0) {
+        lua_pop(L, 1);
+        continue;
+      }
+      lua_seti(L, -2, dstpos++); /* add to ip_dsts */
+    } else if (curr->gw_ifindex < 0 && curr->ifindex == ifent->index) {
+      /* this route has a gateway on the network of the current interface -
+       * add it to ip_gws as a {addr=...,subnet=...} entry */
+      lua_createtable(L, 0, 2); /* create current entry */
+      /* setup addr field */
+      l_pushipaddr(L, &curr->gw.u.sa);
+      lua_setfield(L, -2, "addr");
+      /* setup subnet field */
+      blk = l_newipblock(L);
+      ret = ip_block_netmask(blk, &curr->addr, &curr->mask, NULL);
+      if (ret < 0) {
+        lua_pop(L, 2); /* pop block and table (addr already in table) */
+        continue;
+      }
+      lua_setfield(L, -2, "subnet");
+      lua_seti(L, -3, gwpos++); /* add to ip_gws */
+    }
+  }
+
+  lua_setfield(L, -3, "ip_dsts");
+  lua_setfield(L, -2, "ip_gws");
+}
+
+/* assumes table at TOS where the netconf entries will be inserted with
+ * the interface name as key, and netconf table as value */
+static void l_mknetconf(lua_State *L, struct netconf_data *cfg) {
+  size_t i;
+  struct iface_entry *curr;
+
+  for (i = 0; i < cfg->ifs.nifaces; i++) {
+    curr = &cfg->ifs.ifaces[i];
+    /* only process active, non-loopback interfaces */
+    if (curr->flags & IFACE_UP && !(curr->flags & IFACE_LOOPBACK)) {
+      lua_newtable(L);
+      /* NB: this means that for every iface we will iterate over all
+       * neighs, srcs, dsts and gws. We could do an insertion of all ifaces
+       * first, and then do a table lookup for each thing we want to add for
+       * an iface, but that's probably only worth it if N is big. We should
+       * only fetch the nc once per process, and the number of interfaces
+       * should be relatively small. For some networks, the neighbor table
+       * can be huge though. */
+      l_nc_ethaddr(L, curr);
+      l_nc_neigh(L, cfg, curr);
+      l_nc_srcs(L, cfg, curr);
+      l_nc_routes(L, cfg, curr);
+      lua_setfield(L, -2, curr->name);
+    }
+  }
+}
+
 /* expects a lua table with the keys
  *   - ifaces
  *   - ip_srcs
  *   - ip_neigh
  *   - ip_routes
- * which contains route_table_entry, iface_entries data. The unmarshaled
- * data is returned in a table.  */
+ * which contains binary data used to build the netconf entries. The
+ * unmarshaled * data is returned in a table.  */
 static int l_unmarshal_routes(lua_State *L) {
-  struct route_table rt = {0};
-  struct iface_entries ifs = {0};
+  struct netconf_data cfg = {{0}};
   size_t ip_route_sz = 0;
   size_t ip_src_sz = 0;
   size_t ip_neigh_sz = 0;
@@ -766,30 +917,29 @@ static int l_unmarshal_routes(lua_State *L) {
   }
   lua_pop(L, 1);
 
-  if (ip_route_sz > 0 &&
-      (ip_route_sz % sizeof(struct route_table_entry)) == 0) {
-    rt.entries = (struct route_table_entry *)ip_route_data;
-    rt.nentries = ip_route_sz / sizeof(struct route_table_entry);
+  if (ip_route_sz > 0) {
+    cfg.rt.entries = (struct route_table_entry *)ip_route_data;
+    cfg.rt.nentries = ip_route_sz / sizeof(struct route_table_entry);
   }
 
-  if (ip_src_sz > 0 &&
-      (ip_src_sz % sizeof(struct iface_srcaddr)) == 0) {
-    ifs.ipsrcs = (struct iface_srcaddr*)ip_src_data;
-    ifs.nipsrcs = ip_src_sz / sizeof(struct iface_srcaddr);
+  if (ip_src_sz > 0) {
+    cfg.ifs.ipsrcs = (struct iface_srcaddr*)ip_src_data;
+    cfg.ifs.nipsrcs = ip_src_sz / sizeof(struct iface_srcaddr);
   }
 
-  if (ifaces_sz > 0 && ifaces_sz % sizeof(struct iface_entry) == 0) {
-    ifs.ifaces = (struct iface_entry *)ifaces_data;
-    ifs.nifaces = ifaces_sz / sizeof(struct iface_entry);
+  if (ifaces_sz > 0) {
+    cfg.ifs.ifaces = (struct iface_entry *)ifaces_data;
+    cfg.ifs.nifaces = ifaces_sz / sizeof(struct iface_entry);
   }
 
-  lua_createtable(L, 0, 5);
-  add_routes_to_table(L, &rt);
-  add_neigh_to_table(L,
-      (const struct neigh_entry*)ip_neigh_data,
-      ip_neigh_sz / sizeof(struct neigh_entry));
-  add_ifaces_to_table(L, &ifs);
-  /* rt, ifs is not cleaned up, because Lua owns the memory */
+  if (ip_neigh_sz > 0) {
+    cfg.neighs = (struct neigh_entry *)ip_neigh_data;
+    cfg.nneighs = ip_neigh_sz / sizeof(struct neigh_entry);
+  }
+
+  lua_newtable(L);
+  l_mknetconf(L, &cfg);
+  /* cfg is not cleaned up - Lua owns the memory */
   return 1;
 }
 

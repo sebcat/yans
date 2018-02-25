@@ -88,7 +88,7 @@ static size_t copy_entries(struct neigh_entry *entries, size_t offset,
       continue;
     }
 
-    memcpy(&entries[offset].u.sa, sa,
+    memcpy(&entries[offset].ipaddr.u.sa, sa,
         sa->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) :
           sizeof(struct sockaddr_in));
     if_indextoname(LLINDEX(sdl), entries[offset].iface);

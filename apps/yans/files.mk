@@ -46,8 +46,7 @@ yans_YANSTESTS = \
     apps/yans/tests/net_test.yans \
     apps/yans/tests/ports_test.yans \
     apps/yans/tests/url_test.yans \
-    apps/yans/tests/ycl_test.yans \
-    apps/yans/tests/netconf_test.yans
+    apps/yans/tests/ycl_test.yans
 
 yans_OBJS = ${yans_SOURCES:.c=.o}
 

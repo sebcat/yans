@@ -977,14 +977,34 @@ static struct port_ranges *castipports(lua_State *L, int index) {
   return rs;
 }
 
-static int l_ipports_add(lua_State *L) {
+static int l_ipports_add_ranges(lua_State *L) {
   int ret;
   struct port_ranges *dst = checkipports(L, 1);
   struct port_ranges *from = castipports(L, 2);
 
-  ret = port_ranges_add(dst, from);
+  ret = port_ranges_add_ranges(dst, from);
   if (ret < 0) {
-    return luaL_error(L, "ipports_add: memory allocation failure");
+    return luaL_error(L, "ipports_add_ranges: memory allocation failure");
+  }
+
+  lua_pop(L, 1);
+  return 1;
+}
+
+static int l_ipports_add_port(lua_State *L) {
+  int ret;
+  lua_Integer port;
+  struct port_ranges *dst;
+
+  dst = checkipports(L, 1);
+  port = luaL_checkinteger(L, 2);
+  if (port < 0 || port > 65535) {
+    return luaL_error(L, "ipports_add_port: port %d out of range", port);
+  }
+
+  ret = port_ranges_add_port(dst, (uint16_t)port);
+  if (ret < 0) {
+    return luaL_error(L, "ipports_add_ranges: memory allocation failure");
   }
 
   lua_pop(L, 1);
@@ -1085,7 +1105,8 @@ static const struct luaL_Reg yansipports_m[] = {
   {"__gc", l_ipports_gc},
   {"next", l_ipports_next},
   {"nextr4", l_ipports_nextr4},
-  {"add", l_ipports_add},
+  {"add_ranges", l_ipports_add_ranges},
+  {"add_port", l_ipports_add_port},
   {NULL, NULL},
 };
 

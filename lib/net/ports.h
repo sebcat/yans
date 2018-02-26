@@ -9,8 +9,8 @@
 
 /*
  * 0) port lists are inclusive, e.g., 1-2 means port 1 and 2
- * 1) overlapping/adjacent groups should be joined: 3-4,1-2 -> 1-4
- * 2) port lists should be sorted: 3-4,1 -> 1,3-4
+ * 1) port lists should be sorted: 3-4,1 -> 1,3-4
+ * 2) overlapping/adjacent groups should be joined: 3-4,1-2 -> 1-4
  */
 
 struct port_range {
@@ -26,6 +26,8 @@ struct port_ranges {
   /* curr_* - for iteration */
   size_t curr_range;
   uint16_t curr_port;
+
+  uint16_t flags; /* reserved for internal use */
 };
 
 struct port_r4ranges {
@@ -46,7 +48,9 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
 int port_ranges_to_buf(struct port_ranges *rs, buf_t *buf);
 void port_ranges_cleanup(struct port_ranges *rs);
 int port_ranges_next(struct port_ranges *rs, uint16_t *out);
-int port_ranges_add(struct port_ranges *dst, struct port_ranges *from);
+int port_ranges_add_ranges(struct port_ranges *dst, struct port_ranges *from);
+int port_ranges_add_range(struct port_ranges *dst, struct port_range *r);
+int port_ranges_add_port(struct port_ranges *dst, uint16_t port);
 
 /* initializes a reordered iterator of port_ranges. port_ranges must be
  * alive for as long as port_r4ranges is used */

@@ -13,8 +13,27 @@
      (ch) == ' '  ||         \
      (ch) == ',')
 
-#define PORT_RANGE_HAS_LHS (1 << 0)
-#define PORT_RANGE_HAS_RHS (1 << 1)
+#define PORT_RANGE_HAS_LHS (1 << 0) /* parser flag indicating LHS presence */
+#define PORT_RANGE_HAS_RHS (1 << 1) /* parser flag indicating RHS presence */
+
+#define PORT_RANGES_DIRTY  (1 << 0) /* flag indicating range cleanliness */
+
+/* should be used whenever we want to use the ranges for something, like
+ * iteration or stringifying */
+#define UNDIRTIFY(rs)                      \
+    if ((rs)->flags & PORT_RANGES_DIRTY) { \
+      _undirtify((rs));                    \
+    }
+
+/* should be used whenever we have modified the ranges */
+#define MARK_DIRTY(rs)                     \
+    (rs)->flags |= PORT_RANGES_DIRTY
+
+/* if ranges have more than DIRT_LIMIT range entries, they are candidates
+ * for undirtification on insertion. It's expensive and unnecessary to do
+ * it often, so we keep it at 2^16. Benchmark any changes.  */
+#define DIRT_LIMIT 65536
+
 
 static int rangecmp(const void *p0, const void *p1) {
   const struct port_range *r0 = p0;
@@ -49,6 +68,36 @@ static size_t compress_ranges(struct port_ranges *rs) {
 
   return curr + 1;
 }
+
+/* sort and compress ranges */
+static void _undirtify(struct port_ranges *rs) {
+  qsort(rs->ranges, rs->nranges, sizeof(struct port_range), rangecmp);
+  rs->nranges = compress_ranges(rs);
+  rs->flags &= ~PORT_RANGES_DIRTY;
+}
+
+static void *prep_insertion(struct port_ranges *rs, size_t needed) {
+  void *tmp;
+  size_t n;
+
+  if (rs->nranges > DIRT_LIMIT) {
+    UNDIRTIFY(rs);
+  }
+
+  /* allocate more space if needed */
+  if (needed > (rs->cap - rs->nranges)) {
+    n = rs->cap + needed;
+    n += n / 2; /* grow by 50%  */
+    tmp = realloc(rs->ranges, sizeof(struct port_range) * n);
+    if (tmp == NULL) {
+      return NULL;
+    }
+    rs->cap = n;
+    rs->ranges = tmp;
+  }
+  return rs->ranges;
+}
+
 
 int port_ranges_from_str(struct port_ranges *rs, const char *s,
     size_t *fail_off) {
@@ -179,9 +228,7 @@ int port_ranges_from_str(struct port_ranges *rs, const char *s,
     return 0;
   }
 
-  /* sort and compress the ranges */
-  qsort(rs->ranges, rs->nranges, sizeof(struct port_range), rangecmp);
-  rs->nranges = compress_ranges(rs);
+  MARK_DIRTY(rs);
   return 0;
 
 fail:
@@ -219,6 +266,7 @@ int port_ranges_to_buf(struct port_ranges *rs, buf_t *buf) {
   uint16_t swp;
   int ret;
 
+  UNDIRTIFY(rs);
   buf_clear(buf);
 
   /* we're iterating, and we've reached the end */
@@ -265,6 +313,8 @@ void port_ranges_cleanup(struct port_ranges *rs) {
 int port_ranges_next(struct port_ranges *rs, uint16_t *out) {
   struct port_range *r;
 
+  UNDIRTIFY(rs);
+
   if (rs->curr_range >= rs->nranges) {
     /* we've reached the end of the iteration - reset counters and return 0 */
     port_ranges_reset(rs);
@@ -289,33 +339,48 @@ int port_ranges_next(struct port_ranges *rs, uint16_t *out) {
   return 1;
 }
 
-int port_ranges_add(struct port_ranges *dst, struct port_ranges *from) {
-  size_t n;
-  void *tmp;
+int port_ranges_add_ranges(struct port_ranges *dst, struct port_ranges *from) {
+  void *ret;
 
   /* if we don't have anything to add - return */
   if (from->nranges == 0) {
     return 0;
   }
 
-  /* allocate more space if needed */
-  if (from->nranges > (dst->cap - dst->nranges)) {
-    n = dst->cap + from->nranges;
-    n += n / 2; /* grow by 50%  */
-    tmp = realloc(dst->ranges, sizeof(struct port_range) * n);
-    if (tmp == NULL) {
-      return -1;
-    }
-    dst->cap = n;
-    dst->ranges = tmp;
+  /* prepare dst insertion */
+  ret = prep_insertion(dst, from->nranges);
+  if (ret == NULL) {
+    return -1;
   }
 
+  /* copy the ranges from 'from' and mark 'dst' as dirty */
   memcpy(dst->ranges + dst->nranges, from->ranges,
       from->nranges * sizeof(struct port_range));
   dst->nranges += from->nranges;
-  qsort(dst->ranges, dst->nranges, sizeof(struct port_range), rangecmp);
-  dst->nranges = compress_ranges(dst);
+  MARK_DIRTY(dst);
   return 0;
+}
+
+int port_ranges_add_range(struct port_ranges *dst, struct port_range *r) {
+  void *ret;
+
+  ret = prep_insertion(dst, 1);
+  if (ret == NULL) {
+    return -1;
+  }
+
+  memcpy(dst->ranges + dst->nranges, r, sizeof(*r));
+  dst->nranges++;
+  MARK_DIRTY(dst);
+  return 0;
+}
+
+int port_ranges_add_port(struct port_ranges *dst, uint16_t port) {
+  struct port_range r;
+
+  r.start = port;
+  r.end = port;
+  return port_ranges_add_range(dst, &r);
 }
 
 static void port_r4ranges_reset(struct port_r4ranges *r4) {
@@ -342,6 +407,7 @@ int port_r4ranges_init(struct port_r4ranges *r4, struct port_ranges *rs) {
   struct reorder32 *ranges;
   int *rangemap;
 
+  UNDIRTIFY(rs);
   r4->mapindex = 0;
   r4->nranges = rs->nranges;
   if (r4->nranges == 0 || r4->nranges > INT_MAX) {

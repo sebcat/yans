@@ -288,12 +288,8 @@ expand_addrs("127.0.0.0 127.0.0.1 127.1.0.0 127.1.0.1 127.1.0.2 127.1.0.3", {
 
 
 IFACES = yans.eth.ifaces()
-ROUTES = yans.ip.routes()
-NEIGHBORS = yans.ip.neighbors()
 
 assert(type(IFACES) == "table")
-assert(type(ROUTES) == "table")
-assert(type(NEIGHBORS) == "table")
 
 -- init iface index -> name map
 local index2name = {}
@@ -316,10 +312,6 @@ local function print_routes(routes)
   end
 end
 
--- print the routing table to excercise the code paths
-print("ROUTES\n---")
-print_routes(ROUTES.ip_routes)
-
 local function get_loopback_ifname()
   for _,iface in pairs(IFACES.ifaces) do
     if iface.loopback then return iface.name end
@@ -336,9 +328,18 @@ local function print_neighbors(neigh)
   end
 end
 
-print("NEIGHBORS\n---")
-print_neighbors(NEIGHBORS.ip_neigh)
+local ROUTES = yans.ip.routes()
+local NEIGHBORS = yans.ip.neighbors()
 
+if ROUTES then
+  print("ROUTES\n---")
+  print_routes(ROUTES)
+end
+
+if NEIGHBORS then
+  print("NEIGHBORS\n---")
+  print_neighbors(NEIGHBORS)
+end
 
 -- Test IPv6 zone ID
 -- assume we have a standard IPv6 loopback setup with support for

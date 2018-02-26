@@ -583,23 +583,6 @@ static int l_addroute(lua_State *L, struct route_table_entry *ent) {
   return 0;
 }
 
-/* expects a lua table at TOS */
-static void add_routes_to_table(lua_State *L, struct route_table *rt) {
-  lua_Integer i;
-
-  /* sub-level table containing a sequence of entries */
-  lua_createtable(L, rt->nentries, 0);
-  for (i = 0; i < rt->nentries; i++) {
-    lua_newtable(L); /* a single routing table entry */
-    if (l_addroute(L, &rt->entries[i]) < 0) {
-      lua_pop(L, 1);
-      continue;
-    }
-    lua_rawseti(L, -2, i+1);
-  }
-  lua_setfield(L, -2, "ip_routes");
-}
-
 static int l_ethbytestostr(lua_State *L, const char *bytes) {
   char addr[24];
   const unsigned char *bs = (const unsigned char*)bytes;
@@ -626,35 +609,29 @@ static int l_addneigh(lua_State *L, const struct neigh_entry *e) {
   return 0;
 }
 
-static void add_neigh_to_table(lua_State *L,
-    const struct neigh_entry *ip_neigh, size_t nip_neigh) {
-  size_t i;
-
-  if (nip_neigh > 0) {
-    lua_createtable(L, nip_neigh, 0);
-    for (i = 0; i < nip_neigh; i++) {
-      lua_newtable(L); /* a single neighbor table entry */
-      if (l_addneigh(L, &ip_neigh[i]) < 0) {
-        lua_pop(L, 1);
-        continue;
-      }
-      lua_rawseti(L, -2, i+1);
-    }
-    lua_setfield(L, -2, "ip_neigh");
-  }
-}
-
 static int l_routes(lua_State *L) {
   struct route_table rt;
   char errbuf[128];
+  size_t i;
 
   if (route_table_init(&rt) < 0) {
     route_table_strerror(&rt, errbuf, sizeof(errbuf));
     return luaL_error(L, "route_table_init: %s", errbuf);
   }
 
-  lua_createtable(L, 0, 2); /* top-level table containing ip4, ip6 keys */
-  add_routes_to_table(L, &rt);
+  if (rt.nentries > 0) {
+    lua_createtable(L, rt.nentries, 0);
+    for (i = 0; i < rt.nentries; i++) {
+      lua_newtable(L); /* a single routing table entry */
+      if (l_addroute(L, &rt.entries[i]) < 0) {
+        lua_pop(L, 1);
+        continue;
+      }
+      lua_seti(L, -2, (lua_Integer)i+1);
+    }
+  } else {
+    lua_pushnil(L);
+  }
   route_table_cleanup(&rt);
   return 1;
 }
@@ -662,12 +639,22 @@ static int l_routes(lua_State *L) {
 static int l_neighbors(lua_State *L) {
   struct neigh_entry *ip_neigh = NULL;
   size_t nip_neigh = 0;
+  size_t i;
 
   ip_neigh = neigh_get_entries(&nip_neigh, NULL);
-  lua_createtable(L, 0, 2);
-  add_neigh_to_table(L, ip_neigh, nip_neigh);
-  if (ip_neigh) {
+  if (ip_neigh != NULL) {
+    lua_createtable(L, nip_neigh, 0);
+    for (i = 0; i < nip_neigh; i++) {
+      lua_newtable(L); /* a single neighbor table entry */
+      if (l_addneigh(L, &ip_neigh[i]) < 0) {
+        lua_pop(L, 1);
+        continue;
+      }
+      lua_seti(L, -2, (lua_Integer)i+1);
+    }
     neigh_free_entries(ip_neigh);
+  } else {
+    lua_pushnil(L);
   }
 
   return 1;

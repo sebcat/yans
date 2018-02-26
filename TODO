@@ -1,3 +1,21 @@
+## subject
+  - A subject is one IP(v4/v6) address reachable from a certain NIC with a
+    specific hardware address as the next hop (which may or may not be the
+    subject's hardware address)
+  - a subject has:
+    - source interface
+    - source hwaddr
+    - next hop hwaddr (gw or the subject itself)
+    - destination IP address
+    - name (optional, used for HTTP Host header and SNI)
+  - 10.0.2.72 is two different subjects if found on different NICs
+  - 10.0.2.72 is two different subjects if found with different hwaddrs as
+    the next hop
+  - 10.0.2.72 with a name of example.com and 10.0.2.72 without a name
+    are the same subject. If both 10.0.2.72 without and with a name is
+    entered, the name is/should be associated with 10.0.2.72 and 10.0.2.72
+    is scanned with that name when doing TLS-SNI and HTTP requests.
+
 ## ethd
   - interfaces and stuff are loaded at boot, may change during uptime
 

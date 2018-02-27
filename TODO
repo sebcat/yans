@@ -1,6 +1,3 @@
-TODO filter netconf based on src addrs, ifnames, &c
-
-
 ## subject
   - A subject is one IP(v4/v6) address reachable from a certain NIC with a
     specific hardware address as the next hop (which may or may not be the

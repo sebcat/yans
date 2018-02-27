@@ -749,36 +749,48 @@ static void l_nc_neigh(lua_State *L, struct netconf_data *cfg,
 }
 
 static void l_nc_srcs(lua_State *L, struct netconf_data *cfg,
-    struct iface_entry *ifent) {
+    struct iface_entry *ifent, size_t *nbr_sources) {
   size_t i;
   struct iface_srcaddr *curr;
   ip_block_t *blk;
   int ret;
   lua_Integer ipos = 1;
+  size_t nsrcs = 0;
 
   lua_newtable(L);
   for (i = 0; i < cfg->ifs.nipsrcs; i++) {
     curr = &cfg->ifs.ipsrcs[i];
-    if (strcmp(curr->ifname, ifent->name) == 0) {
-      lua_createtable(L, 0, 2); /* create current entry */
 
-      /* setup addr field */
-      l_pushipaddr(L, &curr->addr.u.sa);
-      lua_setfield(L, -2, "addr");
-
-      /* setup subnet field */
-      blk = l_newipblock(L);
-      ret = ip_block_netmask(blk, &curr->addr, &curr->mask, NULL);
-      if (ret < 0) {
-        lua_pop(L, 2); /* pop block and table (addr already in table) */
-        continue;
-      }
-      lua_setfield(L, -2, "subnet");
-
-      lua_seti(L, -2, ipos++); /* add current entry to ip_srcs table */
+    /* skip sources not belonging to the current interface */
+    if (strcmp(curr->ifname, ifent->name) != 0) {
+      continue;
     }
+
+    /* create current entry */
+    lua_createtable(L, 0, 2);
+
+    /* setup addr field */
+    l_pushipaddr(L, &curr->addr.u.sa);
+    lua_setfield(L, -2, "addr");
+
+    /* setup subnet field */
+    blk = l_newipblock(L);
+    ret = ip_block_netmask(blk, &curr->addr, &curr->mask, NULL);
+    if (ret < 0) {
+      lua_pop(L, 2); /* pop block and table (addr already in table) */
+      continue;
+    }
+    lua_setfield(L, -2, "subnet");
+
+    /* add current entry to ip_srcs table */
+    lua_seti(L, -2, ipos++);
+    nsrcs++;
   }
+
   lua_setfield(L, -2, "ip_srcs"); /* add ip_srcs table to netconf[iface] */
+  if (nbr_sources != NULL) {
+    *nbr_sources = nsrcs;
+  }
 }
 
 static void l_nc_routes(lua_State *L, struct netconf_data *cfg,
@@ -837,6 +849,7 @@ static void l_nc_routes(lua_State *L, struct netconf_data *cfg,
 static void l_mknetconf(lua_State *L, struct netconf_data *cfg) {
   size_t i;
   struct iface_entry *curr;
+  size_t nsrcs = 0;
 
   for (i = 0; i < cfg->ifs.nifaces; i++) {
     curr = &cfg->ifs.ifaces[i];
@@ -846,7 +859,6 @@ static void l_mknetconf(lua_State *L, struct netconf_data *cfg) {
       continue;
     }
 
-    lua_newtable(L);
     /* NB: this means that for every iface we will iterate over all
      * neighs, srcs, dsts and gws. We could do an insertion of all ifaces
      * first, and then do a table lookup for each thing we want to add for
@@ -854,9 +866,20 @@ static void l_mknetconf(lua_State *L, struct netconf_data *cfg) {
      * only fetch the nc once per process, and the number of interfaces
      * should be relatively small. For some networks, the neighbor table
      * can be huge though. */
+
+    lua_newtable(L);
+
+    l_nc_srcs(L, cfg, curr, &nsrcs);
+    if (nsrcs == 0) {
+      /* Currently, there's no use case to handle interfaces without configured
+       * source addresses. If there ever is one, we can always add flags to
+       * control this behavior, but always skip them for now. */
+      lua_pop(L, 1);
+      continue;
+    }
+
     l_nc_ethaddr(L, curr);
     l_nc_neigh(L, cfg, curr);
-    l_nc_srcs(L, cfg, curr);
     l_nc_routes(L, cfg, curr);
     lua_setfield(L, -2, curr->name);
   }

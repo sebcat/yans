@@ -840,22 +840,25 @@ static void l_mknetconf(lua_State *L, struct netconf_data *cfg) {
 
   for (i = 0; i < cfg->ifs.nifaces; i++) {
     curr = &cfg->ifs.ifaces[i];
-    /* only process active, non-loopback interfaces */
-    if (curr->flags & IFACE_UP && !(curr->flags & IFACE_LOOPBACK)) {
-      lua_newtable(L);
-      /* NB: this means that for every iface we will iterate over all
-       * neighs, srcs, dsts and gws. We could do an insertion of all ifaces
-       * first, and then do a table lookup for each thing we want to add for
-       * an iface, but that's probably only worth it if N is big. We should
-       * only fetch the nc once per process, and the number of interfaces
-       * should be relatively small. For some networks, the neighbor table
-       * can be huge though. */
-      l_nc_ethaddr(L, curr);
-      l_nc_neigh(L, cfg, curr);
-      l_nc_srcs(L, cfg, curr);
-      l_nc_routes(L, cfg, curr);
-      lua_setfield(L, -2, curr->name);
+
+    /* skip inactive and loopback interfaces */
+    if (!(curr->flags & IFACE_UP) || curr->flags & IFACE_LOOPBACK) {
+      continue;
     }
+
+    lua_newtable(L);
+    /* NB: this means that for every iface we will iterate over all
+     * neighs, srcs, dsts and gws. We could do an insertion of all ifaces
+     * first, and then do a table lookup for each thing we want to add for
+     * an iface, but that's probably only worth it if N is big. We should
+     * only fetch the nc once per process, and the number of interfaces
+     * should be relatively small. For some networks, the neighbor table
+     * can be huge though. */
+    l_nc_ethaddr(L, curr);
+    l_nc_neigh(L, cfg, curr);
+    l_nc_srcs(L, cfg, curr);
+    l_nc_routes(L, cfg, curr);
+    lua_setfield(L, -2, curr->name);
   }
 }
 

@@ -4,9 +4,9 @@ local _M = {
 
 function _M:new(o)
   assert(o.path, "missing store path")
+  assert(o.msgbuf, "missing msgbuf")
   local ycl = yans.ycl
   o.sock = ycl.connect(o.path)
-  o.msgbuf = ycl.msg()
   o.store_id = nil -- will be set on when enter is called, set here for doc
   self.__index = self
   setmetatable(o, self)

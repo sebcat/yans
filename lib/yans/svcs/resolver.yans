@@ -5,9 +5,9 @@ local _M = {
 function _M:new(o)
   assert(o.path, "missing path")
   assert(o.store, "missing store")
+  assert(o.msgbuf, "missing msgbuf")
   local ycl = yans.ycl
   o.sock = ycl.connect(o.path)
-  o.msgbuf = ycl.msg()
   self.__index = self
   setmetatable(o, self)
   return o

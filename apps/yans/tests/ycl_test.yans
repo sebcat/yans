@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- vim: shiftwidth=2 tabstop=2 expandtab
 
-local m = yans.ycl.msg()
+local m = yans.ycl.msgbuf()
 assert(m:size() == 0)
 assert(#m:data() == 0)
 

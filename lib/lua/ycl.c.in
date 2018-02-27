@@ -213,7 +213,7 @@ static const struct luaL_Reg yclctx_m[] = {
 static const struct luaL_Reg ycl_f[] = {
   {"ctx", l_yclctx},
   {"connect", l_yclconnect},
-  {"msg", l_yclmsg},
+  {"msgbuf", l_yclmsg},
   {NULL, NULL},
 };
 

@@ -12,6 +12,8 @@ typedef struct buf_t {
 	char *data;
 } buf_t;
 
+#define BUF_ALIGNMENT    sizeof(long)    /* must be a power of two */
+
 #define buf_clear(buf__) ((buf__)->len = 0)
 
 #define buf_shrink(buf__, nbytes__) \
@@ -21,6 +23,9 @@ typedef struct buf_t {
   if ((off__) < (buf__)->len) {            \
     (buf__)->len = (off__);                \
   }                                        \
+
+#define buf_align_offset(x) \
+    (((x)+(BUF_ALIGNMENT-1))&~(BUF_ALIGNMENT-1))
 
 buf_t *buf_init(buf_t *buf, size_t cap);
 void buf_cleanup(buf_t *buf);

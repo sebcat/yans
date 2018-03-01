@@ -2,12 +2,8 @@
 #include <string.h>
 #include <lib/util/buf.h>
 
-/* BUF_ALIGNMENT must be a power of two */
-#define BUF_ALIGNMENT    sizeof(long)
-#define BUF_ALIGN(x)    (((x)+(BUF_ALIGNMENT-1))&~(BUF_ALIGNMENT-1))
-
 buf_t *buf_init(buf_t *buf, size_t cap) {
-  size_t acap = BUF_ALIGN(cap);
+  size_t acap = buf_align_offset(cap);
   if ((buf->data = calloc(1, acap)) == NULL) {
     return NULL;
   }
@@ -28,9 +24,9 @@ int buf_grow(buf_t *buf, size_t needed) {
   size_t added;
   char *ndata;
 
-  added = BUF_ALIGN(buf->cap/2);
+  added = buf_align_offset(buf->cap >> 1);
   if (added < needed) {
-    added = BUF_ALIGN(needed);
+    added = buf_align_offset(needed);
   }
 
   if ((ndata = realloc(buf->data, buf->cap + added)) == NULL) {
@@ -46,7 +42,7 @@ int buf_align(buf_t *buf) {
   size_t noff;
   int ret;
 
-  noff = BUF_ALIGN(buf->len);
+  noff = buf_align_offset(buf->len);
   if (noff >= buf->cap) {
     ret = buf_grow(buf, BUF_ALIGNMENT);
     if (ret < 0) {

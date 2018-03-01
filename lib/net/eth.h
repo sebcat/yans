@@ -20,11 +20,6 @@
 
 #define ETH_STRSZ (ETH_ALEN*3)
 
-struct eth_addr {
-  int index;
-  unsigned char addr[ETH_ALEN];
-};
-
 #define ETHERR_OK            0
 #define ETHERR_INVALID_IF   -1
 
@@ -35,11 +30,8 @@ struct eth_sender {
   int lasterr;
 };
 
-int eth_addr_valid(const struct sockaddr *saddr);
-int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr);
-void eth_addr_init_bytes(struct eth_addr *eth, const char *data);
-int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len);
-int eth_parse_addr(char *dst, size_t dstlen, const char *s);
+int eth_addr_tostring(const char *eth, char *s, size_t len);
+int eth_addr_parse(const char *eth, char *dst, size_t dstlen);
 
 int eth_sender_init(struct eth_sender *eth, const char *iface);
 void eth_sender_cleanup(struct eth_sender *eth);

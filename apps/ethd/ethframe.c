@@ -1002,7 +1002,7 @@ static int setup_frameconf(struct frameconf *cfg,
   cfg->iface = req->iface;
 
   if (req->eth_src != NULL) {
-    if (eth_parse_addr(cfg->eth_src, sizeof(cfg->eth_src), req->eth_src) < 0) {
+    if (eth_addr_parse(req->eth_src, cfg->eth_src, sizeof(cfg->eth_src)) < 0) {
       snprintf(errbuf, errbuflen, "invalid eth src");
       return -1;
     }
@@ -1012,7 +1012,7 @@ static int setup_frameconf(struct frameconf *cfg,
   }
 
   if (req->eth_dst != NULL) {
-    if (eth_parse_addr(cfg->eth_dst, sizeof(cfg->eth_dst), req->eth_dst) < 0) {
+    if (eth_addr_parse(req->eth_dst, cfg->eth_dst, sizeof(cfg->eth_dst)) < 0) {
       snprintf(errbuf, errbuflen, "invalid eth dst");
       return -1;
     }

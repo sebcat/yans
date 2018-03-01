@@ -25,35 +25,6 @@
 
 #if defined(__FreeBSD__)
 
-int eth_addr_valid(const struct sockaddr *saddr) {
-  const struct sockaddr_dl *dl;
-  if (saddr->sa_family == AF_LINK) {
-    dl = (const struct sockaddr_dl*)saddr;
-    if (dl->sdl_alen == ETH_ALEN) {
-      return ETHERR_OK;
-    }
-  }
-  return ETHERR_INVALID_IF;
-}
-
-int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
-  const struct sockaddr_dl *dl;
-  int ret;
-
-  if ((ret = eth_addr_valid(saddr)) != ETHERR_OK) {
-    return ret;
-  }
-  dl = (struct sockaddr_dl*)saddr;
-  eth->index = (int)dl->sdl_index;
-  memcpy(eth->addr, LLADDR(dl), ETH_ALEN);
-  return ETHERR_OK;
-}
-
-void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
-  memset(eth, 0, sizeof(*eth));
-  memcpy(eth->addr, data, ETH_ALEN);
-}
-
 int eth_sender_init(struct eth_sender *eth, const char *iface) {
   int fd = -1;
   struct ifreq ifr = {{0}};
@@ -107,35 +78,6 @@ ssize_t eth_sender_write(struct eth_sender *eth, const void *data,
 }
 
 #elif defined(__linux__)
-
-int eth_addr_valid(const struct sockaddr *saddr) {
-  const struct sockaddr_ll *ll;
-  if (saddr->sa_family == AF_PACKET) {
-    ll = (const struct sockaddr_ll*)saddr;
-    if (ll->sll_halen == ETH_ALEN) {
-      return ETHERR_OK;
-    }
-  }
-  return ETHERR_INVALID_IF;
-}
-
-int eth_addr_init(struct eth_addr *eth, const struct sockaddr *saddr) {
-  const struct sockaddr_ll *ll;
-  int ret;
-
-  if ((ret = eth_addr_valid(saddr)) != ETHERR_OK) {
-    return ret;
-  }
-  ll = (struct sockaddr_ll*)saddr;
-  eth->index = ll->sll_ifindex;
-  memcpy(eth->addr, ll->sll_addr, ETH_ALEN);
-  return ETHERR_OK;
-}
-
-void eth_addr_init_bytes(struct eth_addr *eth, const char *data) {
-  memset(eth, 0, sizeof(*eth));
-  memcpy(eth->addr, data, ETH_ALEN);
-}
 
 int eth_sender_init(struct eth_sender *eth, const char *iface) {
   int fd = -1;
@@ -201,24 +143,24 @@ ssize_t eth_sender_write(struct eth_sender *eth, const void *data,
 
 #endif /* defined(__FreeBSD__) || defined(__linux__) */
 
-int eth_addr_tostring(const struct eth_addr *eth, char *s, size_t len) {
+int eth_addr_tostring(const char *eth, char *s, size_t len) {
   return snprintf(s, len, "%02x:%02x:%02x:%02x:%02x:%02x",
-      (unsigned int)eth->addr[0],
-      (unsigned int)eth->addr[1],
-      (unsigned int)eth->addr[2],
-      (unsigned int)eth->addr[3],
-      (unsigned int)eth->addr[4],
-      (unsigned int)eth->addr[5]);
+      (unsigned int)eth[0],
+      (unsigned int)eth[1],
+      (unsigned int)eth[2],
+      (unsigned int)eth[3],
+      (unsigned int)eth[4],
+      (unsigned int)eth[5]);
 }
 
-int eth_parse_addr(char *dst, size_t dstlen, const char *s) {
+int eth_addr_parse(const char *eth, char *dst, size_t dstlen) {
   int ret;
 
   if (dstlen < 6) {
     return -1;
   }
 
-  ret = sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", dst, dst + 1, dst + 2,
+  ret = sscanf(eth, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", dst, dst + 1, dst + 2,
       dst + 3, dst + 4, dst + 5);
   if (ret != 6) {
     return -1;
@@ -226,7 +168,6 @@ int eth_parse_addr(char *dst, size_t dstlen, const char *s) {
 
   return 0;
 }
-
 
 const char *eth_sender_strerror(struct eth_sender *eth) {
   if (eth->lasterr != 0) {

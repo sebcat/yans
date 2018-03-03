@@ -14,15 +14,15 @@ tools/yclgen/genlycl
 tools/yclgen/genycl
 lib/net/punycode_test
 lib/net/url_test
-lib/util/conf_test
+lib/util/flagset_test
 lib/util/netstring_test
+lib/util/os_test
 lib/util/u8_test
 apps/clid/clid
 tools/freebsd/etc.rc.d/ethd
 tools/freebsd/etc.rc.d/stored
 tools/freebsd/etc.rc.d/clid
 tools/freebsd/etc.rc.d/knegd
-lib/util/flagset_test
 apps/knegd/knegd
 apps/kneg/kneg
 apps/store/store

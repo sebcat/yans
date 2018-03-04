@@ -115,12 +115,15 @@ static int encode_label(buf_t *buf, const uint8_t *s, size_t len) {
   return 0;
 }
 
-char *punycode_encode(const void *in, size_t len) {
-  const uint8_t *curr = in, *prev = in;
+char *punycode_encode(const char *in, size_t len) {
+  const uint8_t *curr;
+  const uint8_t *prev;
   buf_t outbuf;
   buf_t lblbuf;
   int is_ascii = 1;
 
+  curr = (const uint8_t*)in;
+  prev = (const uint8_t*)in;
   memset(&outbuf, 0, sizeof(outbuf));
   memset(&lblbuf, 0, sizeof(lblbuf));
   if (buf_init(&outbuf, 512) == NULL) {

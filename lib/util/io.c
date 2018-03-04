@@ -84,6 +84,11 @@ int io_connect_unix(io_t *io, const char *path) {
   struct sockaddr_un saddr = {0};
   int fd = -1;
 
+  if (path == NULL || *path == '\0') {
+    IO_SETERR(io, "io_connect_unix: invalid path");
+    return IO_ERR;
+  }
+
   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     IO_PERROR(io, "socket");
     return IO_ERR;
@@ -91,7 +96,7 @@ int io_connect_unix(io_t *io, const char *path) {
   saddr.sun_family = AF_UNIX;
   snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", path);
   if (connect(fd, (struct sockaddr *)&saddr, sizeof(saddr)) != 0) {
-    IO_PERROR(io, "connect");
+    IO_PERROR(io, path);
     close(fd);
     return IO_ERR;
   }

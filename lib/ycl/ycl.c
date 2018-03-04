@@ -39,7 +39,7 @@ int ycl_connect(struct ycl_ctx *ycl, const char *dst) {
 int ycl_close(struct ycl_ctx *ycl) {
   int ret;
 
-  if (!(ycl->flags & YCL_EXTERNALFD)) {
+  if (!(ycl->flags & YCL_EXTERNALFD) && ycl->fd >= 0) {
     ret = close(ycl->fd);
     if (ret < 0) {
       SETERR(ycl, "close: %s", strerror(errno));
@@ -51,6 +51,10 @@ int ycl_close(struct ycl_ctx *ycl) {
   ycl->errbuf[0] = '\0';
   ycl->fd = -1;
   return YCL_OK;
+}
+
+const char *ycl_strerror(struct ycl_ctx *ycl) {
+  return ycl->errbuf;
 }
 
 int ycl_setnonblock(struct ycl_ctx *ycl, int status) {

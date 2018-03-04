@@ -39,8 +39,6 @@ struct ycl_msg {
 /* accessor macros for individual fields */
 #define ycl_fd(ycl) \
     (ycl)->fd
-#define ycl_strerror(ycl) \
-    (ycl)->errbuf
 #define ycl_set_externalfd(ycl) \
     (ycl)->flags |= YCL_EXTERNALFD;
 #define ycl_msg_bytes(msg) \
@@ -48,9 +46,11 @@ struct ycl_msg {
 #define ycl_msg_nbytes(msg) \
     (msg)->buf.len
 
+
 void ycl_init(struct ycl_ctx *ycl, int fd);
 int ycl_connect(struct ycl_ctx *ycl, const char *dst);
 int ycl_close(struct ycl_ctx *ycl);
+const char *ycl_strerror(struct ycl_ctx *ycl);
 int ycl_setnonblock(struct ycl_ctx *ycl, int status);
 
 int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);

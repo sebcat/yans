@@ -1,5 +1,5 @@
 (module ycl (ycl-connect ycl-close ycl-msgbuf ycl-msgbuf-reset
-    ycl-msgbuf-set)
+    ycl-msgbuf-set ycl-sendmsg ycl-recvmsg)
   (import chicken scheme foreign srfi-13)
   (foreign-declare "#include <lib/ycl/ycl.h>")
 
@@ -64,7 +64,7 @@
 
   (define (ycl-msgbuf-set* msg blob)
     ((foreign-lambda int "ycl_msg_set"
-        ycl-msg (const nonnull-c-string) size_t) msg blob (blob-size blob)))
+        ycl-msg (const nonnull-blob) size_t) msg blob (blob-size blob)))
 
   (define (ycl-msgbuf-set msg blob)
     (if (ycl-msg? msg)
@@ -72,4 +72,26 @@
         (if (< ret 0)
           (ycl-msg-exn)
           msg))))
+
+  (define (ycl-sendmsg* ctx msg)
+    ((foreign-lambda int "ycl_sendmsg" ycl-ctx ycl-msg) ctx msg))
+
+  (define (ycl-sendmsg ctx msg)
+    (assert (ycl-ctx? ctx))
+    (assert (ycl-msg? msg))
+    (let ((ret (ycl-sendmsg* ctx msg)))
+      (if (< ret 0)
+        (ycl-exn ctx)
+        ctx)))
+
+  (define (ycl-recvmsg* ctx msg)
+    ((foreign-lambda int "ycl_recvmsg" ycl-ctx ycl-msg) ctx msg))
+
+  (define (ycl-recvmsg ctx msg)
+    (assert (ycl-ctx? ctx))
+    (assert (ycl-msg? msg))
+    (let ((ret (ycl-recvmsg* ctx msg)))
+      (if (< ret 0)
+        (ycl-exn ctx)
+        ctx)))
 )

@@ -1,4 +1,3 @@
-(declare (uses ycl))
 (use ycl)
 (condition-case (print (ycl-connect "foobar"))
   [c (ycl-exn) (printf "ycl exception: ~A~%"

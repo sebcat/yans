@@ -1,7 +1,10 @@
 (module ycl (ycl-connect ycl-close ycl-msgbuf ycl-msgbuf-reset
     ycl-msgbuf-set ycl-sendmsg ycl-recvmsg)
-  (import chicken scheme foreign srfi-13)
-  (foreign-declare "#include <lib/ycl/ycl.h>")
+  (import scheme chicken foreign srfi-13)
+
+  (foreign-declare
+    "#include <unistd.h>"
+    "#include <lib/ycl/ycl.h>")
 
   ;; let sizeof-ycl_ctx be sizeof(struct ycl_ctx). Define a record 'ycl-ctx
   ;; with a slot called buffer. This creates make-ycl-ctx, ycl-ctx? as well as
@@ -17,18 +20,27 @@
   (define-record ycl-msg buffer)
   (define-foreign-type ycl-msg scheme-pointer ycl-msg-buffer)
 
-  (define (ycl-error* ctx)
+  (define-record ycl-fd fd)
+  (define make-ycl-fd* make-ycl-fd)
+
+  (define (ycl-fd-close fd)
+    ((foreign-lambda int close int) (ycl-fd-fd fd)))
+
+  (define (make-ycl-fd fd)
+    (set-finalizer! (make-ycl-fd* fd) ycl-fd-close))
+
+  (define (ycl-strerror* ctx)
     (string-copy ((foreign-lambda c-string "ycl_strerror" ycl-ctx) ctx)))
 
-  (define (ycl-error ctx)
-    (if (ycl-ctx? ctx) (ycl-error* ctx)))
+  (define (ycl-strerror ctx)
+    (if (ycl-ctx? ctx) (ycl-strerror* ctx)))
 
-  (define (ycl-exn ctx)
+  (define (throw-ycl-exn ctx)
     (if (ycl-ctx? ctx)
-      (signal (make-property-condition 'ycl-exn 'msg (ycl-error ctx)))))
+      (signal (make-property-condition 'ycl-exn 'msg (ycl-strerror ctx)))))
 
-  (define ycl-msg-exn (lambda ()
-    (signal (make-property-condition 'ycl-msg-exn))))
+  (define (throw-ycl-msg-exn)
+    (signal (make-property-condition 'ycl-msg-exn)))
 
   (define (ycl-close ctx)
     (if (ycl-ctx? ctx)
@@ -43,7 +55,7 @@
         ((ctx (make-ycl-ctx (make-blob sizeof-ycl_ctx)))
          (ret (ycl-connect* ctx dst)))
       (if (< ret 0)
-        (ycl-exn ctx)
+        (throw-ycl-exn ctx)
         (set-finalizer! ctx ycl-close))))
 
   (define (ycl-msgbuf-cleanup msg)
@@ -59,7 +71,7 @@
         ((msg (make-ycl-msg (make-blob sizeof-ycl_msg)))
          (ret ((foreign-lambda int "ycl_msg_init" ycl-msg) msg)))
       (if (< ret 0)
-        (ycl-msg-exn)
+        (throw-ycl-msg-exn)
         (set-finalizer! msg ycl-msgbuf-cleanup))))
 
   (define (ycl-msgbuf-set* msg blob)
@@ -70,7 +82,7 @@
     (if (ycl-msg? msg)
       (let ((ret (ycl-msgbuf-set* msg blob)))
         (if (< ret 0)
-          (ycl-msg-exn)
+          (throw-ycl-msg-exn)
           msg))))
 
   (define (ycl-sendmsg* ctx msg)
@@ -81,7 +93,7 @@
     (assert (ycl-msg? msg))
     (let ((ret (ycl-sendmsg* ctx msg)))
       (if (< ret 0)
-        (ycl-exn ctx)
+        (throw-ycl-exn ctx)
         ctx)))
 
   (define (ycl-recvmsg* ctx msg)
@@ -92,6 +104,6 @@
     (assert (ycl-msg? msg))
     (let ((ret (ycl-recvmsg* ctx msg)))
       (if (< ret 0)
-        (ycl-exn ctx)
+        (throw-ycl-exn ctx)
         ctx)))
 )

@@ -1,5 +1,5 @@
 (module ycl (ycl-connect ycl-close ycl-msgbuf ycl-msgbuf-reset
-    ycl-msgbuf-set ycl-sendmsg ycl-recvmsg)
+    ycl-msgbuf-set ycl-sendmsg ycl-recvmsg ycl-sendfd ycl-recvfd)
   (import scheme chicken foreign srfi-13)
 
   (foreign-declare
@@ -106,4 +106,24 @@
       (if (< ret 0)
         (throw-ycl-exn ctx)
         ctx)))
-)
+
+  (define (ycl-recvfd* ctx fd)
+    ((foreign-lambda int "ycl_recvfd" ycl-ctx (c-pointer int)) ctx fd))
+
+  (define (ycl-recvfd ctx)
+    (assert (ycl-ctx? ctx))
+    (let-location ([ifd int])
+      (let ([ret (ycl-recvfd* ctx (location ifd))])
+        (if (< ret 0)
+          (throw-ycl-exn ctx)
+          (make-ycl-fd ifd)))))
+
+  (define (ycl-sendfd* ctx fd err)
+    ((foreign-lambda int "ycl_sendfd" ycl-ctx int int) ctx fd err))
+
+  (define (ycl-sendfd ctx fd err)
+    (assert (ycl-ctx? ctx))
+    (let ([ret (ycl-sendfd* ctx fd err)])
+      (if (< ret 0)
+        (throw-ycl-exn ctx)
+        ctx))))

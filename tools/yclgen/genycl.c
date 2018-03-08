@@ -597,8 +597,8 @@ static int write_parse_impl(FILE *fp, struct yclgen_msg *msg) {
   }
 
   ret = fprintf(fp,
-      "          default:\n"
-      "            abort(); /* XXX: Inconsistent state */\n"
+      "        default:\n"
+      "          abort(); /* XXX: Inconsistent state */\n"
       "        }\n"
       "        break;\n"
       "      }\n"

@@ -927,7 +927,7 @@ static void on_next_req(struct eds_client *cli, int fd) {
 
 static void write_ok_response(struct eds_client *cli, int fd) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   int ret;
   struct eds_transition trans = {
     .flags = EDS_TFLREAD,
@@ -936,7 +936,8 @@ static void write_ok_response(struct eds_client *cli, int fd) {
 
   eds_client_set_ticker(cli, NULL);
   eds_client_clear_actions(cli);
-  resp.okmsg = "ok";
+  resp.okmsg.data = "ok";
+  resp.okmsg.len = sizeof("ok")-1;
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
     ylog_error("ethframecli%d: OK response serialization error", fd);
@@ -950,13 +951,14 @@ static void write_ok_response(struct eds_client *cli, int fd) {
 static void write_err_response(struct eds_client *cli, int fd,
     const char *errmsg) {
   struct ethframe_client *ecli = ETHFRAME_CLIENT(cli);
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   int ret;
 
   eds_client_set_ticker(cli, NULL);
   ylog_error("ethframecli%d: %s", fd, errmsg);
   eds_client_clear_actions(cli);
-  resp.errmsg = errmsg;
+  resp.errmsg.data = errmsg;
+  resp.errmsg.len = strlen(errmsg);
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
     ylog_error("ethframecli%d: error response serialization error", fd);
@@ -982,8 +984,8 @@ static int setup_frameconf(struct frameconf *cfg,
   cfg->ncustom_frames = req->ncustom_frames;
   cfg->curr_custom_frame = 0;
 
-  if (req->categories != NULL) {
-    if (flagset_from_str(category_flags, req->categories, &fsres) < 0) {
+  if (req->categories.data != NULL) {
+    if (flagset_from_str(category_flags, req->categories.data, &fsres) < 0) {
       snprintf(errbuf, errbuflen, "invalid categories, offset %zu: %s",
           fsres.erroff, fsres.errmsg);
       return -1;
@@ -995,14 +997,15 @@ static int setup_frameconf(struct frameconf *cfg,
     cfg->pps = (unsigned int)req->pps;
   }
 
-  if (req->iface == NULL) {
+  if (req->iface.data == NULL || *req->iface.data == '\0') {
     snprintf(errbuf, errbuflen, "missing iface");
     return -1;
   }
-  cfg->iface = req->iface;
+  cfg->iface = req->iface.data;
 
-  if (req->eth_src != NULL) {
-    if (eth_addr_parse(req->eth_src, cfg->eth_src, sizeof(cfg->eth_src)) < 0) {
+  if (req->eth_src.data != NULL) {
+    if (eth_addr_parse(req->eth_src.data, cfg->eth_src,
+        sizeof(cfg->eth_src)) < 0) {
       snprintf(errbuf, errbuflen, "invalid eth src");
       return -1;
     }
@@ -1011,8 +1014,9 @@ static int setup_frameconf(struct frameconf *cfg,
     return -1;
   }
 
-  if (req->eth_dst != NULL) {
-    if (eth_addr_parse(req->eth_dst, cfg->eth_dst, sizeof(cfg->eth_dst)) < 0) {
+  if (req->eth_dst.data != NULL) {
+    if (eth_addr_parse(req->eth_dst.data, cfg->eth_dst,
+        sizeof(cfg->eth_dst)) < 0) {
       snprintf(errbuf, errbuflen, "invalid eth dst");
       return -1;
     }
@@ -1020,8 +1024,8 @@ static int setup_frameconf(struct frameconf *cfg,
   /* we don't require eth_dstlen to be set- the frames may have them (e.g.,
    * bcasts) */
 
-  if (req->ip_src != NULL) {
-    if (ip_addr(&cfg->src_ip, req->ip_src, NULL) < 0) {
+  if (req->ip_src.data != NULL) {
+    if (ip_addr(&cfg->src_ip, req->ip_src.data, NULL) < 0) {
       snprintf(errbuf, errbuflen, "invalid ip src address");
       return -1;
     }
@@ -1030,8 +1034,8 @@ static int setup_frameconf(struct frameconf *cfg,
     return -1;
   }
 
-  if (req->ip_dsts != NULL) {
-    if (ip_blocks_init(&cfg->dst_ips, req->ip_dsts, NULL) < 0) {
+  if (req->ip_dsts.data != NULL) {
+    if (ip_blocks_init(&cfg->dst_ips, req->ip_dsts.data, NULL) < 0) {
       snprintf(errbuf, errbuflen, "invalid ip dst addresses");
       return -1;
     }
@@ -1040,8 +1044,9 @@ static int setup_frameconf(struct frameconf *cfg,
     return -1;
   }
 
-  if (req->port_dsts != NULL) {
-    if (port_ranges_from_str(&cfg->dst_ports, req->port_dsts, &failoff) < 0) {
+  if (req->port_dsts.data != NULL) {
+    if (port_ranges_from_str(&cfg->dst_ports, req->port_dsts.data,
+        &failoff) < 0) {
       snprintf(errbuf, errbuflen, "dst ports: syntax error near %zu", failoff);
       return -1;
     }
@@ -1143,7 +1148,8 @@ static void on_read_req(struct eds_client *cli, int fd) {
 
   ecli->sender = get_sender_by_ifname(ecli->cfg.iface);
   if (ecli->sender == NULL) {
-    snprintf(errbuf, sizeof(errbuf), "iface \"%s\" does not exist", req.iface);
+    snprintf(errbuf, sizeof(errbuf), "iface \"%s\" does not exist",
+        req.iface.data);
     errmsg = errbuf;
     goto fail;
   }

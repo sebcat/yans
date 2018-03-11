@@ -23,9 +23,9 @@ static int run_get(const char *socket, const char *id, const char *filename) {
   int getfd = -1;
   struct ycl_ctx ctx;
   struct ycl_msg msg;
-  struct ycl_msg_store_enter entermsg = {0};
-  struct ycl_msg_status_resp respmsg = {0};
-  struct ycl_msg_store_open openmsg = {0};
+  struct ycl_msg_store_enter entermsg = {{0}};
+  struct ycl_msg_status_resp respmsg = {{0}};
+  struct ycl_msg_store_open openmsg = {{0}};
 
   ret = ycl_connect(&ctx, socket);
   if (ret != YCL_OK) {
@@ -39,7 +39,8 @@ static int run_get(const char *socket, const char *id, const char *filename) {
     goto ycl_cleanup;
   }
 
-  entermsg.store_id = id;
+  entermsg.store_id.data = id;
+  entermsg.store_id.len = strlen(id);
   ret = ycl_msg_create_store_enter(&msg, &entermsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_msg_create_store_enter failure\n");
@@ -66,12 +67,13 @@ static int run_get(const char *socket, const char *id, const char *filename) {
     goto ycl_msg_cleanup;
   }
 
-  if (respmsg.errmsg != NULL) {
-    fprintf(stderr, "received failure: %s\n", respmsg.errmsg);
+  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
+    fprintf(stderr, "received failure: %s\n", respmsg.errmsg.data);
     goto ycl_msg_cleanup;
   }
 
-  openmsg.path = filename;
+  openmsg.path.data = filename;
+  openmsg.path.len = strlen(filename);
   openmsg.flags = O_RDONLY;
   ret = ycl_msg_create_store_open(&msg, &openmsg);
   if (ret != YCL_OK) {
@@ -137,9 +139,9 @@ static int run_put(const char *socket, const char *id, const char *filename) {
   int putfd = -1;
   struct ycl_ctx ctx;
   struct ycl_msg msg;
-  struct ycl_msg_store_enter entermsg = {0};
-  struct ycl_msg_status_resp respmsg = {0};
-  struct ycl_msg_store_open openmsg = {0};
+  struct ycl_msg_store_enter entermsg = {{0}};
+  struct ycl_msg_status_resp respmsg = {{0}};
+  struct ycl_msg_store_open openmsg = {{0}};
 
   ret = ycl_connect(&ctx, socket);
   if (ret != YCL_OK) {
@@ -153,7 +155,8 @@ static int run_put(const char *socket, const char *id, const char *filename) {
     goto ycl_cleanup;
   }
 
-  entermsg.store_id = id;
+  entermsg.store_id.data = id;
+  entermsg.store_id.len = strlen(id);
   ret = ycl_msg_create_store_enter(&msg, &entermsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_msg_create_store_enter failure\n");
@@ -180,16 +183,17 @@ static int run_put(const char *socket, const char *id, const char *filename) {
     goto ycl_msg_cleanup;
   }
 
-  if (respmsg.errmsg != NULL) {
-    fprintf(stderr, "received failure: %s\n", respmsg.errmsg);
+  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
+    fprintf(stderr, "received failure: %s\n", respmsg.errmsg.data);
     goto ycl_msg_cleanup;
   }
 
-  if (respmsg.okmsg != NULL && *respmsg.okmsg != '\0') {
-    printf("%s\n", respmsg.okmsg);
+  if (respmsg.okmsg.data != NULL && *respmsg.okmsg.data != '\0') {
+    printf("%s\n", respmsg.okmsg.data);
   }
 
-  openmsg.path = filename;
+  openmsg.path.data = filename;
+  openmsg.path.len = strlen(filename);
   openmsg.flags = O_WRONLY | O_CREAT | O_TRUNC;
   ret = ycl_msg_create_store_open(&msg, &openmsg);
   if (ret != YCL_OK) {

@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <lib/util/ylog.h>
 
 #include <lib/net/route.h>
@@ -12,7 +14,7 @@
 
 void on_read_req(struct eds_client *cli, int fd) {
   struct ycl_msg_route_req req;
-  struct ycl_msg_route_resp resp = {0};
+  struct ycl_msg_route_resp resp = {{0}};
   struct netconf_client *ecli = ROUTES_CLIENT(cli);
   struct route_table rt = {0};
   struct iface_entries ifs = {0};
@@ -38,13 +40,15 @@ void on_read_req(struct eds_client *cli, int fd) {
   ret = route_table_init(&rt);
   if (ret < 0) {
     route_table_strerror(&rt, errbuf, sizeof(errbuf));
-    resp.err = errbuf;
+    resp.err.data = errbuf;
+    resp.err.len = strlen(resp.err.data);
     goto write_resp;
   }
 
   ret = iface_init(&ifs);
   if (ret < 0) {
-    resp.err = iface_strerror(&ifs);
+    resp.err.data = iface_strerror(&ifs);
+    resp.err.len = strlen(resp.err.data);
     goto write_resp;
   }
 

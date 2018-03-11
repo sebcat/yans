@@ -7,14 +7,10 @@ static const char *typ2c(enum yclgen_field_type t) {
   switch (t) {
   case FT_DATAARR:
     return "struct ycl_data *";
-  case FT_STRARR:
-    return "const char **";
   case FT_LONGARR:
     return "long *";
   case FT_DATA:
     return "struct ycl_data ";
-  case FT_STR:
-    return "const char *";
   case FT_LONG:
     return "long ";
   default:
@@ -38,8 +34,7 @@ static int write_struct(FILE *fp, struct yclgen_msg *msg) {
     if (ret < 0) {
       return -1;
     }
-    if (field->typ == FT_DATAARR || field->typ == FT_STRARR ||
-        field->typ == FT_LONGARR) {
+    if (field->typ == FT_DATAARR || field->typ == FT_LONGARR) {
       ret = fprintf(fp, "  size_t n%s;\n", field->name);
       if (ret <= 0) {
         return -1;
@@ -191,46 +186,6 @@ static int write_static_impl(struct yclgen_ctx *ctx, FILE *fp) {
     }
   }
 
-  /* load_strs */
-  if (ctx->flags & MSGF_HASSARR) {
-    ret = fprintf(fp,
-        "static int load_strs(buf_t *b, char *curr, size_t len,\n"
-        "    size_t *outoffset, size_t *nelems) {\n"
-        "  int ret;\n"
-        "  char *elem;\n"
-        "  size_t elemlen;\n"
-        "  size_t offset;\n"
-        "  size_t count;\n"
-        "\n"
-        "  ret = buf_align(b);\n"
-        "  if (ret < 0) {\n"
-        "    return YCL_ERR;\n"
-        "  }\n"
-        "\n"
-        "  offset = b->len;\n"
-        "  count = 0;\n"
-        "  while (len > 0) {\n"
-        "    ret = netstring_next(&elem, &elemlen, &curr, &len);\n"
-        "    if (ret != NETSTRING_OK) {\n"
-        "      return YCL_ERR;\n"
-        "    }\n"
-        "    ret = buf_adata(b, &elem, sizeof(elem));\n"
-        "    if (ret < 0) {\n"
-        "      return YCL_ERR;\n"
-        "    }\n"
-        "    count++;\n"
-        "  }\n"
-        "\n"
-        "  *outoffset = offset;\n"
-        "  *nelems = count;\n"
-        "  return YCL_OK;\n"
-        "}\n"
-        "\n");
-    if (ret <= 0) {
-      return -1;
-    }
-  }
-
   /* load_longs */
   if (ctx->flags & MSGF_HASLARR) {
     ret = fprintf(fp,
@@ -315,7 +270,7 @@ static int write_create_impl(FILE *fp, struct yclgen_msg *msg) {
       "%s"
       "  ycl_msg_reset(msg);\n"
       , msg->name, msg->name,
-      (msg->flags & (MSGF_HASDARR | MSGF_HASSARR | MSGF_HASLARR)) ?
+      (msg->flags & (MSGF_HASDARR |  MSGF_HASLARR)) ?
           "  if (ycl_msg_use_optbuf(msg) < 0) {\n"
           "    goto done;\n"
           "  }\n"
@@ -327,20 +282,6 @@ static int write_create_impl(FILE *fp, struct yclgen_msg *msg) {
   for (i = 0; i < msg->nfields; i++) {
     f = &msg->fields[i];
     switch (f->typ) {
-    case FT_STR:
-      ret = fprintf(fp,
-        "  if (r->%s != NULL) {\n"
-        "    ret = netstring_append_pair(&msg->mbuf, \"%s\",\n"
-        "        sizeof(\"%s\")-1, r->%s, strlen(r->%s));\n"
-        "    if (ret != NETSTRING_OK) {\n"
-        "      goto done;\n"
-        "    }\n"
-        "  }\n\n",
-        f->name, f->name, f->name, f->name, f->name);
-      if (ret <= 0) {
-        return -1;
-      }
-      break;
     case FT_DATA:
       ret = fprintf(fp,
         "  if (r->%s.len > 0) {\n"
@@ -369,34 +310,6 @@ static int write_create_impl(FILE *fp, struct yclgen_msg *msg) {
         "    }\n"
         "  }\n\n",
         f->name, f->name, f->name, f->name);
-      if (ret <= 0) {
-        return -1;
-      }
-      break;
-    case FT_STRARR:
-      ret = fprintf(fp,
-        "  if (r->%s != NULL && r->n%s > 0) {\n"
-        "    const char **ptr;\n"
-        "    size_t i;\n"
-        "    size_t nelems;\n"
-        "\n"
-        "    ptr = r->%s;\n"
-        "    nelems = r->n%s;\n"
-        "    buf_clear(&msg->optbuf);\n"
-        "    for (i = 0; i < nelems; i++) {\n"
-        "      ret = netstring_append_buf(&msg->optbuf, ptr[i],\n"
-        "          strlen(ptr[i]));\n"
-        "      if (ret != NETSTRING_OK) {\n"
-        "        goto done;\n"
-        "      }\n"
-        "    }\n"
-        "    ret = netstring_append_pair(&msg->mbuf, \"%s\",\n"
-        "        sizeof(\"%s\")-1, msg->optbuf.data, msg->optbuf.len);\n"
-        "    if (ret != NETSTRING_OK) {\n"
-        "      goto done;\n"
-        "    }\n"
-        "  }\n\n",
-        f->name, f->name, f->name, f->name, f->name, f->name);
       if (ret <= 0) {
         return -1;
       }
@@ -562,15 +475,6 @@ static int write_parse_impl(FILE *fp, struct yclgen_msg *msg) {
           "          }\n",
           f->name, f->name);
       break;
-    case FT_STRARR:
-      fprintf(fp,
-          "          ret = load_strs(&msg->mbuf, pair.value, pair.valuelen,\n"
-          "              (size_t*)&r->%s, &r->n%s);\n"
-          "          if (ret != YCL_OK) {\n"
-          "            goto done;\n"
-          "          }\n",
-          f->name, f->name);
-      break;
     case FT_LONGARR:
       fprintf(fp,
           "          ret = load_longs(&msg->mbuf, pair.value, pair.valuelen,\n"
@@ -585,9 +489,6 @@ static int write_parse_impl(FILE *fp, struct yclgen_msg *msg) {
           "          r->%s.data = pair.value;\n"
           "          r->%s.len = pair.valuelen;\n",
           f->name, f->name);
-      break;
-    case FT_STR:
-      fprintf(fp, "          r->%s = pair.value;\n", f->name);
       break;
     case FT_LONG:
       fprintf(fp, "          r->%s = s2l(pair.value);\n", f->name);
@@ -615,7 +516,6 @@ static int write_parse_impl(FILE *fp, struct yclgen_msg *msg) {
     f = &msg->fields[i];
     switch (f->typ) {
     case FT_DATAARR:
-    case FT_STRARR:
     case FT_LONGARR:
       fprintf(fp,
           "  if (r->n%s > 0) {\n"
@@ -624,7 +524,6 @@ static int write_parse_impl(FILE *fp, struct yclgen_msg *msg) {
           f->name, f->name, f->name);
       break;
     case FT_DATA:
-    case FT_STR:
     case FT_LONG:
       break;
     }

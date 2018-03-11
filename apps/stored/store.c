@@ -82,12 +82,13 @@ fail:
 static void write_err_response(struct eds_client *cli, int fd,
     const char *errmsg) {
   struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   int ret;
 
   LOGERR(fd, errmsg);
   eds_client_clear_actions(cli);
-  resp.errmsg = errmsg;
+  resp.errmsg.data = errmsg;
+  resp.errmsg.len = strlen(errmsg);
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
     LOGERR(fd, "error response serialization error");
@@ -134,12 +135,10 @@ static int is_valid_path(const char *path, size_t pathlen) {
 }
 
 static int enter_store(struct store_cli *ecli, const char *store_id,
-    int exclusive) {
+    size_t id_len, int exclusive) {
   const char *subdir;
-  size_t id_len;
   int ret;
 
-  id_len = strlen(store_id);
   if (!is_valid_store_id(store_id, id_len)) {
     return -1;
   }
@@ -167,7 +166,7 @@ static int create_and_enter_store(struct store_cli *ecli) {
 
   for (i = 0; i < MAXTRIES_GENSTORE; i++) {
     gen_store_path(store_id, sizeof(store_id));
-    ret = enter_store(ecli, store_id, 1);
+    ret = enter_store(ecli, store_id, STORE_IDSZ, 1);
     if (ret == 0) {
       break;
     }
@@ -219,8 +218,7 @@ static void on_readopen(struct eds_client *cli, int fd) {
   char dirpath[STORE_MAXDIRPATH];
   const char *errmsg = "an internal error occurred";
   struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_store_open req = {0};
-  size_t pathlen;
+  struct ycl_msg_store_open req = {{0}};
   int ret;
   int open_fd;
 
@@ -242,22 +240,22 @@ static void on_readopen(struct eds_client *cli, int fd) {
   ecli->open_fd = nullfd_get();
   ecli->open_errno = EACCES;
 
-  if (req.path == NULL || *req.path == '\0') {
+  if (req.path.data == NULL || *req.path.data == '\0') {
     LOGERRF(fd, "%s: empty path", STORE_ID(ecli));
     goto sendfd_resp;
   }
 
-  pathlen = strlen(req.path);
-  if (!is_valid_path(req.path, pathlen)) {
-    if (pathlen > 16) {
-        LOGERRF(fd, "%s: invalid path: %.16s...", STORE_ID(ecli), req.path);
+  if (!is_valid_path(req.path.data, req.path.len)) {
+    if (req.path.len > 16) {
+        LOGERRF(fd, "%s: invalid path: %.16s...", STORE_ID(ecli),
+            req.path.data);
     } else {
-        LOGERRF(fd, "%s: invalid path: %s", STORE_ID(ecli), req.path);
+        LOGERRF(fd, "%s: invalid path: %s", STORE_ID(ecli), req.path.data);
     }
     goto sendfd_resp;
   }
 
-  snprintf(dirpath, sizeof(dirpath), "%s/%s", ecli->store_path, req.path);
+  snprintf(dirpath, sizeof(dirpath), "%s/%s", ecli->store_path, req.path.data);
   if ((int)req.flags & O_CREAT) {
     open_fd = open(dirpath, (int)req.flags, 0600);
   } else {
@@ -265,11 +263,11 @@ static void on_readopen(struct eds_client *cli, int fd) {
   }
   if (open_fd < 0) {
     ecli->open_errno = errno;
-    LOGERRF(fd, "%s: failed to open %s: %s", STORE_ID(ecli), req.path,
+    LOGERRF(fd, "%s: failed to open %s: %s", STORE_ID(ecli), req.path.data,
         strerror(errno));
   } else {
     const char *flagstr = get_flagstr((int)req.flags);
-    LOGINFOF(fd, "%s: opened %s (%s)", STORE_ID(ecli), req.path, flagstr);
+    LOGINFOF(fd, "%s: opened %s (%s)", STORE_ID(ecli), req.path.data, flagstr);
     ecli->open_fd = open_fd;
     ecli->open_errno = 0;
   }
@@ -291,7 +289,7 @@ static void on_post_enter_response(struct eds_client *cli, int fd) {
 
 static void on_enter_response(struct eds_client *cli, int fd) {
   struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   int ret;
   struct eds_transition trans = {
     .flags = EDS_TFLREAD | EDS_TFLWRITE,
@@ -299,7 +297,8 @@ static void on_enter_response(struct eds_client *cli, int fd) {
     .on_writable = NULL,
   };
 
-  resp.okmsg = STORE_ID(ecli);
+  resp.okmsg.data = STORE_ID(ecli);
+  resp.okmsg.len = strlen(resp.okmsg.data);
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
     LOGERR(fd, "OK enter response serialization error");
@@ -312,7 +311,7 @@ static void on_enter_response(struct eds_client *cli, int fd) {
 static void on_readenter(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_store_enter req = {0};
+  struct ycl_msg_store_enter req = {{0}};
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -329,8 +328,8 @@ static void on_readenter(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  if (req.store_id != NULL) {
-    ret = enter_store(ecli, req.store_id, 0);
+  if (req.store_id.data != NULL) {
+    ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
   } else {
     ret = create_and_enter_store(ecli);
   }

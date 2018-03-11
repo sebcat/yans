@@ -25,13 +25,13 @@ struct start_opts {
   const char *sock;
   const char *type;
   long timeout;
-  char **params;
+  struct ycl_data *params;
   size_t nparams;
 };
 
 static int reqresp(const char *path, struct ycl_msg_knegd_req *req) {
   struct ycl_ctx ctx = {0};
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   struct ycl_msg msg = {{0}};
   int ret;
   int res = -1;
@@ -74,13 +74,13 @@ static int reqresp(const char *path, struct ycl_msg_knegd_req *req) {
     goto ycl_msg_cleanup;
   }
 
-  if (resp.errmsg != NULL) {
-    fprintf(stderr, "received error: %s\n", resp.errmsg);
+  if (resp.errmsg.data != NULL) {
+    fprintf(stderr, "received error: %s\n", resp.errmsg.data);
     goto ycl_msg_cleanup;
   }
 
-  if (resp.okmsg != NULL) {
-    printf("%s\n", resp.okmsg);
+  if (resp.okmsg.data != NULL) {
+    printf("%s\n", resp.okmsg.data);
   }
 
   res = 0; /* signal success */
@@ -123,8 +123,10 @@ static int pid(int argc, char **argv) {
     goto usage;
   }
 
-  req.action = "pid";
-  req.id = argv[0];
+  req.action.data = "pid";
+  req.action.len = sizeof("pid")-1;
+  req.id.data = argv[0];
+  req.id.len = strlen(argv[0]);
   ret = reqresp(sock, &req);
   if (ret < 0) {
     return EXIT_FAILURE;
@@ -171,8 +173,10 @@ static int stop(int argc, char **argv) {
     goto usage;
   }
 
-  req.action = "stop";
-  req.id = argv[0];
+  req.action.data = "stop";
+  req.action.len = sizeof("stop")-1;
+  req.id.data = argv[0];
+  req.id.len = strlen(argv[0]);
   ret = reqresp(sock, &req);
   if (ret < 0) {
     return EXIT_FAILURE;
@@ -190,10 +194,12 @@ usage:
 
 static int run_start(struct start_opts *opts) {
   struct ycl_msg_knegd_req req = {0};
-  req.action = "start";
+  req.action.data = "start";
+  req.action.len = sizeof("start")-1;
   req.timeout = opts->timeout;
-  req.type = opts->type;
-  req.params = (const char**)opts->params;
+  req.type.data = opts->type;
+  req.type.len = opts->type != NULL ? strlen(opts->type) : 0;
+  req.params = opts->params;
   req.nparams = opts->nparams;
   return reqresp(opts->sock, &req);
 }
@@ -203,8 +209,8 @@ static int start(int argc, char **argv) {
   int ret;
   long l;
   const char *optstr = "hp:s:t:";
-  char **params = NULL;
-  char **tmp;
+  struct ycl_data *params = NULL;
+  struct ycl_data *tmp;
   size_t nparams = 0;
   static struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
@@ -233,7 +239,7 @@ static int start(int argc, char **argv) {
       opts.timeout = l;
       break;
     case 'p':
-      tmp = realloc(params, sizeof(char *) * (nparams + 1));
+      tmp = realloc(params, sizeof(struct ycl_data) * (nparams + 1));
       if (tmp == NULL) {
         fprintf(stderr, "%s\n", strerror(errno));
         if (params != NULL) {
@@ -242,7 +248,9 @@ static int start(int argc, char **argv) {
         exit(EXIT_FAILURE);
       }
       params = tmp;
-      params[nparams++] = optarg;
+      params[nparams].len = strlen(optarg);
+      params[nparams].data = optarg;
+      nparams++;
       break;
     case 'h':
     case '?':
@@ -276,10 +284,10 @@ static int start(int argc, char **argv) {
 usage:
   fprintf(stderr, "usage: [opts] <type>\n"
       "opts:\n"
-      "  -h|--help           - this text\n"
-      "  -s|--socket <path>  - path to knegd socket (%s)\n"
-      "  -t|--type   <type>  - kneg type\n"
-      "  -p|--param  <param> - kneg parameter\n",
+      "  -h|--help            - this text\n"
+      "  -p|--param   <param> - kneg parameter\n"
+      "  -s|--socket  <path>  - path to knegd socket (%s)\n"
+      "  -t|--timeout <n>     - timeout, in seconds\n",
       DFL_KNEGDSOCK);
 fail:
   return EXIT_FAILURE;

@@ -52,7 +52,7 @@ static void cleanup_capture(struct eds_client *cli) {
 
 static void sendresp(struct eds_client *cli, enum resptype t,
     const char *msg) {
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   struct eds_transition trans;
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   int ret;
@@ -67,13 +67,15 @@ static void sendresp(struct eds_client *cli, enum resptype t,
   if (t == RESPTYPE_OK) {
     trans.flags = EDS_TFLWRITE;
     trans.on_writable = NULL;
-    resp.okmsg = msg;
+    resp.okmsg.data = msg;
+    resp.okmsg.len = strlen(msg);
   } else {
     eds_client_set_on_readable(cli, NULL, 0); /* stop any reader routines */
     trans.flags = EDS_TFLREAD | EDS_TFLWRITE;
     trans.on_readable = NULL;
     trans.on_writable = NULL;
-    resp.errmsg = msg;
+    resp.errmsg.data = msg;
+    resp.errmsg.len = strlen(msg);
   }
 
   /* serialize the response */
@@ -153,7 +155,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
   struct pcap_client *pcapcli = PCAP_CLIENT(cli);
   struct eds_client *dumpcli;
   struct eds_client_actions acts = {0};
-  struct ycl_msg_pcap_req req = {0};
+  struct ycl_msg_pcap_req req = {{0}};
   char errbuf[PCAP_ERRBUF_SIZE];
   struct bpf_program bpf = {0};
   int ret;
@@ -174,17 +176,17 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  if (req.iface == NULL) {
+  if (req.iface.data == NULL || *req.iface.data == '\0') {
     ylog_error("pcapcli%d: iface not set", fd);
     errmsg = "no interface specified";
     goto fail;
   }
 
-  ylog_info("pcapcli%d: iface:\"%s\" %s filter", fd, req.iface,
-      req.filter == NULL ? "without" : "with");
+  ylog_info("pcapcli%d: iface:\"%s\" %s filter", fd, req.iface.data,
+      req.filter.data == NULL ? "without" : "with");
 
   errbuf[0] = '\0';
-  if ((pcapcli->pcap = pcap_open_live(req.iface, SNAPLEN, 0,
+  if ((pcapcli->pcap = pcap_open_live(req.iface.data, SNAPLEN, 0,
       PCAP_TO_MS, errbuf)) == NULL) {
     ylog_error("pcapcli%d: pcap_open_live: %s", fd, errbuf);
     snprintf(pcapcli->msg, sizeof(pcapcli->msg), "%s", errbuf);
@@ -194,8 +196,8 @@ static void on_readreq(struct eds_client *cli, int fd) {
     ylog_info("pcapcli%d: pcap_open_live warning: %s", fd, errbuf);
   }
 
-  if (req.filter != NULL) {
-    if (pcap_compile(pcapcli->pcap, &bpf, req.filter, 1,
+  if (req.filter.data != NULL) {
+    if (pcap_compile(pcapcli->pcap, &bpf, req.filter.data, 1,
         PCAP_NETMASK_UNKNOWN) < 0) {
       ylog_error("pcapcli%d: pcap_compile: %s", fd,
           pcap_geterr(pcapcli->pcap));

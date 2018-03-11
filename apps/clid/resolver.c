@@ -180,7 +180,7 @@ fail:
 
 static void on_readreq(struct eds_client *cli, int fd) {
   struct resolver_cli *ecli = RESOLVER_CLI(cli);
-  struct ycl_msg_resolver_req req = {0};
+  struct ycl_msg_resolver_req req = {{0}};
   int ret;
 
   /* receive the request, containing the hosts to resolve */
@@ -206,7 +206,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  ecli->hosts = req.hosts;
+  ecli->hosts = req.hosts.data;
   eds_client_set_on_readable(cli, NULL, 0);
   eds_client_set_on_writable(cli, on_sendclosefd, 0);
   return;

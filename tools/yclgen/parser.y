@@ -31,10 +31,8 @@ static void yyerror(struct yclgen_ctx *ctx, void *scanner, const char *s);
 
 %token <lit> LIT
 %token DATAARR
-%token STRARR
 %token LONGARR
 %token DATA
-%token STR
 %token LONG
 
 %%
@@ -60,10 +58,8 @@ fields:
 
 field:
   DATAARR LIT ';'   {push_field(ctx, FT_DATAARR, $2);}
-  | STRARR LIT ';'  {push_field(ctx, FT_STRARR, $2);}
   | LONGARR LIT ';' {push_field(ctx, FT_LONGARR, $2);}
   | DATA LIT ';'    {push_field(ctx, FT_DATA, $2);}
-  | STR LIT ';'     {push_field(ctx, FT_STR, $2);}
   | LONG LIT ';'    {push_field(ctx, FT_LONG, $2);}
   ;
 
@@ -98,6 +94,7 @@ void push_msg(struct yclgen_ctx *ctx, const char *name) {
   }
 
   snprintf(m->name, sizeof(m->name), "%s", name);
+  m->flags = 0;
   m->nfields = 0;
   m->next = ctx->latest_msg;
   ctx->latest_msg = m;
@@ -128,10 +125,6 @@ void push_field(struct yclgen_ctx *ctx, enum yclgen_field_type typ,
     m->flags |= MSGF_HASDARR;
     ctx->flags |= MSGF_HASDARR;
     break;
-  case FT_STRARR:
-    m->flags |= MSGF_HASSARR;
-    ctx->flags |= MSGF_HASSARR;
-    break;
   case FT_LONGARR:
     m->flags |= MSGF_HASLARR;
     ctx->flags |= MSGF_HASLARR;
@@ -140,11 +133,10 @@ void push_field(struct yclgen_ctx *ctx, enum yclgen_field_type typ,
     m->flags |= MSGF_HASLONG;
     ctx->flags |= MSGF_HASLONG;
     break;
-  case FT_STR:
-    m->flags |= MSGF_HASSTR;
-    ctx->flags |= MSGF_HASSTR;
-    break;
   case FT_DATA:
+    if (m->nfields == 1) {
+      m->flags |= MSGF_HASNEST;
+    }
     m->flags |= MSGF_HASDATA;
     ctx->flags |= MSGF_HASDATA;
     break;

@@ -57,10 +57,10 @@ static const char *get_msg_initializer(struct yclgen_msg *msg) {
 
   if (msg->nfields == 0) {
     initializer = "";
-  } else if (msg->flags == MSGF_HASDATA) {
-    /* certain versions of clang complains about missing braces if something
-     * just contains nested structs and is initialized with single braces,
-     * or I'm misinterpreting the error messages */
+  } else if (msg->flags & MSGF_HASNEST) {
+    /* certain versions of clang complains about missing braces if a struct
+     * with a nested struct as its first element is initialized with single
+     * braces. */
     initializer = " = {{0}}";
   } else {
     initializer = " = {0}";
@@ -110,26 +110,6 @@ void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
           "  lua_pop(L, 1);\n"
           "\n", f->name, f->name, f->name, f->name, f->name);
       break;
-    case FT_STRARR:
-      fprintf(out,
-          "  t = lua_getfield(L, 2, \"%s\");\n"
-          "  if (t == LUA_TTABLE) {\n"
-          "    size_t len;\n"
-          "    size_t i;\n"
-          "\n"
-          "    len = lua_rawlen(L, -1);\n"
-          "    if (len > 0 && (mdata.%s = malloc(sizeof(char *) * len))) {\n"
-          "      for (i = 0; i < len && i < INT_MAX; i++) {\n"
-          "        lua_rawgeti(L, -1, (lua_Integer)i + 1);\n"
-          "        mdata.%s[i] = lua_tostring(L, -1);\n"
-          "        lua_pop(L, 1);\n"
-          "      }\n"
-          "      mdata.n%s = len;\n"
-          "    }\n"
-          "  }\n"
-          "  lua_pop(L, 1);\n"
-          "\n", f->name, f->name, f->name, f->name);
-      break;
     case FT_LONGARR:
       fprintf(out,
           "  t = lua_getfield(L, 2, \"%s\");\n"
@@ -159,15 +139,6 @@ void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
           "  lua_pop(L, 1);\n"
           "\n", f->name, f->name, f->name);
       break;
-    case FT_STR:
-      fprintf(out,
-          "  t = lua_getfield(L, 2, \"%s\");\n"
-          "  if (t == LUA_TSTRING) {\n"
-          "    mdata.%s = lua_tostring(L, -1);\n"
-          "  }\n"
-          "  lua_pop(L, 1);\n"
-          "\n", f->name, f->name);
-      break;
     case FT_LONG:
       fprintf(out,
           "  t = lua_getfield(L, 2, \"%s\");\n"
@@ -188,7 +159,6 @@ void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
     f = &msg->fields[i];
     switch (f->typ) {
     case FT_DATAARR:
-    case FT_STRARR:
     case FT_LONGARR:
       fprintf(out,
           "  if (mdata.%s != NULL) {\n"
@@ -196,7 +166,6 @@ void emit_create_impl(struct yclgen_msg *msg, FILE *out) {
           "  }\n\n", f->name, f->name);
       break;
     case FT_DATA:
-    case FT_STR:
     case FT_LONG:
     default:
       /* no-op */
@@ -246,14 +215,6 @@ void emit_parse_impl(struct yclgen_msg *msg, FILE *out) {
           "  }\n"
           "\n", f->name, f->name, f->name, f->name);
       break;
-    case FT_STR:
-      fprintf(out,
-          "  if (mdata.%s != NULL) {\n"
-          "    lua_pushstring(L, mdata.%s);\n"
-          "    lua_setfield(L, -2, \"%s\");\n"
-          "  }\n"
-          "\n", f->name, f->name, f->name);
-      break;
     case FT_LONG:
       fprintf(out,
           "  lua_pushinteger(L, (lua_Integer)mdata.%s);\n"
@@ -273,20 +234,6 @@ void emit_parse_impl(struct yclgen_msg *msg, FILE *out) {
           "    lua_setfield(L, -2, \"%s\");\n"
           "  }\n"
           "\n", f->name, f->name, f->name, f->name, f->name, f->name);
-      break;
-    case FT_STRARR:
-      fprintf(out,
-          "  if (mdata.%s != NULL) {\n"
-          "    size_t i;\n"
-          "\n"
-          "    lua_createtable(L, mdata.n%s, 0);\n"
-          "    for (i = 0; i < mdata.n%s; i++) {\n"
-          "      lua_pushstring(L, mdata.%s[i]);\n"
-          "      lua_rawseti(L, -2, (lua_Integer)i + 1);\n"
-          "    }\n"
-          "    lua_setfield(L, -2, \"%s\");\n"
-          "  }\n"
-          "\n", f->name, f->name, f->name, f->name, f->name);
       break;
     case FT_LONGARR:
       fprintf(out,

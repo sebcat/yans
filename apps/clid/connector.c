@@ -28,11 +28,11 @@ static int start_nonblock_connect(struct ycl_msg_connector_req *req,
   struct sconn_ctx ctx = {0};
   struct sconn_opts opts = {
     .reuse_addr = (int)req->reuse_addr,
-    .proto = req->proto,
-    .bindaddr = req->bindaddr,
-    .bindport = req->bindport,
-    .dstaddr = req->dstaddr,
-    .dstport = req->dstport,
+    .proto = req->proto.data,
+    .bindaddr = req->bindaddr.data,
+    .bindport = req->bindport.data,
+    .dstaddr = req->dstaddr.data,
+    .dstport = req->dstport.data,
   };
 
   /* setup nretries if it's in a sane range, for an arbitrary definition of

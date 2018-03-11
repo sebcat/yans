@@ -7,18 +7,17 @@
 #define MAX_FIELDS 32
 
 #define MSGF_HASDARR (1 << 0)
-#define MSGF_HASSARR (1 << 1)
-#define MSGF_HASLARR (1 << 2)
-#define MSGF_HASLONG (1 << 3)
-#define MSGF_HASSTR  (1 << 4)
-#define MSGF_HASDATA (1 << 5)
+#define MSGF_HASLARR (1 << 1)
+#define MSGF_HASLONG (1 << 2)
+#define MSGF_HASDATA (1 << 3)
+
+/* intdicated that the first element is a struct */
+#define MSGF_HASNEST (1 << 4)
 
 enum yclgen_field_type {
   FT_DATAARR,
-  FT_STRARR,
   FT_LONGARR,
   FT_DATA,
-  FT_STR,
   FT_LONG,
 };
 

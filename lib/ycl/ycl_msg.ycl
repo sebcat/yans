@@ -3,8 +3,8 @@
 ##
 
 status_resp {
-  str okmsg;
-  str errmsg;
+  data okmsg;
+  data errmsg;
 }
 
 ##
@@ -12,8 +12,8 @@ status_resp {
 ##
 
 pcap_req {
-  str iface;
-  str filter;
+  data iface;
+  data filter;
 }
 
 pcap_close {
@@ -22,13 +22,13 @@ pcap_close {
 
 ethframe_req {
   long pps;
-  str iface;
-  str categories;
-  str eth_src;
-  str eth_dst;
-  str ip_src;
-  str ip_dsts;
-  str port_dsts;
+  data iface;
+  data categories;
+  data eth_src;
+  data eth_dst;
+  data ip_src;
+  data ip_dsts;
+  data port_dsts;
   data[] custom_frames;
 }
 
@@ -36,11 +36,11 @@ ethframe_req {
 ## stored messages
 ##
 store_enter {
-  str store_id;
+  data store_id;
 }
 
 store_open {
-  str path;
+  data path;
   long flags;
 }
 
@@ -52,7 +52,7 @@ route_req {
 }
 
 route_resp {
-  str err;
+  data err;
   data ifaces;
   data ip_srcs;
   data ip_neigh;
@@ -60,17 +60,17 @@ route_resp {
 }
 
 resolver_req {
-  str hosts;
+  data hosts;
 }
 
 connector_req {
   long nretries;
   long reuse_addr;
-  str proto;
-  str bindaddr;
-  str bindport;
-  str dstaddr;
-  str dstport;
+  data proto;
+  data bindaddr;
+  data bindport;
+  data dstaddr;
+  data dstport;
 }
 
 ##
@@ -79,8 +79,8 @@ connector_req {
 
 knegd_req {
   long timeout;
-  str action;
-  str id;
-  str type;
-  str[] params;
+  data action;
+  data id;
+  data type;
+  data[] params;
 }

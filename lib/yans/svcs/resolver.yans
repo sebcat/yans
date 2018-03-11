@@ -22,14 +22,14 @@ function _M:resolve(dstfile, hosts)
     error("missing or invalid hosts")
   end
 
-  -- create the resolver request
-  self.msgbuf:create_resolver_req{hosts = hosts}
-
   -- open the destination file for writing and send it
   local file = yans.file
   local dstfd = self.store:open(dstfile,
       file.O_WRONLY | file.O_CREAT | file.O_TRUNC)
   self.sock:sendfd(dstfd)
+
+  -- create the resolver request
+  self.msgbuf:create_resolver_req{hosts = hosts}
 
   -- send the resolver request
   self.sock:sendmsg(self.msgbuf)

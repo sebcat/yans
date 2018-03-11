@@ -163,19 +163,20 @@ static char **mkenvp(struct ycl_msg_knegd_req *req, const char *id) {
   size_t i;
   char **envp;
 
-  envp = calloc(req->nparams + 3, sizeof(char*));
+  /* must be: number of ENVP_PARAM + number of ENVP_VARs + NULL sentinel */
+  envp = calloc(req->nparams + 4, sizeof(char*));
   if (envp == NULL) {
     return NULL;
   }
 
   ENVP_VAR("PATH", "/usr/local/bin:/bin:/usr/bin");
   ENVP_VAR("YANS_ID", id);
-  ENVP_VAR("YANS_TYPE", req->type);
+  ENVP_VAR("YANS_TYPE", req->type.data);
   for (i = 0; i < req->nparams; i++) {
-    ENVP_PARAM("YANSP", req->params[i]);
+    ENVP_PARAM("YANSP", req->params[i].data);
   }
 
-  assert(off <= req->nparams + 2);
+  assert(off <= req->nparams + 3);
   return envp;
 
 fail:
@@ -194,14 +195,14 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   char **envp = NULL;
   struct ycl_ctx ctx;
   struct ycl_msg msg;
-  struct ycl_msg_store_enter entermsg = {0};
-  struct ycl_msg_store_open openmsg = {0};
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_store_enter entermsg = {{0}};
+  struct ycl_msg_store_open openmsg = {{0}};
+  struct ycl_msg_status_resp resp = {{0}};
 
   assert(req != NULL);
   assert(err != NULL);
 
-  if (!is_valid_type(req->type)) {
+  if (!is_valid_type(req->type.data)) {
     *err = "empty or invalid job type";
     goto fail;
   }
@@ -251,17 +252,17 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     goto cleanup_ycl_msg;
   }
 
-  if (resp.errmsg != NULL && *resp.errmsg != '\0') {
+  if (resp.errmsg.data != NULL && *resp.errmsg.data != '\0') {
     *err = "enter request failed";
     goto cleanup_ycl_msg;
   }
 
-  if (resp.okmsg == NULL || *resp.okmsg == '\0') {
+  if (resp.okmsg.data == NULL || *resp.okmsg.data == '\0') {
     *err = "failed to receive store ID";
     goto cleanup_ycl_msg;
   }
 
-  strncpy(s->id, resp.okmsg, sizeof(s->id));
+  strncpy(s->id, resp.okmsg.data, sizeof(s->id));
   s->id[sizeof(s->id)-1] = '\0';
   envp = mkenvp(req, s->id);
   if (envp == NULL) {
@@ -269,8 +270,9 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     goto cleanup_ycl_msg;
   }
 
-  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type);
-  openmsg.path = "kneg.log";
+  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type.data);
+  openmsg.path.data = "kneg.log";
+  openmsg.path.len = strlen(openmsg.path.data);
   openmsg.flags = O_WRONLY|O_CREAT|O_TRUNC;
   ret = ycl_msg_create_store_open(&msg, &openmsg);
   if (ret != YCL_OK) {
@@ -478,12 +480,13 @@ static void jobs_remove(pid_t pid) {
 static void write_err_response(struct eds_client *cli, int fd,
     const char *errmsg) {
   struct kng_cli *ecli = KNG_CLI(cli);
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   int ret;
 
   LOGERR("failure: %s fd:%d", errmsg, fd);
   eds_client_clear_actions(cli);
-  resp.errmsg = errmsg;
+  resp.errmsg.data = errmsg;
+  resp.errmsg.len = strlen(errmsg);
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
     LOGERR("error response serialization error fd:%d", fd);
@@ -496,11 +499,12 @@ static void write_err_response(struct eds_client *cli, int fd,
 static void write_ok_response(struct eds_client *cli, int fd,
     const char *msg) {
   struct kng_cli *ecli = KNG_CLI(cli);
-  struct ycl_msg_status_resp resp = {0};
+  struct ycl_msg_status_resp resp = {{0}};
   int ret;
 
   eds_client_clear_actions(cli);
-  resp.okmsg = msg;
+  resp.okmsg.data = msg;
+  resp.okmsg.len = strlen(resp.okmsg.data);
   ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
   if (ret != YCL_OK) {
     LOGERR("OK response serialization error fd:%d", fd);
@@ -533,39 +537,39 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  if (req.action == NULL) {
+  if (req.action.data == NULL || *req.action.data == '\0') {
     errmsg = "missing action";
     goto fail;
   }
 
   /* check if the client wants a job to start */
-  if (strcmp(req.action, "start") == 0) {
+  if (strcmp(req.action.data, "start") == 0) {
     job = kng_new(&req, &errmsg);
     if (job == NULL) {
       goto fail;
     }
     jobs_add(job);
     snprintf(ecli->buf, sizeof(ecli->buf), "%s", job->id);
-    LOGINFO("started job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd, req.type,
-        job->pid, job->id);
+    LOGINFO("started job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
+        req.type.data, job->pid, job->id);
     write_ok_response(cli, fd, ecli->buf);
     return;
   }
 
   /* anything past this point requires ID, so check it */
-  if (req.id == NULL) {
+  if (req.id.data == NULL || *req.id.data == '\0') {
     errmsg = "missing job ID";
     goto fail;
   }
 
   /* check req/resp actions, or error out on unknown action */
-  if (strcmp(req.action, "pid") == 0) {
-    pid = jobs_pid(req.id);
+  if (strcmp(req.action.data, "pid") == 0) {
+    pid = jobs_pid(req.id.data);
     snprintf(ecli->buf, sizeof(ecli->buf), "%d", pid);
     okmsg = ecli->buf;
-  } else if (strcmp(req.action, "stop") == 0) {
-    jobs_stop(req.id);
-    LOGINFO("stop request received id:\"%s\"", req.id);
+  } else if (strcmp(req.action.data, "stop") == 0) {
+    jobs_stop(req.id.data);
+    LOGINFO("stop request received id:\"%s\"", req.id.data);
   } else {
     errmsg = "unknown action";
     goto fail;

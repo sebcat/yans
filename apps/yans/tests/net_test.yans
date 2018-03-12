@@ -28,6 +28,8 @@ assert(yans.ip.addr"ff02::1":equals(yans.ip.addr"ff02::") == false)
 assert(yans.ip.addr"ff02::1":equals("ff02::") == false)
 assert(yans.ip.addr"ff02::1":equals(yans.ip.addr"ff02::2") == false)
 assert(yans.ip.addr"ff02::1":equals("ff02::2") == false)
+assert(yans.ip.addr"0:0:0:0:0:ffff:c0a8:1":equals("::ffff:192.168.0.1"))
+
 
 -- compare
 assert(yans.ip.addr"127.0.0.0":compare("127.0.0.1") < 0)

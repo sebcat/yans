@@ -6,6 +6,10 @@ genlycl_SOURCES = tools/yclgen/genlycl.c
 genlycl_HEADERS = tools/yclgen/yclgen.h
 genlycl_OBJS = ${genlycl_SOURCES:.c=.o}
 
+gensycl_SOURCES = tools/yclgen/gensycl.c
+gensycl_HEADERS = tools/yclgen/yclgen.h
+gensycl_OBJS = ${gencycl_SOURCES:.c=.o}
+
 yclgen_GENOBJS = \
     tools/yclgen/tokens.o \
     tools/yclgen/parser.o
@@ -22,8 +26,9 @@ yclgen_GENSRCS = \
 
 nodist_BINS += \
     tools/yclgen/genycl \
-    tools/yclgen/genlycl
+    tools/yclgen/genlycl \
+    tools/yclgen/gensycl
 
-OBJS += $(genycl_OBJS) $(genlycl_OBJS) $(yclgen_GENOBJS)
+OBJS += $(genycl_OBJS) $(genlycl_OBJS) $(gensycl_OBJS) $(yclgen_GENOBJS)
 CODEGEN += $(yclgen_CODEGEN)
 

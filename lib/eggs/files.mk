@@ -8,3 +8,4 @@ ycl_EGGLIB = lib/eggs/ycl.so
 ycl_EGGDEPS = lib/util/io.o lib/util/buf.o lib/util/netstring.o lib/ycl/ycl.o
 
 EGGLIBS += $(punycode_EGGLIB) $(ycl_EGGLIB)
+CODEGEN += $(ycl_EGG)

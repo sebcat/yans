@@ -1,5 +1,6 @@
 *.o
 *.so
+lib/eggs/ycl.scm
 lib/lua/ycl.c
 lib/ycl/ycl_msg.c
 lib/ycl/ycl_msg.h

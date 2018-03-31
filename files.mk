@@ -14,4 +14,3 @@ include apps/knegd/files.mk
 include apps/kneg/files.mk
 include apps/store/files.mk
 include apps/dnstres/files.mk
-include lib/eggs/files.mk

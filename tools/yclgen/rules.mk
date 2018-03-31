@@ -17,6 +17,3 @@ tools/yclgen/genycl: tools/yclgen/tokens.o tools/yclgen/parser.o tools/yclgen/ge
 tools/yclgen/genlycl: tools/yclgen/tokens.o tools/yclgen/parser.o tools/yclgen/genlycl.o
 	$(CC) -o $@ $(CFLAGS) tools/yclgen/tokens.o tools/yclgen/parser.o tools/yclgen/genlycl.o $(LDFLAGS)
 
-tools/yclgen/gensycl: tools/yclgen/tokens.o tools/yclgen/parser.o tools/yclgen/gensycl.o
-	$(CC) -o $@ $(CFLAGS) tools/yclgen/tokens.o tools/yclgen/parser.o tools/yclgen/gensycl.o $(LDFLAGS)
-

@@ -573,10 +573,10 @@ static int parse_args_or_die(struct opts *opts, int argc, char **argv) {
   /* setup and validate g_cgidir */
   g_cgidir = os_cleanpath(argv[0]);
   if (*g_cgidir != '/') {
-    fprintf(stderr, "CGI workdir must be an absolute path");
+    fprintf(stderr, "CGI workdir must be an absolute path\n");
     usage();
   } else if (!os_isdir(g_cgidir)) {
-    fprintf(stderr, "CGI workdir is not a valid directory");
+    fprintf(stderr, "CGI workdir is not a valid directory\n");
     usage();
   }
 

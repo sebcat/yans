@@ -29,3 +29,4 @@ apps/kneg/kneg
 apps/store/store
 /.lastbuild
 apps/dnstres/dnstres
+apps/scgi_demo/scgi_demo

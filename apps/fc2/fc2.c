@@ -24,7 +24,11 @@ struct opts {
   int no_daemon;
 };
 
+#define CTXMAGIC 0x12344321
+#define CGIMAGIC 0x34566543
+
 struct fc2_ctx {
+  int magic;
   int exit_status;
   struct eds_client *child_cli;
   pid_t cgi_pid;
@@ -40,6 +44,7 @@ struct fc2_ctx {
 };
 
 struct fc2_cgi {
+  int magic;
   struct eds_client *parent;
 };
 
@@ -238,6 +243,8 @@ static void on_fcgi_msg(struct eds_client *cli, int fd);
 static void on_reactivate_fcgi(struct eds_client *cli, int fd) {
   struct fc2_cgi *cgi = FC2_CGI(cli);
   struct fc2_ctx *ctx = FC2_CTX(cgi->parent);
+  assert(cgi->magic == CGIMAGIC);
+  assert(ctx->magic == CTXMAGIC);
 
   eds_client_set_on_writable(ctx->child_cli, NULL, 0);
   eds_client_set_on_readable(cgi->parent, on_fcgi_msg, 0);
@@ -251,6 +258,7 @@ static void on_fcgi_msg(struct eds_client *cli, int fd) {
   int child_fd;
 
   /* read an FCGI message */
+  assert(ctx->magic == CTXMAGIC);
   ret = fcgi_cli_readmsg(&ctx->fcgi, &msg);
   if (ret == FCGI_AGAIN) {
     return;
@@ -287,6 +295,7 @@ done:
 
 static void on_reactivate_childproc(struct eds_client *cli, int fd) {
   struct fc2_ctx *ctx = FC2_CTX(cli);
+  assert(ctx->magic == CTXMAGIC);
   buf_truncate(&ctx->outbuf, sizeof(struct fcgi_header));
   eds_client_set_on_writable(cli, NULL, 0);
   eds_client_set_on_readable(ctx->child_cli, on_childproc_readable, 0);
@@ -299,6 +308,7 @@ static void on_graceful_teardown_done(struct eds_client *cli, int fd) {
 static void on_graceful_teardown(struct eds_client *cli, int fd) {
   struct eds_transition trans;
   struct fc2_ctx *ctx = FC2_CTX(cli);
+  assert(ctx->magic == CTXMAGIC);
   struct fcgi_header *out0 = (struct fcgi_header *)ctx->teardown_buf;
   struct fcgi_end_request *ereq =(struct fcgi_end_request*)
       (ctx->teardown_buf + sizeof(struct fcgi_header));
@@ -320,6 +330,7 @@ static void on_childproc_readable(struct eds_client *cli, int fd) {
   size_t nread;
   int ret;
 
+  assert(cgi->magic == CGIMAGIC);
   /* read a chunk of data */
   ret = io_readbuf(&ctx->cgi_io, &ctx->outbuf, &nread);
   if (ret == IO_ERR) {
@@ -363,6 +374,7 @@ static void on_childproc_done(struct eds_client *cli, int fd) {
   /* if e.g., eds_client_send fails in the middle of a write on childproc,
    * we need to signal that to the parent. We do that here. */
   struct fc2_cgi *cgi = FC2_CGI(cli);
+  assert(cgi->magic == CGIMAGIC);
   struct eds_client *pcli = cgi->parent;
   eds_service_remove_client(cli->svc, pcli);
 }
@@ -377,6 +389,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
   int procfd;
   pid_t pid;
 
+  assert(ctx->magic == CTXMAGIC);
   ret = fcgi_cli_readparams(&ctx->fcgi);
   if (ret == FCGI_OK) {
 
@@ -433,7 +446,10 @@ static void on_read_req(struct eds_client *cli, int fd) {
     }
 
     ncli = FC2_CGI(ctx->child_cli);
+    ncli->magic = CGIMAGIC;
     ncli->parent = cli;
+    CLINFO(cli, fd, "child fd %d: parent:%p child:%p cp:%p", procfd, cli, ctx->child_cli,
+        ncli->parent);
     if (buf_init(&ctx->outbuf, 65536/2) == NULL) {
       CLIERR(cli, fd, "PID:%d fd:%d: failed to allocate output buffer",
           pid, procfd);
@@ -461,6 +477,7 @@ static void on_readable(struct eds_client *cli, int fd) {
 
   ctx = FC2_CTX(cli);
   ctx->exit_status = -1;
+  ctx->magic = CTXMAGIC;
   fcgi_cli_init(&ctx->fcgi, fd);
   eds_client_set_on_readable(cli, on_read_req, 0);
 }

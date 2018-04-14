@@ -49,8 +49,8 @@ static int _netstring_parse(const char *src, size_t srclen, size_t *nsoff,
       S = NETSTRING_SLEN;
       /* fall-through */
     case NETSTRING_SLEN:
-      if (src[i] >= '0' && src[i] <= '7') {
-        lenbuf = len << 3;
+      if (src[i] >= '0' && src[i] <= '9') {
+        lenbuf = len * 10;
         lenbuf += src[i]-'0';
         if (lenbuf < len) {
           /* lenbuf overflow */
@@ -127,8 +127,8 @@ int netstring_append_buf(buf_t *buf, const char *str, size_t len) {
   *szptr = ':';
   do {
     szptr--;
-    *szptr = '0' + (tmplen & 0x07);
-    tmplen = tmplen >> 3;
+    *szptr = '0' + (tmplen % 10);
+    tmplen = tmplen / 10;
   } while (tmplen != 0);
 
   if (buf_adata(buf, szptr, szbuf + sizeof(szbuf) - szptr) < 0) {

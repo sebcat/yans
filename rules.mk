@@ -15,3 +15,4 @@ include apps/kneg/rules.mk
 include apps/store/rules.mk
 include apps/dnstres/rules.mk
 include apps/scgi_demo/rules.mk
+include apps/sc2/rules.mk

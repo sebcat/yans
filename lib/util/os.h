@@ -61,8 +61,10 @@ int os_getgid(os_t *os, const char *group, gid_t *gid);
 /* normalizes path in-place */
 char *os_cleanpath(char *path);
 
-/* return 0 if the path does not point to a directory, 1 if it does */
+/* returns 1 on true, 0 on false */
 int os_isdir(const char *path);
+int os_isfile(const char *path);
+int os_isexec(const char *path);
 int os_fdisfile(int fd);
 
 #endif

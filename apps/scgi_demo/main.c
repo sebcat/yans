@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <lib/net/scgi.h>
 
 int main(int argc, char *argv[]) {
@@ -26,7 +27,7 @@ int main(int argc, char *argv[]) {
     goto cleanup_ctx;
   }
 
-  printf("STATUS 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+  printf("Status: 200 OK\r\nContent-Type: text/plain\r\n\r\n");
   while ((ret = scgi_get_next_header(&ctx, &hdr)) == SCGI_AGAIN) {
     printf("%s: %s\n", hdr.key, hdr.value);
   }
@@ -35,6 +36,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "scgi_get_next_header: %s\n", scgi_strerror(ret));
     goto cleanup_ctx;
   }
+
+  sleep(2);
 
   status = EXIT_SUCCESS;
 cleanup_ctx:

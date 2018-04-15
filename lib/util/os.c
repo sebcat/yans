@@ -418,6 +418,20 @@ int os_isdir(const char *path) {
   }
 }
 
+int os_isfile(const char *path) {
+  struct stat st;
+
+  if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int os_isexec(const char *path) {
+  return eaccess(path, X_OK) == 0 ? 1 : 0;
+}
+
 int os_fdisfile(int fd) {
   struct stat st;
 

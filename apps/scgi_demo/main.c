@@ -37,8 +37,6 @@ int main(int argc, char *argv[]) {
     goto cleanup_ctx;
   }
 
-  sleep(2);
-
   status = EXIT_SUCCESS;
 cleanup_ctx:
   scgi_cleanup(&ctx);

@@ -14,6 +14,7 @@ yans_DEPS = \
     lib/util/zfile.c \
     lib/net/punycode.c \
     lib/net/ports.c \
+    lib/net/scgi.c \
     lib/net/route.c \
     lib/net/neigh.c \
     lib/net/eth.c \
@@ -24,6 +25,7 @@ yans_DEPS = \
     lib/ycl/ycl_msg.c \
     lib/lua/ycl.c \
     lib/lua/cgi.c \
+    lib/lua/scgi.c \
     lib/lua/eds.c \
     lib/lua/file.c \
     lib/lua/http.c \

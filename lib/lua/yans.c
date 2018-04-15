@@ -10,6 +10,7 @@
 #include <lib/lua/http.h>
 #include <lib/lua/json.h>
 #include <lib/lua/cgi.h>
+#include <lib/lua/scgi.h>
 #include <lib/lua/file.h>
 #include <lib/lua/opts.h>
 #include <lib/lua/ylog.h>
@@ -135,6 +136,7 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
     {"eth", luaopen_eth},
     {"http", luaopen_http},
     {"cgi", luaopen_cgi},
+    {"scgi", luaopen_scgi},
     {"file", luaopen_file},
     {"opts", luaopen_opts},
     {"ylog", luaopen_ylog},

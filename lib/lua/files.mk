@@ -1,5 +1,6 @@
 lib_lua_SOURCES = \
     lib/lua/cgi.c \
+    lib/lua/scgi.c \
     lib/lua/eds.c \
     lib/lua/file.c \
     lib/lua/http.c \
@@ -12,6 +13,7 @@ lib_lua_SOURCES = \
 
 lib_lua_HEADERS = \
     lib/lua/cgi.h \
+    lib/lua/scgi.h \
     lib/lua/eds.h \
     lib/lua/file.h \
     lib/lua/http.h \

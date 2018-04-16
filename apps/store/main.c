@@ -156,7 +156,7 @@ static int run_put(const char *socket, const char *id, const char *filename) {
   }
 
   entermsg.store_id.data = id;
-  entermsg.store_id.len = strlen(id);
+  entermsg.store_id.len = id ? strlen(id) : 0;
   ret = ycl_msg_create_store_enter(&msg, &entermsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_msg_create_store_enter failure\n");

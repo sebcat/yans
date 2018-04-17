@@ -1,2 +1,1 @@
-yansapi_BIN = apps/yansapi/yansapi
-BINS += $(yansapi_BIN)
+script_BINS += apps/yansapi/yansapi

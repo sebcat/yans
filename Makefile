@@ -1,10 +1,10 @@
 nodist_BINS =
+script_BINS =
 BINS =
 OBJS =
 CODEGEN =
 RCFILES =
 GENERATED_RCFILES =
-EGGLIBS =
 
 UNAME_S != uname -s
 INSTALL = install
@@ -23,10 +23,6 @@ CFLAGS += -Wall -Werror -Wformat -Wformat-security -I.
 CFLAGS += -DBINDIR=\"$(BINDIR)\" -DDATAROOTDIR=\"$(DATAROOTDIR)\"
 CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
 
-# Chicken Scheme eggs are dynamic libraries, so we build all object files as
-# position independent code.
-CFLAGS += -fPIC
-
 # set MAYBE_VALGRIND to the valgrind command if USE_VALGRIND is set to 1
 # used for make check
 MAYBE_VALGRIND_1 = valgrind --error-exitcode=1 --leak-check=full
@@ -36,14 +32,13 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
 include files.mk
 
-all: $(nodist_BINS) $(BINS) $(EGGLIBS) $(GENERATED_RCFILES)
+all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES)
 
 clean:
 	rm -f $(nodist_BINS) $(BINS)
 	rm -f $(CTESTS)
 	rm -f $(OBJS)
 	rm -f $(GENERATED_RCFILES)
-	rm -f $(EGGLIBS)
 
 distclean: clean
 	rm -f $(CODEGEN)
@@ -60,7 +55,7 @@ check: $(yans_BIN) $(YANSTESTS) $(CTESTS)
 
 install: $(nodist_BINS) $(BINS)
 	mkdir -p $(DESTDIR)$(BINDIR)
-	for B in $(BINS); do \
+	for B in $(BINS) $(script_BINS); do \
 		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
     done
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)

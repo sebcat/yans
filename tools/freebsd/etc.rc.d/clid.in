@@ -5,16 +5,18 @@
 
 . /etc/rc.subr
 
-# Creating the group and user:
-#   pw groupadd clid
-#   pw useradd clid -d @LOCALSTATEDIR@/clid -g clid -s /usr/sbin/nologin
+# Creating the user:
+#   pw useradd clid -d @LOCALSTATEDIR@/clid -g yans -s /usr/sbin/nologin
+#
+# Add the yansgroup if not already present
+#   pw groupadd yans
 #
 #   pw -R <rootdir> ... for images/buildroots/jails
 #
 # The daemon drops user privs itself, which is why clid_user, clid_group
 # is not used
 : ${clid_duser:="clid"}
-: ${clid_dgroup:="clid"}
+: ${clid_dgroup:="yans"}
 
 name="clid"
 rcvar="clid_enable"

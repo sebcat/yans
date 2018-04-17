@@ -5,14 +5,18 @@
 
 . /etc/rc.subr
 
-# Creating the group and user:
-#   pw groupadd knegd
-#   pw useradd knegd -d @LOCALSTATEDIR@/knegd -g knegd -s /usr/sbin/nologin
+# Creating the user:
+#   pw useradd knegd -d @LOCALSTATEDIR@/knegd -g yans -s /usr/sbin/nologin
+#
+# Add the yansgroup if not already present
+#   pw groupadd yans
+#
+#   pw -R <rootdir> ... for images/buildroots/jails
 #
 # The daemon drops user privs itself, which is why knegd_user, knegd_group
 # is not used
 : ${knegd_duser:="knegd"}
-: ${knegd_dgroup:="knegd"}
+: ${knegd_dgroup:="yans"}
 
 name="knegd"
 rcvar="knegd_enable"

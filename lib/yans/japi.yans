@@ -1,0 +1,111 @@
+local _M = {
+  BAD_REQUEST = "400 Bad Request",
+  SERVER_ERROR = "500 Internal Server Error",
+  NOT_FOUND = "404 Not Found",
+}
+
+function _M:flush()
+  io.stdout:flush()
+end
+
+function _M:croak(status, reason)
+  -- we can croak when we have already sent the header, but print this
+  -- anyway for now...
+  io.stdout:write(string.format("Status: %s\r\nX-Reason: %s\r\n\r\n", status,
+      reason))
+  self:flush()
+  os.exit(0)
+end
+
+function _M:status(s)
+  self.statusline = s
+end
+
+function _M:header(key, val)
+  if key == "Content-Type" then
+    self.content_type = val
+  elseif key ~= "Status" then
+    table.insert(self.headers, string.format("%s: %s", key, val))
+  end
+end
+
+function _M:send_header()
+  if not self.statusline then
+    self.statusline = "200 OK"
+  end
+
+  if not self.content_type then
+    self.content_type = "application/json"
+  end
+
+  table.sort(self.headers) -- sort the headers for consistency
+  io.stdout:write(string.format("Status: %s\r\nContent-Type: %s\r\n%s\r\n\r\n",
+      self.statusline, self.content_type, table.concat(self.headers, "\r\n")))
+
+  self.has_sent_header = true
+end
+
+function _M:write(data)
+  if not self.has_sent_header then
+    self:send_header()
+  end
+  data = tostring(data)
+  io.stdout:write(data)
+end
+
+function _M:dispatch(routes)
+  -- read the request headers and body
+  local ok, hdrs, body = pcall(yans.scgi.read_request)
+  if not ok then
+    self:croak(self.SERVER_ERROR, "read request failure")
+  end
+
+  -- parse the body, if any, as JSON and require its content type to be set
+  if body then
+    local ctype = hdrs["CONTENT_TYPE"] or ""
+    if not ctype:find("application/json") then
+      self:croak(self.BAD_REQUEST, "invalid content type")
+    end
+    local ok, res = pcall(json.from_str, body)
+    if not ok then
+      self:croak(self.BAD_REQUEST, "request body parse failure")
+    end
+    body = res
+  end
+
+  -- resolve the handler for the request, if any
+  local method = hdrs["REQUEST_METHOD"] or self:croak(self.BAD_REQUEST,
+      "no method")
+  local path = hdrs["DOCUMENT_URI"] or self:croak(self.BAD_REQUEST, "no path")
+  local handler = routes[string.format("%s %s", method, path)]
+  if not handler then
+    self:croak(self.NOT_FOUND, "no handler")
+  end
+
+  -- create the responder and call the handler
+  local responder = {
+    req_hdrs = hdrs,
+    req_body = body,
+    headers = {},
+    statusline = nil,    -- filled in later, defaults to "200 OK"
+    content_type = nil,  -- filled in later, defaults to "application/json"
+    has_sent_header = false,
+  }
+  self.__index = self
+  setmetatable(responder, self)
+  ok, err = pcall(handler, responder)
+  if not ok then
+    self:croak(self.SERVER_ERROR, "handler failure: " .. err)
+  end
+
+  -- make sure we have sent everything
+  if self.has_sent_header then
+    responder:send_header()
+  end
+  responder:flush()
+
+  -- exit gracefully
+  os.exit(0)
+end
+
+return _M

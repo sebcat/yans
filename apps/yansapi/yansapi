@@ -1,0 +1,15 @@
+#!/usr/bin/env yans
+
+JAPI = require"japi"
+
+-- TODO: Sandbox handlers
+
+local function get_foo(ctx)
+  ctx:status"200 OK"
+  ctx:header("X-SuperHax", "lol")
+  ctx:write"{}"
+end
+
+JAPI:dispatch{
+  ["GET /trololo/foo"] = get_foo,
+}

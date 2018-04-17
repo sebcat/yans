@@ -16,3 +16,4 @@ include apps/store/files.mk
 include apps/dnstres/files.mk
 include apps/scgi_demo/files.mk
 include apps/sc2/files.mk
+include apps/yansapi/files.mk

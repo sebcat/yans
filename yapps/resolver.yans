@@ -3,8 +3,8 @@ Store = require "svcs.store"
 Resolver = require "svcs.resolver"
 
 msgbuf = yans.ycl.msgbuf()
-store = Store:new{path="./lel/stored.sock", msgbuf = msgbuf}
-resolver = Resolver:new{path="./lel/resolver.sock", store=store, msgbuf=msgbuf}
+store = Store:new{path="/var/stored/stored.sock", msgbuf = msgbuf}
+resolver = Resolver:new{path="/var/clid/resolver.sock", store=store, msgbuf=msgbuf}
 
 yans.cgi.init() -- enter sandbox
 

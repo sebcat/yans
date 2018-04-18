@@ -1,9 +1,9 @@
 
 local _M = {
-  SVC_NETCONF = "./lel/netconf.sock",
-  SVC_ETHFRAME = "./lel/ethframe.sock",
-  SVC_PCAP = "./lel/pcap.sock",
-  SVC_STORE = "./lel/stored.sock",
+  SVC_NETCONF = "/var/clid/netconf.sock",
+  SVC_ETHFRAME = "/var/ethd/ethframe.sock",
+  SVC_PCAP = "/var/ethd/pcap.sock",
+  SVC_STORE = "/var/stored/stored.sock",
   PPS = 300,
 }
 

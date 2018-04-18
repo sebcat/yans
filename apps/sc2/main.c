@@ -16,6 +16,8 @@
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
 
+extern char **environ;
+
 #define DAEMON_NAME "sc2"
 #define DEFAULT_MAXREQS  64 /* maximum number of concurrent requests */
 #define DEFAULT_LIFETIME 20 /* maximum number of seconds for a request */
@@ -132,14 +134,13 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx) {
     return SC2_EFORK;
   } else if (pid == 0) {
     char *argv[] = {ctx->opts.cgipath, NULL};
-    char *envp[] = {NULL};
     signal(SIGCHLD, SIG_DFL);
     dup2(cli, STDIN_FILENO);
     dup2(cli, STDOUT_FILENO);
     dup2(cli, STDERR_FILENO);
     close(cli);
     close(ctx->listenfd);
-    execve(ctx->opts.cgipath, argv, envp);
+    execve(ctx->opts.cgipath, argv, environ);
     exit(1);
   }
 

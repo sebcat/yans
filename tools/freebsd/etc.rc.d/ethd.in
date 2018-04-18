@@ -42,11 +42,13 @@ ethd_precmd()
 {
   if [ ! -d "@LOCALSTATEDIR@/ethd/dev" ]; then
     mkdir -p "@LOCALSTATEDIR@/ethd/dev"
-    mount -t devfs devfs @LOCALSTATEDIR@/ethd/dev || {
-      warn "unable to mount devfs"
-      return 1
-    }
   fi
+
+  # really not sure about this one
+  mount -t devfs devfs @LOCALSTATEDIR@/ethd/dev || {
+    warn "unable to mount devfs"
+    return 1
+  }
 
   chmod 770 @LOCALSTATEDIR@/ethd || {
     warn "Failed to set correct permissions of @LOCALSTATEDIR@/ethd"

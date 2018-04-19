@@ -1,6 +1,7 @@
 #include <time.h>
 #include <string.h>
 #include <errno.h>
+#include <lib/util/sandbox.h>
 #include <lib/lua/util.h>
 
 static int l_nanosleep(lua_State *L) {
@@ -25,8 +26,22 @@ static int l_nanosleep(lua_State *L) {
   return 0;
 }
 
+static int l_sandbox(lua_State *L) {
+
+  if (sandbox_enter() < 0) {
+    if (errno != 0) {
+      return luaL_error(L, "sandbox_enter: %s", strerror(errno));
+    } else {
+      return luaL_error(L, "sandbox_enter: unknown error");
+    }
+  }
+
+  return 0;
+}
+
 static const struct luaL_Reg util_f[] = {
   {"nanosleep", l_nanosleep},
+  {"sandbox", l_sandbox},
   {NULL, NULL},
 };
 

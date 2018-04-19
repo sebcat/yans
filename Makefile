@@ -1,7 +1,7 @@
 # built executables that does not get installed
 nodist_BINS =
 
-# executables that has no build step (install only)
+# executables that has no build step, install to $(BINDIR)
 script_BINS =
 
 # executables that gets built and installed
@@ -21,6 +21,9 @@ GENERATED_RCFILES =
 
 # .yans test files, executed on check
 YANSTESTS =
+
+# .yans library files, installed to $(DATAROOTDIR)/yans
+YANSLIB =
 
 UNAME_S != uname -s
 INSTALL = install
@@ -74,6 +77,9 @@ manifest:
 		B=$$(basename $$B); \
 		echo $(DESTDIR)$(BINDIR)/$$B; \
 	done
+	@for Y in $(YANSLIB); do \
+		echo $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#lib/yans/}; \
+	done
 
 manifest-rcfiles:
 	@for RC in $(RCFILES) $(GENERATED_RCFILES); do \
@@ -81,13 +87,16 @@ manifest-rcfiles:
 		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
-install: $(nodist_BINS) $(BINS)
+install: $(nodist_BINS) $(BINS) $(YANSLIB)
 	mkdir -p $(DESTDIR)$(BINDIR)
+	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans
 	for B in $(BINS) $(script_BINS); do \
 		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
     done
-	mkdir -p $(DESTDIR)$(DATAROOTDIR)
-	cp -R lib/yans $(DESTDIR)$(DATAROOTDIR)
+	for Y in $(YANSLIB); do \
+		mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans/$$(dirname $${Y#lib/yans/}); \
+		$(INSTALL) $$Y $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#lib/yans/}; \
+	done
 
 install-strip: install
 	for B in $(BINS); do \

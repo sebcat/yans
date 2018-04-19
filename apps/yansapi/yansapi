@@ -2,7 +2,51 @@
 
 JAPI = require"japi"
 
--- TODO: Sandbox handlers
+-- These are loaded to allow eval-ed code to use services in sandbox mode
+msgbuf = yans.ycl.msgbuf()
+Store = require"svcs.store":new{path="/var/stored/stored.sock", msgbuf = msgbuf}
+
+local function sandbox(func)
+  return function(ctx)
+    yans.util.sandbox()
+    func(ctx)
+  end
+end
+
+local function post_eval(ctx)
+  -- response values
+  local success_result = false
+  local data_result = nil
+
+  -- make sure the header is written to avoid header injection.
+  -- ideally, we should probably eval stuff in a child proc and just capture
+  -- stdio, but in-handler eval with sandbox is always more fun.
+  ctx:send_header_once()
+
+  -- load, pcall code. There are multiple problems with this, including but
+  -- not limited to:
+  --   * if we print/write stuff to stderr/stdout we fuck up the response
+  --   * we need to return expression results (i.e. return 1+1 and not 1+1)
+  local req = ctx.req_body
+  if req and req.data then
+    local func, err = load(req.data)
+    if func then
+      local thingies, tmp = table.pack(pcall(func)), {}
+      success_result = thingies[1]
+      for i = 2, #thingies do
+        table.insert(tmp, tostring(thingies[i]))
+      end
+      data_result = table.concat(tmp, "\t")
+    else
+      success_result, data_result = false, err
+    end
+  end
+
+  local resp = json.from_str"{}"
+  resp["success"] = success_result
+  resp["data"] = data_result
+  ctx:write(tostring(resp))
+end
 
 local function get_foo(ctx)
   ctx:status"200 OK"
@@ -12,4 +56,5 @@ end
 
 JAPI:dispatch{
   ["GET /trololo/foo"] = get_foo,
+  ["POST /trololo/eval"] = sandbox(post_eval),
 }

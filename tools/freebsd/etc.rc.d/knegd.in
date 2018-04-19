@@ -15,6 +15,7 @@
 #
 # The daemon drops user privs itself, which is why knegd_user, knegd_group
 # is not used
+: ${knegd_enable:="no"}
 : ${knegd_duser:="knegd"}
 : ${knegd_dgroup:="yans"}
 

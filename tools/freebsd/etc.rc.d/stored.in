@@ -15,6 +15,7 @@
 #
 # The daemon drops user privs itself, which is why stored_user, stored_group
 # is not used
+: ${stored_enable:="no"}
 : ${stored_duser:="stored"}
 : ${stored_dgroup:="yans"}
 

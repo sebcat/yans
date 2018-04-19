@@ -15,6 +15,7 @@
 #
 # The daemon drops user privs itself, which is why ethd_user, ethd_group
 # is not used
+: ${ethd_enable:="no"}
 : ${ethd_duser:="ethd"}
 : ${ethd_dgroup:="yans"}
 

@@ -15,6 +15,7 @@
 #
 # The daemon drops user privs itself, which is why clid_user, clid_group
 # is not used
+: ${clid_enable:="no"}
 : ${clid_duser:="clid"}
 : ${clid_dgroup:="yans"}
 

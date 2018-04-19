@@ -29,7 +29,11 @@ function _M:header(key, val)
   end
 end
 
-function _M:send_header()
+function _M:send_header_once()
+  if self.has_sent_header then
+    return
+  end
+
   if not self.statusline then
     self.statusline = "200 OK"
   end
@@ -46,9 +50,7 @@ function _M:send_header()
 end
 
 function _M:write(data)
-  if not self.has_sent_header then
-    self:send_header()
-  end
+  self:send_header_once()
   data = tostring(data)
   io.stdout:write(data)
 end
@@ -99,9 +101,7 @@ function _M:dispatch(routes)
   end
 
   -- make sure we have sent everything
-  if self.has_sent_header then
-    responder:send_header()
-  end
+  responder:send_header_once()
   responder:flush()
 
   -- exit gracefully

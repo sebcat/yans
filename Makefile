@@ -1,18 +1,33 @@
+# built executables that does not get installed
 nodist_BINS =
+
+# executables that has no build step (install only)
 script_BINS =
+
+# executables that gets built and installed
 BINS =
+
+# intermediate build files, does not get installed and are removed on clean
 OBJS =
+
+# generated code, gets removed on distclean
 CODEGEN =
+
+# startup files that get installed
 RCFILES =
+
+# generated startup files that get installed and are removed on clean
 GENERATED_RCFILES =
+
+# .yans test files, executed on check
+YANSTESTS =
 
 UNAME_S != uname -s
 INSTALL = install
 STRIP = strip -s
-CSC = csc -I. -shared
 
 DESTDIR ?=
-RCFILESDIR ?= /etc/rc.d
+RCFILESDIR ?= /usr/local/etc/rc.d
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 DATAROOTDIR ?= $(PREFIX)/share
@@ -28,7 +43,8 @@ CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
 MAYBE_VALGRIND_1 = valgrind --error-exitcode=1 --leak-check=full
 MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
-.PHONY: all clean distclean check install install-strip
+.PHONY: all clean distclean check manifest manifest-rcfiles install \
+     install-strip
 
 include files.mk
 
@@ -51,6 +67,18 @@ check: $(yans_BIN) $(YANSTESTS) $(CTESTS)
 	@for T in $(YANSTESTS); do \
 		echo $$T; \
 		$(MAYBE_VALGRIND) $(yans_BIN) ./$$T; \
+	done
+
+manifest:
+	@for B in $(BINS) $(script_BINS); do \
+		B=$$(basename $$B); \
+		echo $(DESTDIR)$(BINDIR)/$$B; \
+	done
+
+manifest-rcfiles:
+	@for RC in $(RCFILES) $(GENERATED_RCFILES); do \
+		RC=$$(basename $$RC); \
+		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
 install: $(nodist_BINS) $(BINS)

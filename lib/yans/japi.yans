@@ -62,10 +62,33 @@ function _M:dispatch(routes)
     self:croak(self.SERVER_ERROR, "read request failure")
   end
 
+  -- get the interesting request header fields. If this ends up being more
+  -- than a couple, we should probably build a table mapping key to a table
+  -- of values inside read_request and return that. The reason for the
+  -- table value is that e.g., nginx passes multiple HTTP_COOKIE if the client
+  -- passes multiple Cookie headers
+  local content_type, request_method, document_uri
+  for i = 1, #hdrs, 2 do
+    if hdrs[i] == "CONTENT_TYPE" then
+      content_type = hdrs[i + 1]
+    elseif hdrs[i] == "REQUEST_METHOD" then
+      request_method = hdrs[i + 1]
+    elseif hdrs[i] == "DOCUMENT_URI" then
+      document_uri = hdrs[i + 1]
+    end
+  end
+
+  if not request_method then
+    self:croak(self.BAD_REQUEST, "no method")
+  elseif not document_uri then
+    self:croak(self.BAD_REQUEST, "no path")
+  end
+
   -- parse the body, if any, as JSON and require its content type to be set
   if body then
-    local ctype = hdrs["CONTENT_TYPE"] or ""
-    if not ctype:find("application/json") then
+    if not content_type then
+      self:croak(self.BAD_REQUEST, "missing content type")
+    elseif not content_type:find("application/json") then
       self:croak(self.BAD_REQUEST, "invalid content type")
     end
     local ok, res = pcall(json.from_str, body)
@@ -76,10 +99,7 @@ function _M:dispatch(routes)
   end
 
   -- resolve the handler for the request, if any
-  local method = hdrs["REQUEST_METHOD"] or self:croak(self.BAD_REQUEST,
-      "no method")
-  local path = hdrs["DOCUMENT_URI"] or self:croak(self.BAD_REQUEST, "no path")
-  local handler = routes[string.format("%s %s", method, path)]
+  local handler = routes[string.format("%s %s", request_method, document_uri)]
   if not handler then
     self:croak(self.NOT_FOUND, "no handler")
   end

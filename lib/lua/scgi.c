@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <assert.h>
@@ -12,11 +13,11 @@
 #define BODY_SIZE_LIMIT 10485760
 
 static int l_read_request(lua_State *L) {
-  struct scgi_ctx ctx = {0};
   struct scgi_header hdr = {0};
+  struct scgi_ctx ctx = {0};
+  lua_Integer offset;
+  size_t clen = 0;
   int ret;
-  int t;
-  lua_Integer clen = 0;
 
   ret = scgi_init(&ctx, STDIN_FILENO, SCGI_DEFAULT_MAXHDRSZ);
   if (ret != SCGI_OK) {
@@ -35,11 +36,23 @@ static int l_read_request(lua_State *L) {
     return luaL_error(L, "scgi_parse_header: %s", scgi_strerror(ret));
   }
 
-  /* set up the request headers as a table on the Lua parameter stack */
+  /* set up the request headers as a table/array on the Lua parameter stack */
   lua_newtable(L);
+  offset = 1;
   while ((ret = scgi_get_next_header(&ctx, &hdr)) == SCGI_AGAIN) {
+    lua_pushlstring(L, hdr.key, hdr.keylen);
+    lua_seti(L, -2, offset++);
     lua_pushlstring(L, hdr.value, hdr.valuelen);
-    lua_setfield(L, -2, hdr.key);
+    lua_seti(L, -2, offset++);
+
+    /* obtain CONTENT_LENGTH, if set */
+    if (strcmp(hdr.key, "CONTENT_LENGTH") == 0) {
+      long r;
+      r = strtol(hdr.value, NULL, 10);
+      if (r > 0) {
+        clen = (size_t)r;
+      }
+    }
   }
   if (ret != SCGI_OK) {
     scgi_cleanup(&ctx);
@@ -47,8 +60,7 @@ static int l_read_request(lua_State *L) {
   }
 
   /* Do we have a request body? */
-  t = lua_getfield(L, -1, "CONTENT_LENGTH");
-  if (t == LUA_TSTRING && (clen = lua_tointeger(L, -1)) > 0) {
+  if (clen > 0) {
     const char *cptr;
     size_t restlen = 0;
     char buf[512];

@@ -1,5 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
@@ -25,6 +27,10 @@ static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
 #define DEFAULT_MAXREQS  64 /* maximum number of concurrent requests */
 #define DEFAULT_LIFETIME 20 /* maximum number of seconds for a request */
 
+/* default resource limits */
+#define DEFAULT_RLIMIT_VMEM RLIM_INFINITY
+#define DEFAULT_RLIMIT_CPU  RLIM_INFINITY
+
 #define SC2_OK 0
 #define SC2_EINVAL   -1 /* invalid parameter */
 #define SC2_EMEM     -2 /* memory allocation error */
@@ -33,12 +39,19 @@ static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
 #define SC2_EFORK    -5 /* fork failure */
 #define SC2_EGETTIME -6 /* clock_gettime failure */
 
-#define SC2_LISTENFD 0 /* index for listening fd in SC2 vectors */
+/** struct sc2_child flags */
+/* indicates that the child has been waited for, and its exit status and
+ * completion time is valid */
+#define SC2CHLD_WAITED (1 << 0)
 
+/* options specific to sc2 */
 struct sc2_opts {
-  int maxreqs;
-  char *cgipath;
-  time_t lifetime;
+  int maxreqs;     /* Maximum number of concurrent requests */
+  char *cgipath;   /* Path to binary getting execve'd*/
+  time_t lifetime; /* Maximum number of seconds for a request */
+
+  struct rlimit rlim_vmem; /* RLIMIT_VMEM/RLIMIT_AS, in kilobytes */
+  struct rlimit rlim_cpu;  /* RLIMIT_CPU, in seconds */
 
   /* status callbacks */
   void (*on_started)(pid_t);
@@ -46,9 +59,15 @@ struct sc2_opts {
   void (*on_reaped)(pid_t, int, struct timespec *);
 };
 
-/* indicates that the child has been waited for, and its exit status and
- * completion time is valid */
-#define SC2CHLD_WAITED (1 << 0)
+/* application options */
+struct opts {
+  struct sc2_opts sc2;
+  const char *basepath;
+  uid_t uid;
+  gid_t gid;
+  int no_daemon;
+  int daemon_flags;
+};
 
 struct sc2_child {
   int flags;
@@ -137,6 +156,8 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx) {
     return SC2_EFORK;
   } else if (pid == 0) {
     char *argv[] = {ctx->opts.cgipath, NULL};
+    setrlimit(RLIMIT_CPU, &ctx->opts.rlim_cpu);
+    setrlimit(RLIMIT_AS, &ctx->opts.rlim_vmem);
     dup2(cli, STDIN_FILENO);
     dup2(cli, STDOUT_FILENO);
     dup2(cli, STDERR_FILENO);
@@ -297,15 +318,6 @@ static int sc2_serve(struct sc2_ctx *ctx) {
   return SC2_OK;
 }
 
-struct opts {
-  struct sc2_opts sc2;
-  const char *basepath;
-  uid_t uid;
-  gid_t gid;
-  int no_daemon;
-  int daemon_flags;
-};
-
 static void usage() {
   fprintf(stderr,
       "usage:\n"
@@ -321,6 +333,8 @@ static void usage() {
       "  -m, --maxreqs:   number of max concurrent requests (%d)\n"
       "  -l, --lifetime:  maximum number of seconds for a request (%d)\n"
       "  -0, --no-chroot: do not chroot daemon\n"
+      "  -t, --cpu-rlim:  max CPU resource limit, in seconds\n"
+      "  -v, --vmem-rlim: max virtual memory, in kbytes\n"
       "  -h, --help:      this text\n",
       DEFAULT_MAXREQS, DEFAULT_LIFETIME);
   exit(EXIT_FAILURE);
@@ -354,10 +368,23 @@ static void log_on_reaped(pid_t pid, int status, struct timespec *t) {
   }
 }
 
+static long long_or_die(const char *str, int opt) {
+  long ret;
+  char *ptr = NULL;
+
+  ret = strtol(str, &ptr, 10);
+  if (*ptr != '\0') {
+    fprintf(stderr, "-%c: invalid number\n", opt);
+    exit(EXIT_FAILURE);
+  }
+
+  return ret;
+}
+
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nl:m:0h";
+  static const char *optstr = "u:g:b:nl:m:0t:v:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -366,6 +393,8 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"lifetime", required_argument, NULL, 'l'},
     {"no-daemon", no_argument, NULL, 'n'},
     {"no-chroot", no_argument, NULL, '0'},
+    {"cpu-rlim", required_argument, NULL, 't'},
+    {"vmem-rlim", required_argument, NULL, 'v'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -378,6 +407,10 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->daemon_flags = 0;
   opts->sc2.maxreqs = DEFAULT_MAXREQS;
   opts->sc2.lifetime = DEFAULT_LIFETIME;
+  opts->sc2.rlim_vmem.rlim_cur = DEFAULT_RLIMIT_VMEM;
+  opts->sc2.rlim_vmem.rlim_max = DEFAULT_RLIMIT_VMEM;
+  opts->sc2.rlim_cpu.rlim_cur = DEFAULT_RLIMIT_CPU;
+  opts->sc2.rlim_cpu.rlim_max = DEFAULT_RLIMIT_CPU;
   opts->sc2.on_reaped = log_on_reaped;
   opts->sc2.on_timedout = log_on_timedout;
   opts->sc2.on_started = log_on_started;
@@ -400,16 +433,24 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         opts->basepath = optarg;
         break;
       case 'm':
-        opts->sc2.maxreqs = (int)strtol(optarg, NULL, 10);
+        opts->sc2.maxreqs = (int)long_or_die(optarg, 'm');
         break;
       case 'n':
         opts->no_daemon = 1;
         break;
       case 'l':
-        opts->sc2.lifetime = (time_t)strtol(optarg, NULL, 10);
+        opts->sc2.lifetime = (time_t)long_or_die(optarg, 'l');
         break;
       case '0':
         opts->daemon_flags |= DAEMONOPT_NOCHROOT;
+        break;
+      case 't':
+        opts->sc2.rlim_cpu.rlim_cur = long_or_die(optarg, 't');
+        opts->sc2.rlim_cpu.rlim_max = opts->sc2.rlim_cpu.rlim_cur;
+        break;
+      case 'v':
+        opts->sc2.rlim_vmem.rlim_cur = long_or_die(optarg, 'v');
+        opts->sc2.rlim_vmem.rlim_max = opts->sc2.rlim_vmem.rlim_cur;
         break;
       case 'h':
       default:
@@ -499,8 +540,7 @@ static int serve(struct opts *opts) {
     return -1;
   }
 
-  /* signal handler shim. This is a bit ugly, but so are signals... */
-  ctx_ = &ctx;
+  ctx_ = &ctx  /* This is a bit ugly, but so are signals... */;
   sa.sa_handler = &on_sigchld;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;

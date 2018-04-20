@@ -296,12 +296,13 @@ struct opts {
   uid_t uid;
   gid_t gid;
   int no_daemon;
+  int daemon_flags;
 };
 
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  " DAEMON_NAME " -u <user> -g <group> -b <basepath> <cgi-root>\n"
+      "  " DAEMON_NAME " -u <user> -g <group> -b <basepath> <scgi-binary>\n"
       "  " DAEMON_NAME " -n -b <basepath> <cgi-root>\n"
       "  " DAEMON_NAME " -h\n"
       "\n"
@@ -312,6 +313,7 @@ static void usage() {
       "  -n, --no-daemon: do not daemonize\n"
       "  -m, --maxreqs:   number of max concurrent requests (%d)\n"
       "  -l, --lifetime:  maximum number of seconds for a request (%d)\n"
+      "  -0, --no-chroot: do not chroot daemon\n"
       "  -h, --help:      this text\n",
       DEFAULT_MAXREQS, DEFAULT_LIFETIME);
   exit(EXIT_FAILURE);
@@ -348,7 +350,7 @@ static void log_on_reaped(pid_t pid, int status, struct timespec *t) {
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nl:m:h";
+  static const char *optstr = "u:g:b:nl:m:0h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -356,6 +358,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"maxreqs", required_argument, NULL, 'n'},
     {"lifetime", required_argument, NULL, 'l'},
     {"no-daemon", no_argument, NULL, 'n'},
+    {"no-chroot", no_argument, NULL, '0'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -365,6 +368,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
+  opts->daemon_flags = 0;
   opts->sc2.maxreqs = DEFAULT_MAXREQS;
   opts->sc2.lifetime = DEFAULT_LIFETIME;
   opts->sc2.on_reaped = log_on_reaped;
@@ -396,6 +400,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'l':
         opts->sc2.lifetime = (time_t)strtol(optarg, NULL, 10);
+        break;
+      case '0':
+        opts->daemon_flags |= DAEMONOPT_NOCHROOT;
         break;
       case 'h':
       default:
@@ -527,8 +534,8 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
   } else {
-    /* TODO: Add option to opt-out of chroot? */
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
+    daemon_opts.flags = opts.daemon_flags;
     daemon_opts.name = DAEMON_NAME;
     daemon_opts.path = opts.basepath;
     daemon_opts.uid = opts.uid;

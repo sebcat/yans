@@ -18,6 +18,9 @@
 
 extern char **environ;
 
+static struct sc2_ctx *ctx_; /* used for child reaping from signal handler */
+static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
+
 #define DAEMON_NAME "sc2"
 #define DEFAULT_MAXREQS  64 /* maximum number of concurrent requests */
 #define DEFAULT_LIFETIME 20 /* maximum number of seconds for a request */
@@ -103,7 +106,7 @@ static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts, int listenfd) {
 
 static void sc2_cleanup(struct sc2_ctx *ctx) {
   if (ctx != NULL) {
-    /* TODO: wait for children, if any */
+    /* TODO: kill children, if any */
     free(ctx->children);
     memset(ctx, 0, sizeof(*ctx));
   }
@@ -134,7 +137,6 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx) {
     return SC2_EFORK;
   } else if (pid == 0) {
     char *argv[] = {ctx->opts.cgipath, NULL};
-    signal(SIGCHLD, SIG_DFL);
     dup2(cli, STDIN_FILENO);
     dup2(cli, STDOUT_FILENO);
     dup2(cli, STDERR_FILENO);
@@ -202,7 +204,7 @@ static void sc2_check_procs(struct sc2_ctx *ctx) {
   }
 }
 
-static void sc2_cleanup_reaped(struct sc2_ctx *ctx) {
+static void sc2_reset_reaped(struct sc2_ctx *ctx) {
   int i;
   struct sc2_child *child;
 
@@ -251,7 +253,12 @@ static int sc2_serve(struct sc2_ctx *ctx) {
   pfd.events = POLLIN;
   while (1) {
     sc2_check_procs(ctx);
-    sc2_cleanup_reaped(ctx);
+    sc2_reset_reaped(ctx);
+
+    /* break the main loop on reqested termination */
+    if (term_) {
+      break;
+    }
 
     /* If we'e at capacity, do not accept any more incoming connections.
      * If a child is done, sleep will return early and waitpid will handle
@@ -287,7 +294,7 @@ static int sc2_serve(struct sc2_ctx *ctx) {
   }
 
 
-  return 0;
+  return SC2_OK;
 }
 
 struct opts {
@@ -467,16 +474,18 @@ static int open_listenfd(const char *path) {
   return IO_FILENO(&io);
 }
 
-static struct sc2_ctx *ctx_;
-
 static void on_sigchld(int signal) {
-  int saved_errno = errno;
-  if (signal != SIGCHLD) {
-    return;
-  }
+  int saved_errno;
 
-  sc2_reap_children(ctx_);
-  errno = saved_errno;
+  if (signal == SIGCHLD) {
+    saved_errno = errno;
+    sc2_reap_children(ctx_);
+    errno = saved_errno;
+  }
+}
+
+static void on_term(int signal) {
+  term_ = 1;
 }
 
 static int serve(struct opts *opts) {
@@ -495,10 +504,11 @@ static int serve(struct opts *opts) {
   sa.sa_handler = &on_sigchld;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-  if (sigaction(SIGCHLD, &sa, 0) == -1) {
-    perror(0);
-    exit(1);
-  }
+  sigaction(SIGCHLD, &sa, 0);
+  sa.sa_handler = &on_term;
+  sigaction(SIGTERM, &sa, 0);
+  sigaction(SIGHUP, &sa, 0);
+  sigaction(SIGTERM, &sa, 0);
 
   ret = sc2_init(&ctx, &opts->sc2, fd);
   if (ret != SC2_OK) {

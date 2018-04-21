@@ -99,11 +99,8 @@ static int l_read_request(lua_State *L) {
       }
     }
     luaL_pushresult(&b);
-    lua_rotate(L, -2, 1);
-    lua_pop(L, 1);
   } else {
     /* no/invalid CONTENT_LENGTH, or CONTENT_LENGTH: 0 */
-    lua_pop(L, 1);
     lua_pushnil(L);
   }
 

@@ -6,13 +6,6 @@ JAPI = require"japi"
 msgbuf = yans.ycl.msgbuf()
 Store = require"svcs.store":new{path="/var/stored/stored.sock", msgbuf = msgbuf}
 
-local function sandbox(func)
-  return function(ctx)
-    yans.util.sandbox()
-    func(ctx)
-  end
-end
-
 local function post_eval(ctx)
   -- response values
   local success_result = false
@@ -56,5 +49,5 @@ end
 
 JAPI:dispatch{
   ["GET /trololo/foo"] = get_foo,
-  ["POST /trololo/eval"] = sandbox(post_eval),
+  ["POST /trololo/eval"] = post_eval,
 }

@@ -56,6 +56,9 @@ function _M:write(data)
 end
 
 function _M:dispatch(routes)
+  -- enter sandbox
+  yans.util.sandbox()
+
   -- read the request headers and body
   local ok, hdrs, body = pcall(yans.scgi.read_request)
   if not ok then

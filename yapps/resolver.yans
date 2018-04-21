@@ -6,7 +6,7 @@ msgbuf = yans.ycl.msgbuf()
 store = Store:new{path="/var/stored/stored.sock", msgbuf = msgbuf}
 resolver = Resolver:new{path="/var/clid/resolver.sock", store=store, msgbuf=msgbuf}
 
-yans.cgi.init() -- enter sandbox
+yans.util.sandbox() -- enter sandbox
 
 local id = store:enter()
 print("STORE:", id)

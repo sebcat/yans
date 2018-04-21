@@ -16,5 +16,8 @@ store_OBJS = ${store_SOURCES:.c=.o}
 
 store_BIN = apps/store/store
 
+store_MANPAGES1 = apps/store/store.1
+
 OBJS += $(store_OBJS)
 BINS += $(store_BIN)
+MANPAGES1 += $(store_MANPAGES1)

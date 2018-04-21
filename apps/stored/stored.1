@@ -1,0 +1,45 @@
+.TH STORED 1 "April 21, 2018" yans "Yet Another Network Scanner"
+.SH NAME
+stored \- yans store daemon
+.SH SYNOPSIS
+.B stored
+[\-s <name>] \-u <user> \-g <group> \-b <basepath>
+
+.B stored
+[\-s <name>] \-n \-b <basepath>
+
+.B stored
+\-h
+
+.SH DESCRIPTION
+
+stored is a daemon managing yans stores.
+Stores can be accessed from the command line using
+.BR store (1).
+
+
+.SH OPTIONS
+.TP
+\-u <user>
+Name of the user to run the daemon as
+.TP
+\-g <group>
+Name of the group to run the daemon as
+.TP
+\-b <basepath>
+Path to working directory
+.TP
+\-s <name>
+Name of service to start (typically stored)
+.TP
+\-n
+Do not daemonize
+.TP
+\-h
+Print help text
+.SH EXAMPLES
+TODO
+.SH AUTHOR
+Sebastian Cato
+.SH SEE ALSO
+.BR store (1)

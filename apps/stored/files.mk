@@ -23,5 +23,8 @@ stored_OBJS = ${stored_SOURCES:.c=.o}
 
 stored_BIN = apps/stored/stored
 
+stored_MANPAGES1 = apps/stored/stored.1
+
 OBJS += ${stored_OBJS}
 BINS += ${stored_BIN}
+MANPAGES1 += $(stored_MANPAGES1)

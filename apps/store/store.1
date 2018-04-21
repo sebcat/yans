@@ -1,0 +1,41 @@
+.TH STORE 1 "April 21, 2018" yans "Yet Another Network Scanner"
+.SH NAME
+store \- yans store CLI
+.SH SYNOPSIS
+.B store put
+[-s socket] [-i id] <name>
+.PP
+.B store get
+[-s socket] <id> <name>
+
+.SH DESCRIPTION
+
+In yans, all files belong to a store.
+A store is a directory somewhere on the file system containing files,
+managed by
+.BR stored (1).
+
+.SH OPTIONS
+.TP
+\-s
+path to
+.BR stored (1)
+UNIX socket
+.TP
+\-i
+store ID to be used by
+.B store put
+.SH EXAMPLES
+.TP
+Create foo.txt containing the text "foo" in a new store:
+STORE_ID=$(echo foo | store put foo.txt)
+.TP
+Read the content of the previous example:
+store get "$STORE_ID" foo.txt
+.TP
+Overwrite foo.txt in $STORE_ID with the text "bar":
+echo bar | store put -i "$STORE_ID" foo.txt
+.SH AUTHOR
+Sebastian Cato
+.SH SEE ALSO
+.BR stored (1)

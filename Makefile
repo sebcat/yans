@@ -25,6 +25,9 @@ YANSTESTS =
 # .yans library files, installed to $(DATAROOTDIR)/yans
 YANSLIB =
 
+# Section 1 man pages
+MANPAGES1 =
+
 UNAME_S != uname -s
 INSTALL = install
 STRIP = strip -s
@@ -47,7 +50,7 @@ MAYBE_VALGRIND_1 = valgrind --error-exitcode=1 --leak-check=full
 MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
 .PHONY: all clean distclean check manifest manifest-rcfiles install \
-     install-strip
+     install-strip install-rcfiles install-docs
 
 include files.mk
 
@@ -109,5 +112,8 @@ install-rcfiles: $(RCFILES) $(GENERATED_RCFILES)
 	for RC in $(RCFILES) $(GENERATED_RCFILES); do \
 		$(INSTALL) $$RC $(DESTDIR)$(RCFILESDIR); \
 	done
+
+install-docs: $(MANPAGES1)
+	# TODO: Implement
 
 include rules.mk

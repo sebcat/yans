@@ -99,21 +99,31 @@ static int run_get(const char *socket, const char *id, const char *filename) {
     char *curr;
     size_t left;
 
+read_again:
     nread = read(getfd, databuf_, sizeof(databuf_));
     if (nread == 0) {
       break;
     } else if (nread < 0) {
-      fprintf(stderr, "store read error: %s\n", strerror(errno));
-      goto getfd_cleanup;
+      if (errno == EINTR) {
+        goto read_again;
+      } else {
+        perror("read");
+        goto getfd_cleanup;
+      }
     }
 
     left = nread;
     curr = databuf_;
     while (left > 0) {
+write_again:
       nwritten = write(STDOUT_FILENO, curr, left);
       if (nwritten < 0) {
-        fprintf(stderr, "write error: %s\n", strerror(errno));
-        goto getfd_cleanup;
+        if (errno == EINTR) {
+          goto write_again;
+        } else {
+          perror("write");
+          goto getfd_cleanup;
+        }
       } else if (nwritten == 0) {
         fprintf(stderr, "premature EOF\n");
         goto getfd_cleanup;
@@ -219,21 +229,31 @@ static int run_put(const char *socket, const char *id, const char *filename) {
     char *curr;
     size_t left;
 
+read_again:
     nread = read(STDIN_FILENO, databuf_, sizeof(databuf_));
     if (nread == 0) {
       break;
     } else if (nread < 0) {
-      fprintf(stderr, "stdin read error: %s\n", strerror(errno));
-      goto putfd_cleanup;
+      if (errno == EINTR) {
+        goto read_again;
+      } else {
+        perror("read");
+        goto putfd_cleanup;
+      }
     }
 
     left = nread;
     curr = databuf_;
     while (left > 0) {
+write_again:
       nwritten = write(putfd, curr, left);
       if (nwritten < 0) {
-        fprintf(stderr, "write error: %s\n", strerror(errno));
-        goto putfd_cleanup;
+        if (errno == EINTR) {
+          goto write_again;
+        } else {
+          perror("write");
+          goto putfd_cleanup;
+        }
       } else if (nwritten == 0) {
         fprintf(stderr, "premature EOF\n");
         goto putfd_cleanup;

@@ -143,7 +143,8 @@ ycl_cleanup:
   return result;
 }
 
-static int run_put(const char *socket, const char *id, const char *filename) {
+static int run_put(const char *socket, const char *id, const char *filename,
+    int flags) {
   int ret;
   int result = -1;
   int putfd = -1;
@@ -204,7 +205,7 @@ static int run_put(const char *socket, const char *id, const char *filename) {
 
   openmsg.path.data = filename;
   openmsg.path.len = strlen(filename);
-  openmsg.flags = O_WRONLY | O_CREAT | O_TRUNC;
+  openmsg.flags = flags;
   ret = ycl_msg_create_store_open(&msg, &openmsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "failed to serialize open request\n");
@@ -273,7 +274,7 @@ ycl_cleanup:
   return result;
 }
 
-static int put_main(int argc, char *argv[]) {
+static int put_main(int argc, char *argv[], int flags) {
   int ch;
   int ret;
   const char *optstr = "hs:i:";
@@ -307,18 +308,18 @@ static int put_main(int argc, char *argv[]) {
   }
 
   filename = argv[optind + 1];
-  ret = run_put(socket, id, filename);
+  ret = run_put(socket, id, filename, flags);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
 
   return EXIT_SUCCESS;
 usage:
-  fprintf(stderr, "usage: %s put [opts] <name>\n"
+  fprintf(stderr, "usage: %s %s [opts] <name>\n"
       "opts:\n"
       "  -s|--socket   store socket path (%s)\n"
       "  -i|--id       store ID\n",
-      argv[0], DFL_STOREPATH);
+      argv[0], argv[1], DFL_STOREPATH);
   return EXIT_FAILURE;
 }
 
@@ -378,7 +379,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (strcmp(argv[1], "put") == 0) {
-    return put_main(argc, argv);
+    return put_main(argc, argv, O_WRONLY | O_CREAT | O_TRUNC);
+  } else if (strcmp(argv[1], "append") == 0) {
+    return put_main(argc, argv, O_WRONLY | O_CREAT | O_APPEND);
   } else if (strcmp(argv[1], "get") == 0) {
     return get_main(argc, argv);
   }

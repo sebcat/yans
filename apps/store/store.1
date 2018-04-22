@@ -5,6 +5,9 @@ store \- yans store CLI
 .B store put
 [-s socket] [-i id] <name>
 .PP
+.B store append
+[-s socket] [-i id] <name>
+.PP
 .B store get
 [-s socket] <id> <name>
 
@@ -35,6 +38,9 @@ store get "$STORE_ID" foo.txt
 .TP
 Overwrite foo.txt in $STORE_ID with the text "bar":
 echo bar | store put -i "$STORE_ID" foo.txt
+.TP
+Append the text "baz" to foo.txt in $STORE_ID:
+echo baz | store append -i "$STORE_ID" foo.txt
 .SH AUTHOR
 Sebastian Cato
 .SH SEE ALSO

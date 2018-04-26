@@ -40,6 +40,11 @@ store_req {
   data store_id;
 }
 
+store_list {
+  data errmsg;
+  data entries;
+}
+
 store_open {
   data path;
   long flags;

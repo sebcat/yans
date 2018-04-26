@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fts.h>
 
 #include <lib/util/ylog.h>
 #include <lib/util/prng.h>
@@ -308,6 +309,100 @@ static void on_enter_response(struct eds_client *cli, int fd) {
   }
 }
 
+static void list_store_content(buf_t *buf, const char *store) {
+  FTS *fts;
+  FTSENT *ent;
+  char storepath[STORE_MAXDIRPATH];
+  const char *subdir;
+  char *paths[2];
+
+  /* setup the path to the store */
+  subdir = store + STORE_IDSZ - STORE_PREFIXSZ;
+  snprintf(storepath, sizeof(storepath), "%s/%s", subdir, store);
+  paths[0] = storepath;
+  paths[1] = NULL;
+
+  buf_clear(buf);
+  fts = fts_open(paths, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+  if (fts == NULL) {
+    return;
+  }
+
+  while ((ent = fts_read(fts))) {
+    if (ent->fts_info == FTS_D && ent->fts_level == 2) {
+      fts_set(fts, ent, FTS_SKIP);
+    } else if (ent->fts_info == FTS_F) {
+      buf_adata(buf, ent->fts_name, strlen(ent->fts_name) + 1);
+    }
+  }
+
+  fts_close(fts);
+}
+
+static void list_stores(buf_t *buf) {
+  FTS *fts;
+  FTSENT *ent;
+  char *paths[] = {".", NULL};
+
+  buf_clear(buf);
+  fts = fts_open(paths, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+  if (fts == NULL) {
+    return;
+  }
+
+  while ((ent = fts_read(fts))) {
+    if (ent->fts_info == FTS_D && ent->fts_level == 2) {
+      fts_set(fts, ent, FTS_SKIP);
+      buf_adata(buf, ent->fts_name, strlen(ent->fts_name) + 1);
+    }
+  }
+
+  fts_close(fts);
+}
+
+static void on_sent_store_list(struct eds_client *cli, int fd) {
+  struct store_cli *ecli = STORE_CLI(cli);
+  buf_cleanup(&ecli->buf);
+  eds_client_clear_actions(cli);
+}
+
+static void handle_store_list(struct eds_client *cli, int fd,
+    struct ycl_msg_store_req *req) {
+  struct store_cli *ecli = STORE_CLI(cli);
+  const char *errmsg = NULL;
+  struct ycl_msg_store_list listmsg = {{0}};
+  struct eds_transition after_send = {
+    .flags = EDS_TFLREAD | EDS_TFLWRITE,
+    .on_readable = on_sent_store_list,
+    .on_writable = on_sent_store_list,
+  };
+
+  /* validate store_id, if any */
+  if (req->store_id.len > 0 &&
+      !is_valid_store_id(req->store_id.data, req->store_id.len)) {
+    errmsg = "invalid store ID";
+    goto done;
+  }
+
+  /* set up the store list */
+  buf_init(&ecli->buf, 8192);
+  if (req->store_id.len > 0) {
+    list_store_content(&ecli->buf, req->store_id.data);
+  } else {
+    list_stores(&ecli->buf);
+  }
+
+done:
+  /* setup the response */
+  listmsg.errmsg.data = errmsg;
+  listmsg.errmsg.len = errmsg ? strlen(errmsg) : 0;
+  listmsg.entries.data = ecli->buf.data;
+  listmsg.entries.len = ecli->buf.len;
+  ycl_msg_create_store_list(&ecli->msgbuf, &listmsg);
+  eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
+      ycl_msg_nbytes(&ecli->msgbuf), &after_send);
+}
+
 static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   struct store_cli *ecli = STORE_CLI(cli);
@@ -347,7 +442,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
     eds_client_set_on_readable(cli, NULL, 0);
     eds_client_set_on_writable(cli, on_enter_response, 0);
   } else if (strcmp(req.action.data, "list") == 0) {
-    /* TODO: Implement store list */
+    handle_store_list(cli, fd, &req);
   } else {
     errmsg = "invalid store action";
     goto fail;

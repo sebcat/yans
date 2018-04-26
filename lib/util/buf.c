@@ -17,6 +17,8 @@ void buf_cleanup(buf_t *buf) {
   if (buf->data != NULL) {
     free(buf->data);
     buf->data = NULL;
+    buf->cap = 0;
+    buf->len = 0;
   }
 }
 

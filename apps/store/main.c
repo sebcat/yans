@@ -278,6 +278,82 @@ ycl_cleanup:
   return result;
 }
 
+static void print_list_entries(FILE *fp, const char *data, size_t len) {
+  const char *curr;
+  size_t slen;
+
+  for (curr = data; len > 0; curr += slen + 1, len -= slen + 1) {
+    slen = strlen(curr);
+    if (slen > 0) {
+      fprintf(fp, "%s\n", curr);
+    }
+  }
+}
+
+static int run_list(const char *socket, const char *id) {
+  int result = -1;
+  int ret;
+  struct ycl_ctx ctx;
+  struct ycl_msg msg;
+  struct ycl_msg_store_req reqmsg = {{0}};
+  struct ycl_msg_store_list respmsg = {{0}};
+
+  ret = ycl_connect(&ctx, socket);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+    return -1;
+  }
+
+  ret = ycl_msg_init(&msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_init failure\n");
+    goto ycl_cleanup;
+  }
+
+  reqmsg.action.data = "list";
+  reqmsg.action.len = sizeof("list") - 1;
+  reqmsg.store_id.data = id;
+  reqmsg.store_id.len = id ? strlen(id) : 0;
+  ret = ycl_msg_create_store_req(&msg, &reqmsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+    goto ycl_msg_cleanup;
+  }
+
+  ret = ycl_sendmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  ycl_msg_reset(&msg);
+  ret = ycl_recvmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to receive enter response: %s\n",
+        ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  ret = ycl_msg_parse_store_list(&msg, &respmsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to parse store list response\n");
+    goto ycl_msg_cleanup;
+  }
+
+  if (respmsg.errmsg.len > 0) {
+    fprintf(stderr, "%s\n", respmsg.errmsg.data);
+    goto ycl_msg_cleanup;
+  }
+
+  print_list_entries(stdout, respmsg.entries.data, respmsg.entries.len);
+  result = 0;
+ycl_msg_cleanup:
+  ycl_msg_cleanup(&msg);
+ycl_cleanup:
+  ycl_close(&ctx);
+  return result;
+}
+
 static int put_main(int argc, char *argv[], int flags) {
   int ch;
   int ret;
@@ -377,6 +453,48 @@ usage:
   return EXIT_FAILURE;
 }
 
+int list_main(int argc, char *argv[]) {
+  int ch;
+  int ret;
+  const char *optstr = "hs:";
+  const char *socket = DFL_STOREPATH;
+  const char *id = NULL;
+  struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      socket = optarg;
+      break;
+    case 'h':
+    default:
+      goto usage;
+    }
+  }
+
+  if (optind + 1 < argc) {
+    id = argv[optind + 1];
+  }
+
+  ret = run_list(socket, id);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+usage:
+  fprintf(stderr, "usage: %s get [opts] [id]\n"
+      "opts:\n"
+      "  -s|--socket   store socket path (%s)\n",
+      argv[0], DFL_STOREPATH);
+  return EXIT_FAILURE;
+
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     goto usage;
@@ -388,6 +506,8 @@ int main(int argc, char *argv[]) {
     return put_main(argc, argv, O_WRONLY | O_CREAT | O_APPEND);
   } else if (strcmp(argv[1], "get") == 0) {
     return get_main(argc, argv);
+  } else if (strcmp(argv[1], "list") == 0) {
+    return list_main(argc, argv);
   }
 
   fprintf(stderr, "unknown command\n");

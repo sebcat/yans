@@ -1,6 +1,7 @@
 #ifndef CLID_STORE_H__
 #define CLID_STORE_H__
 
+#include <lib/util/buf.h>
 #include <lib/ycl/ycl.h>
 #include <lib/util/eds.h>
 
@@ -24,6 +25,7 @@ struct store_cli {
   char store_path[STORE_IDSZ + STORE_PREFIXSZ + 2]; /* "%s/%s" */
   int open_fd;
   int open_errno;
+  buf_t buf; /* scratch buffer, used for "list" action */
 };
 
 int store_init(struct eds_service *svc);

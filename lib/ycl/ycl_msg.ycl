@@ -35,7 +35,8 @@ ethframe_req {
 ##
 ## stored messages
 ##
-store_enter {
+store_req {
+  data action;
   data store_id;
 }
 

@@ -308,10 +308,10 @@ static void on_enter_response(struct eds_client *cli, int fd) {
   }
 }
 
-static void on_readenter(struct eds_client *cli, int fd) {
+static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_store_enter req = {{0}};
+  struct ycl_msg_store_req req = {{0}};
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -322,26 +322,37 @@ static void on_readenter(struct eds_client *cli, int fd) {
     goto fail;
   }
 
-  ret = ycl_msg_parse_store_enter(&ecli->msgbuf, &req);
+  ret = ycl_msg_parse_store_req(&ecli->msgbuf, &req);
   if (ret != YCL_OK) {
     errmsg = "enter request parse error";
     goto fail;
   }
 
-  if (req.store_id.data != NULL) {
-    ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
-  } else {
-    ret = create_and_enter_store(ecli);
-  }
+  if (req.action.len == 0) {
+    errmsg = "missing store action";
+    goto fail;
+  } else if (strcmp(req.action.data, "enter") == 0) {
+    if (req.store_id.data != NULL) {
+      ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
+    } else {
+      ret = create_and_enter_store(ecli);
+    }
 
-  if (ret < 0) {
-    errmsg = "unable to enter store";
+    if (ret < 0) {
+      errmsg = "unable to enter store";
+      goto fail;
+    }
+
+    LOGINFOF(fd, "entered store: %s", STORE_ID(ecli));
+    eds_client_set_on_readable(cli, NULL, 0);
+    eds_client_set_on_writable(cli, on_enter_response, 0);
+  } else if (strcmp(req.action.data, "list") == 0) {
+    /* TODO: Implement store list */
+  } else {
+    errmsg = "invalid store action";
     goto fail;
   }
 
-  LOGINFOF(fd, "entered store: %s", STORE_ID(ecli));
-  eds_client_set_on_readable(cli, NULL, 0);
-  eds_client_set_on_writable(cli, on_enter_response, 0);
   return;
 fail:
   write_err_response(cli, fd, errmsg);
@@ -363,7 +374,7 @@ void store_on_readable(struct eds_client *cli, int fd) {
     ecli->flags |= STOREFL_HASMSGBUF;
   }
 
-  eds_client_set_on_readable(cli, on_readenter, 0);
+  eds_client_set_on_readable(cli, on_readreq, 0);
   return;
 fail:
   eds_service_remove_client(cli->svc, cli);

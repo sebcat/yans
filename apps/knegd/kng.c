@@ -195,7 +195,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   char **envp = NULL;
   struct ycl_ctx ctx;
   struct ycl_msg msg;
-  struct ycl_msg_store_enter entermsg = {{0}};
+  struct ycl_msg_store_req storereqmsg = {{0}};
   struct ycl_msg_store_open openmsg = {{0}};
   struct ycl_msg_status_resp resp = {{0}};
 
@@ -227,7 +227,9 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     goto cleanup_ycl;
   }
 
-  ret = ycl_msg_create_store_enter(&msg, &entermsg);
+  storereqmsg.action.data = "enter";
+  storereqmsg.action.len = sizeof("enter")-1;
+  ret = ycl_msg_create_store_req(&msg, &storereqmsg);
   if (ret != YCL_OK) {
     *err = "enter request serialization error";
     goto cleanup_ycl_msg;

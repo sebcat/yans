@@ -393,6 +393,14 @@ static void handle_store_list(struct eds_client *cli, int fd,
   }
 
 done:
+  if (errmsg) {
+    LOGERRF(fd, "store list failure: %s", errmsg);
+  } else if (req->store_id.len > 0) {
+    LOGINFOF(fd, "listed store: %s", req->store_id.data);
+  } else {
+    LOGINFO(fd, "listed stores");
+  }
+
   /* setup the response */
   listmsg.errmsg.data = errmsg;
   listmsg.errmsg.len = errmsg ? strlen(errmsg) : 0;

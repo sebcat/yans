@@ -15,7 +15,8 @@ end
 
 function _M:enter(store_id)
   assert(not self.store_id, "attempted entering store more than once")
-  self.msgbuf:create_store_enter{
+  self.msgbuf:create_store_req{
+    action   = "enter",
     store_id = store_id,
   }
   self.sock:sendmsg(self.msgbuf)

@@ -81,7 +81,7 @@ manifest:
 		echo $(DESTDIR)$(BINDIR)/$$B; \
 	done
 	@for Y in $(YANSLIB); do \
-		echo $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#lib/yans/}; \
+		echo $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
 	done
 
 manifest-rcfiles:
@@ -97,8 +97,8 @@ install: $(nodist_BINS) $(BINS) $(YANSLIB)
 		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
     done
 	for Y in $(YANSLIB); do \
-		mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans/$$(dirname $${Y#lib/yans/}); \
-		$(INSTALL) $$Y $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#lib/yans/}; \
+		mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans/$$(dirname $${Y#data/yans/}); \
+		$(INSTALL) $$Y $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
 	done
 
 install-strip: install

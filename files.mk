@@ -6,7 +6,6 @@ include lib/util/files.mk
 include lib/lua/files.mk
 include lib/net/files.mk
 include lib/ycl/files.mk
-include lib/yans/files.mk
 include apps/stored/files.mk
 include apps/ethd/files.mk
 include apps/fc2/files.mk
@@ -18,3 +17,4 @@ include apps/dnstres/files.mk
 include apps/scgi_demo/files.mk
 include apps/sc2/files.mk
 include apps/yansapi/files.mk
+include data/yans/files.mk

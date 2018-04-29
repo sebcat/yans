@@ -18,3 +18,4 @@ include apps/scgi_demo/files.mk
 include apps/sc2/files.mk
 include apps/yansapi/files.mk
 include data/yans/files.mk
+include data/kneg/files.mk

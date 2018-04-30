@@ -1,0 +1,17 @@
+local _M = {
+  SVC_NETCONF  = "@LOCALSTATEDIR@/clid/netconf.sock",
+  SVC_RESOLVER = "@LOCALSTATEDIR@/clid/resolver.sock",
+  SVC_ETHFRAME = "@LOCALSTATEDIR@/ethd/ethframe.sock",
+  SVC_PCAP     = "@LOCALSTATEDIR@/ethd/pcap.sock",
+  SVC_STORE    = "@LOCALSTATEDIR@/stored/stored.sock",
+}
+
+setmetatable(_M, {
+  __index = function(tbl, key)
+    error(string.format("non-existant key: %s", tostring(key)))
+  end,
+  __newindex = function(tbl, key, val)
+    error("read-only table")
+  end})
+
+return _M

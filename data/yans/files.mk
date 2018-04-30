@@ -8,5 +8,7 @@ YANSLIB = \
     data/yans/svcs/netconf.yans \
     data/yans/svcs/resolver.yans \
     data/yans/svcs/store.yans \
-    data/yans/japi.yans
+    data/yans/japi.yans \
+    data/yans/ycfg.yans
 
+CODEGEN += data/yans/ycfg.yans

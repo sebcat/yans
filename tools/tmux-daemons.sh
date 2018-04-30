@@ -14,6 +14,7 @@ fi
 if [ ! -d ./lel ]; then
   mkdir ./lel || die "failed to create ./lel"
 fi
+mkdir -p ./lel/clid ./lel/stored ./lel/knegd ./lel/ethd
 
 MAYBE_VALGRIND=
 if [ "$USE_VALGRIND" = 1 ]; then
@@ -22,12 +23,12 @@ if [ "$USE_VALGRIND" = 1 ]; then
 fi
 
 tmux new-session -s "yansd" -d $MAYBE_VALGRIND \
-    ./apps/ethd/ethd -n -b "$(pwd)/lel"
+    ./apps/ethd/ethd -n
 # clid uses syscalls not implemented in some versions of valgrind
-tmux split-window -v -p 75 ./apps/clid/clid -n -b "$(pwd)/lel"
+tmux split-window -v -p 75 ./apps/clid/clid -n
 tmux split-window -v -p 66 $MAYBE_VALGRIND \
-    ./apps/stored/stored -n -b "$(pwd)/lel"
+    ./apps/stored/stored -n
 tmux split-window -v -p 50 $MAYBE_VALGRIND \
-    ./apps/knegd/knegd -n -b "$(pwd)/lel"
+    ./apps/knegd/knegd -n
 tmux -2 attach-session -d
 

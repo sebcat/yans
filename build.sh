@@ -32,6 +32,7 @@ elif [ "$BUILDTYPE" = dev ]; then
   export CFLAGS=$CFLAGS_dev
   export LDFLAGS=$LDFLAGS_dev
   export DATAROOTDIR=$(pwd)/data
+  export LOCALSTATEDIR=$(pwd)/lel
 else
   die "invalid build type"
 fi

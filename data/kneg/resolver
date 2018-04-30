@@ -1,10 +1,11 @@
 #!/usr/bin/env yans
-Store = require "svcs.store"
-Resolver = require "svcs.resolver"
+Store = require"svcs.store"
+Resolver = require"svcs.resolver"
+YCFG = require"ycfg"
 
 msgbuf = yans.ycl.msgbuf()
-store = Store:new{path="/var/stored/stored.sock", msgbuf = msgbuf}
-resolver = Resolver:new{path="/var/clid/resolver.sock", store=store, msgbuf=msgbuf}
+store = Store:new{path=YCFG.SVC_STORE, msgbuf = msgbuf}
+resolver = Resolver:new{path=YCFG.SVC_RESOLVER, store=store, msgbuf=msgbuf}
 
 yans.util.sandbox() -- enter sandbox
 

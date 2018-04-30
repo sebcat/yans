@@ -1,23 +1,20 @@
 
 local _M = {
-  SVC_NETCONF = "/var/clid/netconf.sock",
-  SVC_ETHFRAME = "/var/ethd/ethframe.sock",
-  SVC_PCAP = "/var/ethd/pcap.sock",
-  SVC_STORE = "/var/stored/stored.sock",
   PPS = 300,
 }
 
 local Netconf = require"svcs.netconf"
-local Store = require "svcs.store"
+local Store = require"svcs.store"
+local YCFG = require"ycfg"
 
 function _M:new(o)
   o = o or {}
   local ycl = yans.ycl
   o.msgbuf = ycl.msgbuf()
-  o.netconf = Netconf:new{path = self.SVC_NETCONF, msgbuf = o.msgbuf}
-  o.store = Store:new{path = self.SVC_STORE, msgbuf = o.msgbuf}
-  o.ethframe_sock = ycl.connect(self.SVC_ETHFRAME)
-  o.pcap_sock = ycl.connect(self.SVC_PCAP)
+  o.netconf = Netconf:new{path = YCFG.SVC_NETCONF, msgbuf = o.msgbuf}
+  o.store = Store:new{path = YCFG.SVC_STORE, msgbuf = o.msgbuf}
+  o.ethframe_sock = ycl.connect(YCFG.SVC_ETHFRAME)
+  o.pcap_sock = ycl.connect(YCFG.SVC_PCAP)
   setmetatable(o, self)
   self.__index = self
   return o

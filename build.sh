@@ -9,8 +9,7 @@ CFLAGS_release="-Os -pipe -fvisibility=hidden \
 LDFLAGS_release="-Wl,--gc-sections"
 # -Wl,--build-id=none
 
-CFLAGS_dev="-O0 -g -pipe -DYANS_DEBUG -fsanitize=address \
--fstack-protector-strong"
+CFLAGS_dev="-O0 -g -pipe -fsanitize=address -fstack-protector-strong"
 LDFLAGS_dev=""
 
 die() {
@@ -32,6 +31,7 @@ if [ "$BUILDTYPE" = release ]; then
 elif [ "$BUILDTYPE" = dev ]; then
   export CFLAGS=$CFLAGS_dev
   export LDFLAGS=$LDFLAGS_dev
+  export DATAROOTDIR=$(pwd)/data
 else
   die "invalid build type"
 fi

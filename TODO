@@ -20,7 +20,6 @@
   - interfaces and stuff are loaded at boot, may change during uptime
 
 ## lua
-  - get rid of YANS_DEBUG, setup path names to point in the repo instead
   - receive/transmit buffers for fd
   - event driven poll
   - callback system in lua, similar to eds. on_next_fd, on_readable,

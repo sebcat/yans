@@ -24,18 +24,17 @@
 #define YREPL_CONTP   "    "
 #define YREPL_SHIST   "/s "
 
+/* if DATAROOTDIR is not defined, define it as something non-existant so that
+ * we don't accidentally load/require modules from an unexpected location
+ * e.g., /usr/local/share on in-tree development builds */
 #ifndef DATAROOTDIR
 #define DATAROOTDIR "/666noexist"
 #endif
 
-#ifdef YANS_DEBUG
-#define YANS_PATH "./lib/yans/?.yans;./lib/yans/?/init.yans"
-#else
 #ifndef YANS_PATH
 #define YANS_PATH DATAROOTDIR "/yans/?.yans;" \
     DATAROOTDIR "/yans/?/init.yans;" \
     "./?.yans;./?/init.yans"
-#endif
 #endif
 
 

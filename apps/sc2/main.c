@@ -276,7 +276,7 @@ static int sc2_serve(struct sc2_ctx *ctx) {
     sc2_check_procs(ctx);
     sc2_reset_reaped(ctx);
 
-    /* break the main loop on reqested termination */
+    /* break the main loop on requested termination */
     if (term_) {
       break;
     }
@@ -548,7 +548,7 @@ static int serve(struct opts *opts) {
   sa.sa_handler = &on_term;
   sigaction(SIGTERM, &sa, 0);
   sigaction(SIGHUP, &sa, 0);
-  sigaction(SIGTERM, &sa, 0);
+  sigaction(SIGINT, &sa, 0);
 
   ret = sc2_init(&ctx, &opts->sc2, fd);
   if (ret != SC2_OK) {

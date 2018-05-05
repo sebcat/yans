@@ -11,6 +11,7 @@
 #include <lib/lua/json.h>
 #include <lib/lua/cgi.h>
 #include <lib/lua/scgi.h>
+#include <lib/lua/sc2.h>
 #include <lib/lua/file.h>
 #include <lib/lua/opts.h>
 #include <lib/lua/ylog.h>
@@ -136,6 +137,7 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
     {"http", luaopen_http},
     {"cgi", luaopen_cgi},
     {"scgi", luaopen_scgi},
+    {"sc2", luaopen_sc2},
     {"file", luaopen_file},
     {"opts", luaopen_opts},
     {"ylog", luaopen_ylog},

@@ -59,7 +59,7 @@ int io_listen_unix(io_t *io, const char *path) {
   }
   saddr.sun_family = AF_UNIX;
   snprintf(saddr.sun_path, sizeof(saddr.sun_path), "%s", path);
-  unlink(saddr.sun_path);
+  unlink(saddr.sun_path); /* TODO: Only do this if path == existing socket */
   if (bind(fd, (struct sockaddr*)&saddr, sizeof(saddr)) < 0) {
     IO_PERROR(io, "bind");
     goto fail_close;

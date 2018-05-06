@@ -27,6 +27,7 @@
 #define PARAM_RLIMIT_CPU  "rlimit_cpu"
 #define PARAM_SERVEFUNC   "servefunc"
 #define PARAM_DONEFUNC    "donefunc"
+#define PARAM_ERRFUNC     "errfunc"
 
 /** struct sc2_child flags */
 /* indicates that the child has been waited for, and its exit status and
@@ -123,17 +124,29 @@ static void sc2_check_procs() {
 static void sc2_reset_reaped(lua_State *L) {
   int i;
   struct sc2_child *child;
+  double duration;
+  struct timespec delta;
 
   for (i = 0; i < max_children_; i++) {
     child = &children_[i];
     if (child->flags & SC2CHLD_WAITED) {
-      /* TODO: Call donefunc */
-      printf("done\n");
-#if 0
-        struct timespec delta;
-        delta = timespec_delta(child->started, child->completed);
-        ctx->opts.on_reaped(child->pid, child->status, &delta);
-#endif
+      delta = timespec_delta(child->started, child->completed);
+      duration = (double)delta.tv_sec + (double)delta.tv_nsec / 1e9;
+      lua_getfield(L, -1, PARAM_DONEFUNC);
+      lua_pushinteger(L, child->pid);
+      lua_pushnumber(L, duration);
+      if (WIFEXITED(child->status)) {
+        lua_pushliteral(L, "exit");
+        lua_pushinteger(L, WEXITSTATUS(child->status));
+      } else if (WIFSIGNALED(child->status)) {
+        lua_pushliteral(L, "signal");
+        lua_pushinteger(L, WTERMSIG(child->status));
+      } else {
+        lua_pushnil(L);
+        lua_pushnil(L);
+      }
+
+      lua_call(L, 4, 0);
       active_children_--;
       child->pid = 0;
       child->flags &= ~(SC2CHLD_WAITED);
@@ -177,9 +190,16 @@ static int l_sc2_serve_incoming(lua_State *L) {
     dup2(cli, STDERR_FILENO);
     close(cli);
     close(cmdfd_);
-    /* TODO: call servefunc, exit 0 on no error, 1 with error and log it */
-    printf("serve\n");
-    exit(1);
+    lua_getfield(L, -1, PARAM_SERVEFUNC);
+    ret = lua_pcall(L, 0, 0, 0);
+    if (ret != LUA_OK) {
+      /* servefunc failed, call errfunc with the error object and exit */
+      lua_getfield(L, -2, PARAM_ERRFUNC); /* o err -- o err func */
+      lua_pushvalue(L, -2);               /* o err func -- o err func err */
+      lua_pcall(L, 1, 0, 0);
+      exit(1);
+    }
+    exit(0);
   }
 
   close(cli);
@@ -282,9 +302,11 @@ static void sc2arg_required(lua_State *L, int index, const char *name,
  *                  to DEFAULT_RLIMIT_VMEM
  *   - rlimit_cpu: optional, child RLIMIT_CPU, in seconds. Defaults to
  *                 DEFAULT_RLIMIT_CPU
- *   - servefunc: required, fn(o). Called in child for each accepted client.
- *   - donefunc: required, fn(o). Called in parent on successful/failed
- *               request
+ *   - servefunc: required, fn(). Called in child for each accepted client.
+ *   - donefunc: required, fn(pid,duration,cause,code). Called in parent on
+ *               successful/failed request
+ *   - errfunc: required, fn(err). Called in child on Lua error in pcall to
+ *              servefunc.
  */
 static void validate_sc2_opts(lua_State *L) {
   size_t i;
@@ -295,6 +317,7 @@ static void validate_sc2_opts(lua_State *L) {
     {PARAM_PATH, LUA_TSTRING},
     {PARAM_SERVEFUNC, LUA_TFUNCTION},
     {PARAM_DONEFUNC, LUA_TFUNCTION},
+    {PARAM_ERRFUNC, LUA_TFUNCTION},
     {NULL, 0},
   };
   static const struct {

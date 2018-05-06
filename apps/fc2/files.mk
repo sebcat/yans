@@ -18,4 +18,4 @@ fc2_OBJS = ${fc2_SOURCES:.c=.o}
 fc2_BIN = apps/fc2/fc2
 
 OBJS += $(fc2_OBJS)
-BINS += $(fc2_BIN)
+nodist_BINS += $(fc2_BIN)

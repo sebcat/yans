@@ -9,6 +9,7 @@ yans_DEPS = \
     lib/util/reorder.c \
     lib/util/u8.c \
     lib/util/eds.c \
+    lib/util/os.c \
     lib/util/sandbox.c \
     lib/util/netstring.c \
     lib/util/zfile.c \

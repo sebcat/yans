@@ -157,7 +157,8 @@ int os_daemon_remove_pidfile(os_t *os, struct os_daemon_opts *opts) {
   snprintf(buf, sizeof(buf), "%.*s.pid", (int)sizeof(buf)-8, opts->name);
   ret = unlink(buf);
   if (ret < 0) {
-    os_setpatherr(os, "unlink", opts->path, "%s", strerror(errno));
+    os_setpatherr(os, "unlink", opts->path ? opts->path : "",
+        "%s", strerror(errno));
     goto fail;
   }
 

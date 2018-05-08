@@ -1,53 +1,88 @@
 #!/usr/bin/env yans
+local JAPI = require "japi"
+local DAEMON_NAME = "yansapi"
 
-JAPI = require"japi"
-
--- These are loaded to allow eval-ed code to use services in sandbox mode
-msgbuf = yans.ycl.msgbuf()
-Store = require"svcs.store":new{path="/var/stored/stored.sock", msgbuf = msgbuf}
-
-local function post_eval(ctx)
-  -- response values
-  local success_result = false
-  local data_result = nil
-
-  -- make sure the header is written to avoid header injection.
-  -- ideally, we should probably eval stuff in a child proc and just capture
-  -- stdio, but in-handler eval with sandbox is always more fun.
-  ctx:send_header_once()
-
-  -- load, pcall code. There are multiple problems with this, including but
-  -- not limited to:
-  --   * if we print/write stuff to stderr/stdout we fuck up the response
-  --   * we need to return expression results (i.e. return 1+1 and not 1+1)
-  local req = ctx.req_body
-  if req and req.data then
-    local func, err = load(req.data)
-    if func then
-      local thingies, tmp = table.pack(pcall(func)), {}
-      success_result = thingies[1]
-      for i = 2, #thingies do
-        table.insert(tmp, tostring(thingies[i]))
-      end
-      data_result = table.concat(tmp, "\t")
-    else
-      success_result, data_result = false, err
-    end
-  end
-
-  local resp = json.from_str"{}"
-  resp["success"] = success_result
-  resp["data"] = data_result
-  ctx:write(tostring(resp))
-end
-
-local function get_foo(ctx)
+local function get_ok(ctx)
   ctx:status"200 OK"
-  ctx:header("X-SuperHax", "lol")
-  ctx:write"{}"
+  ctx:header("X-SuperHax", "foo")
+  ctx:write'{"data":"foo"}'
 end
 
-JAPI:dispatch{
-  ["GET /trololo/foo"] = get_foo,
-  ["POST /trololo/eval"] = post_eval,
+local function get_fail(ctx)
+  error("you suck")
+end
+
+JAPI:routes{
+  ["GET /trololo/ok"] = get_ok,
+  ["GET /trololo/fail"] = get_fail,
 }
+
+-- parse command line options as parameters
+local p = yans.opts:new()
+p:str("user", "u", "daemon user")
+p:str("group", "g", "daemon group")
+p:str("basepath", "b", "daemon basepath")
+p:flag("no-daemon", "n", "do not daemonize")
+p:flag("help", "h", "this text")
+local params = p:parse(args)
+if params.help then
+  io.stdout:write(p:usage())
+  os.exit(1)
+end
+
+-- set default parameter values
+params.user = params.user or "yansapi"
+params.group = params.group or "yans"
+params.basepath = params.basepath or "/var/yansapi"
+
+-- since the daemon chroots, the paths will be different
+local serve_path
+if params["no-daemon"] then
+  serve_path = params.basepath.."/"..DAEMON_NAME..".sock"
+else
+  serve_path = DAEMON_NAME".sock"
+end
+
+-- create the sc2 server
+local server = {
+  path = serve_path,
+  servefunc = function()
+    JAPI:dispatch()
+  end,
+  donefunc = function(pid, duration, cause, code)
+    local fmt = "served request pid:%d duration:%fs %s %d"
+    local msg = string.format(fmt, pid, duration, cause, code)
+    if cause == "exit" and code == 0 then
+      yans.ylog.info(msg)
+    else
+      yans.ylog.error(msg)
+    end
+  end,
+  errfunc = function(err)
+    yans.ylog.error("serve error: %s", tostring(err))
+  end,
+}
+
+-- Initialize the logging and daemonize, if we're to run as a daemon
+if params["no-daemon"] then
+  -- NB: This means serve errors will end up being sent to the client since
+  --     the connection in the child is duped to stderr
+  yans.ylog.init(DAEMON_NAME, yans.ylog.STDERR)
+else
+  yans.ylog.init(DAEMON_NAME, yans.ylog.SYSLOG)
+  yans.util.daemonize(DAEMON_NAME, params.basepath, params.user, params.group)
+end
+
+-- OK, let's do this!
+yans.ylog.info("Starting "..DAEMON_NAME)
+local serve_ok, serve_err = pcall(yans.sc2.serve, server)
+
+-- Remove the PID-file if we're in daemon mode
+if not params["no-daemon"] then
+  yans.util.daemon_remove_pidfile(DAEMON_NAME, params.basepath)
+end
+
+-- Error out if sc2.serve failed
+if not serve_ok then
+  error(serve_err)
+end

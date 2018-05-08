@@ -14,7 +14,7 @@ function _M:croak(status, reason)
   io.stdout:write(string.format("Status: %s\r\nX-Reason: %s\r\n\r\n", status,
       reason))
   self:flush()
-  os.exit(0)
+  os.exit(1)
 end
 
 function _M:status(s)
@@ -55,9 +55,18 @@ function _M:write(data)
   io.stdout:write(data)
 end
 
-function _M:dispatch(routes)
+function _M:routes(r)
+  self.route_table = r
+end
+
+function _M:dispatch()
   -- enter sandbox
   yans.util.sandbox()
+
+  --make sure we have a route table
+  if not self.route_table then
+    self:croak(self.SERVER_ERROR, "no route table")
+  end
 
   -- read the request headers and body
   local ok, hdrs, body = pcall(yans.scgi.read_request)
@@ -102,7 +111,8 @@ function _M:dispatch(routes)
   end
 
   -- resolve the handler for the request, if any
-  local handler = routes[string.format("%s %s", request_method, document_uri)]
+  local route_key = string.format("%s %s", request_method, document_uri)
+  local handler = self.route_table[route_key]
   if not handler then
     self:croak(self.NOT_FOUND, "no handler")
   end

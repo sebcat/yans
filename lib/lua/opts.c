@@ -18,6 +18,7 @@ enum opt_type {
   OPTT_INT,
 };
 
+/* type representing all the options, used as Lua userdata */
 struct opts {
   size_t nopts;
   size_t cap;
@@ -27,10 +28,11 @@ struct opts {
   char **descs;
 };
 
+/* type representing an option to be added to the set of options */
 struct optsargs {
-  const char *longname;
-  const char *desc;
-  char shortname;
+  const char *longname; /* required: long option name */
+  const char *desc;     /* required: description */
+  char shortname;       /* required: short option name */
 };
 
 static int opts_findshortname(struct opts *opts, char shortname) {
@@ -201,6 +203,9 @@ static void l_optsargs(lua_State *L, enum opt_type t) {
   struct optsargs args = {0};
   struct opts *opts = checkopts(L, 1);
   args.longname = luaL_checkstring(L, 2);
+  if (args.longname[0] == '\0') {
+    luaL_error(L, "empty long option");
+  }
   tmp = luaL_checkstring(L, 3);
   if (tmp[0] == '\0') {
     luaL_error(L, "empty short option");

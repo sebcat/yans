@@ -1,3 +1,7 @@
+- create PID files outside of chroot
+- have remove_pidfile function take a path
+- remove \r\n\t\0 from all headers set in japi/yansapi
+
 ## subject
   - A subject is one IP(v4/v6) address reachable from a certain NIC with a
     specific hardware address as the next hop (which may or may not be the

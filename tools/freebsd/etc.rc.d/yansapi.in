@@ -1,0 +1,46 @@
+#!/bin/sh
+# PROVIDE: yansapi
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the user:
+#   pw useradd yansapi -d /nonexistent -g yans -s /usr/sbin/nologin
+#
+# Add the yansgroup if not already present
+#   pw groupadd yans
+#
+#   pw -R <rootdir> ... for images/buildroots/jails
+#
+# The daemon drops user privs itself, which is why yansapi_user, yansapi_group
+# is not used
+: ${yansapi_enable:="no"}
+: ${yansapi_duser:="yansapi"}
+: ${yansapi_dgroup:="yans"}
+: ${yansapi_basepath:="@LOCALSTATEDIR@/yans"}
+
+name="yansapi"
+rcvar="yansapi_enable"
+command="@BINDIR@/${name}"
+command_args="-u ${yansapi_duser} -g ${yansapi_dgroup} -b ${yansapi_basepath}"
+command_interpreter="yans"
+start_precmd="yansapi_precmd"
+pidfile="${yansapi_basepath}/yansapi.pid"
+
+yansapi_precmd()
+{
+  install -m 775 -o root -g yans -d "${yansapi_basepath}" || {
+    err 1 "Failed to create ${yansapi_basepath}"
+  }
+
+  return 0
+}
+
+load_rc_config $name
+
+# FIXME: yansapi is shebanged with #!/usr/bin/env looking for yans, and
+#        /usr/local/bin is not a part of PATH at this point
+PATH="${PATH}:/usr/local/bin" ; export PATH
+
+run_rc_command "$1"

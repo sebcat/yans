@@ -9,7 +9,7 @@ local function get_ok(ctx)
 end
 
 local function get_fail(ctx)
-  error("you suck")
+  error("fail")
 end
 
 JAPI:routes{

@@ -23,7 +23,7 @@ tools/freebsd/etc.rc.d/knegd: tools/freebsd/etc.rc.d/knegd.in
 		-e "s,@DATAROOTDIR@,$(DATAROOTDIR)," \
 		< $@.in > $@;
 
-tools/freebsd/etc.rc.d/sc2: tools/freebsd/etc.rc.d/sc2.in
+tools/freebsd/etc.rc.d/yansapi: tools/freebsd/etc.rc.d/yansapi.in
 	sed -e "s,@BINDIR@,$(BINDIR)," \
 		-e "s,@LOCALSTATEDIR@,$(LOCALSTATEDIR)," \
 		-e "s,@DATAROOTDIR@,$(DATAROOTDIR)," \

@@ -21,7 +21,7 @@
 #define LOCALSTATEDIR "/var"
 #endif
 
-#define DFL_STORESOCK LOCALSTATEDIR "/stored/stored.sock"
+#define DFL_STORESOCK LOCALSTATEDIR "/yans/stored/stored.sock"
 
 
 struct kng_cli {

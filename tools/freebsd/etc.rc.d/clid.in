@@ -6,7 +6,7 @@
 . /etc/rc.subr
 
 # Creating the user:
-#   pw useradd clid -d @LOCALSTATEDIR@/clid -g yans -s /usr/sbin/nologin
+#   pw useradd clid -d /nonexistent -g yans -s /usr/sbin/nologin
 #
 # Add the yansgroup if not already present
 #   pw groupadd yans
@@ -18,29 +18,25 @@
 : ${clid_enable:="no"}
 : ${clid_duser:="clid"}
 : ${clid_dgroup:="yans"}
+: ${ystatedir:="@LOCALSTATEDIR@/yans"}
+: ${clid_basepath:="${ystatedir}/clid"}
 
 name="clid"
 rcvar="clid_enable"
-command="@BINDIR@/clid"
-command_args="-u ${clid_duser} -g ${clid_dgroup} -b @LOCALSTATEDIR@/clid"
+command="@BINDIR@/${name}"
+command_args="-u '${clid_duser}' -g '${clid_dgroup}' -b '${clid_basepath}'"
 start_precmd="clid_precmd"
-pidfile="@LOCALSTATEDIR@/clid/clid.pid"
+pidfile="${clid_basepath}/clid.pid"
 
 clid_precmd()
 {
-  # this is needed for /dev/null
-  if [ ! -d "@LOCALSTATEDIR@/clid" ]; then
-    mkdir -p "@LOCALSTATEDIR@/clid"
-  fi
-
-  chmod 770 "@LOCALSTATEDIR@/clid" || {
-    warn "Failed to set correct permissions of @LOCALSTATEDIR@/clid"
-    return 1
+  install -m 775 -o root -g yans -d "${ystatedir}" || {
+    err 1 "Failed to create ${ystatedir}"
   }
 
-  chown "${clid_duser}:${clid_dgroup}" "@LOCALSTATEDIR@/clid" || {
-    warn "Failed to set correct ownership of @LOCALSTATEDIR@/clid"
-    return 1
+  install -m 770 -o "${clid_duser}" -g "${clid_dgroup}" \
+      -d "${clid_basepath}" || {
+    err 1 "Failed to create ${clid_basepath}"
   }
 
   return 0

@@ -6,7 +6,7 @@
 . /etc/rc.subr
 
 # Creating the user:
-#   pw useradd stored -d @LOCALSTATEDIR@/stored -g yans -s /usr/sbin/nologin
+#   pw useradd stored -d /nonexistent -g yans -s /usr/sbin/nologin
 #
 # Add the yansgroup if not already present
 #   pw groupadd yans
@@ -18,31 +18,25 @@
 : ${stored_enable:="no"}
 : ${stored_duser:="stored"}
 : ${stored_dgroup:="yans"}
+: ${ystatedir:="@LOCALSTATEDIR@/yans"}
+: ${stored_basepath:="${ystatedir}/stored"}
 
 name="stored"
 rcvar="stored_enable"
-command="@BINDIR@/stored"
-command_args="-u ${stored_duser} -g ${stored_dgroup} -b @LOCALSTATEDIR@/stored"
+command="@BINDIR@/${name}"
+command_args="-u ${stored_duser} -g ${stored_dgroup} -b '${stored_basepath}'"
 start_precmd="stored_precmd"
-pidfile="@LOCALSTATEDIR@/stored/stored.pid"
+pidfile="${stored_basepath}/stored.pid"
 
 stored_precmd()
 {
-  if [ ! -d "@LOCALSTATEDIR@/stored" ]; then
-    mkdir -p "@LOCALSTATEDIR@/stored" || {
-      warn "Failed to create stored directory"
-      return 1
-    }
-  fi
-
-  chmod 770 "@LOCALSTATEDIR@/stored" || {
-    warn "Failed to set correct permissions of @LOCALSTATEDIR@/stored"
-    return 1
+  install -m 775 -o root -g yans -d "${ystatedir}" || {
+    err 1 "Failed to create ${ystatedir}"
   }
 
-  chown "${stored_duser}:${stored_dgroup}" "@LOCALSTATEDIR@/stored" || {
-    warn "Failed to set correct ownership of @LOCALSTATEDIR@/stored"
-    return 1
+  install -m 770 -o "${stored_duser}" -g "${stored_dgroup}" \
+      -d "${stored_basepath}" || {
+    err 1 "Failed to create ${stored_basepath}"
   }
 
   return 0

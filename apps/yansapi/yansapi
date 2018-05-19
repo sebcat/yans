@@ -33,14 +33,14 @@ end
 -- set default parameter values
 params.user = params.user or "yansapi"
 params.group = params.group or "yans"
-params.basepath = params.basepath or "/var/yansapi"
+params.basepath = params.basepath or "/var/yans"
 
 -- since the daemon chroots, the paths will be different
 local serve_path
 if params["no-daemon"] then
   serve_path = params.basepath.."/"..DAEMON_NAME..".sock"
 else
-  serve_path = DAEMON_NAME".sock"
+  serve_path = DAEMON_NAME..".sock"
 end
 
 -- create the sc2 server

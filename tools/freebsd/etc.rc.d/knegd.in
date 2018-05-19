@@ -6,7 +6,7 @@
 . /etc/rc.subr
 
 # Creating the user:
-#   pw useradd knegd -d @LOCALSTATEDIR@/knegd -g yans -s /usr/sbin/nologin
+#   pw useradd knegd -d /nonexistent -g yans -s /usr/sbin/nologin
 #
 # Add the yansgroup if not already present
 #   pw groupadd yans
@@ -18,31 +18,25 @@
 : ${knegd_enable:="no"}
 : ${knegd_duser:="knegd"}
 : ${knegd_dgroup:="yans"}
+: ${ystatedir:="@LOCALSTATEDIR@/yans"}
+: ${knegd_basepath:="${ystatedir}/knegd"}
 
 name="knegd"
 rcvar="knegd_enable"
-command="@BINDIR@/knegd"
-command_args="-u ${knegd_duser} -g ${knegd_dgroup} -b @LOCALSTATEDIR@/knegd"
+command="@BINDIR@/${name}"
+command_args="-u '${knegd_duser}' -g '${knegd_dgroup}' -b '${knegd_basepath}'"
 start_precmd="knegd_precmd"
-pidfile="@LOCALSTATEDIR@/knegd/knegd.pid"
+pidfile="${knegd_basepath}/knegd.pid"
 
 knegd_precmd()
 {
-  if [ ! -d "@LOCALSTATEDIR@/knegd" ]; then
-    mkdir -p "@LOCALSTATEDIR@/knegd" || {
-      warn "Failed to create knegd directory"
-      return 1
-    }
-  fi
-
-  chmod 770 "@LOCALSTATEDIR@/knegd" || {
-    warn "Failed to set correct permissions of @LOCALSTATEDIR@/knegd"
-    return 1
+  install -m 775 -o root -g yans -d "${ystatedir}" || {
+    err 1 "Failed to create ${ystatedir}"
   }
 
-  chown "${knegd_duser}:${knegd_dgroup}" "@LOCALSTATEDIR@/knegd" || {
-    warn "Failed to set correct ownership of @LOCALSTATEDIR@/knegd"
-    return 1
+  install -m 770 -o "${knegd_duser}" -g "${knegd_dgroup}" \
+      -d "${knegd_basepath}" || {
+    err 1 "Failed to create ${knegd_basepath}"
   }
 
   return 0

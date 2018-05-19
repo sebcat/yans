@@ -1,9 +1,9 @@
 local _M = {
-  SVC_NETCONF  = "@LOCALSTATEDIR@/clid/netconf.sock",
-  SVC_RESOLVER = "@LOCALSTATEDIR@/clid/resolver.sock",
-  SVC_ETHFRAME = "@LOCALSTATEDIR@/ethd/ethframe.sock",
-  SVC_PCAP     = "@LOCALSTATEDIR@/ethd/pcap.sock",
-  SVC_STORE    = "@LOCALSTATEDIR@/stored/stored.sock",
+  SVC_NETCONF  = "@LOCALSTATEDIR@/yans/clid/netconf.sock",
+  SVC_RESOLVER = "@LOCALSTATEDIR@/yans/clid/resolver.sock",
+  SVC_ETHFRAME = "@LOCALSTATEDIR@/yans/ethd/ethframe.sock",
+  SVC_PCAP     = "@LOCALSTATEDIR@/yans/ethd/pcap.sock",
+  SVC_STORE    = "@LOCALSTATEDIR@/yans/stored/stored.sock",
 }
 
 setmetatable(_M, {

@@ -13,7 +13,7 @@
 #define LOCALSTATEDIR "/var"
 #endif
 
-#define DFL_STOREPATH LOCALSTATEDIR "/stored/stored.sock"
+#define DFL_STOREPATH LOCALSTATEDIR "/yans/stored/stored.sock"
 
 static char databuf_[32768]; /* get/put buffer */
 

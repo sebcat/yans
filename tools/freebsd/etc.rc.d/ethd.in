@@ -6,7 +6,7 @@
 . /etc/rc.subr
 
 # Creating the user:
-#   pw useradd ethd -d @LOCALSTATEDIR@/ethd -g yans -s /usr/sbin/nologin
+#   pw useradd ethd -d /nonexistent  -g yans -s /usr/sbin/nologin
 #
 # Add the yansgroup if not already present
 #   pw groupadd yans
@@ -18,6 +18,8 @@
 : ${ethd_enable:="no"}
 : ${ethd_duser:="ethd"}
 : ${ethd_dgroup:="yans"}
+: ${ystatedir:="@LOCALSTATEDIR@/yans"}
+: ${ethd_basepath:="${ystatedir}/ethd"}
 
 # devfs needs to be mounted inside the chroot of ethd so that
 # it is possible for ethd to access the bpf device. The ID
@@ -29,41 +31,58 @@
 # example ruleset:
 #   [ethdrules=67]
 #   add hide
-#   add path bpf mode 660 unhide
+#   add path bpf user ethd mode 600 unhide
 : ${ethd_devfs_ruleset:=""}
 
 name="ethd"
 rcvar="ethd_enable"
-command="@BINDIR@/ethd"
-command_args="-u ${ethd_duser} -g ${ethd_dgroup} -b @LOCALSTATEDIR@/ethd"
+command="@BINDIR@/${name}"
+command_args="-u '${ethd_duser}' -g '${ethd_dgroup}' -b '${ethd_basepath}'"
 start_precmd="ethd_precmd"
-pidfile="@LOCALSTATEDIR@/ethd/ethd.pid"
+pidfile="${ethd_basepath}/ethd.pid"
+
+mountpoint_is_type() {
+  local _ mountpoint fstype
+  while read -r _ mountpoint fstype _; do
+    if [ "$1" = "$mountpoint" -a "$2" = "$fstype" ]; then
+      return 0
+    fi
+  done <<EOF
+  $(mount -p)
+EOF
+  return 1
+}
 
 ethd_precmd()
 {
-  if [ ! -d "@LOCALSTATEDIR@/ethd/dev" ]; then
-    mkdir -p "@LOCALSTATEDIR@/ethd/dev"
-  fi
+  [ -z "${ethd_devfs_ruleset}" ] && err 1 "No devfs ruleset for ethd"
 
-  # really not sure about this one
-  mount -t devfs devfs @LOCALSTATEDIR@/ethd/dev || {
-    warn "unable to mount devfs"
-    return 1
+  install -m 775 -o root -g yans -d "${ystatedir}" || {
+    err 1 "Failed to create ${ystatedir}"
   }
 
-  chmod 770 @LOCALSTATEDIR@/ethd || {
-    warn "Failed to set correct permissions of @LOCALSTATEDIR@/ethd"
-    return 1
+  install -m 750 -o "${ethd_duser}" -g "${ethd_dgroup}" \
+      -d "${ethd_basepath}" || {
+    err 1 "Failed to create ${clid_basepath}"
   }
 
-  chown "${ethd_duser}:${ethd_dgroup}" @LOCALSTATEDIR@/ethd || {
-    warn "Failed to set correct ownership of @LOCALSTATEDIR@/ethd"
-    return 1
+  # create the devfs mountpoint for bpf device
+  install -m 750 -o "${ethd_duser}" -g "${ethd_dgroup}" \
+      -d "${ethd_basepath}/dev" || {
+    err 1 "Failed to create ${clid_basepath}/dev"
   }
 
-  chown "${ethd_duser}:${ethd_dgroup}" @LOCALSTATEDIR@/ethd/dev/bpf || {
-    warn "Failed to chown bpf device for ethd"
-    return 1
+  # mount devfs if not already mounted
+  mountpoint_is_type "${ethd_basepath}/dev" devfs || {
+    mount -t devfs -o "ruleset=${ethd_devfs_ruleset}" devfs \
+        "${ethd_basepath}/dev" || {
+      err 1 "Failed to mount ethd devfs"
+    }
+
+    # sanity check devfs rule: nonexistent rulesets means mounting with the
+    # default one
+    [ -e "${ethd_basepath}/dev/mem" -o -e "${ethd_basepath}/dev/kmem" ] &&
+      err 1 "a too permissive devfs is mounted for ethd"
   }
 
   return 0

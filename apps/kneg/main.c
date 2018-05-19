@@ -13,7 +13,7 @@
 #define LOCALSTATEDIR "/var"
 #endif
 
-#define DFL_KNEGDSOCK LOCALSTATEDIR "/knegd/knegd.sock"
+#define DFL_KNEGDSOCK LOCALSTATEDIR "/yans/knegd/knegd.sock"
 #define TARGET_BUFSZ 1024 /* initial target buffer size */
 
 struct subcmd {

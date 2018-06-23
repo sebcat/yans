@@ -28,12 +28,16 @@ YANSLIB =
 # kneg library files, installed to $(DATAROOTDIR)/kneg
 KNEGLIB =
 
+# Yans web front-end, installed to $(DATAROOTDIR)/yans-fe
+YANS_FE =
+
 # Section 1 man pages
 MANPAGES1 =
 
 UNAME_S != uname -s
 INSTALL = install
 STRIP = strip -s
+PACKAGE_VERSION != ./version.sh
 
 DESTDIR ?=
 RCFILESDIR ?= /usr/local/etc/rc.d
@@ -89,6 +93,9 @@ manifest:
 	@for K in $(KNEGLIB); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
 	done
+	@for K in $(YANS_FE); do \
+		echo $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
+	done
 
 manifest-rcfiles:
 	@for RC in $(RCFILES) $(GENERATED_RCFILES); do \
@@ -96,10 +103,11 @@ manifest-rcfiles:
 		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
-install: $(nodist_BINS) $(BINS) $(YANSLIB) $(KNEGLIB)
+install: $(nodist_BINS) $(BINS) $(YANSLIB) $(KNEGLIB) $(YANS_FE)
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg
+	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans-fe
 	for B in $(BINS) $(script_BINS); do \
 		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
     done
@@ -109,6 +117,9 @@ install: $(nodist_BINS) $(BINS) $(YANSLIB) $(KNEGLIB)
 	done
 	for K in $(KNEGLIB); do \
 		$(INSTALL) $$K $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
+	done
+	for K in $(YANS_FE); do \
+		$(INSTALL) $$K $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
 	done
 
 install-strip: install

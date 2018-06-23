@@ -63,13 +63,11 @@ local server = {
   end,
 }
 
--- Initialize the logging and daemonize, if we're to run as a daemon
-if params["no-daemon"] then
-  -- NB: This means serve errors will end up being sent to the client since
-  --     the connection in the child is duped to stderr
-  yans.ylog.init(DAEMON_NAME, yans.ylog.STDERR)
-else
-  yans.ylog.init(DAEMON_NAME, yans.ylog.SYSLOG)
+-- Always log to syslog, since we don't want any logs in the children to end
+-- up in the HTTP responses
+yans.ylog.init(DAEMON_NAME, yans.ylog.SYSLOG)
+
+if not params["no-daemon"] then
   yans.util.daemonize(DAEMON_NAME, params.basepath, params.user, params.group)
 end
 

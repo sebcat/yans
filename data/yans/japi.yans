@@ -1,7 +1,9 @@
 local _M = {
-  BAD_REQUEST = "400 Bad Request",
+  OK           = "200 OK",
+  BAD_REQUEST  = "400 Bad Request",
+  NOT_FOUND    = "404 Not Found",
   SERVER_ERROR = "500 Internal Server Error",
-  NOT_FOUND = "404 Not Found",
+  headers      = {},
 }
 
 function _M:flush()
@@ -9,19 +11,19 @@ function _M:flush()
 end
 
 function _M:croak(status, reason)
-  -- we can croak when we have already sent the header, but print this
-  -- anyway for now...
-  io.stdout:write(string.format("Status: %s\r\nX-Reason: %s\r\n\r\n", status,
-      reason))
-  self:flush()
+  self:status(status)
+  self:header("X-Reason", reason)
+  self:send_header_once()
   os.exit(1)
 end
 
 function _M:status(s)
-  self.statusline = s
+  self.statusline = s:gsub("[\r\n\t\0 ]+", " ")
 end
 
 function _M:header(key, val)
+  key = key:gsub("[\r\n\t\0]+", " ")
+  val = val:gsub("[\r\n\t\0]+", " ")
   if key == "Content-Type" then
     self.content_type = val
   elseif key ~= "Status" then
@@ -31,11 +33,12 @@ end
 
 function _M:send_header_once()
   if self.has_sent_header then
+    self:flush() -- always flush for consistency
     return
   end
 
   if not self.statusline then
-    self.statusline = "200 OK"
+    self.statusline = self.OK
   end
 
   if not self.content_type then
@@ -45,6 +48,7 @@ function _M:send_header_once()
   table.sort(self.headers) -- sort the headers for consistency
   io.stdout:write(string.format("Status: %s\r\nContent-Type: %s\r\n%s\r\n\r\n",
       self.statusline, self.content_type, table.concat(self.headers, "\r\n")))
+  self:flush()
 
   self.has_sent_header = true
 end
@@ -135,7 +139,6 @@ function _M:dispatch()
 
   -- make sure we have sent everything
   responder:send_header_once()
-  responder:flush()
 
   -- exit gracefully
   os.exit(0)

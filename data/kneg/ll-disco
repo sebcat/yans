@@ -14,6 +14,7 @@ local params = p:parse(args)
 if params.help then
   io.stdout:write(p:usage())
 else
+  params.store = params.store or os.getenv("YANS_ID")
   local scanner = Scanner:new() -- setup the scanner
   if not params.insecure then
     yans.cgi.init()               -- enter sandbox (TODO: params from env.vars)

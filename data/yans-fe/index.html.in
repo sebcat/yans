@@ -31,26 +31,44 @@ body {
 }
 
 .navbar-ents {
-    list-style: none;
-    display: flex;
-    flex-direction: row;
-    flex-grow: 1;
-    margin: 0;
-    padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  margin: 0;
+  padding: 0;
 }
 
 #main-box {
   margin: 1rem 1.5rem;
 }
 
+#alert-box {
+  display: none;
+  opacity: 1;
+  transition: opacity 0.6s;
+}
+
+#alert-close {
+  cursor: pointer;
+}
+
 </style>
 </head>
 <body>
 
+<div id="alert-box">
+  <span id="alert-close">
+    &times;
+  </span> 
+  <span id="alert-text"></span>
+</div>
+
 <nav class="navbar">
     <ul class="navbar-ents">
-      <li><a href="#scanner">Scanner</a></li>
-      <li><a href="#scans">Scans</a></li>
+      <li><a href="#device">Device</a></li>
+      <li><a href="#reports">Reports</a></li>
+      <li><a href="#scan">Scan Now</a></li>
     </ul>
     <small>@PACKAGE_VERSION@</small>
 </nav>
@@ -62,20 +80,107 @@ body {
 <script>
 "use strict";
 
-function Yans(_top) {
-  this.top = document.getElementById(_top);
+document.getElementById("alert-close").onclick = function() {
+  var p = this.parentElement;
+  p.style.opacity = 0;
+  setTimeout(function() {
+    p.style.display = "none";
+  }, 600);
+};
 
-  this.renderScanner = function() {
-    this.top.innerText = "All glory to the scanner";
+function errfunc(text) {
+  var txt = document.getElementById("alert-text");
+  txt.innerText = text;
+  txt.parentElement.style.opacity = 1;
+  txt.parentElement.style.display = "unset";
+}
+
+function JReq(method, url, data) {
+  if (!(this instanceof JReq))
+    return new JReq(method, url, data);
+
+  this.done = function(cb) {
+    this.on_done = cb;
+    return this;
   };
 
-  this.renderScans = function() {
-    this.top.innerText  = "Scans away!";
+  this.error = function(cb) {
+    this.on_error = cb;
+    return this;
+  };
+
+  this.send = function() {
+    if (typeof this.data === "string") {
+      this.xhr.send(this.data);
+    } else if (this.data) {
+      this.xhr.send(JSON.stringify(this.data));
+    } else {
+      this.xhr.send();
+    }
+    return this;
+  };
+
+  this.xhrcb = function() {
+    if(this.xhr.readyState === 4) {
+      if (this.xhr.status == 200) {
+        if (this.done) {
+          var data = this.xhr.responseText;
+          if (data) {
+            data = JSON.parse(data);
+          }
+          this.on_done(data);
+        }
+      } else if (this.error) {
+        this.on_error();
+      }
+    }
+  };
+
+  this.data = data;
+  this.xhr = new XMLHttpRequest();
+  this.xhr.open(method, url);
+  this.xhr.setRequestHeader("Content-Type", "application/json");
+  this.xhr.onreadystatechange = this.xhrcb.bind(this);
+  return this;
+}
+
+function Yans(_top, _err) {
+  if (!(this instanceof Yans))
+    return new Yans(_top);
+
+  this.top = document.getElementById(_top);
+  if (_err) {
+    this.err = _err;
+  } else {
+    this.err = function(txt) {
+      console.log(txt);
+    };
+  }
+
+  var self = this;
+
+  this.renderDevice = function() {
+    self.top.innerText = "All glory to the scanner";
+  };
+
+  this.renderScan = function() {
+    self.top.innerText  = "Scans away!";
+    JReq("POST", "http://totallynonexistant512xxxIII/")
+      .done(function(data) {
+        console.log("done", data);
+      }).error(function() {
+        self.err("error");
+      }).send();
+  };
+
+  this.renderReports = function() {
+    self.top.innerText  = "Show me the reports!";
   };
 
   this.renderLUT = {
-    'scanner': this.renderScanner.bind(this),
-    'scans': this.renderScans.bind(this),
+    'device':  this.renderDevice.bind(this),
+    'scan':    this.renderScan.bind(this),
+    'reports': this.renderReports.bind(this),
   };
 
   this.render = function() {
@@ -85,11 +190,10 @@ function Yans(_top) {
     }
 
     var f = this.renderLUT[view];
-    console.log(f);
     if (f) {
       f();
     } else {
-      this.renderScanner();
+      this.renderDevice(); /* default */
     }
   };
 
@@ -97,7 +201,7 @@ function Yans(_top) {
   this.render();
 }
 
-var y = new Yans("main-box");
+var y = new Yans("main-box", errfunc);
 
 </script>
 

@@ -61,7 +61,7 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
 include files.mk
 
-all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB)
+all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) $(YANS_FE)
 
 clean:
 	rm -f $(nodist_BINS) $(BINS)

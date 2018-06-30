@@ -29,6 +29,7 @@ struct store_cli {
 };
 
 int store_init(struct eds_service *svc);
+void store_fini(struct eds_service *svc);
 void store_on_readable(struct eds_client *cli, int fd);
 void store_on_done(struct eds_client *cli, int fd);
 void store_on_finalize(struct eds_client *cli);

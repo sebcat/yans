@@ -10,11 +10,17 @@
 #include <lib/util/ylog.h>
 #include <lib/util/prng.h>
 #include <lib/util/nullfd.h>
+#include <lib/util/sindex.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 #include <apps/stored/store.h>
 
+#if (STORE_IDSZ != SINDEX_IDSZ)
+#error "Store ID must be of the same length as Index ID"
+#endif
+
 #define STORE_PATH "store"
+#define STORE_INDEX "INDEX"
 
 #define STOREFL_HASMSGBUF (1 << 0)
 
@@ -32,15 +38,35 @@
 #define LOGINFOF(fd, fmt, ...) \
     ylog_info("storecli%d: " fmt, (fd), __VA_ARGS__)
 
-static struct prng_ctx g_prng;
+static struct prng_ctx prng_;     /* PRNG */
+static struct sindex_ctx sindex_; /* Store Index */
 
 static void gen_store_path(char *data, size_t len) {
   if (data == NULL || len == 0) {
     return;
   }
 
-  prng_hex(&g_prng, data, len-1);
+  prng_hex(&prng_, data, len-1);
   data[len-1] = '\0';
+}
+
+static int init_index(struct sindex_ctx *ctx) {
+  int fd;
+  FILE *fp;
+
+  fd = open(STORE_INDEX, O_WRONLY | O_CREAT | O_APPEND, 0600);
+  if (fd < 0) {
+    return -1;
+  }
+
+  fp = fdopen(fd, "a");
+  if (!fp) {
+    close(fd);
+    return -1;
+  }
+
+  sindex_init(ctx, fp);
+  return 0;
 }
 
 int store_init(struct eds_service *svc) {
@@ -63,6 +89,13 @@ int store_init(struct eds_service *svc) {
     goto fail;
   }
 
+  /* init the index or error out */
+  ret = init_index(&sindex_);
+  if (ret < 0) {
+    ylog_error("store: failed to initialize store index: %s", strerror(errno));
+    goto fail;
+  }
+
   /* we use the PRNG for directory/file names, so it should be fine seeding
    * it with the current time (famous last words) */
   t = time(NULL);
@@ -71,13 +104,20 @@ int store_init(struct eds_service *svc) {
     goto fail;
   }
 
-  seed = (uint32_t)t ^ getpid();
-  prng_init(&g_prng, seed);
+  seed = (uint32_t)t;
+  prng_init(&prng_, seed);
   ylog_info("store: initialized with seed: %u", seed);
   return 0;
 
 fail:
   return -1;
+}
+
+void store_fini(struct eds_service *svc) {
+  FILE *fp;
+
+  fp = sindex_fp(&sindex_);
+  fclose(fp);
 }
 
 static void write_err_response(struct eds_client *cli, int fd,
@@ -145,14 +185,14 @@ static int enter_store(struct store_cli *ecli, const char *store_id,
   }
 
   subdir = store_id + STORE_IDSZ - STORE_PREFIXSZ;
-  ret = mkdir(subdir, 0770);
+  ret = mkdir(subdir, 0700);
   if (ret != 0 && errno != EEXIST) {
     return -1;
   }
 
   snprintf(ecli->store_path, sizeof(ecli->store_path), "%s/%s",
       subdir, store_id);
-  ret = mkdir(ecli->store_path, 0770);
+  ret = mkdir(ecli->store_path, 0700);
   if (ret != 0 && (exclusive || errno != EEXIST)) {
     return -1;
   }
@@ -160,7 +200,15 @@ static int enter_store(struct store_cli *ecli, const char *store_id,
   return 0;
 }
 
-static int create_and_enter_store(struct store_cli *ecli) {
+static int put_index(char *store_id) {
+  struct sindex_entry ie = {0};
+
+  memcpy(ie.id, store_id, SINDEX_IDSZ);
+  ie.indexed = time(NULL);
+  return sindex_put(&sindex_, &ie);
+}
+
+static int create_and_enter_store(int fd, struct store_cli *ecli) {
   char store_id[STORE_IDSZ+1];
   int i;
   int ret;
@@ -169,6 +217,10 @@ static int create_and_enter_store(struct store_cli *ecli) {
     gen_store_path(store_id, sizeof(store_id));
     ret = enter_store(ecli, store_id, STORE_IDSZ, 1);
     if (ret == 0) {
+      if (put_index(store_id) < 0) {
+        /* indexing is not *that* important, so only log this */
+        LOGERRF(fd, "unable to index newly created store %s", store_id);
+      }
       break;
     }
   }
@@ -438,7 +490,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
     if (req.store_id.data != NULL) {
       ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
     } else {
-      ret = create_and_enter_store(ecli);
+      ret = create_and_enter_store(fd, ecli);
     }
 
     if (ret < 0) {

@@ -2,13 +2,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <lib/util/netstring.h>
 #include <lib/util/io.h>
+#include <lib/util/macros.h>
+#include <lib/util/netstring.h>
 #include <lib/net/scgi.h>
 
 #define DFL_HDRBUF (1 << 15)
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #define SCGIF_HAS_HEADER (1 << 0)
 

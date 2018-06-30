@@ -5,10 +5,9 @@
 #include <errno.h>
 #include <string.h>
 
+#include <lib/util/macros.h>
 #include <lib/net/scgi.h>
 #include <lib/lua/scgi.h>
-
-#define MIN(a__,b__) ((a__) <= (b__) ? (a__) : (b__))
 
 #define BODY_SIZE_LIMIT 10485760
 

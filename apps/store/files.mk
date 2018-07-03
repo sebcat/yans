@@ -2,6 +2,7 @@ store_DEPS = \
     lib/util/netstring.c \
     lib/util/buf.c \
     lib/util/io.c \
+    lib/util/sindex.c \
     lib/ycl/ycl_msg.c \
     lib/ycl/ycl.c \
 

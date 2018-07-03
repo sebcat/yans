@@ -109,6 +109,7 @@ ssize_t sindex_get(struct sindex_ctx *ctx, struct sindex_entry *elems,
   }
 
   nread = fread(elems, sizeof(*elems), nelems, ctx->fp);
+  *last = before - nread;
   return (ssize_t)nread;
 }
 

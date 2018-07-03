@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <lib/util/sindex.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 
@@ -14,6 +15,7 @@
 #endif
 
 #define DFL_STOREPATH LOCALSTATEDIR "/yans/stored/stored.sock"
+#define DFL_INDEX_NELEMS 25
 
 static char databuf_[32768]; /* get/put buffer */
 
@@ -453,6 +455,140 @@ usage:
   return EXIT_FAILURE;
 }
 
+static int run_index(const char *socket, size_t before, size_t nelems) {
+  struct ycl_ctx ctx;
+  struct ycl_msg msg;
+  struct ycl_msg_store_req reqmsg = {{0}};
+  int result = -1;
+  int ret;
+  int indexfd;
+  FILE *fp;
+  struct sindex_ctx si;
+  ssize_t ss;
+  struct sindex_entry *elems;
+  size_t last = 0;
+  size_t i;
+
+  ret = ycl_connect(&ctx, socket);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+    return -1;
+  }
+
+  ret = ycl_msg_init(&msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_init failure\n");
+    goto ycl_cleanup;
+  }
+
+  reqmsg.action.data = "index";
+  reqmsg.action.len = sizeof("index") - 1;
+  ret = ycl_msg_create_store_req(&msg, &reqmsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+    goto ycl_msg_cleanup;
+  }
+
+  ret = ycl_sendmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  ycl_msg_reset(&msg);
+
+  ret = ycl_recvfd(&ctx, &indexfd);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_recvfd: %s\n", ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  fp = fdopen(indexfd, "r");
+  if (!fp) {
+    close(indexfd);
+    fprintf(stderr, "fdopen: %s\n", strerror(errno));
+    goto ycl_msg_cleanup;
+  }
+
+  elems = calloc(nelems, sizeof(struct sindex_entry));
+  if (!elems) {
+    fprintf(stderr, "calloc: %s\n", strerror(errno));
+    goto fp_cleanup;
+  }
+
+  sindex_init(&si, fp);
+  ss = sindex_get(&si, elems, nelems, before, &last);
+  if (ss < 0) {
+    sindex_geterr(&si, databuf_, sizeof(databuf_));
+    fprintf(stderr, "sindex_geterr: %s\n", databuf_);
+    goto elems_cleanup;
+  }
+
+  for (i = 0; i < ss; i++) {
+    printf("%*s %ld %zu\n", SINDEX_IDSZ, elems[i].id, elems[i].indexed,
+        last++);
+  }
+
+  result = 0;
+elems_cleanup:
+  free(elems);
+fp_cleanup:
+  fclose(fp);
+ycl_msg_cleanup:
+  ycl_msg_cleanup(&msg);
+ycl_cleanup:
+  ycl_close(&ctx);
+  return result;
+}
+
+static int index_main(int argc, char *argv[]) {
+  int ch;
+  int ret;
+  size_t before = 0;
+  size_t nelems = DFL_INDEX_NELEMS;
+  const char *socket = DFL_STOREPATH;
+  const char *optstr = "hs:b:n:";
+  struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {"before", required_argument, NULL, 'b'},
+    {"nelems", required_argument, NULL, 'n'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      socket = optarg;
+      break;
+    case 'b':
+      before = (size_t)strtoul(optarg, NULL, 10);
+      break;
+    case 'n':
+      nelems = (size_t)strtoul(optarg, NULL, 10);
+      break;
+    case 'h':
+    default:
+      goto usage;
+    }
+  }
+
+  ret = run_index(socket, before, nelems);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+usage:
+  fprintf(stderr, "usage: %s index [opts]\n"
+      "opts:\n"
+      "  -s|--socket   store socket path (%s)\n"
+      "  -b|--before   where to page from\n"
+      "  -n|--nelems   number of elements to get (%d)\n",
+      argv[0], DFL_STOREPATH, DFL_INDEX_NELEMS);
+  return EXIT_FAILURE;
+}
+
 int list_main(int argc, char *argv[]) {
   int ch;
   int ret;
@@ -506,6 +642,8 @@ int main(int argc, char *argv[]) {
     return put_main(argc, argv, O_WRONLY | O_CREAT | O_APPEND);
   } else if (strcmp(argv[1], "get") == 0) {
     return get_main(argc, argv);
+  } else if (strcmp(argv[1], "index") == 0) {
+    return index_main(argc, argv);
   } else if (strcmp(argv[1], "list") == 0) {
     return list_main(argc, argv);
   }
@@ -514,8 +652,10 @@ int main(int argc, char *argv[]) {
 usage:
   fprintf(stderr, "usage: %s <command> [args]\n"
       "commands:\n"
-      "  put - put a file in the store\n"
-      "  get - get file content from a store\n",
+      "  put   - put a file in the store\n"
+      "  get   - get file content from a store\n"
+      "  index - retrieve indexed store entries\n"
+      "  list  - list stores, store content\n",
       argv[0]);
   return EXIT_FAILURE;
 }

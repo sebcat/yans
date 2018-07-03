@@ -239,7 +239,7 @@ static void on_sendfd(struct eds_client *cli, int fd) {
     return;
   }
 
-  if (ecli->open_fd != nullfd_get()) {
+  if (ecli->open_fd >= 0 && ecli->open_fd != nullfd_get()) {
     close(ecli->open_fd);
   }
 
@@ -412,6 +412,33 @@ static void list_stores(buf_t *buf) {
   fts_close(fts);
 }
 
+static void on_index_response(struct eds_client *cli, int fd) {
+  struct store_cli *ecli = STORE_CLI(cli);
+  int ret;
+
+  ret = ycl_sendfd(&ecli->ycl, ecli->open_fd, ecli->open_errno);
+  if (ret == YCL_AGAIN) {
+    return;
+  }
+
+  if (ecli->open_fd >= 0 && ecli->open_fd != nullfd_get()) {
+    close(ecli->open_fd);
+  }
+
+  if (ret != YCL_OK) {
+    LOGERRF(fd, "%s: err sendfd: %s", STORE_ID(ecli),
+        ycl_strerror(&ecli->ycl));
+  }
+
+  if (ecli->open_fd >= 0) {
+    LOGINFO(fd, "index: sent fd");
+  } else {
+    LOGERRF(fd, "index: failed to open fd: %s", strerror(ecli->open_errno));
+  }
+
+  eds_client_clear_actions(cli);
+}
+
 static void on_sent_store_list(struct eds_client *cli, int fd) {
   struct store_cli *ecli = STORE_CLI(cli);
   buf_cleanup(&ecli->buf);
@@ -498,9 +525,16 @@ static void on_readreq(struct eds_client *cli, int fd) {
       goto fail;
     }
 
-    LOGINFOF(fd, "entered store: %s", STORE_ID(ecli));
+    LOGINFOF(fd, "%s: entered store", STORE_ID(ecli));
     eds_client_set_on_readable(cli, NULL, 0);
     eds_client_set_on_writable(cli, on_enter_response, 0);
+  } else if (strcmp(req.action.data, "index") == 0) {
+    /* the sole purpose of 'index' is to pass an fd of the index file, opened
+     * as read-only  */
+    ecli->open_fd = open(STORE_INDEX, O_RDONLY);
+    ecli->open_errno = ecli->open_fd < 0 ? errno : 0;
+    eds_client_set_on_readable(cli, NULL, 0);
+    eds_client_set_on_writable(cli, on_index_response, 0);
   } else if (strcmp(req.action.data, "list") == 0) {
     handle_store_list(cli, fd, &req);
   } else {

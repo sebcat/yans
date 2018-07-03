@@ -66,7 +66,7 @@ static void on_sendfd(struct eds_client *cli, int fd) {
   eds_client_set_on_writable(cli, NULL, 0);
 
 done:
-  if (ecli->connfd != nullfd_get()) {
+  if (ecli->connfd >= 0 && ecli->connfd != nullfd_get()) {
     close(ecli->connfd);
   }
 }

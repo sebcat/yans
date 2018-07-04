@@ -2,7 +2,7 @@
 local JAPI = require "japi"
 local DAEMON_NAME = "yansapi"
 
-local function get_ok(ctx)
+local function get_scans(ctx)
   ctx:status"200 OK"
   ctx:header("X-SuperHax", "foo")
   ctx:write'{"data":"foo"}'
@@ -13,8 +13,8 @@ local function get_fail(ctx)
 end
 
 JAPI:routes{
-  ["GET /trololo/ok"] = get_ok,
-  ["GET /trololo/fail"] = get_fail,
+  ["GET /a1/scans"] = get_scans,
+  ["GET /a1/fail"] = get_fail,
 }
 
 -- parse command line options as parameters

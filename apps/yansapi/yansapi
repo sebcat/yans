@@ -11,9 +11,9 @@ local function clamp(val, min, max)
   return math.max(math.min(val, max), min)
 end
 
-local function get_scans(ctx)
+local function get_reports(ctx)
   --[[
-  GET /a1/scans
+  GET /a1/reports
 
   URL Parameters:
     - nelems (opt): Number of elements to fetch. Range: 0 <= nelems <= 100.
@@ -80,7 +80,7 @@ local function handle_fail(fn)
 end
 
 JAPI:routes{
-  ["GET /a1/scans"] = handle_fail(get_scans),
+  ["GET /a1/reports"] = handle_fail(get_reports),
   ["GET /a1/fail"] = handle_fail(get_fail),
 }
 

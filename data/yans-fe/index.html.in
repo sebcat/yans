@@ -66,7 +66,6 @@ body {
 
 <nav class="navbar">
     <ul class="navbar-ents">
-      <li><a href="#device">Device</a></li>
       <li><a href="#reports">Reports</a></li>
       <li><a href="#scan">Scan Now</a></li>
     </ul>
@@ -95,9 +94,9 @@ function errfunc(text) {
   txt.parentElement.style.display = "unset";
 }
 
-function JReq(method, url, data) {
+function JReq(method_, url_, data_) {
   if (!(this instanceof JReq))
-    return new JReq(method, url, data);
+    return new JReq(method_, url_, data_);
 
   this.done = function(cb) {
     this.on_done = cb;
@@ -110,10 +109,10 @@ function JReq(method, url, data) {
   };
 
   this.send = function() {
-    if (typeof this.data === "string") {
-      this.xhr.send(this.data);
-    } else if (this.data) {
-      this.xhr.send(JSON.stringify(this.data));
+    if (typeof this.data_ === "string") {
+      this.xhr.send(data_);
+    } else if (data_) {
+      this.xhr.send(JSON.stringify(data_));
     } else {
       this.xhr.send();
     }
@@ -123,22 +122,26 @@ function JReq(method, url, data) {
   this.xhrcb = function() {
     if(this.xhr.readyState === 4) {
       if (this.xhr.status == 200) {
-        if (this.done) {
-          var data = this.xhr.responseText;
-          if (data) {
-            data = JSON.parse(data);
+        var resp = JSON.parse(this.xhr.responseText);
+        if (resp.success) {
+          if (this.done) {
+            this.on_done(resp.data);
           }
-          this.on_done(data);
+        } else {
+          if (resp.errmsg) {
+            this.on_error(resp.errmsg);
+          } else {
+            this.on_error("An unexpected 200 response was received");
+          }
         }
       } else if (this.error) {
-        this.on_error();
+        this.on_error(method_ + " request failed for " + url_);
       }
     }
   };
 
-  this.data = data;
   this.xhr = new XMLHttpRequest();
-  this.xhr.open(method, url);
+  this.xhr.open(method_, url_);
   this.xhr.setRequestHeader("Content-Type", "application/json");
   this.xhr.onreadystatechange = this.xhrcb.bind(this);
   return this;
@@ -159,26 +162,27 @@ function Yans(_top, _err) {
 
   var self = this;
 
-  this.renderDevice = function() {
-    self.top.innerText = "All glory to the scanner";
-  };
-
   this.renderScan = function() {
     self.top.innerText  = "Scans away!";
-    JReq("POST", "http://totallynonexistant512xxxIII/")
-      .done(function(data) {
-        console.log("done", data);
-      }).error(function() {
-        self.err("error");
-      }).send();
   };
 
   this.renderReports = function() {
     self.top.innerText  = "Show me the reports!";
+    JReq("GET", "/a1/reports")
+      .done(function(data) {
+        data.reverse();
+        var x = "";
+        for (var i = 0; i < data.length; i++) {
+          x = x + data[i].row + ": " + data[i].id + " " + 
+                  new Date(data[i].ts * 1000).toUTCString() + "\n";
+        }
+        self.top.innerText = x;
+      }).error(function(msg) {
+        self.err(msg);
+      }).send();
   };
 
   this.renderLUT = {
-    'device':  this.renderDevice.bind(this),
     'scan':    this.renderScan.bind(this),
     'reports': this.renderReports.bind(this),
   };
@@ -193,7 +197,7 @@ function Yans(_top, _err) {
     if (f) {
       f();
     } else {
-      this.renderDevice(); /* default */
+      this.renderReports(); /* default */
     }
   };
 

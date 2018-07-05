@@ -17,6 +17,23 @@ function _M:croak(status, reason)
   os.exit(1)
 end
 
+function _M:percent_decode(s)
+  -- + -> space is the form-data thingy, shouldn't be used for URLs
+  return s:gsub('%%(%x%x)', function(h)
+      return string.char(tonumber(h, 16)) end)
+end
+
+-- NB: overwrites duplicate keys
+function _M:parse_query_string(s)
+  local res = {}
+  for k in s:gmatch('([^&]+)') do
+    for kk, vv in k:gmatch('([^=]+)(.*)') do
+      res[self:percent_decode(kk)] = self:percent_decode(vv:sub(2))
+    end
+  end
+  return res
+end
+
 function _M:status(s)
   self.statusline = s:gsub("[\r\n\t\0 ]+", " ")
 end
@@ -46,8 +63,13 @@ function _M:send_header_once()
   end
 
   table.sort(self.headers) -- sort the headers for consistency
-  io.stdout:write(string.format("Status: %s\r\nContent-Type: %s\r\n%s\r\n\r\n",
-      self.statusline, self.content_type, table.concat(self.headers, "\r\n")))
+  if #self.headers > 0 then
+    io.stdout:write(string.format("Status: %s\r\nContent-Type: %s\r\n%s\r\n\r\n",
+        self.statusline, self.content_type, table.concat(self.headers, "\r\n")))
+  else
+    io.stdout:write(string.format("Status: %s\r\nContent-Type: %s\r\n\r\n",
+        self.statusline, self.content_type))
+  end
   self:flush()
 
   self.has_sent_header = true
@@ -63,7 +85,7 @@ function _M:routes(r)
   self.route_table = r
 end
 
-function _M:dispatch()
+function _M:dispatch(data)
   -- enter sandbox
   yans.util.sandbox()
 
@@ -78,12 +100,9 @@ function _M:dispatch()
     self:croak(self.SERVER_ERROR, "read request failure")
   end
 
-  -- get the interesting request header fields. If this ends up being more
-  -- than a couple, we should probably build a table mapping key to a table
-  -- of values inside read_request and return that. The reason for the
-  -- table value is that e.g., nginx passes multiple HTTP_COOKIE if the client
-  -- passes multiple Cookie headers
-  local content_type, request_method, document_uri
+  -- FIXME: Clean this up, but consider that there may be many identical keys
+  --        for different values (e.g., multiple HTTP_COOKIE)
+  local content_type, request_method, document_uri, query_string
   for i = 1, #hdrs, 2 do
     if hdrs[i] == "CONTENT_TYPE" then
       content_type = hdrs[i + 1]
@@ -91,6 +110,8 @@ function _M:dispatch()
       request_method = hdrs[i + 1]
     elseif hdrs[i] == "DOCUMENT_URI" then
       document_uri = hdrs[i + 1]
+    elseif hdrs[i] == "QUERY_STRING" then
+      query_string = hdrs[i + 1]
     end
   end
 
@@ -129,6 +150,8 @@ function _M:dispatch()
     statusline = nil,    -- filled in later, defaults to "200 OK"
     content_type = nil,  -- filled in later, defaults to "application/json"
     has_sent_header = false,
+    query_string = query_string or "",
+    data = data,
   }
   self.__index = self
   setmetatable(responder, self)

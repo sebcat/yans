@@ -13,6 +13,14 @@ function _M:new(o)
   return o
 end
 
+function _M:index()
+  self.msgbuf:create_store_req{
+    action = "index",
+  }
+  self.sock:sendmsg(self.msgbuf)
+  return self.sock:recvfd():to_sindex("r")
+end
+
 function _M:enter(store_id)
   assert(not self.store_id, "attempted entering store more than once")
   self.msgbuf:create_store_req{

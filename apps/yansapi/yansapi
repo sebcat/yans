@@ -1,21 +1,97 @@
 #!/usr/bin/env yans
-local JAPI = require "japi"
 local DAEMON_NAME = "yansapi"
+local JAPI        = require "japi"
+local Store       = require "svcs.store"
+
+local function atoi(s, def)
+  return math.floor(tonumber(s) or def)
+end
+
+local function clamp(val, min, max)
+  return math.max(math.min(val, max), min)
+end
 
 local function get_scans(ctx)
+  --[[
+  GET /a1/scans
+
+  URL Parameters:
+    - nelems (opt): Number of elements to fetch. Range: 0 <= nelems <= 100.
+                    default: 25
+    - before (opt): Fetch indices before a given row.
+
+  Response object on success:
+  {
+    "success": true,
+    "data": [
+      {
+        "row": 0,
+        "ts": 1530356368,
+        "id": "70a7a85d0004f8b9c2be"
+      },
+      ...
+    ]
+  }
+  ]]--
+
+  -- parse the request parameters, provide sane defaults and limits
+  local params = ctx:parse_query_string(ctx.query_string)
+  local nelems = clamp(atoi(params.nelems, 25), 0, 100)
+  local before = math.max(atoi(params.before, 0), 0)
+
+  -- build the response 
+  local res = json.from_str"{}"
+  local rows = json.from_str"[]"
+  for _, e in ipairs(ctx.data.store:index():get(nelems,before)) do
+    local entry = json.from_str"{}"
+    entry.id, entry.ts, entry.row = e[1], e[2], e[3]
+    rows = rows << entry
+  end
+  res.success = true
+  res.data = rows
+
+  -- send the response
   ctx:status"200 OK"
-  ctx:header("X-SuperHax", "foo")
-  ctx:write'{"data":"foo"}'
+  ctx:write(tostring(res))
 end
 
 local function get_fail(ctx)
-  error("fail")
+  error("get fail called")
+end
+
+local function handle_fail(fn)
+  --[[
+  pcall's fn, logs and responds with the proper JSON on failure
+
+  Response object:
+  {
+    "success": false,
+    "errmsg": "str"
+  }
+  ]]--
+  return function(ctx)
+    local ok, err = pcall(fn, ctx)
+    if not ok then
+      yans.ylog.error("request failure: %s", err)
+      ctx:status"200 OK" -- all well that ends well, is it not?
+      ctx:write'{"success":false,"errmsg":"An internal error occurred, sorry for the inconvenience"}'
+    end
+  end
 end
 
 JAPI:routes{
-  ["GET /a1/scans"] = get_scans,
-  ["GET /a1/fail"] = get_fail,
+  ["GET /a1/scans"] = handle_fail(get_scans),
+  ["GET /a1/fail"] = handle_fail(get_fail),
 }
+
+-- returns a table that will end up in ctx.data in the handlers. Used to
+-- setup pre-sandbox stuff
+local function prehook()
+  local msgbuf = yans.ycl.msgbuf()
+  -- FIXME: Store path varies depending on chroot/no chroot
+  local store = Store:new{path = "stored/stored.sock", msgbuf = msgbuf}
+  return {store = store}
+end
 
 -- parse command line options as parameters
 local p = yans.opts:new()
@@ -47,7 +123,7 @@ end
 local server = {
   path = serve_path,
   servefunc = function()
-    JAPI:dispatch()
+    JAPI:dispatch(prehook())
   end,
   donefunc = function(pid, duration, cause, code)
     local fmt = "served request pid:%d duration:%fs %s %d"

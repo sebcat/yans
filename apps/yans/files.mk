@@ -11,6 +11,7 @@ yans_DEPS = \
     lib/util/eds.c \
     lib/util/os.c \
     lib/util/sandbox.c \
+    lib/util/sindex.c \
     lib/util/netstring.c \
     lib/util/zfile.c \
     lib/net/punycode.c \

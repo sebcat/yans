@@ -1,15 +1,21 @@
 #include <fts.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <poll.h>
 
 #include <lib/lua/file.h>
 #include <lib/util/zfile.h>
+#include <lib/util/sindex.h>
 
+#define MTNAME_SINDEX "file.SIndex"
 #define MTNAME_FTS "file.FTS"
 #define DFL_MAXDEPTH 128
+
+#define checksindex(L, i) \
+    ((struct sindex_ctx *)luaL_checkudata((L), (i), MTNAME_SINDEX))
 
 #define checkfts(L, i) \
     ((struct fts_data *)luaL_checkudata((L), (i), MTNAME_FTS))
@@ -85,6 +91,70 @@ static int l_ftsgc(lua_State *L) {
   return 0;
 }
 
+static int l_sindexgc(lua_State *L) {
+  struct sindex_ctx *ctx;
+  ctx = checksindex(L, 1);
+  if (ctx->fp) {
+    fclose(ctx->fp);
+    ctx->fp = NULL;
+  }
+
+  return 0;
+}
+
+static int l_sindexget(lua_State *L) {
+  struct sindex_ctx *ctx;
+  size_t nelems;
+  size_t before;
+  size_t last;
+  size_t i;
+  ssize_t ret;
+  lua_Integer li;
+  struct sindex_entry *elems;
+
+  ctx = checksindex(L, 1);
+
+  li = luaL_checkinteger(L, 2); /* 'nelems' parameter */
+  if (li < 0) {
+    return luaL_error(L, "invalid number of elements");
+  }
+  nelems = (size_t)li;
+
+  li = luaL_checkinteger(L, 3); /* 'before' parameter */
+  if (li < 0) {
+    return luaL_error(L, "invalid 'before' value");
+  }
+  before = (size_t)li;
+
+  elems = calloc(nelems, sizeof(struct sindex_entry));
+  if (!elems) {
+    return luaL_error(L, "calloc: %s", strerror(errno));
+  }
+
+  ret = sindex_get(ctx, elems, nelems, before, &last);
+  if (ret < 0) {
+    char msg[128];
+    free(elems);
+    sindex_geterr(ctx, msg, sizeof(msg));
+    return luaL_error(L, "%s", msg);
+  }
+
+  nelems = ret;
+  lua_createtable(L, nelems, 0);
+  for (i = 0; i < nelems; i++) {
+    lua_createtable(L, 3, 0);
+    lua_pushlstring(L, elems[i].id, SINDEX_IDSZ);
+    lua_seti(L, -2, 1);
+    lua_pushinteger(L, elems[i].indexed);
+    lua_seti(L, -2, 2);
+    lua_pushinteger(L, last++);
+    lua_seti(L, -2, 3);
+    lua_seti(L, -2, i+1);
+  }
+
+  return 1;
+}
+
 int file_mkfd(lua_State *L, int fd) {
   struct file_fd *lfd;
   lfd = lua_newuserdata(L, sizeof(struct file_fd));
@@ -146,9 +216,9 @@ static int l_streamclose(lua_State *L) {
   return 0;
 }
 
-static int l_fdtostream(lua_State *L) {
+/* Lua stack: (file_fd-userdata, mode) -> FILE* */
+static int fd2fp(lua_State *L, FILE **fpp) {
   struct file_fd *lfd;
-  luaL_Stream *s;
   const char *mode;
   FILE *fp;
 
@@ -156,7 +226,7 @@ static int l_fdtostream(lua_State *L) {
   mode = luaL_checkstring(L, 2);
 
   if (lfd->fd < 0) {
-    return luaL_error(L, "to_stream called on closed fd");
+    return luaL_error(L, "called on closed fd");
   }
 
   if (strncmp(mode, "zlib:", 5) == 0) {
@@ -166,15 +236,35 @@ static int l_fdtostream(lua_State *L) {
   }
 
   if (fp == NULL) {
-    return luaL_error(L, "to_stream: %s",
+    return luaL_error(L, "fdopen: %s",
         (errno == 0) ? "unknown error" : strerror(errno));
   }
 
+  *fpp = fp;
+  lfd->fd = -1; /* to avoid double-close, the caller now owns the fd */
+  return 0;
+}
+
+static int l_fdtosindex(lua_State *L) {
+  struct sindex_ctx *ctx;
+  FILE *fp = NULL;
+
+  fd2fp(L, &fp);
+  ctx = lua_newuserdata(L, sizeof(struct sindex_ctx));
+  sindex_init(ctx, fp);
+  luaL_setmetatable(L, MTNAME_SINDEX);
+  return 1;
+}
+
+static int l_fdtostream(lua_State *L) {
+  luaL_Stream *s;
+  FILE *fp = NULL;
+
+  fd2fp(L, &fp);
   s = lua_newuserdata(L, sizeof(luaL_Stream));
   luaL_setmetatable(L, LUA_FILEHANDLE);
   s->f = fp;
   s->closef = &l_streamclose;
-  lfd->fd = -1; /* to avoid double-close, the stream object now owns the fd */
   return 1;
 }
 
@@ -207,12 +297,19 @@ static const struct {
   {NULL, 0},
 };
 
+static const struct luaL_Reg sindex_m[] = {
+  {"__gc", l_sindexgc},
+  {"get", l_sindexget},
+  {NULL, NULL},
+};
+
 static const struct luaL_Reg fd_m[] = {
   {"__gc", l_fdclose},
   {"close", l_fdclose},
   {"get", l_fdget},
   {"wait", l_fdwait},
   {"to_stream", l_fdtostream},
+  {"to_sindex", l_fdtosindex},
   {NULL, NULL},
 };
 
@@ -240,6 +337,12 @@ int luaopen_file(lua_State *L) {
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
   luaL_setfuncs(L, fd_m, 0);
+
+  /* create the sindex metatable */
+  luaL_newmetatable(L, MTNAME_SINDEX);
+  lua_pushvalue(L, -1);
+  lua_setfield(L, -2, "__index");
+  luaL_setfuncs(L, sindex_m, 0);
 
   /* setup the 'file' library and push constants to it */
   luaL_newlib(L, file_f);

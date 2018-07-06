@@ -292,7 +292,8 @@ static void print_list_entries(FILE *fp, const char *data, size_t len) {
   }
 }
 
-static int run_list(const char *socket, const char *id) {
+static int run_list(const char *socket, const char *id,
+      const char *must_match) {
   int result = -1;
   int ret;
   struct ycl_ctx ctx;
@@ -316,6 +317,8 @@ static int run_list(const char *socket, const char *id) {
   reqmsg.action.len = sizeof("list") - 1;
   reqmsg.store_id.data = id;
   reqmsg.store_id.len = id ? strlen(id) : 0;
+  reqmsg.list_must_match.data = must_match;
+  reqmsg.list_must_match.len = must_match ? strlen(must_match) : 0;
   ret = ycl_msg_create_store_req(&msg, &reqmsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_msg_create_store_enter failure\n");
@@ -592,12 +595,14 @@ usage:
 int list_main(int argc, char *argv[]) {
   int ch;
   int ret;
-  const char *optstr = "hs:";
+  const char *optstr = "hs:m:";
   const char *socket = DFL_STOREPATH;
+  const char *must_match = NULL;
   const char *id = NULL;
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
+    {"must-match", required_argument, NULL, 'm'},
     {NULL, 0, NULL, 0},
   };
 
@@ -605,6 +610,9 @@ int list_main(int argc, char *argv[]) {
     switch(ch) {
     case 's':
       socket = optarg;
+      break;
+    case 'm':
+      must_match = optarg;
       break;
     case 'h':
     default:
@@ -616,7 +624,7 @@ int list_main(int argc, char *argv[]) {
     id = argv[optind + 1];
   }
 
-  ret = run_list(socket, id);
+  ret = run_list(socket, id, must_match);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
@@ -625,7 +633,8 @@ int list_main(int argc, char *argv[]) {
 usage:
   fprintf(stderr, "usage: %s get [opts] [id]\n"
       "opts:\n"
-      "  -s|--socket   store socket path (%s)\n",
+      "  -s|--socket       store socket path (%s)\n"
+      "  -m|--must-match   POSIX ERE for filtering the response\n",
       argv[0], DFL_STOREPATH);
   return EXIT_FAILURE;
 

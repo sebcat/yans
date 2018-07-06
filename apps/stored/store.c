@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fts.h>
+#include <regex.h>
 
 #include <lib/util/ylog.h>
 #include <lib/util/prng.h>
@@ -361,7 +362,8 @@ static void on_enter_response(struct eds_client *cli, int fd) {
   }
 }
 
-static void list_store_content(buf_t *buf, const char *store) {
+static void list_store_content(buf_t *buf, const char *store,
+    const regex_t *must_match) {
   FTS *fts;
   FTSENT *ent;
   char storepath[STORE_MAXDIRPATH];
@@ -384,6 +386,9 @@ static void list_store_content(buf_t *buf, const char *store) {
     if (ent->fts_info == FTS_D && ent->fts_level == 2) {
       fts_set(fts, ent, FTS_SKIP);
     } else if (ent->fts_info == FTS_F) {
+      if (must_match && regexec(must_match, ent->fts_name, 0, NULL, 0) != 0) {
+        continue;
+      }
       buf_adata(buf, ent->fts_name, strlen(ent->fts_name) + 1);
     }
   }
@@ -391,7 +396,7 @@ static void list_store_content(buf_t *buf, const char *store) {
   fts_close(fts);
 }
 
-static void list_stores(buf_t *buf) {
+static void list_stores(buf_t *buf, const regex_t *must_match) {
   FTS *fts;
   FTSENT *ent;
   char *paths[] = {".", NULL};
@@ -405,6 +410,10 @@ static void list_stores(buf_t *buf) {
   while ((ent = fts_read(fts))) {
     if (ent->fts_info == FTS_D && ent->fts_level == 2) {
       fts_set(fts, ent, FTS_SKIP);
+      if (must_match && regexec(must_match, ent->fts_name, 0, NULL, 0) != 0) {
+        continue;
+      }
+
       buf_adata(buf, ent->fts_name, strlen(ent->fts_name) + 1);
     }
   }
@@ -447,11 +456,14 @@ static void on_sent_store_list(struct eds_client *cli, int fd) {
 
 static void handle_store_list(struct eds_client *cli, int fd,
     struct ycl_msg_store_req *req) {
+  int ret;
   struct store_cli *ecli = STORE_CLI(cli);
   const char *errmsg = NULL;
+  regex_t re;
+  regex_t *rep = NULL;
   struct ycl_msg_store_list listmsg = {{0}};
   struct eds_transition after_send = {
-    .flags = EDS_TFLREAD | EDS_TFLWRITE,
+    .flags       = EDS_TFLREAD | EDS_TFLWRITE,
     .on_readable = on_sent_store_list,
     .on_writable = on_sent_store_list,
   };
@@ -463,12 +475,27 @@ static void handle_store_list(struct eds_client *cli, int fd,
     goto done;
   }
 
+  /* check the must-match ERE, if any */
+  if (req->list_must_match.len > 0) {
+    ret = regcomp(&re, req->list_must_match.data, REG_EXTENDED | REG_NOSUB);
+    if (ret != 0) {
+      errmsg = "failed to compile must-match ERE";
+      goto done;
+    }
+    rep = &re;
+  }
+
   /* set up the store list */
   buf_init(&ecli->buf, 8192);
   if (req->store_id.len > 0) {
-    list_store_content(&ecli->buf, req->store_id.data);
+    list_store_content(&ecli->buf, req->store_id.data, rep);
   } else {
-    list_stores(&ecli->buf);
+    list_stores(&ecli->buf, rep);
+  }
+
+  /* clean-up the ERE, if any */
+  if (rep != NULL) {
+    regfree(rep);
   }
 
 done:

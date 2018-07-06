@@ -78,7 +78,7 @@ local function get_report_sections(ctx)
     "data": [
       {
         "name": "str",
-        "size": 0
+        "nbytes": 0
       },
       ...
     ]
@@ -93,9 +93,11 @@ local function get_report_sections(ctx)
   -- build response
   local data = json.from_str"[]"
   if id then
-    for _, e in ipairs(ctx.data.store:list(id, mm)) do
+    local entries = ctx.data.store:list(id, mm)
+    for i = 1, #entries, 2 do
       local entry = json.from_str"{}"
-      entry.name = e
+      entry.name   = entries[i]
+      entry.nbytes = atoi(entries[i + 1], -1)
       data = data << entry
     end
   end

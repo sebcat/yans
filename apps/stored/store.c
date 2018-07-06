@@ -369,6 +369,7 @@ static void list_store_content(buf_t *buf, const char *store,
   char storepath[STORE_MAXDIRPATH];
   const char *subdir;
   char *paths[2];
+  char numbuf[24];
 
   /* setup the path to the store */
   subdir = store + STORE_IDSZ - STORE_PREFIXSZ;
@@ -389,7 +390,12 @@ static void list_store_content(buf_t *buf, const char *store,
       if (must_match && regexec(must_match, ent->fts_name, 0, NULL, 0) != 0) {
         continue;
       }
+
+      /* fmt: name\0size\0 */
+      snprintf(numbuf, sizeof(numbuf), "%lu",
+          (unsigned long)ent->fts_statp->st_size);
       buf_adata(buf, ent->fts_name, strlen(ent->fts_name) + 1);
+      buf_adata(buf, numbuf, strlen(numbuf) + 1);
     }
   }
 

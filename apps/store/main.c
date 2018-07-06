@@ -281,13 +281,51 @@ ycl_cleanup:
 }
 
 static void print_list_entries(FILE *fp, const char *data, size_t len) {
+  size_t pos;
+  const char *str;
   const char *curr;
-  size_t slen;
 
-  for (curr = data; len > 0; curr += slen + 1, len -= slen + 1) {
-    slen = strlen(curr);
-    if (slen > 0) {
-      fprintf(fp, "%s\n", curr);
+  for (str = data, pos = 0; pos < len; pos++) {
+    curr = data + pos;
+    if (*curr == '\0') {
+      if (str < curr) {
+        fprintf(fp, "%s\n", str);
+      }
+      str = curr + 1;
+    }
+  }
+}
+
+static void print_list_pairs(FILE *fp, const char *data, size_t len) {
+  size_t pos;
+  const char *namestr;
+  const char *sizestr;
+  char ch;
+  enum {
+    LP_IN_NAME,
+    LP_IN_SIZE,
+  } S = LP_IN_NAME;
+
+  for (namestr = data, pos = 0; pos < len; pos++) {
+    ch = data[pos];
+    switch(S) {
+    case LP_IN_NAME:
+      if (ch == '\0') {
+        sizestr = data + pos + 1;
+        S = LP_IN_SIZE;
+      }
+      break;
+    case LP_IN_SIZE:
+      if (ch == '\0') {
+        fprintf(fp, "%s %s\n", sizestr, namestr);
+        namestr = data + pos + 1;
+        S = LP_IN_NAME;
+      }
+      break;
+    default:
+      /* reset */
+      S = LP_IN_NAME;
+      namestr = data + pos;
     }
   }
 }
@@ -350,7 +388,14 @@ static int run_list(const char *socket, const char *id,
     goto ycl_msg_cleanup;
   }
 
-  print_list_entries(stdout, respmsg.entries.data, respmsg.entries.len);
+  if (reqmsg.store_id.len) {
+    /* if we have a store ID, we're expecting name\0size\0 pairs */
+    print_list_pairs(stdout, respmsg.entries.data, respmsg.entries.len);
+  } else {
+    /* without a store ID, we're just expecting name\0 entries */
+    print_list_entries(stdout, respmsg.entries.data, respmsg.entries.len);
+  }
+
   result = 0;
 ycl_msg_cleanup:
   ycl_msg_cleanup(&msg);

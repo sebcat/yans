@@ -11,6 +11,15 @@ local function clamp(val, min, max)
   return math.max(math.min(val, max), min)
 end
 
+local function clean_id(str)
+  if type(str) == "string" then
+    local id = str:match("[0-9a-f]+")
+    if id:len() == 20 then
+      return id
+    end
+  end
+end
+
 local function get_reports(ctx)
   --[[
   GET /a1/reports
@@ -55,6 +64,50 @@ local function get_reports(ctx)
   ctx:write(tostring(res))
 end
 
+local function get_report_sections(ctx)
+  --[[
+  GET /a1/report-sections
+
+  URL Parameters:
+    - id (opt): ID of the given report. If omitted, returns empty 'data'.
+    - mm (opt): must match FIXME: remove from external API when done testing
+
+  Response object on success:
+  {
+    "success": true,
+    "data": [
+      {
+        "name": "str",
+        "size": 0
+      },
+      ...
+    ]
+  }
+  ]]--
+
+  -- parse request
+  local params = ctx:parse_query_string(ctx.query_string)
+  local id     = clean_id(params.id)
+  local mm     = params.mm
+
+  -- build response
+  local data = json.from_str"[]"
+  if id then
+    for _, e in ipairs(ctx.data.store:list(id, mm)) do
+      local entry = json.from_str"{}"
+      entry.name = e
+      data = data << entry
+    end
+  end
+  local res   = json.from_str"{}"
+  res.success = true
+  res.data    = data
+
+  -- send response
+  ctx:status"200 OK"
+  ctx:write(tostring(res))
+end
+
 local function get_fail(ctx)
   error("get fail called")
 end
@@ -80,8 +133,9 @@ local function handle_fail(fn)
 end
 
 JAPI:routes{
-  ["GET /a1/reports"] = handle_fail(get_reports),
-  ["GET /a1/fail"] = handle_fail(get_fail),
+  ["GET /a1/reports"]          = handle_fail(get_reports),
+  ["GET /a1/report-sections"]  = handle_fail(get_report_sections),
+  ["GET /a1/fail"]             = handle_fail(get_fail),
 }
 
 -- returns a table that will end up in ctx.data in the handlers. Used to

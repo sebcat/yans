@@ -445,9 +445,7 @@ static void on_index_response(struct eds_client *cli, int fd) {
         ycl_strerror(&ecli->ycl));
   }
 
-  if (ecli->open_fd >= 0) {
-    LOGINFO(fd, "index: sent fd");
-  } else {
+  if (ecli->open_fd < 0) {
     LOGERRF(fd, "index: failed to open fd: %s", strerror(ecli->open_errno));
   }
 
@@ -508,7 +506,7 @@ done:
   if (errmsg) {
     LOGERRF(fd, "store list failure: %s", errmsg);
   } else if (req->store_id.len > 0) {
-    LOGINFOF(fd, "listed store: %s", req->store_id.data);
+    LOGINFOF(fd, "%s: listed store", req->store_id.data);
   } else {
     LOGINFO(fd, "listed stores");
   }
@@ -533,8 +531,8 @@ static void on_readreq(struct eds_client *cli, int fd) {
   if (ret == YCL_AGAIN) {
     return;
   } else if (ret != YCL_OK) {
-    errmsg = ycl_strerror(&ecli->ycl);
-    goto fail;
+    eds_client_clear_actions(cli);
+    return;
   }
 
   ret = ycl_msg_parse_store_req(&ecli->msgbuf, &req);
@@ -600,13 +598,6 @@ void store_on_readable(struct eds_client *cli, int fd) {
   return;
 fail:
   eds_service_remove_client(cli->svc, cli);
-}
-
-void store_on_done(struct eds_client *cli, int fd) {
-  struct store_cli *ecli = STORE_CLI(cli);
-  /* TODO: Implement */
-  (void)ecli;
-  LOGINFO(fd, "done");
 }
 
 void store_on_finalize(struct eds_client *cli) {

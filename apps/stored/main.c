@@ -116,7 +116,6 @@ int main(int argc, char *argv[]) {
       .udata_size = sizeof(struct store_cli),
       .actions = {
         .on_readable = store_on_readable,
-        .on_done = store_on_done,
         .on_finalize = store_on_finalize,
       },
       .mod_init = store_init,

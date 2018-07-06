@@ -234,7 +234,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   acts.on_readable = on_gotpkg;
   acts.on_finalize = pcap_on_finalize;
-  if ((dumpcli = eds_service_add_client(cli->svc, pcapfd, &acts)) == NULL) {
+  if ((dumpcli = eds_service_add_client(cli->svc, pcapfd, &acts, 0)) == NULL) {
     ylog_error("pcapcli%d: eds_service_add_client failure", fd);
     goto fail;
   }

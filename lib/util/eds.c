@@ -190,14 +190,21 @@ void eds_client_send(struct eds_client *cli, const char *data, size_t len,
 }
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
-    struct eds_client_actions *acts) {
+    struct eds_client_actions *acts, int flags) {
   struct eds_service_listener *l = &EDS_SERVICE_LISTENER(svc);
   struct eds_client *ecli;
   io_t io;
 
   IO_INIT(&io, fd);
-  io_setnonblock(&io, 1);
-  io_setcloexec(&io, 1);
+
+  if (!(flags & EDS_ACLI_NOSET_NOBLOCK)) {
+    io_setnonblock(&io, 1);
+  }
+
+  if (!(flags & EDS_ACLI_NOSET_CLOEXEC)) {
+    io_setcloexec(&io, 1);
+  }
+
   if (fd > l->maxfd) {
     /* XXX: currently, l->maxfd is never decreased */
     l->maxfd = fd;
@@ -418,7 +425,9 @@ select:
 
   if (FD_ISSET(svc->cmdfd, &rfds)) {
     /* accept a new client connection */
-    fd = accept(svc->cmdfd, NULL, NULL);
+    /* XXX: accept4 is non-standard but exists on Linux and FreeBSD.
+     *      Using it prevents extra syscalls as well as fixing a race */
+    fd = accept4(svc->cmdfd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (fd < 0) {
       if (errno == EWOULDBLOCK ||
           errno == EAGAIN ||
@@ -430,11 +439,24 @@ select:
       return -1;
     }
 
-    if (eds_service_add_client(svc, fd, &svc->actions) == NULL) {
+    if (eds_service_add_client(svc, fd, &svc->actions,
+        EDS_ACLI_NOSET_NOBLOCK | EDS_ACLI_NOSET_CLOEXEC) == NULL) {
       EDS_SERVE_ERR(svc, "%s: failed to add new client", svc->name);
     }
 
-    FD_CLR(svc->cmdfd, &rfds); /* So we don't treat cmdfd as a client below */
+    /* if we have a readable handler (which we most likely do), we'll
+     * opportunistically call the read handler below to attempt to avoid a new
+     * select(2) call at the cost of a potentially unnecessary call to read(2).
+     * We only do this when num_fds is higher than one because most of the
+     * time, it only makes a difference when we process multiple fds. */
+    if (num_fds > 1 && svc->actions.on_readable) {
+      FD_SET(fd, &rfds);
+      num_fds++;
+    }
+
+    /* Clear cmdfd and decrement the count, so we don't treat it as a client
+     * below */
+    FD_CLR(svc->cmdfd, &rfds);
     num_fds--;
   }
 

@@ -24,6 +24,10 @@ struct eds_client_actions {
 /* eds handler flags */
 #define EDS_DEFER    (1 << 0)
 
+/* eds add client flags */
+#define EDS_ACLI_NOSET_NOBLOCK (1 << 0) /* Do not set non-blocking */
+#define EDS_ACLI_NOSET_CLOEXEC (1 << 1) /* Do not set cloexec */
+
 /* for eds functions that needs a transition to another state when done
  * e.g., eds_client_send, the eds_transition struct holds the callbacks
  * that shall be used on a successful transition */
@@ -127,7 +131,7 @@ void eds_client_send(struct eds_client *cli, const char *data, size_t len,
     struct eds_transition *next);
 
 struct eds_client *eds_service_add_client(struct eds_service *svc, int fd,
-    struct eds_client_actions *acts);
+    struct eds_client_actions *acts, int flags);
 
 int eds_client_set_ticker(struct eds_client *cli,
     void (*ticker)(struct eds_client *, int));

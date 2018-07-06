@@ -1,6 +1,8 @@
+
+- /a1/report-section: get report section from store
+
 - create PID files outside of chroot
 - have remove_pidfile function take a path
-- remove \r\n\t\0 from all headers set in japi/yansapi
 
 ## subject
   - A subject is one IP(v4/v6) address reachable from a certain NIC with a
@@ -99,6 +101,8 @@ more areas:
                  default account testing
 
 ## slask
+
+for E in $(store list); do store list $E; done | cut -f 1 -d ' ' | paste -s -d+ - | bc
 
 tcpdump -n '(ether broadcast or ether multicast or ether dst 00:24:d7:17:9c:38) and (not ether src 00:24:d7:17:9c:38)'
 

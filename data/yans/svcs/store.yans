@@ -21,6 +21,24 @@ function _M:index()
   return self.sock:recvfd():to_sindex("r")
 end
 
+function _M:list(store_id, must_match)
+  self.msgbuf:create_store_req{
+    action          = "list",
+    store_id        = store_id,
+    list_must_match = must_match,
+  }
+  self.sock:sendmsg(self.msgbuf)
+  self.sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_store_list()
+  assert(not resp.errmsg, resp.errmsg)
+  local ents = resp.entries or ""
+  local res = {}
+  for m in ents:gmatch("[^\0]+") do
+    table.insert(res,m)
+  end
+  return res
+end
+
 function _M:enter(store_id)
   assert(not self.store_id, "attempted entering store more than once")
   self.msgbuf:create_store_req{
@@ -40,7 +58,7 @@ end
 function _M:open(path, flags)
   assert(self.store_id, "open called in store that was not entered")
   self.msgbuf:create_store_open{
-    path = path,
+    path  = path,
     flags = flags,
   }
   self.sock:sendmsg(self.msgbuf)

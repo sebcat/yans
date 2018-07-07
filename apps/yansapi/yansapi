@@ -64,6 +64,91 @@ local function get_reports(ctx)
   ctx:write(tostring(res))
 end
 
+local function err400(ctx, text)
+    ctx:status"400 Bad Request"
+    ctx:header("Content-Type", "text/plain")
+    ctx:write(text)
+end
+
+local function get_report_section(ctx)
+  --[[
+  GET /a1/report-section
+
+  URL Parameters:
+    - id:    ID of the given report.
+    - name: Name of section
+
+  If id or entry is missing or invalid, a 400 response is returned.
+
+  Response on success: The report section. Who knows what it contains, muahaha
+  ]]--
+
+  -- parse request
+  local params = ctx:parse_query_string(ctx.query_string)
+  local id     = clean_id(params.id)
+  local name   = params.name
+
+  -- validate parameters
+  if not id or not name then
+    err400(ctx, "Missing parameter 'id' and/or 'name'")
+    return
+  end
+
+  -- open the store entry, or error out
+  local store = ctx.data.store
+  store:enter(id)
+  local ok, res = pcall(store.open, store, name, yans.file.O_RDONLY)
+  if not ok then
+    err400(ctx, "Unable to open the requested report section")
+    return
+  end
+
+  -- check if the client accepts gzip as a content encoding
+  -- XXX: doesn't take qvalues into account, e.g., q=0
+  local accept = ctx.hdrmap["HTTP_ACCEPT_ENCODING"]
+  local client_accepts_gzip = accept and accept:match("gzip")
+  local content_is_gzip = false
+  if name:match(".gz$") then
+    content_is_gzip = true
+    -- trim the name to remove .gz, for later content-type identification
+    name = name:sub(1, -4)
+  end
+
+  -- open the stream, decode it if it's compressed and the client does not
+  -- support compression
+  local stream
+  if content_is_gzip and not client_accepts_gzip then
+    stream = res:to_stream("zlib:rb")
+  else
+    stream = res:to_stream("rb")
+  end
+
+  -- set Content-Encoding, if neeed
+  if content_is_gzip and client_accepts_gzip then
+    ctx:header("Content-Encoding", "gzip")
+  end
+
+  -- Set Content-Type. any .gz suffix is trimmed earlier
+  if name:match(".json$") then
+    ctx:header("Content-Type", "application/json")
+  elseif name:match(".csv$") then
+    ctx:header("Content-Type", "application/vnd.ms-excel")
+  elseif name:match(".txt$") then
+    ctx:header("Content-Type", "text/plain")
+  else
+    ctx:header("Content-Type", "application/octet-stream")
+  end
+
+  -- send all the datas! read it into memory in chunks if the
+  -- file is big-ish
+  ctx:status"200 OK"
+  while true do
+    local data = stream:read(524288)
+    if not data then break end
+    ctx:write(data)
+  end
+end
+
 local function get_report_sections(ctx)
   --[[
   GET /a1/report-sections
@@ -137,6 +222,7 @@ end
 JAPI:routes{
   ["GET /a1/reports"]          = handle_fail(get_reports),
   ["GET /a1/report-sections"]  = handle_fail(get_report_sections),
+  ["GET /a1/report-section"]   = handle_fail(get_report_section),
   ["GET /a1/fail"]             = handle_fail(get_fail),
 }
 

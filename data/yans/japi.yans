@@ -89,7 +89,7 @@ function _M:dispatch(data)
   -- enter sandbox
   yans.util.sandbox()
 
-  --make sure we have a route table
+  -- make sure we have a route table
   if not self.route_table then
     self:croak(self.SERVER_ERROR, "no route table")
   end
@@ -100,29 +100,17 @@ function _M:dispatch(data)
     self:croak(self.SERVER_ERROR, "read request failure")
   end
 
-  -- FIXME: Clean this up, but consider that there may be many identical keys
-  --        for different values (e.g., multiple HTTP_COOKIE)
-  local content_type, request_method, document_uri, query_string
+  -- Put all headers in a lookup table. Certain headers can occur multiple
+  -- times in a request (e.g., HTTP_COOKIE). This only saves the latest of a
+  -- header with a given key/name.
+  local hdrmap = {}
   for i = 1, #hdrs, 2 do
-    if hdrs[i] == "CONTENT_TYPE" then
-      content_type = hdrs[i + 1]
-    elseif hdrs[i] == "REQUEST_METHOD" then
-      request_method = hdrs[i + 1]
-    elseif hdrs[i] == "DOCUMENT_URI" then
-      document_uri = hdrs[i + 1]
-    elseif hdrs[i] == "QUERY_STRING" then
-      query_string = hdrs[i + 1]
-    end
-  end
-
-  if not request_method then
-    self:croak(self.BAD_REQUEST, "no method")
-  elseif not document_uri then
-    self:croak(self.BAD_REQUEST, "no path")
+    hdrmap[hdrs[i]] = hdrs[i + 1]
   end
 
   -- parse the body, if any, as JSON and require its content type to be set
-  if body then
+  if body and #body > 0 then
+    local content_type = hdrmap["CONTENT_TYPE"]
     if not content_type then
       self:croak(self.BAD_REQUEST, "missing content type")
     elseif not content_type:find("application/json") then
@@ -133,6 +121,15 @@ function _M:dispatch(data)
       self:croak(self.BAD_REQUEST, "request body parse failure")
     end
     body = res
+  end
+
+  -- make sure we have a method and a path
+  local request_method = hdrmap["REQUEST_METHOD"]
+  local document_uri = hdrmap["DOCUMENT_URI"]
+  if not request_method then
+    self:croak(self.BAD_REQUEST, "no method")
+  elseif not document_uri then
+    self:croak(self.BAD_REQUEST, "no path")
   end
 
   -- resolve the handler for the request, if any
@@ -146,11 +143,12 @@ function _M:dispatch(data)
   local responder = {
     req_hdrs = hdrs,
     req_body = body,
-    headers = {},
+    hdrmap = hdrmap,
+    headers = {},        -- response headers
     statusline = nil,    -- filled in later, defaults to "200 OK"
     content_type = nil,  -- filled in later, defaults to "application/json"
     has_sent_header = false,
-    query_string = query_string or "",
+    query_string = hdrmap["QUERY_STRING"] or "",
     data = data,
   }
   self.__index = self

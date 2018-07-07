@@ -440,7 +440,7 @@ static void on_read_req(struct eds_client *cli, int fd) {
     acts.on_readable = on_childproc_readable;
     acts.on_done = on_childproc_done;
     if ((ctx->child_cli = eds_service_add_client(cli->svc, procfd,
-        &acts)) == NULL) {
+        &acts, 0)) == NULL) {
       CLIERR(cli, fd, "PID:%d fd:%d: failed to add client", pid, procfd);
       goto fail_postfork;
     }

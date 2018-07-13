@@ -8,6 +8,8 @@ lib/util/os.o: lib/util/os.c lib/util/os.h
 lib/util/prng.o: lib/util/prng.c lib/util/prng.h
 lib/util/reorder.o: lib/util/reorder.c lib/util/reorder.h
 lib/util/sandbox.o: lib/util/sandbox.c lib/util/sandbox.h
+lib/util/sindex.o: lib/util/sindex.c lib/util/sindex.h
+lib/util/str.o: lib/util/str.c lib/util/str.h
 lib/util/u8.o: lib/util/u8.c lib/util/u8.h
 lib/util/ylog.o: lib/util/ylog.c lib/util/ylog.h
 lib/util/zfile.o: lib/util/zfile.c lib/util/zfile.h
@@ -30,4 +32,8 @@ lib/util/os_test: $(lib_util_os_test_DEPSOBJS) \
 lib/util/u8_test: $(lib_util_u8_test_DEPSOBJS) $(lib_util_u8_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_u8_test_DEPSOBJS) \
 		$(lib_util_u8_test_OBJS) $(LDFLAGS)
+
+lib/util/str_test: $(lib_util_str_test_DEPSOBJS) $(lib_util_str_test_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(lib_util_str_test_DEPSOBJS) \
+		$(lib_util_str_test_OBJS) $(LDFLAGS)
 

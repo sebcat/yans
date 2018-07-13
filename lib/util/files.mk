@@ -10,6 +10,7 @@ lib_util_SOURCES = \
     lib/util/reorder.c \
     lib/util/sandbox.c \
     lib/util/sindex.c \
+    lib/util/str.c \
     lib/util/u8.c \
     lib/util/ylog.c \
     lib/util/zfile.c
@@ -36,11 +37,18 @@ lib_util_u8_test_DEPSOBJS = ${lib_util_u8_test_DEPS:.c=.o}
 lib_util_u8_test_SOURCES = lib/util/u8_test.c
 lib_util_u8_test_OBJS = ${lib_util_u8_test_SOURCES:.c=.o}
 
+lib_util_str_test_DEPS = lib/util/str.c
+lib_util_str_test_DEPSOBJS = ${lib_util_str_test_DEPS:.c=.o}
+lib_util_str_test_SOURCES = lib/util/str_test.c
+lib_util_str_test_OBJS = ${lib_util_str_test_SOURCES:.c=.o}
+
+
 lib_util_CTESTSRCS = \
     $(lib_util_flagset_test_SOURCES) \
     $(lib_util_netstring_test_SOURCES) \
     $(lib_util_os_test_SOURCES) \
-    $(lib_util_u8_test_SOURCES)
+    $(lib_util_u8_test_SOURCES) \
+    $(lib_util_str_test_SOURCES)
 
 lib_util_CTESTS = ${lib_util_CTESTSRCS:.c=}
 

@@ -4,6 +4,7 @@ knegd_DEPS = \
     lib/util/os.c \
     lib/util/buf.c \
     lib/util/eds.c \
+    lib/util/str.c \
     lib/util/ylog.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c

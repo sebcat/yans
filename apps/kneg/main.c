@@ -92,9 +92,11 @@ ycl_cleanup:
   return res;
 }
 
-static int pid(int argc, char **argv) {
+static int pids(int argc, char **argv) {
   int ret;
   int ch;
+  int i;
+  buf_t b;
   struct ycl_msg_knegd_req req = {0};
   const char *optstr = "hs:";
   const char *argv0 = argv[0];
@@ -118,23 +120,24 @@ static int pid(int argc, char **argv) {
 
   argc -= optind + 1;
   argv += optind + 1;
-  if (argc <= 0) {
-    fprintf(stderr, "missing id\n");
-    goto usage;
+  buf_init(&b, 1024);
+  for (i = 0; i < argc; i++) {
+    buf_adata(&b, argv[i], strlen(argv[i]) + 1);
   }
 
-  req.action.data = "pid";
-  req.action.len = sizeof("pid")-1;
-  req.id.data = argv[0];
-  req.id.len = strlen(argv[0]);
+  req.action.data = "pids";
+  req.action.len = sizeof("pids")-1;
+  req.id.data = b.data;
+  req.id.len = b.len;
   ret = reqresp(sock, &req);
+  buf_cleanup(&b);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
 
 usage:
-  fprintf(stderr, "usage: %s pid [opts] <id>\n"
+  fprintf(stderr, "usage: %s pids [opts] <id0> [id1] ... [idN]\n"
       "opts:\n"
       "  -h|--help           - this text\n"
       "  -s|--socket <path>  - path to knegd socket (%s)\n"
@@ -311,7 +314,7 @@ int main(int argc, char *argv[]) {
   int i;
   static const struct subcmd subcmds[] = {
     {"start", start},
-    {"pid", pid},
+    {"pids", pids},
     {"stop", stop},
     {NULL, NULL},
   };

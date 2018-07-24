@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <lib/util/str.h>
 #include <lib/util/ylog.h>
 #include <lib/ycl/ycl_msg.h>
 #include <apps/knegd/kng.h>
@@ -21,7 +22,10 @@
    ((ch__) >= '0' && (ch__) <= '9') || \
    ((ch__) == '-'))
 
-#define KNGFL_HASMSGBUF (1 << 0)
+#define KNGFL_HASMSGBUF  (1 << 0)
+#define KNGFL_HASRESPBUF (1 << 1)
+
+#define DFL_RESPBUFSZ 1024
 
 #define LOGERR(...) \
     ylog_error(__VA_ARGS__)
@@ -325,6 +329,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     /* client sockets should be CLOEXEC, but cmdfd and potentially others
      * are not. A bit hacky, but... */
     for (ret = 3; ret < 10; ret++) {
+      close(ret); 
     }
     ret = execve(path, argv, envp);
     if (ret < 0) {
@@ -443,6 +448,24 @@ static pid_t jobs_pid(const char *id) {
   return -1;
 }
 
+int append_job_pid(const char *s, size_t len, void *data) {
+  char pidstr[32];
+  buf_t *buf = data;
+
+  if (buf->len > 0) {
+    buf_achar(buf, ' ');
+  }
+
+  snprintf(pidstr, sizeof(pidstr), "%d", jobs_pid(s));
+  buf_adata(buf, pidstr, strlen(pidstr));
+  return 1;
+}
+
+static void append_job_pids(buf_t *buf, const char *s, size_t len) {
+  str_map_field(s, len, "", 1, append_job_pid, buf);
+  buf_achar(buf, '\0');
+}
+
 static void jobs_stop(const char *id) {
   struct kng_ctx *curr;
 
@@ -522,7 +545,6 @@ static void on_readreq(struct eds_client *cli, int fd) {
   struct kng_cli *ecli = KNG_CLI(cli);
   struct ycl_msg_knegd_req req = {0};
   struct kng_ctx *job;
-  pid_t pid;
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -551,10 +573,10 @@ static void on_readreq(struct eds_client *cli, int fd) {
       goto fail;
     }
     jobs_add(job);
-    snprintf(ecli->buf, sizeof(ecli->buf), "%s", job->id);
+    buf_adata(&ecli->respbuf, job->id, strlen(job->id) + 1);
     LOGINFO("started job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
         req.type.data, job->pid, job->id);
-    write_ok_response(cli, fd, ecli->buf);
+    write_ok_response(cli, fd, ecli->respbuf.data);
     return;
   }
 
@@ -565,10 +587,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
   }
 
   /* check req/resp actions, or error out on unknown action */
-  if (strcmp(req.action.data, "pid") == 0) {
-    pid = jobs_pid(req.id.data);
-    snprintf(ecli->buf, sizeof(ecli->buf), "%d", pid);
-    okmsg = ecli->buf;
+  if (strcmp(req.action.data, "pids") == 0) {
+    append_job_pids(&ecli->respbuf, req.id.data, req.id.len);
+    okmsg = ecli->respbuf.data;
   } else if (strcmp(req.action.data, "stop") == 0) {
     jobs_stop(req.id.data);
     LOGINFO("stop request received id:\"%s\"", req.id.data);
@@ -598,6 +619,14 @@ void kng_on_readable(struct eds_client *cli, int fd) {
     }
     ecli->flags |= KNGFL_HASMSGBUF;
   }
+
+  if (ecli->flags & KNGFL_HASRESPBUF) {
+    buf_clear(&ecli->respbuf);
+  } else {
+    buf_init(&ecli->respbuf, DFL_RESPBUFSZ);
+    ecli->flags |= KNGFL_HASRESPBUF;
+  }
+
   eds_client_set_on_readable(cli, on_readreq, 0);
   return;
 
@@ -630,6 +659,11 @@ void kng_on_finalize(struct eds_client *cli) {
   if (ecli->flags & KNGFL_HASMSGBUF) {
     ycl_msg_cleanup(&ecli->msgbuf);
     ecli->flags &= ~KNGFL_HASMSGBUF;
+  }
+
+  if (ecli->flags & KNGFL_HASRESPBUF) {
+    buf_cleanup(&ecli->respbuf);
+    ecli->flags &= ~KNGFL_HASRESPBUF;
   }
 }
 

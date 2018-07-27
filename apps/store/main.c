@@ -689,6 +689,153 @@ usage:
 
 }
 
+int run_rename(const char *socket, const char *id, const char *from,
+    const char *to) {
+  int ret;
+  int result = -1;
+  struct ycl_ctx ctx;
+  struct ycl_msg msg;
+  struct ycl_msg_store_req reqmsg = {{0}};
+  struct ycl_msg_status_resp respmsg = {{0}};
+  struct ycl_msg_store_entered_req renamemsg = {{0}};
+
+  ret = ycl_connect(&ctx, socket);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+    return -1;
+  }
+
+  ret = ycl_msg_init(&msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_init failure\n");
+    goto ycl_cleanup;
+  }
+
+  reqmsg.action.data = "enter";
+  reqmsg.action.len = sizeof("enter") - 1;
+  reqmsg.store_id.data = id;
+  reqmsg.store_id.len = id ? strlen(id) : 0;
+  ret = ycl_msg_create_store_req(&msg, &reqmsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+    goto ycl_msg_cleanup;
+  }
+
+  ret = ycl_sendmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  ycl_msg_reset(&msg);
+  ret = ycl_recvmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to receive enter response: %s\n",
+        ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  ret = ycl_msg_parse_status_resp(&msg, &respmsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to parse enter response\n");
+    goto ycl_msg_cleanup;
+  }
+
+  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
+    fprintf(stderr, "received failure: %s\n", respmsg.errmsg.data);
+    goto ycl_msg_cleanup;
+  }
+
+  renamemsg.action.data = "rename";
+  renamemsg.action.len = 7;
+  renamemsg.rename_from.data = from;
+  renamemsg.rename_from.len = strlen(from);
+  renamemsg.rename_to.data = to;
+  renamemsg.rename_to.len = strlen(to);
+  ret = ycl_msg_create_store_entered_req(&msg, &renamemsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to serialize rename request\n");
+    goto ycl_msg_cleanup;
+  }
+
+  ret = ycl_sendmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to send rename request: %s\n", ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  ycl_msg_reset(&msg);
+  ret = ycl_recvmsg(&ctx, &msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to receive rename response: %s\n",
+        ycl_strerror(&ctx));
+    goto ycl_msg_cleanup;
+  }
+
+  memset(&respmsg, 0, sizeof(respmsg));
+  ret = ycl_msg_parse_status_resp(&msg, &respmsg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "failed to parse rename response\n");
+    goto ycl_msg_cleanup;
+  }
+
+  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
+    fprintf(stderr, "%s\n", respmsg.errmsg.data);
+    goto ycl_msg_cleanup;
+  }
+
+
+  result = 0;
+ycl_msg_cleanup:
+  ycl_msg_cleanup(&msg);
+ycl_cleanup:
+  ycl_close(&ctx);
+  return result;
+}
+
+int rename_main(int argc, char *argv[]) {
+  int ch;
+  int ret;
+  const char *optstr = "hs:";
+  const char *socket = DFL_STOREPATH;
+  struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      socket = optarg;
+      break;
+    case 'h':
+    default:
+      goto usage;
+    }
+  }
+
+  if (optind + 3 >= argc) {
+    fprintf(stderr, "too few arguments");
+    goto usage;
+  }
+
+  ret = run_rename(socket, argv[optind + 1], argv[optind + 2],
+      argv[optind + 3]);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+usage:
+  fprintf(stderr, "usage: %s rename [opts] <id> <from> <to>\n"
+      "opts:\n"
+      "  -s|--socket       store socket path (%s)\n"
+      "  -h|--help       this text\n",
+      argv[0], DFL_STOREPATH);
+  return EXIT_FAILURE;
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     goto usage;
@@ -704,6 +851,8 @@ int main(int argc, char *argv[]) {
     return index_main(argc, argv);
   } else if (strcmp(argv[1], "list") == 0) {
     return list_main(argc, argv);
+  } else if (strcmp(argv[1], "rename") == 0) {
+    return rename_main(argc, argv);
   }
 
   fprintf(stderr, "unknown command\n");

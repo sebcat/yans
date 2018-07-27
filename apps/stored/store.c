@@ -255,6 +255,31 @@ static void on_sendfd(struct eds_client *cli, int fd) {
   eds_client_set_on_readable(cli, on_readentered, 0);
 }
 
+static void on_post_enter_response(struct eds_client *cli, int fd) {
+  struct store_cli *ecli = STORE_CLI(cli);
+  ycl_msg_reset(&ecli->msgbuf);
+  eds_client_set_on_readable(cli, on_readentered, 0);
+}
+
+static void send_entered_response(struct eds_client *cli, int fd,
+    struct ycl_msg_status_resp *resp) {
+  struct store_cli *ecli = STORE_CLI(cli);
+  int ret;
+  struct eds_transition trans = {
+    .flags = EDS_TFLREAD | EDS_TFLWRITE,
+    .on_readable = on_post_enter_response,
+    .on_writable = NULL,
+  };
+
+  ret = ycl_msg_create_status_resp(&ecli->msgbuf, resp);
+  if (ret != YCL_OK) {
+    LOGERR(fd, "OK enter response serialization error");
+  } else {
+    eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
+        ycl_msg_nbytes(&ecli->msgbuf), &trans);
+  }
+}
+
 static const char *get_flagstr(int flags) {
   switch(flags & (O_RDONLY | O_WRONLY | O_RDWR)) {
   case O_RDONLY:
@@ -320,7 +345,42 @@ sendfd_resp:
 
 static void handle_store_rename(struct eds_client *cli, int fd, 
     struct ycl_msg_store_entered_req *req) {
-  /* TODO: Implement */
+  struct store_cli *ecli = STORE_CLI(cli);
+  struct ycl_msg_status_resp resp = {{0}};
+  char from_path[STORE_MAXDIRPATH];
+  char to_path[STORE_MAXDIRPATH];
+  const char *errmsg = NULL;
+  int ret;
+
+  /* validate */
+  if (!is_valid_path(req->rename_from.data, req->rename_from.len)) {
+    errmsg = "rename: invalid 'from' path";
+    goto done;
+  } else if (!is_valid_path(req->rename_to.data, req->rename_to.len)) {
+    errmsg = "rename: invalid 'to' path";
+    goto done;
+  }
+
+  /* set up the paths */
+  snprintf(from_path, sizeof(from_path), "%s/%s", ecli->store_path,
+      req->rename_from.data);
+  snprintf(to_path, sizeof(to_path), "%s/%s", ecli->store_path,
+      req->rename_to.data);
+
+  /* rename */
+  ret = rename(from_path, to_path);
+  if (ret != 0) {
+    /* NB: buffer reuse of 'to_path' for error message */
+    snprintf(to_path, sizeof(to_path), "rename: %s", strerror(errno));
+    errmsg = to_path;
+    LOGERR(fd, errmsg);
+  }
+
+  /* send the response */
+done:
+  resp.errmsg.len = errmsg ? strlen(errmsg) : 0;
+  resp.errmsg.data = errmsg;
+  send_entered_response(cli, fd, &resp);
 }
 
 static void on_readentered(struct eds_client *cli, int fd) {
@@ -360,33 +420,6 @@ static void on_readentered(struct eds_client *cli, int fd) {
   return;
 fail:
   write_err_response(cli, fd, errmsg);
-}
-
-static void on_post_enter_response(struct eds_client *cli, int fd) {
-  struct store_cli *ecli = STORE_CLI(cli);
-  ycl_msg_reset(&ecli->msgbuf);
-  eds_client_set_on_writable(cli, on_readentered, 0);
-}
-
-static void on_enter_response(struct eds_client *cli, int fd) {
-  struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_status_resp resp = {{0}};
-  int ret;
-  struct eds_transition trans = {
-    .flags = EDS_TFLREAD | EDS_TFLWRITE,
-    .on_readable = on_post_enter_response,
-    .on_writable = NULL,
-  };
-
-  resp.okmsg.data = STORE_ID(ecli);
-  resp.okmsg.len = strlen(resp.okmsg.data);
-  ret = ycl_msg_create_status_resp(&ecli->msgbuf, &resp);
-  if (ret != YCL_OK) {
-    LOGERR(fd, "OK enter response serialization error");
-  } else {
-    eds_client_send(cli, ycl_msg_bytes(&ecli->msgbuf),
-        ycl_msg_nbytes(&ecli->msgbuf), &trans);
-  }
 }
 
 static void list_store_content(buf_t *buf, const char *store,
@@ -572,6 +605,8 @@ static void on_readreq(struct eds_client *cli, int fd) {
     errmsg = "missing store action";
     goto fail;
   } else if (strcmp(req.action.data, "enter") == 0) {
+    struct ycl_msg_status_resp resp = {{0}};
+
     if (req.store_id.data != NULL) {
       ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
     } else {
@@ -585,7 +620,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
     LOGINFOF(fd, "%s: entered store", STORE_ID(ecli));
     eds_client_set_on_readable(cli, NULL, 0);
-    eds_client_set_on_writable(cli, on_enter_response, 0);
+    resp.okmsg.data = STORE_ID(ecli);
+    resp.okmsg.len = strlen(resp.okmsg.data);
+    send_entered_response(cli, fd, &resp);
   } else if (strcmp(req.action.data, "index") == 0) {
     /* the sole purpose of 'index' is to pass an fd of the index file, opened
      * as read-only  */

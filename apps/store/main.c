@@ -27,7 +27,7 @@ static int run_get(const char *socket, const char *id, const char *filename) {
   struct ycl_msg msg;
   struct ycl_msg_store_req reqmsg = {{0}};
   struct ycl_msg_status_resp respmsg = {{0}};
-  struct ycl_msg_store_open openmsg = {{0}};
+  struct ycl_msg_store_entered_req openmsg = {{0}};
 
   ret = ycl_connect(&ctx, socket);
   if (ret != YCL_OK) {
@@ -76,10 +76,12 @@ static int run_get(const char *socket, const char *id, const char *filename) {
     goto ycl_msg_cleanup;
   }
 
-  openmsg.path.data = filename;
-  openmsg.path.len = strlen(filename);
-  openmsg.flags = O_RDONLY;
-  ret = ycl_msg_create_store_open(&msg, &openmsg);
+  openmsg.action.data = "open";
+  openmsg.action.len = 5;
+  openmsg.open_path.data = filename;
+  openmsg.open_path.len = strlen(filename);
+  openmsg.open_flags = O_RDONLY;
+  ret = ycl_msg_create_store_entered_req(&msg, &openmsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "failed to serialize open request\n");
     goto ycl_msg_cleanup;
@@ -156,7 +158,7 @@ static int run_put(const char *socket, const char *id, const char *filename,
   struct ycl_msg msg;
   struct ycl_msg_store_req reqmsg = {{0}};
   struct ycl_msg_status_resp respmsg = {{0}};
-  struct ycl_msg_store_open openmsg = {{0}};
+  struct ycl_msg_store_entered_req openmsg = {{0}};
 
   ret = ycl_connect(&ctx, socket);
   if (ret != YCL_OK) {
@@ -209,10 +211,12 @@ static int run_put(const char *socket, const char *id, const char *filename,
     printf("%s\n", respmsg.okmsg.data);
   }
 
-  openmsg.path.data = filename;
-  openmsg.path.len = strlen(filename);
-  openmsg.flags = flags;
-  ret = ycl_msg_create_store_open(&msg, &openmsg);
+  openmsg.action.data = "open";
+  openmsg.action.len = 5;
+  openmsg.open_path.data = filename;
+  openmsg.open_path.len = strlen(filename);
+  openmsg.open_flags = flags;
+  ret = ycl_msg_create_store_entered_req(&msg, &openmsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "failed to serialize open request\n");
     goto ycl_msg_cleanup;

@@ -229,7 +229,7 @@ static int create_and_enter_store(int fd, struct store_cli *ecli) {
   return ret;
 }
 
-static void on_readopen(struct eds_client *cli, int fd);
+static void on_readentered(struct eds_client *cli, int fd);
 
 static void on_sendfd(struct eds_client *cli, int fd) {
   struct store_cli *ecli = STORE_CLI(cli);
@@ -252,7 +252,7 @@ static void on_sendfd(struct eds_client *cli, int fd) {
   }
 
   eds_client_set_on_writable(cli, NULL, 0);
-  eds_client_set_on_readable(cli, on_readopen, 0);
+  eds_client_set_on_readable(cli, on_readentered, 0);
 }
 
 static const char *get_flagstr(int flags) {
@@ -268,13 +268,66 @@ static const char *get_flagstr(int flags) {
   }
 }
 
-static void on_readopen(struct eds_client *cli, int fd) {
+static void handle_store_open(struct eds_client *cli, int fd, 
+    struct ycl_msg_store_entered_req *req) {
+  int open_fd;
   char dirpath[STORE_MAXDIRPATH];
+  struct store_cli *ecli = STORE_CLI(cli);
+  /* initialize response fd fields */
+  ecli->open_fd = nullfd_get();
+  ecli->open_errno = EACCES;
+
+  if (req->open_path.data == NULL || *req->open_path.data == '\0') {
+    LOGERRF(fd, "%s: empty path", STORE_ID(ecli));
+    goto sendfd_resp;
+  }
+
+  if (!is_valid_path(req->open_path.data, req->open_path.len)) {
+    if (req->open_path.len > 16) {
+        LOGERRF(fd, "%s: invalid path: %.16s...", STORE_ID(ecli),
+            req->open_path.data);
+    } else {
+        LOGERRF(fd, "%s: invalid path: %s", STORE_ID(ecli),
+            req->open_path.data);
+    }
+    goto sendfd_resp;
+  }
+
+  snprintf(dirpath, sizeof(dirpath), "%s/%s", ecli->store_path,
+      req->open_path.data);
+  if ((int)req->open_flags & O_CREAT) {
+    open_fd = open(dirpath, (int)req->open_flags, 0600);
+  } else {
+    open_fd = open(dirpath, (int)req->open_flags);
+  }
+  if (open_fd < 0) {
+    ecli->open_errno = errno;
+    LOGERRF(fd, "%s: failed to open %s: %s", STORE_ID(ecli),
+        req->open_path.data, strerror(errno));
+  } else {
+    const char *flagstr = get_flagstr((int)req->open_flags);
+    LOGINFOF(fd, "%s: opened %s (%s)", STORE_ID(ecli), req->open_path.data,
+        flagstr);
+    ecli->open_fd = open_fd;
+    ecli->open_errno = 0;
+  }
+
+sendfd_resp:
+  eds_client_set_on_readable(cli, NULL, 0);
+  eds_client_set_on_writable(cli, on_sendfd, 0);
+  return;
+}
+
+static void handle_store_rename(struct eds_client *cli, int fd, 
+    struct ycl_msg_store_entered_req *req) {
+  /* TODO: Implement */
+}
+
+static void on_readentered(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   struct store_cli *ecli = STORE_CLI(cli);
-  struct ycl_msg_store_open req = {{0}};
+  struct ycl_msg_store_entered_req req = {{0}};
   int ret;
-  int open_fd;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
   if (ret == YCL_AGAIN) {
@@ -284,53 +337,27 @@ static void on_readopen(struct eds_client *cli, int fd) {
     return;
   }
 
-  ret = ycl_msg_parse_store_open(&ecli->msgbuf, &req);
+  ret = ycl_msg_parse_store_entered_req(&ecli->msgbuf, &req);
   if (ret != YCL_OK) {
     errmsg = "open request parse error";
     goto fail;
   }
 
-  /* initialize response fd fields */
-  ecli->open_fd = nullfd_get();
-  ecli->open_errno = EACCES;
-
-  if (req.path.data == NULL || *req.path.data == '\0') {
-    LOGERRF(fd, "%s: empty path", STORE_ID(ecli));
-    goto sendfd_resp;
+  if (req.action.len == 0) {
+    errmsg = "missing 'action' field in request";
+    goto fail;
   }
 
-  if (!is_valid_path(req.path.data, req.path.len)) {
-    if (req.path.len > 16) {
-        LOGERRF(fd, "%s: invalid path: %.16s...", STORE_ID(ecli),
-            req.path.data);
-    } else {
-        LOGERRF(fd, "%s: invalid path: %s", STORE_ID(ecli), req.path.data);
-    }
-    goto sendfd_resp;
-  }
-
-  snprintf(dirpath, sizeof(dirpath), "%s/%s", ecli->store_path, req.path.data);
-  if ((int)req.flags & O_CREAT) {
-    open_fd = open(dirpath, (int)req.flags, 0600);
+  if (strcmp(req.action.data, "open") == 0) {
+    handle_store_open(cli, fd, &req);
+  } else if (strcmp(req.action.data, "rename") == 0) {
+    handle_store_rename(cli, fd, &req);
   } else {
-    open_fd = open(dirpath, (int)req.flags);
-  }
-  if (open_fd < 0) {
-    ecli->open_errno = errno;
-    LOGERRF(fd, "%s: failed to open %s: %s", STORE_ID(ecli), req.path.data,
-        strerror(errno));
-  } else {
-    const char *flagstr = get_flagstr((int)req.flags);
-    LOGINFOF(fd, "%s: opened %s (%s)", STORE_ID(ecli), req.path.data, flagstr);
-    ecli->open_fd = open_fd;
-    ecli->open_errno = 0;
+    errmsg = "unknown 'action' field in request";
+    goto fail;
   }
 
-sendfd_resp:
-  eds_client_set_on_readable(cli, NULL, 0);
-  eds_client_set_on_writable(cli, on_sendfd, 0);
   return;
-
 fail:
   write_err_response(cli, fd, errmsg);
 }
@@ -338,7 +365,7 @@ fail:
 static void on_post_enter_response(struct eds_client *cli, int fd) {
   struct store_cli *ecli = STORE_CLI(cli);
   ycl_msg_reset(&ecli->msgbuf);
-  eds_client_set_on_writable(cli, on_readopen, 0);
+  eds_client_set_on_writable(cli, on_readentered, 0);
 }
 
 static void on_enter_response(struct eds_client *cli, int fd) {

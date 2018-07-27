@@ -46,9 +46,14 @@ store_list {
   data entries;
 }
 
-store_open {
-  data path;
-  long flags;
+store_entered_req {
+  data action; # open, rename
+
+  data open_path;
+  long open_flags;
+
+  data rename_from;
+  data rename_to;
 }
 
 ##

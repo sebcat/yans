@@ -200,7 +200,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   struct ycl_ctx ctx;
   struct ycl_msg msg;
   struct ycl_msg_store_req storereqmsg = {{0}};
-  struct ycl_msg_store_open openmsg = {{0}};
+  struct ycl_msg_store_entered_req enteredmsg = {{0}};
   struct ycl_msg_status_resp resp = {{0}};
 
   assert(req != NULL);
@@ -277,10 +277,12 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   }
 
   snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type.data);
-  openmsg.path.data = "kneg.log";
-  openmsg.path.len = strlen(openmsg.path.data);
-  openmsg.flags = O_WRONLY|O_CREAT|O_TRUNC;
-  ret = ycl_msg_create_store_open(&msg, &openmsg);
+  enteredmsg.action.data = "open";
+  enteredmsg.action.len = 5;
+  enteredmsg.open_path.data = "kneg.log";
+  enteredmsg.open_path.len = strlen(enteredmsg.open_path.data);
+  enteredmsg.open_flags = O_WRONLY|O_CREAT|O_TRUNC;
+  ret = ycl_msg_create_store_entered_req(&msg, &enteredmsg);
   if (ret != YCL_OK) {
     *err = "failed to create store open message";
     goto cleanup_envp;

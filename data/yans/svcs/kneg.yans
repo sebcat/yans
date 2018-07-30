@@ -1,0 +1,28 @@
+local _M = {
+
+}
+
+function _M:new(o)
+  assert(o.path, "missing kneg path")
+  assert(o.msgbuf, "missing msgbuf")
+  local ycl = yans.ycl
+  o.sock = ycl.connect(o.path)
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:pids(ids)
+  ids = table.concat(ids, "\0")
+  self.msgbuf:create_knegd_req{
+    action = "pids",
+    id = ids,
+  }
+  self.sock:sendmsg(self.msgbuf)
+  self.sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+  return resp.okmsg
+end
+
+return _M

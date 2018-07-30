@@ -2,6 +2,7 @@
 local DAEMON_NAME = "yansapi"
 local JAPI        = require "japi"
 local Store       = require "svcs.store"
+local Kneg        = require "svcs.kneg"
 
 local function atoi(s, def)
   return math.floor(tonumber(s) or def)
@@ -36,7 +37,8 @@ local function get_reports(ctx)
       {
         "row": 0,
         "ts": 1530356368,
-        "id": "70a7a85d0004f8b9c2be"
+        "id": "70a7a85d0004f8b9c2be",
+        "active": bool
       },
       ...
     ]
@@ -48,20 +50,44 @@ local function get_reports(ctx)
   local nelems = clamp(atoi(params.nelems, 25), 0, 100)
   local before = math.max(atoi(params.before, 0), 0)
 
-  -- build the response 
-  local res = json.from_str"{}"
-  local rows = json.from_str"[]"
-  for _, e in ipairs(ctx.data.store:index():get(nelems,before)) do
-    local entry = json.from_str"{}"
-    entry.id, entry.ts, entry.row = e[1], e[2], e[3]
-    rows = rows << entry
+  -- get the rows from the store index
+  local rows = {}
+  local ids  = {}
+  for _, e in ipairs(ctx.data.store:index():get(nelems, before)) do
+    table.insert(ids, e[1])
+    table.insert(rows, {
+      id  = e[1],
+      ts  = e[2],
+      row = e[3],
+    })
   end
-  res.success = true
-  res.data = rows
+
+  -- check with kneg if any of the jobs are still running
+  local pids = ctx.data.kneg:pids(ids)
+  local i = 1
+  for pid in string.gmatch(pids, "-?[0-9]+") do
+    if tonumber(pid) < 0 then
+      rows[i].running = false
+    else
+      rows[i].running = true
+    end
+    i = i + 1
+  end
+
+  -- serialize the response 
+  local resp = json.from_str"{}"
+  local resp_rows = json.from_str"[]"
+  for _, e in ipairs(rows) do
+    local entry = json.from_str"{}"
+    entry.id, entry.ts, entry.row, entry.running = e.id, e.ts, e.row, e.running
+    resp_rows = resp_rows << entry
+  end
+  resp.success = true
+  resp.data = resp_rows
 
   -- send the response
   ctx:status"200 OK"
-  ctx:write(tostring(res))
+  ctx:write(tostring(resp))
 end
 
 local function err400(ctx, text)
@@ -232,7 +258,8 @@ local function prehook()
   local msgbuf = yans.ycl.msgbuf()
   -- FIXME: Store path varies depending on chroot/no chroot
   local store = Store:new{path = "stored/stored.sock", msgbuf = msgbuf}
-  return {store = store}
+  local kneg = Kneg:new{path = "knegd/knegd.sock", msgbuf = msgbuf}
+  return {store = store, kneg = kneg}
 end
 
 -- parse command line options as parameters

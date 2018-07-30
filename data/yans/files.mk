@@ -5,6 +5,7 @@ YANSLIB = \
     data/yans/scanner.yans \
     data/yans/scans/lldisco.yans \
     data/yans/svcs/connector.yans \
+    data/yans/svcs/kneg.yans \
     data/yans/svcs/netconf.yans \
     data/yans/svcs/resolver.yans \
     data/yans/svcs/store.yans \

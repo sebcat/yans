@@ -57,9 +57,10 @@ end
 
 function _M:open(path, flags)
   assert(self.store_id, "open called in store that was not entered")
-  self.msgbuf:create_store_open{
-    path  = path,
-    flags = flags,
+  self.msgbuf:create_store_entered_req{
+    action     = "open",
+    open_path  = path,
+    open_flags = flags,
   }
   self.sock:sendmsg(self.msgbuf)
   return self.sock:recvfd()

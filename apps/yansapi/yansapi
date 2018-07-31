@@ -1,4 +1,5 @@
 #!/usr/bin/env yans
+local SCANTYPE    = "resolver" -- FIXME
 local DAEMON_NAME = "yansapi"
 local JAPI        = require "japi"
 local Store       = require "svcs.store"
@@ -221,6 +222,53 @@ local function get_report_sections(ctx)
   ctx:write(tostring(res))
 end
 
+local function post_scan(ctx)
+  --[[
+  POST /a1/scan
+
+  Request object:
+  {
+    "..."
+  }
+
+  Response object on success:
+  {
+    "success": true,
+    "data": {
+
+    }
+  }
+  ]]--
+
+  local req = ctx.req_body
+  if not req then
+    err400(ctx, "missing request")
+    return
+  end
+
+  -- TODO: validate request
+
+  -- create new store and write the request to it
+  local store, kneg, file = ctx.data.store, ctx.data.kneg, yans.file
+  local id = store:enter()
+  store:open("job.json", file.O_WRONLY | file.O_CREAT |
+      file.O_TRUNC):to_stream("wb"):write(tostring(req)):close()
+
+  -- Start kneg scan with same ID
+  kneg:start(SCANTYPE, id)
+
+  -- build response
+  local data  = json.from_str"{}"
+  data.id     = id
+  local res   = json.from_str"{}"
+  res.success = true
+  res.data    = data
+  
+  -- write response
+  ctx:status("200 OK")
+  ctx:write(tostring(res))
+end
+
 local function get_fail(ctx)
   error("get fail called")
 end
@@ -249,6 +297,7 @@ JAPI:routes{
   ["GET /a1/reports"]          = handle_fail(get_reports),
   ["GET /a1/report-sections"]  = handle_fail(get_report_sections),
   ["GET /a1/report-section"]   = handle_fail(get_report_section),
+  ["POST /a1/scan"]            = handle_fail(post_scan),
   ["GET /a1/fail"]             = handle_fail(get_fail),
 }
 

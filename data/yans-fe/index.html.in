@@ -199,10 +199,11 @@ Roger(appErrFunc, "/a1/reports")
       data.reverse();
       var x = "";
       for (var i = 0; i < data.length; i++) {
-        x = x + data[i].row + ": " + data[i].id + " " + 
-                new Date(data[i].ts * 1000).toUTCString() + "\n";
-        console.log(x);
+        var running = data[i].running ? "active" : "done";
+        x = x + data[i].row + ": " + running + " " + data[i].id + " " + 
+            new Date(data[i].ts * 1000).toUTCString() + "\n";
       }
+      console.log(x);
     }
   }).run();
 

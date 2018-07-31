@@ -577,7 +577,7 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   }
 
   for (i = 0; i < ss; i++) {
-    printf("%*s %ld %zu\n", SINDEX_IDSZ, elems[i].id, elems[i].indexed,
+    printf("%.*s %ld %zu\n", SINDEX_IDSZ, elems[i].id, elems[i].indexed,
         last++);
   }
 

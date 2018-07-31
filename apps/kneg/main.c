@@ -24,6 +24,7 @@ struct subcmd {
 struct start_opts {
   const char *sock;
   const char *type;
+  const char *id;
   long timeout;
   struct ycl_data *params;
   size_t nparams;
@@ -202,6 +203,8 @@ static int run_start(struct start_opts *opts) {
   req.timeout = opts->timeout;
   req.type.data = opts->type;
   req.type.len = opts->type != NULL ? strlen(opts->type) : 0;
+  req.id.data = opts->id;
+  req.id.len = opts->id != NULL ? strlen(opts->id) : 0;
   req.params = opts->params;
   req.nparams = opts->nparams;
   return reqresp(opts->sock, &req);
@@ -211,7 +214,7 @@ static int start(int argc, char **argv) {
   int ch;
   int ret;
   long l;
-  const char *optstr = "hp:s:t:";
+  const char *optstr = "hp:s:t:i:";
   struct ycl_data *params = NULL;
   struct ycl_data *tmp;
   size_t nparams = 0;
@@ -220,12 +223,14 @@ static int start(int argc, char **argv) {
     {"param", required_argument, NULL, 'p'},
     {"socket", required_argument, NULL, 's'},
     {"timeout", required_argument, NULL, 't'},
+    {"id", required_argument, NULL, 'i'},
     {NULL, 0, NULL, 0},
   };
   struct start_opts opts = {
     .sock = DFL_KNEGDSOCK,
     .timeout = 0,
     .type = NULL,
+    .id = NULL,
   };
 
   while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
@@ -254,6 +259,9 @@ static int start(int argc, char **argv) {
       params[nparams].len = strlen(optarg);
       params[nparams].data = optarg;
       nparams++;
+      break;
+    case 'i':
+      opts.id = optarg;
       break;
     case 'h':
     case '?':

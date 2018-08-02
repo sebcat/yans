@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yans</title>
 <style>
 body {
@@ -53,6 +54,80 @@ body {
   cursor: pointer;
 }
 
+.entry {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding:.2rem;
+}
+
+.entry-first {
+  border-top-left-radius: .2rem;
+  border-top-right-radius: .2rem;
+}
+
+.entry-last {
+  border-bottom-left-radius: .2rem;
+  border-bottom-right-radius: .2rem;
+}
+
+.even {
+  background: #ddd;
+}
+
+.even:hover {
+  background: #d7d7d7;
+}
+
+.odd {
+  background: #ccc;
+}
+
+.odd:hover {
+  background: #c7c7c7;
+}
+
+.entry-content-left {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  margin-right: auto;
+}
+
+.entry-title {
+  font-size: larger;
+}
+
+.entry-subtitle {
+  vertical-align: super;
+  font-size: smaller;
+  margin-left: 1rem;
+}
+
+.entry-content-right {
+  align-self: center;
+  margin-right: 1rem;
+}
+
+.loader {
+  animation: spin 1.5s linear infinite;
+  border: .1rem solid #ffffff;
+  border-top: .1rem solid lightblue;
+  border-radius: 100%;
+  width: 1rem;
+  height: 1rem;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+
 </style>
 </head>
 <body>
@@ -72,9 +147,10 @@ body {
     <small>@PACKAGE_VERSION@</small>
 </nav>
 
-<div id="main-box"></div>
+<div id="main-box">
+  <noscript>This webapp requires JavaScript</noscript>
+</div>
 
-<noscript>This webapp requires JavaScript</noscript>
 
 <script>
 "use strict";
@@ -174,6 +250,58 @@ function Roger(errfunc, defaultRoute) {
   return self;
 }
 
+function Loader() {
+  var d = document.createElement("div");
+  d.className = "loader";
+  return d;
+}
+
+function ListEntry(opts) {
+  /* create the left part of the entry, w/ title and subtitle (if any) */
+  var left = document.createElement("div");
+  left.className = "entry-content-left";
+  if (opts.title) {
+    var t = document.createElement("div");
+    t.className = "entry-title";
+    t.appendChild(opts.title);
+    left.appendChild(t);
+  }
+  if (opts.subtitle) {
+    var st = document.createElement("div");
+    st.className = "entry-subtitle";
+    st.innerText = opts.subtitle;
+    left.appendChild(st);
+  }
+
+  /* create the entry itself */
+  var e = document.createElement("div");
+  var eparams = ["entry"]
+  if (opts.odd) {
+    eparams.push("odd");
+  } else {
+    eparams.push("even");
+  }
+  if (opts.first) {
+    eparams.push("entry-first");
+  }
+  if (opts.last) {
+    eparams.push("entry-last");
+  }
+  e.className = eparams.join(" ");
+  e.appendChild(left);
+
+  /* if we have a right part, append it too */
+  if (opts.right) {
+    var r = document.createElement("div");
+    r.className = "entry-content-right";
+    r.appendChild(opts.right);
+    e.appendChild(r);
+  }
+
+  return e;
+}
+
+
 function YansView(pname) {
   if (!(this instanceof YansView)) {
     return new YansView(pname);
@@ -189,17 +317,24 @@ function YansView(pname) {
       anchor.href = "#/a1/report-sections?id=" + reports[i].id;
       anchor.text = reports[i].id;
 
-      var datestr = new Date(reports[i].ts * 1000).toUTCString();
-      datestr = document.createTextNode(datestr);
+      var r;
+      if (reports[i].running) {
+        r = Loader();
+      } else {
+        r = document.createElement("span");
+        r.innerHTML = "&#10004";
+      }
 
-      var status = reports[i].running ? "running" : "completed";
-      status = document.createTextNode(status);
+      var entry = ListEntry({
+        title: anchor,
+        subtitle: new Date(reports[i].ts * 1000).toUTCString(),
+        odd: i % 2 != 0 ? true : false,
+        first: i == 0 ? true : false,
+        last: i == reports.length - 1 ? true : false,
+        right: r,
+      });
 
-       var subdiv = document.createElement("div");
-       subdiv.appendChild(status);
-       subdiv.appendChild(anchor);
-       subdiv.appendChild(datestr);
-       reportdiv.appendChild(subdiv);
+      reportdiv.appendChild(entry);
     }
 
     parent.innerHTML = '';

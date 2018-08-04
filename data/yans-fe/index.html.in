@@ -54,40 +54,32 @@ body {
   cursor: pointer;
 }
 
-.entry {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  padding:.2rem;
-}
-
-.entry-first {
-  border-top-left-radius: .2rem;
-  border-top-right-radius: .2rem;
-}
-
-.entry-last {
-  border-bottom-left-radius: .2rem;
-  border-bottom-right-radius: .2rem;
-}
-
 .even {
   background: #ddd;
-}
-
-.even:hover {
-  background: #d7d7d7;
 }
 
 .odd {
   background: #ccc;
 }
 
-.odd:hover {
-  background: #c7c7c7;
+.entry-first {
+  border-top-left-radius: .5rem;
+  border-top-right-radius: .5rem;
 }
 
-.entry-content-left {
+.entry-last {
+  border-bottom-left-radius: .5rem;
+  border-bottom-right-radius: .5rem;
+}
+
+.entry-header {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding: .5rem;
+}
+
+.entry-header-left {
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
@@ -104,9 +96,15 @@ body {
   margin-left: 1rem;
 }
 
-.entry-content-right {
+.entry-header-right {
   align-self: center;
   margin-right: 1rem;
+}
+
+.entry-content {
+  /* placeholder */
+  opacity: 1;
+  transition: opacity 0.2s;
 }
 
 .loader {
@@ -154,6 +152,30 @@ body {
 
 <script>
 "use strict";
+
+function _diffString(n, str) {
+  n = Math.floor(n);
+  if (n == 1) {
+    return n + " " + str + " ago";
+  } else {
+    return n + " " + str + "s ago";
+  }
+}
+
+function diffString(start, end) {
+  var diff = end - start;
+  if (diff < 10) {
+    return "now";
+  } else if (diff < 60) {
+    return _diffString(diff, "second");
+  } else if (diff < 3600) {
+    return _diffString(diff / 60, "minute");
+  } else if (diff < 86400) {
+    return _diffString(diff / 3600, "hour");
+  } else {
+    return _diffString(diff / 86400, "day");
+  }
+}
 
 function JReq(method_, url_, data_) {
   if (!(this instanceof JReq))
@@ -257,9 +279,17 @@ function Loader() {
 }
 
 function ListEntry(opts) {
-  /* create the left part of the entry, w/ title and subtitle (if any) */
+  /* determine if this is an "odd" entry */
+  var evenodd;
+  if (opts.odd) {
+    evenodd = "odd";
+  } else {
+    evenodd = "even";
+  }
+
+  /* create the left part of the header, w/ title and subtitle (if any) */
   var left = document.createElement("div");
-  left.className = "entry-content-left";
+  left.className = "entry-header-left";
   if (opts.title) {
     var t = document.createElement("div");
     t.className = "entry-title";
@@ -273,34 +303,37 @@ function ListEntry(opts) {
     left.appendChild(st);
   }
 
-  /* create the entry itself */
-  var e = document.createElement("div");
-  var eparams = ["entry"]
-  if (opts.odd) {
-    eparams.push("odd");
-  } else {
-    eparams.push("even");
-  }
+  /* create the entry header itself */
+  var hdr = document.createElement("div");
+  var hdrparams = ["entry-header"]
+  hdrparams.push(evenodd);
   if (opts.first) {
-    eparams.push("entry-first");
+    hdrparams.push("entry-first");
   }
   if (opts.last) {
-    eparams.push("entry-last");
+    hdrparams.push("entry-last");
   }
-  e.className = eparams.join(" ");
-  e.appendChild(left);
+  hdr.className = hdrparams.join(" ");
+  hdr.appendChild(left);
 
   /* if we have a right part, append it too */
   if (opts.right) {
     var r = document.createElement("div");
-    r.className = "entry-content-right";
+    r.className = "entry-header-right";
     r.appendChild(opts.right);
-    e.appendChild(r);
+    hdr.appendChild(r);
   }
+
+  var cnt = document.createElement("div");
+  cnt.className = "entry-content " + evenodd;
+  cnt.id = opts.cntId;
+
+  var e = document.createElement("div");
+  e.appendChild(hdr);
+  e.appendChild(cnt);
 
   return e;
 }
-
 
 function YansView(pname) {
   if (!(this instanceof YansView)) {
@@ -310,28 +343,41 @@ function YansView(pname) {
   var self = this;
   var parent = document.getElementById(pname);
 
+  self.renderReportEntries = function(report) {
+    var elem = document.getElementById("report-" + report.id);
+    console.log(report);
+    /* TODO: If elem does not exist, create it and set it as
+     * a child of 'pname' */
+  };
+
   self.renderReports = function(reports) {
+    var entries = reports.entries;
+    entries.reverse();
+    var now = reports.now_ts;
     var reportdiv = document.createElement("div");
-    for (var i = 0; i < reports.length; i++) {
+    for (var i = 0; i < entries.length; i++) {
       var anchor = document.createElement("a");
-      anchor.href = "#/a1/report-sections?id=" + reports[i].id;
-      anchor.text = reports[i].id;
+      anchor.href = "#/a1/report-sections?id=" + entries[i].id;
+      anchor.text = entries[i].id;
 
       var r;
-      if (reports[i].running) {
+      if (entries[i].running) {
         r = Loader();
       } else {
         r = document.createElement("span");
         r.innerHTML = "&#10004";
       }
 
+      var sub = diffString(entries[i].ts, now);
+
       var entry = ListEntry({
         title: anchor,
-        subtitle: new Date(reports[i].ts * 1000).toUTCString(),
+        subtitle: sub,
         odd: i % 2 != 0 ? true : false,
         first: i == 0 ? true : false,
-        last: i == reports.length - 1 ? true : false,
+        last: i == entries.length - 1 ? true : false,
         right: r,
+        cntId: "report-" + entries[i].id,
       });
 
       reportdiv.appendChild(entry);
@@ -375,10 +421,13 @@ Roger(appErrFunc, "/a1/reports")
       return;
     }
     data = data.data;
-    data.reverse();
     ui.renderReports(data);
   }).register("/a1/report-sections", function(data) {
-    console.log(data);
+    data = JSON.parse(data);
+    if (!data.success) {
+      appErrFunc(data.errmsg);
+    }
+    ui.renderReportEntries(data.data);
   }).run();
 
 </script>

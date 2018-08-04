@@ -34,15 +34,18 @@ local function get_reports(ctx)
   Response object on success:
   {
     "success": true,
-    "data": [
-      {
-        "row": 0,
-        "ts": 1530356368,
-        "id": "70a7a85d0004f8b9c2be",
-        "active": bool
-      },
-      ...
-    ]
+    "data": {
+      "now_ts": 666,
+      "entries": [
+        {
+          "row": 0,
+          "ts": 1530356368,
+          "id": "70a7a85d0004f8b9c2be",
+          "active": bool
+        },
+        ...
+      ]
+    }
   }
   ]]--
 
@@ -77,14 +80,17 @@ local function get_reports(ctx)
 
   -- serialize the response 
   local resp = json.from_str"{}"
-  local resp_rows = json.from_str"[]"
+  local entries = json.from_str"[]"
   for _, e in ipairs(rows) do
     local entry = json.from_str"{}"
     entry.id, entry.ts, entry.row, entry.running = e.id, e.ts, e.row, e.running
-    resp_rows = resp_rows << entry
+    entries = entries << entry
   end
+  local data = json.from_str"{}"
+  data.entries = entries
+  data.now_ts = os.time()
   resp.success = true
-  resp.data = resp_rows
+  resp.data = data
 
   -- send the response
   ctx:status"200 OK"
@@ -187,13 +193,16 @@ local function get_report_sections(ctx)
   Response object on success:
   {
     "success": true,
-    "data": [
-      {
-        "name": "str",
-        "nbytes": 0
-      },
-      ...
-    ]
+    "data": {
+      "id": "str",
+      "entries": [
+        {
+          "name": "str",
+          "nbytes": 0
+        },
+        ...
+      ]
+    }
   }
   ]]--
 
@@ -203,19 +212,22 @@ local function get_report_sections(ctx)
   local mm     = params.mm
 
   -- build response
-  local data = json.from_str"[]"
+  local entries = json.from_str"[]"
   if id then
-    local entries = ctx.data.store:list(id, mm)
-    for i = 1, #entries, 2 do
+    local etable = ctx.data.store:list(id, mm)
+    for i = 1, #etable, 2 do
       local entry = json.from_str"{}"
-      entry.name   = entries[i]
-      entry.nbytes = atoi(entries[i + 1], -1)
-      data = data << entry
+      entry.name   = etable[i]
+      entry.nbytes = atoi(etable[i + 1], -1)
+      entries = entries << entry
     end
   end
-  local res   = json.from_str"{}"
-  res.success = true
-  res.data    = data
+  local data   = json.from_str"{}"
+  data.entries = entries
+  data.id      = id
+  local res    = json.from_str"{}"
+  res.success  = true
+  res.data     = data
 
   -- send response
   ctx:status"200 OK"

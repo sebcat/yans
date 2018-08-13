@@ -60,9 +60,10 @@ local function get_reports(ctx)
   for _, e in ipairs(ctx.data.store:index():get(nelems, before)) do
     table.insert(ids, e[1])
     table.insert(rows, {
-      id  = e[1],
-      ts  = e[2],
-      row = e[3],
+      id  =  e[1],
+      name = e[2],
+      ts  =  e[3],
+      row =  e[4],
     })
   end
 
@@ -83,7 +84,8 @@ local function get_reports(ctx)
   local entries = json.from_str"[]"
   for _, e in ipairs(rows) do
     local entry = json.from_str"{}"
-    entry.id, entry.ts, entry.row, entry.running = e.id, e.ts, e.row, e.running
+    entry.id, entry.name, entry.ts, entry.row, entry.running =
+        e.id, e.name, e.ts, e.row, e.running
     entries = entries << entry
   end
   local data = json.from_str"{}"

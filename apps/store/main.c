@@ -149,8 +149,8 @@ ycl_cleanup:
   return result;
 }
 
-static int run_put(const char *socket, const char *id, const char *filename,
-    int flags) {
+static int run_put(const char *socket, const char *id, const char *name,
+    const char *filename, int flags) {
   int ret;
   int result = -1;
   int putfd = -1;
@@ -176,6 +176,8 @@ static int run_put(const char *socket, const char *id, const char *filename,
   reqmsg.action.len = sizeof("enter") - 1;
   reqmsg.store_id.data = id;
   reqmsg.store_id.len = id ? strlen(id) : 0;
+  reqmsg.name.data = name;
+  reqmsg.name.len = name ? strlen(name) : 0;
   ret = ycl_msg_create_store_req(&msg, &reqmsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_msg_create_store_enter failure\n");
@@ -411,14 +413,16 @@ ycl_cleanup:
 static int put_main(int argc, char *argv[], int flags) {
   int ch;
   int ret;
-  const char *optstr = "hs:i:";
+  const char *optstr = "hs:i:n:";
   const char *socket = DFL_STOREPATH;
   const char *id = NULL;
   const char *filename = NULL;
+  const char *name = NULL;
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
     {"id", required_argument, NULL, 'i'},
+    {"name", required_argument, NULL, 'n'},
     {NULL, 0, NULL, 0},
   };
 
@@ -429,6 +433,9 @@ static int put_main(int argc, char *argv[], int flags) {
       break;
     case 'i':
       id = optarg;
+      break;
+    case 'n':
+      name = optarg;
       break;
     case 'h':
     default:
@@ -442,7 +449,7 @@ static int put_main(int argc, char *argv[], int flags) {
   }
 
   filename = argv[optind + 1];
-  ret = run_put(socket, id, filename, flags);
+  ret = run_put(socket, id, name, filename, flags);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
@@ -577,8 +584,9 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   }
 
   for (i = 0; i < ss; i++) {
-    printf("%.*s %ld %zu\n", SINDEX_IDSZ, elems[i].id, elems[i].indexed,
-        last++);
+    elems[i].name[SINDEX_NAMESZ-1] = '\0';
+    printf("%.*s %s %ld %zu\n", SINDEX_IDSZ, elems[i].id, elems[i].name,
+        elems[i].indexed, last++);
   }
 
   result = 0;

@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <time.h>
 
-#define SINDEX_IDSZ     20
-#define SINDEX_MAGIC 0x29a
+#define SINDEX_IDSZ        20
+#define SINDEX_NAMESZ      44
+#define SINDEX_MAGIC    0x29a
 
 enum sindex_error {
   SINDEX_ESTAT,
@@ -24,6 +25,7 @@ struct sindex_ctx {
 struct sindex_entry {
   time_t indexed;
   char id[SINDEX_IDSZ];
+  char name[SINDEX_NAMESZ];
   uint16_t magic;
   uint16_t reserved0;
 };

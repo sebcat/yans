@@ -4,54 +4,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yans</title>
 <style>
+
 body {
   margin: 0px;
   font-family: Roboto,"Helvetica Neue",Arial,sans-serif;
 }
 
+input[type="text"] {
+  padding: .3rem;
+}
+
+button {
+  background: #ddd;
+  cursor: pointer;
+}
+
+button:active {
+  background: #aaa;
+}
+
+.input-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.input-group input[type="text"] {
+  flex-grow: 1;
+}
+
+.input-group-prepend {
+  margin-right: -1px;
+}
+
+.input-group-append {
+  margin-left: -1px;
+}
+
+.input-group-prepend, .input-group-append {
+  display: flex;
+  border: 1px solid rgba(0,0,0,.2);
+}
+
 .navbar {
   background-color: #007bff;
   font-size: 1.25rem;
-  padding: .5rem 1rem;
+  padding: .5rem 1.5rem;
   display: flex;
   flex-direction: row;
-}
-
-.navbar a {
-  color: #fff;
-  text-decoration: none;
-  margin-right: 1rem;
-}
-
-.navbar a:hover {
-  color: #ccc;
-}
-
-.navbar small {
-  color: #444;
-}
-
-.navbar-ents {
-  list-style: none;
-  display: flex;
-  flex-direction: row;
-  flex-grow: 1;
-  margin: 0;
-  padding: 0;
-}
-
-#main-box {
-  margin: 1rem 1.5rem;
-}
-
-#alert-box {
-  display: none;
-  opacity: 1;
-  transition: opacity 0.2s;
-}
-
-#alert-close {
-  cursor: pointer;
 }
 
 .even {
@@ -125,6 +125,27 @@ body {
   }
 }
 
+#main-box {
+  margin: 1.5rem 1.5rem;
+}
+
+#alert-box {
+  display: none;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+#alert-close {
+  cursor: pointer;
+}
+
+#footer {
+  text-align: center;
+  font-style: italic;
+  font-size: smaller;
+  color: #ccc;
+  margin: 1rem;
+}
 
 </style>
 </head>
@@ -137,16 +158,19 @@ body {
   <span id="alert-text"></span>
 </div>
 
-<nav class="navbar">
-    <ul class="navbar-ents">
-      <li><a href="#/a1/reports">Reports</a></li>
-      <li><a href="#scan">Scan Now</a></li>
-    </ul>
-    <small>@PACKAGE_VERSION@</small>
-</nav>
+<div class="navbar">
+  <div class="input-group">
+    <input type="text" class="input-group-append" placeholder="domain or address..." />
+    <button class="input-group-append">Scan Now!</button>
+  </div>
+</div>
 
 <div id="main-box">
   <noscript>This webapp requires JavaScript</noscript>
+</div>
+
+<div id="footer">
+  @PACKAGE_VERSION@
 </div>
 
 
@@ -345,7 +369,7 @@ function YansView(pname) {
 
   self.renderReportEntries = function(report) {
     var elem = document.getElementById("report-" + report.id);
-    console.log(report);
+    console.log(elem);
     /* TODO: If elem does not exist, create it and set it as
      * a child of 'pname' */
   };
@@ -358,7 +382,7 @@ function YansView(pname) {
     for (var i = 0; i < entries.length; i++) {
       var anchor = document.createElement("a");
       anchor.href = "#/a1/report-sections?id=" + entries[i].id;
-      anchor.text = entries[i].id;
+      anchor.text = entries[i].name;
 
       var r;
       if (entries[i].running) {

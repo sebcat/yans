@@ -38,6 +38,7 @@ ethframe_req {
 store_req {
   data action;
   data store_id;
+  data name;            # display name, used when creating stores with 'enter'
   data list_must_match; # ERE for filtering content of store_list reply
 }
 

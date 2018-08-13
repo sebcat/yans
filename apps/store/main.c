@@ -458,8 +458,9 @@ static int put_main(int argc, char *argv[], int flags) {
 usage:
   fprintf(stderr, "usage: %s %s [opts] <name>\n"
       "opts:\n"
-      "  -s|--socket   store socket path (%s)\n"
-      "  -i|--id       store ID\n",
+      "  -s|--socket <path>   store socket path (%s)\n"
+      "  -i|--id     <id>     store ID\n"
+      "  -n|--name   <name>   store name\n",
       argv[0], argv[1], DFL_STOREPATH);
   return EXIT_FAILURE;
 }

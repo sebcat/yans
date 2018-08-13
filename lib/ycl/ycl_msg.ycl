@@ -94,6 +94,7 @@ knegd_req {
   long timeout;
   data action;
   data id;
+  data name;
   data type;
   data[] params;
 }

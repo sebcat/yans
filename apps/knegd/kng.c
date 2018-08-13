@@ -235,6 +235,8 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   storereqmsg.action.len = sizeof("enter")-1;
   storereqmsg.store_id.len = req->id.len;
   storereqmsg.store_id.data = req->id.data;
+  storereqmsg.name.len = req->name.len;
+  storereqmsg.name.data = req->name.data;
   ret = ycl_msg_create_store_req(&msg, &storereqmsg);
   if (ret != YCL_OK) {
     *err = "enter request serialization error";

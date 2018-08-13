@@ -25,6 +25,7 @@ struct start_opts {
   const char *sock;
   const char *type;
   const char *id;
+  const char *name;
   long timeout;
   struct ycl_data *params;
   size_t nparams;
@@ -205,6 +206,8 @@ static int run_start(struct start_opts *opts) {
   req.type.len = opts->type != NULL ? strlen(opts->type) : 0;
   req.id.data = opts->id;
   req.id.len = opts->id != NULL ? strlen(opts->id) : 0;
+  req.name.data = opts->name;
+  req.name.len = opts->name != NULL ? strlen(opts->name) : 0;
   req.params = opts->params;
   req.nparams = opts->nparams;
   return reqresp(opts->sock, &req);
@@ -214,7 +217,7 @@ static int start(int argc, char **argv) {
   int ch;
   int ret;
   long l;
-  const char *optstr = "hp:s:t:i:";
+  const char *optstr = "hp:s:t:i:n:";
   struct ycl_data *params = NULL;
   struct ycl_data *tmp;
   size_t nparams = 0;
@@ -224,13 +227,15 @@ static int start(int argc, char **argv) {
     {"socket", required_argument, NULL, 's'},
     {"timeout", required_argument, NULL, 't'},
     {"id", required_argument, NULL, 'i'},
+    {"name", required_argument, NULL, 'n'},
     {NULL, 0, NULL, 0},
   };
   struct start_opts opts = {
-    .sock = DFL_KNEGDSOCK,
+    .sock    = DFL_KNEGDSOCK,
     .timeout = 0,
-    .type = NULL,
-    .id = NULL,
+    .type    = NULL,
+    .id      = NULL,
+    .name    = NULL,
   };
 
   while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
@@ -262,6 +267,9 @@ static int start(int argc, char **argv) {
       break;
     case 'i':
       opts.id = optarg;
+      break;
+    case 'n':
+      opts.name = optarg;
       break;
     case 'h':
     case '?':
@@ -298,7 +306,8 @@ usage:
       "  -h|--help            - this text\n"
       "  -p|--param   <param> - kneg parameter\n"
       "  -s|--socket  <path>  - path to knegd socket (%s)\n"
-      "  -t|--timeout <n>     - timeout, in seconds\n",
+      "  -t|--timeout <n>     - timeout, in seconds\n"
+      "  -n|--name    <name>  - name of job\n",
       DFL_KNEGDSOCK);
 fail:
   return EXIT_FAILURE;

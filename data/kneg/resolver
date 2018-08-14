@@ -10,7 +10,7 @@ resolver = Resolver:new{path=YCFG.SVC_RESOLVER, store=store, msgbuf=msgbuf}
 yans.util.sandbox() -- enter sandbox
 
 -- enter the YANS_ID store, if any, or create a new one
-local id = store:enter(os.getenv("YANS_ID"))
+local id = store:enter{id=os.getenv("YANS_ID")}
 print("STORE:", id)
 
 resolver:resolve("trololo.gz", "www.svd.se www.aftonbladet.se www.reddit.com")

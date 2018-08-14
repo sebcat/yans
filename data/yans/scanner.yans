@@ -24,8 +24,11 @@ function _M:get_netconf()
   return self.netconf:get_netconf()
 end
 
-function _M:store_enter(store_id)
-  return self.store:enter(store_id)
+function _M:store_enter(opts)
+  return self.store:enter{
+    id   = opts.id,
+    name = opts.name
+  }
 end
 
 function _M:store_open(path, flags)

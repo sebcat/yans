@@ -160,8 +160,8 @@ button:active {
 
 <div class="navbar">
   <div class="input-group">
-    <input type="text" class="input-group-append" placeholder="domain or address..." />
-    <button class="input-group-append">Scan Now!</button>
+    <input id="scan-subject" type="text" class="input-group-append" placeholder="domain or address..." />
+    <button id="scan-btn" class="input-group-append">Scan Now!</button>
   </div>
 </div>
 
@@ -216,7 +216,7 @@ function JReq(method_, url_, data_) {
   };
 
   this.send = function() {
-    if (typeof this.data_ === "string") {
+    if (typeof data_ === "string") {
       this.xhr.send(data_);
     } else if (data_) {
       this.xhr.send(JSON.stringify(data_));
@@ -429,6 +429,28 @@ function appErrFunc(text) {
   txt.parentElement.style.opacity = 1;
   txt.parentElement.style.display = "unset";
 }
+
+document.getElementById("scan-btn").onclick = function() {
+  var subject = document.getElementById("scan-subject").value;
+  if (!subject || subject.length == 0) {
+    appErrFunc("Missing/invalid scan subject");
+    return;
+  }
+
+  var datas = JSON.stringify({subject: subject});
+  JReq("POST", "/a1/scan", datas)
+      .done(function(data) {
+        data = JSON.parse(data);
+        if (!data.success) {
+          appErrFunc(data.errmsg);
+        }
+
+//        document.location.hash = "#/a1/report-sections?id=" + data.data.id;
+        document.location.hash = "#/a1/reports";
+      }).error(function(msg) {
+        appErrFunc(msg);
+      }).send();
+};
 
 var ui = YansView("main-box");
 Roger(appErrFunc, "/a1/reports")

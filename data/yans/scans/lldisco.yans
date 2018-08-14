@@ -28,7 +28,7 @@ end
 
 function _M:run(scanner)
   -- setup the store
-  local store_id = scanner:store_enter(self.store)
+  local store_id = scanner:store_enter{id=self.store}
   print("STORE   ", store_id)
   print("---")
 

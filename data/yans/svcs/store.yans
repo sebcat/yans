@@ -39,11 +39,12 @@ function _M:list(store_id, must_match)
   return res
 end
 
-function _M:enter(store_id)
+function _M:enter(opts)
   assert(not self.store_id, "attempted entering store more than once")
   self.msgbuf:create_store_req{
     action   = "enter",
-    store_id = store_id,
+    store_id = opts.id,
+    name     = opts.name
   }
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)

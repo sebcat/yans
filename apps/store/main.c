@@ -586,8 +586,8 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
 
   for (i = 0; i < ss; i++) {
     elems[i].name[SINDEX_NAMESZ-1] = '\0';
-    printf("%.*s %s %ld %zu\n", SINDEX_IDSZ, elems[i].id, elems[i].name,
-        elems[i].indexed, last++);
+    printf("%.*s %ld %zu %s\n", SINDEX_IDSZ, elems[i].id, elems[i].indexed,
+        last++, elems[i].name);
   }
 
   result = 0;

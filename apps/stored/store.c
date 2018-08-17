@@ -191,8 +191,8 @@ static int enter_store(struct store_cli *ecli, const char *store_id,
     return -1;
   }
 
-  snprintf(ecli->store_path, sizeof(ecli->store_path), "%s/%s",
-      subdir, store_id);
+  snprintf(ecli->store_path, sizeof(ecli->store_path), "%.*s/%.*s",
+      STORE_PREFIXSZ, subdir, (int)id_len, store_id);
   ret = mkdir(ecli->store_path, 0700);
   if (ret != 0 && (exclusive || errno != EEXIST)) {
     return -1;

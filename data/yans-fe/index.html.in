@@ -342,6 +342,9 @@ function ListEntry(opts) {
 
   /* if we have a right part, append it too */
   if (opts.right) {
+    if (typeof opts.right === "string") {
+      opts.right = document.createTextNode(opts.right);
+    }
     var r = document.createElement("div");
     r.className = "entry-header-right";
     r.appendChild(opts.right);
@@ -368,10 +371,26 @@ function YansView(pname) {
   var parent = document.getElementById(pname);
 
   self.renderReportEntries = function(report) {
+    console.log(report);
     var elem = document.getElementById("report-" + report.id);
     console.log(elem);
-    /* TODO: If elem does not exist, create it and set it as
-     * a child of 'pname' */
+    if (!elem) {
+      var anchor = document.createElement("a");
+      anchor.href = "#/a1/report-sections?id=" + report.id;
+      anchor.text = "TODO: name";
+      var entry = ListEntry({
+        title: anchor,
+        subtitle: "TODO: started",
+        first: true,
+        last: true,
+        right: "TODO: running",
+        cntId: "report-" + report.id
+      });
+      parent.innerHTML = '';
+      parent.appendChild(entry);
+      elem = document.getElementById("report-" + report.id);
+    }
+    elem.appendChild(document.createTextNode(JSON.stringify(report)))
   };
 
   self.renderReports = function(reports) {
@@ -443,10 +462,10 @@ document.getElementById("scan-btn").onclick = function() {
         data = JSON.parse(data);
         if (!data.success) {
           appErrFunc(data.errmsg);
+          return;
         }
 
-//        document.location.hash = "#/a1/report-sections?id=" + data.data.id;
-        document.location.hash = "#/a1/reports";
+        document.location.hash = "#/a1/report-sections?id=" + data.data.id;
       }).error(function(msg) {
         appErrFunc(msg);
       }).send();
@@ -472,6 +491,7 @@ Roger(appErrFunc, "/a1/reports")
     data = JSON.parse(data);
     if (!data.success) {
       appErrFunc(data.errmsg);
+      return;
     }
     ui.renderReportEntries(data.data);
   }).run();

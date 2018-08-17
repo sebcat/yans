@@ -13,7 +13,9 @@ function _M:new(o)
 end
 
 function _M:pids(ids)
-  ids = table.concat(ids, "\0")
+  if type(ids) == "table" then
+    ids = table.concat(ids, "\0")
+  end
   self.msgbuf:create_knegd_req{
     action = "pids",
     id = ids,

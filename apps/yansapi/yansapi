@@ -192,6 +192,11 @@ local function get_report_sections(ctx)
     "success": true,
     "data": {
       "id": "str",
+      "name": "str",
+      "subject": "str",
+      "indexed": 666,
+      "now_ts": 777,
+      "running": bool,
       "entries": [
         {
           "name": "str",
@@ -202,6 +207,8 @@ local function get_report_sections(ctx)
     }
   }
   ]]--
+  local store  = ctx.data.store
+  local kneg   = ctx.data.kneg
 
   -- parse request
   local params = ctx:parse_query_string(ctx.query_string)
@@ -209,19 +216,36 @@ local function get_report_sections(ctx)
   local mm     = params.mm
 
   -- build response
+  local datastr
+  local running = false
   local entries = json.from_str"[]"
   if id then
-    local etable = ctx.data.store:list(id, mm)
+    local etable = store:list(id, mm)
     for i = 1, #etable, 2 do
       local entry = json.from_str"{}"
       entry.name   = etable[i]
       entry.nbytes = atoi(etable[i + 1], -1)
       entries = entries << entry
     end
+
+    -- enter store and fetch job data
+    store:enter{id=id}
+    datastr = store:open("job.json", yans.file.O_RDONLY):to_stream("rb"):
+        read("a")
+    if not datastr or #datastr < 2 then
+      datastr = "{}"
+    end
+
+    -- check if running
+    if tonumber(ctx.data.kneg:pids(id)) > 0 then
+      running = true
+    end
   end
-  local data   = json.from_str"{}"
-  data.entries = entries
+  local data   = json.from_str(datastr)
   data.id      = id
+  data.now_ts  = os.time()
+  data.running = running
+  data.entries = entries
   local res    = json.from_str"{}"
   res.success  = true
   res.data     = data

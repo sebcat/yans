@@ -369,6 +369,17 @@ function YansView(pname) {
 
   var self = this;
   var parent = document.getElementById(pname);
+  
+  self.getRunningSymbol = function(is_running) {
+    var r;
+    if (is_running) {
+      r = Loader();
+    } else {
+      r = document.createElement("span");
+      r.innerHTML = "&#10004";
+    }
+    return r;
+  };
 
   self.renderReportEntries = function(report) {
     console.log(report);
@@ -377,13 +388,14 @@ function YansView(pname) {
     if (!elem) {
       var anchor = document.createElement("a");
       anchor.href = "#/a1/report-sections?id=" + report.id;
-      anchor.text = "TODO: name";
+      var sub = 
+      anchor.text = report.name;
       var entry = ListEntry({
         title: anchor,
-        subtitle: "TODO: started",
+        subtitle: diffString(report.started, report.now_ts),
         first: true,
         last: true,
-        right: "TODO: running",
+        right: self.getRunningSymbol(report.running),
         cntId: "report-" + report.id
       });
       parent.innerHTML = '';
@@ -403,23 +415,13 @@ function YansView(pname) {
       anchor.href = "#/a1/report-sections?id=" + entries[i].id;
       anchor.text = entries[i].name;
 
-      var r;
-      if (entries[i].running) {
-        r = Loader();
-      } else {
-        r = document.createElement("span");
-        r.innerHTML = "&#10004";
-      }
-
-      var sub = diffString(entries[i].ts, now);
-
       var entry = ListEntry({
         title: anchor,
-        subtitle: sub,
+        subtitle: diffString(entries[i].ts, now),
         odd: i % 2 != 0 ? true : false,
         first: i == 0 ? true : false,
         last: i == entries.length - 1 ? true : false,
-        right: r,
+        right: self.getRunningSymbol(entries[i].running),
         cntId: "report-" + entries[i].id,
       });
 

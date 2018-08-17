@@ -44,7 +44,8 @@ function _M:enter(opts)
   self.msgbuf:create_store_req{
     action   = "enter",
     store_id = opts.id,
-    name     = opts.name
+    name     = opts.name,
+    indexed  = opts.indexed,
   }
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)

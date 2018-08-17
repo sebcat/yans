@@ -40,6 +40,7 @@ store_req {
   data store_id;
   data name;            # display name, used when creating stores with 'enter'
   data list_must_match; # ERE for filtering content of store_list reply
+  long indexed;         # UNIX timestamp for store index, when creating store
 }
 
 store_list {

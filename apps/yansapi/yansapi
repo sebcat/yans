@@ -126,7 +126,7 @@ local function get_report_section(ctx)
 
   -- open the store entry, or error out
   local store = ctx.data.store
-  store:enter(id)
+  store:enter{id=id}
   local ok, res = pcall(store.open, store, name, yans.file.O_RDONLY)
   if not ok then
     err400(ctx, "Unable to open the requested report section")
@@ -266,7 +266,10 @@ local function post_scan(ctx)
   if #store_name < #req.subject then
     store_name = store_name .. "..."
   end
-  local id = store:enter{name=store_name}
+  local started = os.time()
+  local id = store:enter{name=store_name, indexed=started}
+  req.name = store_name
+  req.started = started
   store:open("job.json", file.O_WRONLY | file.O_CREAT |
       file.O_TRUNC):to_stream("wb"):write(tostring(req)):close()
 

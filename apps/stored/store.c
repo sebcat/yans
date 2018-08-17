@@ -201,18 +201,18 @@ static int enter_store(struct store_cli *ecli, const char *store_id,
   return 0;
 }
 
-static int put_index(char *store_id, const char *name) {
+static int put_index(char *store_id, const char *name, long indexed) {
   struct sindex_entry ie = {0};
 
   memcpy(ie.id, store_id, SINDEX_IDSZ);
   strncpy(ie.name, name, SINDEX_NAMESZ);
   ie.name[SINDEX_NAMESZ-1] = '\0';
-  ie.indexed = time(NULL);
+  ie.indexed = (time_t)indexed;
   return sindex_put(&sindex_, &ie);
 }
 
 static int create_and_enter_store(int fd, struct store_cli *ecli,
-    const char *name) {
+    const char *name, long indexed) {
   char store_id[STORE_IDSZ+1];
   int i;
   int ret;
@@ -224,7 +224,7 @@ static int create_and_enter_store(int fd, struct store_cli *ecli,
       if (name == NULL) {
         name = store_id;
       }
-      if (put_index(store_id, name) < 0) {
+      if (put_index(store_id, name, indexed) < 0) {
         /* indexing is not *that* important, so only log this */
         LOGERRF(fd, "unable to index newly created store %s", store_id);
       }
@@ -617,7 +617,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
       ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
     } else {
       const char *name = req.name.len > 0 ? req.name.data : NULL;
-      ret = create_and_enter_store(fd, ecli, name);
+      ret = create_and_enter_store(fd, ecli, name, req.indexed);
     }
 
     if (ret < 0) {

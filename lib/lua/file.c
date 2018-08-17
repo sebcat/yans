@@ -142,16 +142,16 @@ static int l_sindexget(lua_State *L) {
   nelems = ret;
   lua_createtable(L, nelems, 0);
   for (i = 0; i < nelems; i++) {
-    lua_createtable(L, 4, 0);
+    lua_createtable(L, 0, 4);
     lua_pushlstring(L, elems[i].id, SINDEX_IDSZ);
-    lua_seti(L, -2, 1);
+    lua_setfield(L, -2, "id");
     lua_pushstring(L, elems[i].name);
-    lua_seti(L, -2, 2);
+    lua_setfield(L, -2, "name");
     lua_pushinteger(L, elems[i].indexed);
-    lua_seti(L, -2, 3);
+    lua_setfield(L, -2, "ts");
     lua_pushinteger(L, last++);
-    lua_seti(L, -2, 4);
-    lua_seti(L, -2, i+1);
+    lua_setfield(L, -2, "row");
+    lua_seti(L, -2, i+1); /* add table to parent table */
   }
 
   return 1;

@@ -58,13 +58,8 @@ local function get_reports(ctx)
   local rows = {}
   local ids  = {}
   for _, e in ipairs(ctx.data.store:index():get(nelems, before)) do
-    table.insert(ids, e[1])
-    table.insert(rows, {
-      id  =  e[1],
-      name = e[2],
-      ts  =  e[3],
-      row =  e[4],
-    })
+    table.insert(ids, e.id)
+    table.insert(rows, e)
   end
 
   -- check with kneg if any of the jobs are still running

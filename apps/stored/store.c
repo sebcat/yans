@@ -42,6 +42,8 @@
 static struct prng_ctx prng_;     /* PRNG */
 static struct sindex_ctx sindex_; /* Store Index */
 
+static void on_readreq(struct eds_client *cli, int fd);
+
 static void gen_store_path(char *data, size_t len) {
   if (data == NULL || len == 0) {
     return;
@@ -521,7 +523,9 @@ static void on_index_response(struct eds_client *cli, int fd) {
 static void on_sent_store_list(struct eds_client *cli, int fd) {
   struct store_cli *ecli = STORE_CLI(cli);
   buf_cleanup(&ecli->buf);
-  eds_client_clear_actions(cli);
+  ycl_msg_reset(&ecli->msgbuf);
+  eds_client_set_on_writable(cli, NULL, 0);
+  eds_client_set_on_readable(cli, on_readreq, 0);
 }
 
 static void handle_store_list(struct eds_client *cli, int fd,
@@ -603,7 +607,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   ret = ycl_msg_parse_store_req(&ecli->msgbuf, &req);
   if (ret != YCL_OK) {
-    errmsg = "enter request parse error";
+    errmsg = "store request parse error";
     goto fail;
   }
 

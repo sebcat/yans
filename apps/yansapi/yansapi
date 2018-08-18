@@ -1,5 +1,5 @@
 #!/usr/bin/env yans
-local SCANTYPE    = "resolver" -- FIXME
+local SCANTYPE    = "dummy"
 local DAEMON_NAME = "yansapi"
 local JAPI        = require "japi"
 local Store       = require "svcs.store"
@@ -165,6 +165,8 @@ local function get_report_section(ctx)
     ctx:header("Content-Type", "application/vnd.ms-excel")
   elseif name:match(".txt$") then
     ctx:header("Content-Type", "text/plain")
+  elseif name:match(".log$") then
+    ctx:header("Content-Type", "text/plain")
   else
     ctx:header("Content-Type", "application/octet-stream")
   end
@@ -185,7 +187,6 @@ local function get_report_sections(ctx)
 
   URL Parameters:
     - id (opt): ID of the given report. If omitted, returns empty 'data'.
-    - mm (opt): must match FIXME: remove from external API when done testing
 
   Response object on success:
   {
@@ -213,14 +214,18 @@ local function get_report_sections(ctx)
   -- parse request
   local params = ctx:parse_query_string(ctx.query_string)
   local id     = clean_id(params.id)
-  local mm     = params.mm
+
+  -- Listed entries must conform to this regex. Everything in the store can
+  -- still be fetched by name, but only the entries matched by this regex are
+  -- listed.
+  local must_match = "^report-[^.]+.(csv|txt)(.gz)?$"
 
   -- build response
   local datastr
   local running = false
   local entries = json.from_str"[]"
   if id then
-    local etable = store:list(id, mm)
+    local etable = store:list(id, must_match)
     for i = 1, #etable, 2 do
       local entry = json.from_str"{}"
       entry.name   = etable[i]
@@ -228,7 +233,7 @@ local function get_report_sections(ctx)
       entries = entries << entry
     end
 
-    -- enter store and fetch job data
+    -- enter store and fetch job data (must exist or time &c will be wrong)
     store:enter{id=id}
     datastr = store:open("job.json", yans.file.O_RDONLY):to_stream("rb"):
         read("a")

@@ -1,9 +1,10 @@
 #!/usr/bin/env yans
-local SCANTYPE    = "dummy"
-local DAEMON_NAME = "yansapi"
 local JAPI        = require "japi"
 local Store       = require "svcs.store"
 local Kneg        = require "svcs.kneg"
+
+local DAEMON_NAME = "yansapi"
+local SCANTYPE    = "dummy"
 
 local function atoi(s, def)
   return math.floor(tonumber(s) or def)
@@ -63,15 +64,17 @@ local function get_reports(ctx)
   end
 
   -- check with kneg if any of the jobs are still running
-  local pids = ctx.data.kneg:pids(ids)
-  local i = 1
-  for pid in string.gmatch(pids, "-?[0-9]+") do
-    if tonumber(pid) < 0 then
-      rows[i].running = false
-    else
-      rows[i].running = true
+  if #ids > 0 then
+    local pids = ctx.data.kneg:pids(ids)
+    local i = 1
+    for pid in string.gmatch(pids, "-?[0-9]+") do
+      if tonumber(pid) < 0 then
+        rows[i].running = false
+      else
+        rows[i].running = true
+      end
+      i = i + 1
     end
-    i = i + 1
   end
 
   -- serialize the response 
@@ -218,7 +221,7 @@ local function get_report_sections(ctx)
   -- Listed entries must conform to this regex. Everything in the store can
   -- still be fetched by name, but only the entries matched by this regex are
   -- listed.
-  local must_match = "^report-[^.]+.(csv|txt)(.gz)?$"
+  local must_match = "^report-[0-9]+-[^.]+.(csv|txt)(.gz)?$"
 
   -- build response
   local datastr
@@ -280,19 +283,31 @@ local function post_scan(ctx)
 
   local req = ctx.req_body
   if not req then
-    err400(ctx, "missing request")
+    err400(ctx, "missing request body")
     return
   end
 
-  if not req.subject or #req.subject == 0 then
-    err400(ctx, "missing subject")
+  local subject = string.lower(req.subject or "")
+  if #subject == 0 then
+    err400(ctx, "missing scan subject")
+    return
+  end
+
+  if string.match(subject, "%s") then
+    err400(ctx, "scan subject contains whitespace")
+    return
+  end
+
+  -- must contain at least a dot (IPv4 addrs, FQDN) or : (IPv6 addrs)
+  if not string.match(subject, "[.:]") then
+    err400(ctx, "invalid scan subject")
     return
   end
 
   -- create new store and write the request to it
   local store, kneg, file = ctx.data.store, ctx.data.kneg, yans.file
-  local store_name = string.sub(req.subject, 1, 40)
-  if #store_name < #req.subject then
+  local store_name = string.sub(subject, 1, 40)
+  if #store_name < #subject then
     store_name = store_name .. "..."
   end
   local started = os.time()

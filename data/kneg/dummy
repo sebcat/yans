@@ -9,10 +9,10 @@ local id = store:enter{id=os.getenv("YANS_ID")}
 print(id)
 files = {
   {"noshowpls.txt", "wb", "pls no show"},
-  {"report-foo.txt", "wb", "This is the foo report"},
-  {"report-bar.txt.gz", "zlib:wb", "This is the bar report"},
-  {"report-foo.csv", "wb", "foo,bar,baz\n1,2,3"},
-  {"report-bar.csv.gz", "zlib:wb", "baz,bar,foo\n3,2,1\n"},
+  {"report-10-foo.txt", "wb", "This is the foo report"},
+  {"report-51-bar.txt.gz", "zlib:wb", "This is the bar report"},
+  {"report-20-foo.csv", "wb", "foo,bar,baz\n1,2,3"},
+  {"report-33-bar.csv.gz", "zlib:wb", "baz,bar,foo\n3,2,1\n"},
 }
 
 local flags = yans.file.O_WRONLY | yans.file.O_CREAT | yans.file.O_TRUNC

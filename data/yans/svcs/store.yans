@@ -68,4 +68,17 @@ function _M:open(path, flags)
   return self.sock:recvfd()
 end
 
+function _M:rename(from, to)
+  assert(self.store_id, "open called in store that was not entered")
+  self.msgbuf:create_store_entered_req{
+    action      = "rename",
+    rename_from = from,
+    rename_to   = to,
+  }
+  self.sock:sendmsg(self.msgbuf)
+  self.sock:recvmsg(self.msgbuf)
+  local resp = self.msgbuf:parse_status_resp()
+  assert(not resp.errmsg, resp.errmsg)
+end
+
 return _M

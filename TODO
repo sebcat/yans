@@ -1,8 +1,12 @@
+- move filestreamer flag selection to C, and support zlib: for both normal
+  files and store
+- stored: reinit STORE_INDEX on ENOENT when opening the index O_RDONLY? At least
+  once, if possible with chroot &c.
+- check and fix:
+    Aug 21 06:55:20 resistance knegd[88314]: failure: premature connection termination fd:5
+    Aug 21 06:55:20 resistance knegd[88314]: knegd: fd 5 write error: Broken pipe
 
-- /a1/report-section: get report section from store
 
-- create PID files outside of chroot
-- have remove_pidfile function take a path
 
 ## subject
   - A subject is one IP(v4/v6) address reachable from a certain NIC with a

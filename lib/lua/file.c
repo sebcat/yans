@@ -81,6 +81,74 @@ static int l_fts(lua_State *L) {
   return 1;
 }
 
+/* convert an fopen-style mode string to open(2) flags */
+static int _flags(lua_State *L, const char *mode) {
+  char ch;
+  int oflags;
+  int mods;
+  int ok = 1;
+
+  switch (*mode++) {
+  case 'a':
+    oflags = O_WRONLY;
+    mods = O_CREAT | O_APPEND;
+    break;
+  case 'r':
+    oflags = O_RDONLY;
+    mods = 0;
+    break;
+  case 'w':
+    oflags = O_WRONLY;
+    mods = O_CREAT | O_TRUNC;
+    break;
+  default:
+    return luaL_error(L, "invalid mode string");
+  }
+
+  while ((ch = *mode++) != '\0') {
+    switch(ch) {
+    case '+':
+      oflags = O_RDWR;
+      break;
+    case 'b':
+      break;
+    case 'e':
+      mods |= O_CLOEXEC;
+      break;
+    case 'x':
+      mods |= O_EXCL;
+      break;
+    default:
+      ok = 0;
+      break;
+    }
+  }
+
+  if (oflags == O_RDONLY && (mods & O_EXCL)) {
+    return luaL_error(L, "setting both x and e is invalid");
+  }
+
+  return oflags | mods;
+}
+
+static int l_flags(lua_State *L) {
+  const char *mode;
+  int flags;
+  int is_zlib = 0;
+
+  mode = luaL_checkstring(L, 1);
+  if (strncmp(mode, "zlib:", 5) == 0) {
+    is_zlib = 1;
+    mode += 5;
+  }
+
+  flags = _flags(L, mode);
+
+  lua_pushinteger(L, (lua_Integer)flags);
+  lua_pushboolean(L, is_zlib);
+  return 2;
+}
+
 static int l_ftsgc(lua_State *L) {
   struct fts_data *data;
 
@@ -209,13 +277,60 @@ static int l_fdwait(lua_State *L) {
 
 static int l_streamclose(lua_State *L) {
   luaL_Stream *s;
+  int res = 0;
+  int en;
 
   s = (luaL_Stream*)luaL_checkudata(L, 1, LUA_FILEHANDLE);
   if (s->f) {
-    fclose(s->f);
+    res = fclose(s->f);
   }
   s->f = NULL;
-  return 0;
+
+  if (res == 0) {
+    lua_pushboolean(L, 1);
+    return 1;
+  } else {
+    en = errno;
+    lua_pushnil(L);
+    lua_pushstring(L, strerror(en));
+    lua_pushinteger(L, (lua_Integer)en);
+    return 3;
+  }
+}
+
+static int l_zopen(lua_State *L) {
+  const char *path;
+  const char *mode;
+  luaL_Stream *s;
+  int flags;
+  FILE *fp;
+  int fd;
+
+  path = luaL_checkstring(L, 1);
+  mode = luaL_checkstring(L, 2);
+  flags = _flags(L, mode);
+  if (flags & O_CREAT) {
+    fd = open(path, flags, 0644);
+  } else {
+    fd = open(path, flags);
+  }
+
+  if (fd < 0) {
+    return luaL_error(L, "%s: %s", path, strerror(errno));
+  }
+
+  fp = zfile_fdopen(fd, mode);
+  if (fp == NULL) {
+    close(fd);
+    return luaL_error(L, "zfile_fdopen %s: %s", path,
+        (errno == 0) ? "unknown error" : strerror(errno));
+  }
+
+  s = lua_newuserdata(L, sizeof(luaL_Stream));
+  luaL_setmetatable(L, LUA_FILEHANDLE);
+  s->f = fp;
+  s->closef = &l_streamclose;
+  return 1;
 }
 
 /* Lua stack: (file_fd-userdata, mode) -> FILE* */
@@ -322,6 +437,8 @@ static const struct luaL_Reg fts_m[] = {
 
 static const struct luaL_Reg file_f[] = {
   {"fts", l_fts},
+  {"flags", l_flags},
+  {"zopen", l_zopen},
   {NULL, NULL}
 };
 

@@ -638,7 +638,13 @@ static void on_readreq(struct eds_client *cli, int fd) {
     /* the sole purpose of 'index' is to pass an fd of the index file, opened
      * as read-only  */
     ecli->open_fd = open(STORE_INDEX, O_RDONLY);
-    ecli->open_errno = ecli->open_fd < 0 ? errno : 0;
+    if (ecli->open_fd < 0) {
+      /* TODO: reinit STORE_INDEX on ENOENT? */
+      ecli->open_errno = errno;
+      ecli->open_fd = nullfd_get();
+    } else {
+      ecli->open_errno = 0;
+    }
     eds_client_set_on_readable(cli, NULL, 0);
     eds_client_set_on_writable(cli, on_index_response, 0);
   } else if (strcmp(req.action.data, "list") == 0) {

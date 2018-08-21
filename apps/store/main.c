@@ -868,10 +868,12 @@ int main(int argc, char *argv[]) {
 usage:
   fprintf(stderr, "usage: %s <command> [args]\n"
       "commands:\n"
-      "  put   - put a file in the store\n"
-      "  get   - get file content from a store\n"
-      "  index - retrieve indexed store entries\n"
-      "  list  - list stores, store content\n",
+      "  put    - put a file in the store\n"
+      "  append - append content to a file in a store\n"
+      "  get    - get file content from a store\n"
+      "  index  - retrieve indexed store entries\n"
+      "  list   - list stores, store content\n"
+      "  rename - renames a file in a store\n",
       argv[0]);
   return EXIT_FAILURE;
 }

@@ -1,0 +1,14 @@
+#!/usr/bin/env yans
+
+local p = yans.opts:new()
+p:str("config", "c", "configuration file")
+p:str("store-id", "s", "store ID")
+local params = p:parse(args)
+if params.help then
+  io.stdout:write(p:usage())
+  os.exit(1)
+end
+
+print("TROLOLO")
+for k,v in pairs(params) do print(k,v) end
+

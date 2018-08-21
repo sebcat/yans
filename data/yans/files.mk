@@ -10,6 +10,7 @@ YANSLIB = \
     data/yans/svcs/resolver.yans \
     data/yans/svcs/store.yans \
     data/yans/japi.yans \
-    data/yans/ycfg.yans
+    data/yans/ycfg.yans \
+    data/yans/filestreamer.yans
 
 CODEGEN += data/yans/ycfg.yans

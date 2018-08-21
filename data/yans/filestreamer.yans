@@ -1,0 +1,50 @@
+local Store = require "svcs.store"
+local YCFG  = require "ycfg"
+
+_M = {}
+
+function _M:new(o)
+  o = o or {}
+  if o.store_id and not o.store then
+    local msgbuf = o.msgbuf or yans.ycl.msgbuf()
+    o.store = Store:new{path=YCFG.SVC_STORE, msgbuf = msgbuf}
+    o.store:enter{id=o.store_id}
+  end
+
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:_open_store(path, flags)
+  local of, file = 0, yans.file
+  -- FIXME: move to C and yans.file. Also, check for zlib: prefix
+  -- also: x and e are no-ops below
+  if string.match(flags, "+") then of = of | file.O_RDWR
+  elseif string.match(flags, "r") then of = of | file.O_RDONLY
+  elseif string.match(flags, "w") then of = of | file.O_WRONLY | file.O_CREAT |
+      file.O_TRUNC
+  elseif string.match(flags, "a") then of = of | file.O_WRONLY |
+      file.O_CREAT | file.O_APPEND end
+  if of & file.O_RDWR == file.O_RDWR then
+    if string.match(flags, "w") then of = of | file.O_CREAT | file.O_TRUNC
+    elseif string.match(flags, "a") then of = of | file.O_CREAT | file.O_APPEND
+    end
+  end
+
+  return self.store:open(path, of):to_stream(flags)
+end
+
+function _M:_open_file(path, flags)
+  return assert(io.open(path, flags))
+end
+
+function _M:open(path, flags)
+  if self.store then
+    return self:_open_store(path, flags)
+  else
+    return self:_open_file(path, flags)
+  end
+end
+
+return _M

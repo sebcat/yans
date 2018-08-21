@@ -16,34 +16,25 @@ function _M:new(o)
   return o
 end
 
-function _M:_open_store(path, flags)
-  local of, file = 0, yans.file
-  -- FIXME: move to C and yans.file. Also, check for zlib: prefix
-  -- also: x and e are no-ops below
-  if string.match(flags, "+") then of = of | file.O_RDWR
-  elseif string.match(flags, "r") then of = of | file.O_RDONLY
-  elseif string.match(flags, "w") then of = of | file.O_WRONLY | file.O_CREAT |
-      file.O_TRUNC
-  elseif string.match(flags, "a") then of = of | file.O_WRONLY |
-      file.O_CREAT | file.O_APPEND end
-  if of & file.O_RDWR == file.O_RDWR then
-    if string.match(flags, "w") then of = of | file.O_CREAT | file.O_TRUNC
-    elseif string.match(flags, "a") then of = of | file.O_CREAT | file.O_APPEND
+function _M:open(path, mode)
+  if self.store then
+    local flags = yans.file.flags(mode)
+    return self.store:open(path, flags):to_stream(mode)
+  else
+    local _, is_zlib = yans.file.flags(mode)
+    if is_zlib then 
+      return yans.file.zopen(path, string.sub(mode, 6))
+    else
+      return assert(io.open(path, mode))
     end
   end
-
-  return self.store:open(path, of):to_stream(flags)
 end
 
-function _M:_open_file(path, flags)
-  return assert(io.open(path, flags))
-end
-
-function _M:open(path, flags)
+function _M:rename(from, to)
   if self.store then
-    return self:_open_store(path, flags)
+    self.store:rename(from, to)
   else
-    return self:_open_file(path, flags)
+    assert(os.rename(from, to))
   end
 end
 

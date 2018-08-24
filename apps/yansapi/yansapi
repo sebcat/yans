@@ -4,7 +4,7 @@ local Store       = require "svcs.store"
 local Kneg        = require "svcs.kneg"
 
 local DAEMON_NAME = "yansapi"
-local SCANTYPE    = "dummy"
+local SCANTYPE    = "scanny"
 
 local function atoi(s, def)
   return math.floor(tonumber(s) or def)

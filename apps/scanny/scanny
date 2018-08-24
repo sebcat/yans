@@ -1,14 +1,42 @@
 #!/usr/bin/env yans
+FileStreamer = require"filestreamer"
 
+-- parse command line parameters
 local p = yans.opts:new()
 p:str("config", "c", "configuration file")
 p:str("store-id", "s", "store ID")
+p:flag("no-sandbox", "X", "run without sandbox")
 local params = p:parse(args)
 if params.help then
   io.stdout:write(p:usage())
   os.exit(1)
 end
 
-print("TROLOLO")
-for k,v in pairs(params) do print(k,v) end
+-- setup service connections and sandbox if we have a store-id
+local store_id = params["store-id"]
+local msgbuf = yans.ycl.msgbuf()
+local fs = FileStreamer:new{msgbuf = msgbuf, store_id = store_id}
+if store_id then
+  yans.util.sandbox()
+elseif params["no-sandbox"] then
+  print("WARNING: sandboxing disabled")
+else
+  print("No store specified with sandboxing enabled, quitting")
+  os.exit(1)
+end
 
+print(store_id)
+files = {
+  {"noshowpls.txt", "wb", "pls no show"},
+  {"report-10-foo.txt", "wb", "This is the foo report"},
+  {"report-51-bar.txt.gz", "zlib:wb", "This is the bar report"},
+  {"report-20-foo.csv", "wb", "foo,bar,baz\n1,2,3"},
+  {"report-33-bar.csv.gz", "zlib:wb", "baz,bar,foo\n3,2,1\n"},
+}
+
+for _, e in ipairs(files) do
+  fs:open(e[1], e[2]):write(e[3]):close()
+end
+
+-- simulate work
+yans.util.nanosleep(5, 0)

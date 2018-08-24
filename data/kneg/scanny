@@ -1,2 +1,3 @@
 #!/bin/sh
+cd /
 exec scanny --store-id "$YANS_ID" --config job.json

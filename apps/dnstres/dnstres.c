@@ -22,6 +22,12 @@ static void my_on_resolved(void *data, const char *host, const char *addr) {
   funlockfile(stdout);
 }
 
+static void my_on_unresolved(void *data, const char *host) {
+  flockfile(stdout);
+  fprintf(stdout, "%s\n", host);
+  funlockfile(stdout);
+}
+
 int main(int argc, char *argv[]) {
   struct dnstres_pool *p;
   size_t nstarted;
@@ -29,8 +35,9 @@ int main(int argc, char *argv[]) {
   int nthreads;
   int stacksize = 0;
   struct dnstres_request req = {
-    .on_resolved = my_on_resolved,
-    .on_done = my_on_done,
+    .on_resolved   = my_on_resolved,
+    .on_unresolved = my_on_unresolved,
+    .on_done       = my_on_done,
   };
   struct dnstres_pool_opts opts = {0};
 

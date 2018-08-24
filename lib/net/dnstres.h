@@ -37,6 +37,7 @@ struct dnstres_request {
    * in DTR_DELIMS */
   const char *hosts;
   void (*on_resolved)(void *data, const char *host, const char *addr);
+  void (*on_unresolved)(void *data, const char *host);
   void (*on_done)(void *data);
   void *data;
 };

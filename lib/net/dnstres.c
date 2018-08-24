@@ -312,12 +312,13 @@ static void resolve(struct dnstres_hosts *h, const char *host,
   struct addrinfo *curr;
   char addrbuf[128];
   int ret;
+  int nresolved = 0;
 
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM; /* to avoid duplicate entries */
   ret = getaddrinfo(host, NULL, &hints, &addrs);
   if (ret != 0) {
-    return;
+    goto done;
   }
 
   for (curr = addrs; curr != NULL; curr = curr->ai_next) {
@@ -327,12 +328,19 @@ static void resolve(struct dnstres_hosts *h, const char *host,
 
     ret = getnameinfo(curr->ai_addr, curr->ai_addrlen, addrbuf,
         sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
-    if (ret == 0 && h->req.on_resolved) {
-      h->req.on_resolved(h->req.data, host, addrbuf);
+    if (ret == 0) {
+      nresolved++;
+      if (h->req.on_resolved) {
+        h->req.on_resolved(h->req.data, host, addrbuf);
+      }
     }
   }
 
   freeaddrinfo(addrs);
+done:
+  if (nresolved == 0 && h->req.on_unresolved) {
+    h->req.on_unresolved(h->req.data, host);
+  }
 }
 
 /* resolver thread */

@@ -114,6 +114,16 @@ void res_on_resolved(void *data, const char *host, const char *addr) {
   funlockfile(resdata->resfile);
 }
 
+void res_on_unresolved(void *data, const char *host) {
+  struct resolver_data *resdata = data;
+
+  /* we have not resolved a host to an address, write it to the result file
+   * anyway, without an IP address */
+  flockfile(resdata->resfile);
+  fprintf(resdata->resfile, "%s\n", host);
+  funlockfile(resdata->resfile);
+}
+
 void res_on_done(void *data) {
   struct resolver_data *resdata = data;
 
@@ -157,6 +167,7 @@ static void on_sendclosefd(struct eds_client *cli, int fd) {
   req.hosts = ecli->hosts;
   req.data = resdata;
   req.on_resolved = res_on_resolved;
+  req.on_unresolved = res_on_unresolved;
   req.on_done = res_on_done;
 
   /* cleanup ecli fields so they're not free'd separately on closed fd.

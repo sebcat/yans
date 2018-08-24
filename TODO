@@ -1,10 +1,9 @@
-- move filestreamer flag selection to C, and support zlib: for both normal
-  files and store
 - stored: reinit STORE_INDEX on ENOENT when opening the index O_RDONLY? At least
   once, if possible with chroot &c.
 - check and fix:
     Aug 21 06:55:20 resistance knegd[88314]: failure: premature connection termination fd:5
     Aug 21 06:55:20 resistance knegd[88314]: knegd: fd 5 write error: Broken pipe
+- have eds use wait4 instead of waitpid and report rusage? (utime,stime,maxrss)
 
 
 

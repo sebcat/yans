@@ -23,6 +23,23 @@ button:active {
   background: #aaa;
 }
 
+table {
+  border: none;
+  border-collapse: collapse;
+}
+
+table td {
+  border-left: 1px solid black;
+  padding-left: .25rem;
+  padding-right: .25rem;
+  text-align: center;
+}
+
+table td:first-child {
+  border-left: none;
+}
+
+
 table tr:nth-child(1) td {
   font-weight: bold;
 }

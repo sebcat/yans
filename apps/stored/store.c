@@ -72,6 +72,14 @@ static int init_index(struct sindex_ctx *ctx) {
   return 0;
 }
 
+static int reinit_index(struct sindex_ctx *ctx) {
+  FILE *fp;
+
+  fp = sindex_fp(ctx);
+  fclose(fp);
+  return init_index(ctx);
+}
+
 int store_init(struct eds_service *svc) {
   time_t t;
   uint32_t seed;
@@ -638,8 +646,13 @@ static void on_readreq(struct eds_client *cli, int fd) {
     /* the sole purpose of 'index' is to pass an fd of the index file, opened
      * as read-only  */
     ecli->open_fd = open(STORE_INDEX, O_RDONLY);
+    if (ecli->open_fd < 0 && errno == ENOENT) {
+      /* STORE_INDEX may have been removed, try to reinit */
+      reinit_index(&sindex_);
+      ecli->open_fd = open(STORE_INDEX, O_RDONLY);
+    }
+
     if (ecli->open_fd < 0) {
-      /* TODO: reinit STORE_INDEX on ENOENT? */
       ecli->open_errno = errno;
       ecli->open_fd = nullfd_get();
     } else {

@@ -557,8 +557,8 @@ static void on_readreq(struct eds_client *cli, int fd) {
   if (ret == YCL_AGAIN) {
     return;
   } else if (ret != YCL_OK) {
-    errmsg = ycl_strerror(&ecli->ycl);
-    goto fail;
+    eds_client_clear_actions(cli);
+    return;
   }
 
   ret = ycl_msg_parse_knegd_req(&ecli->msgbuf, &req);

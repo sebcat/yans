@@ -2,8 +2,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include <lib/util/os.h>
+#include <lib/net/punycode.h>
 #include <lib/util/sandbox.h>
 #include <lib/lua/util.h>
 
@@ -94,12 +96,29 @@ static int l_daemon_remove_pidfile(lua_State *L) {
   return 0;
 }
 
+static int l_punycode_encode(lua_State *L) {
+  const char *s;
+  size_t len;
+  char *out;
+
+  s = luaL_checklstring(L, 1, &len);
+  out = punycode_encode(s, len);
+  if (out == NULL) {
+    return luaL_error(L, "punycode_encode failure");
+  }
+
+  lua_pushstring(L, out);
+  free(out);
+  return 1;
+}
+
 static const struct luaL_Reg util_f[] = {
   {"nanosleep", l_nanosleep},
   {"sandbox", l_sandbox},
   {"chdir", l_chdir},
   {"daemonize", l_daemonize},
   {"daemon_remove_pidfile", l_daemon_remove_pidfile},
+  {"punycode_encode", l_punycode_encode},
   {NULL, NULL},
 };
 

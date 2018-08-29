@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
       status = EXIT_FAILURE;
     }
   } else {
-    ylog_info("Starting ethd services");
+    ylog_info("Starting ethd");
     if (eds_serve(services) < 0) {
       ylog_error("eds_serve: failed");
       status = EXIT_FAILURE;

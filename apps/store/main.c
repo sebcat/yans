@@ -159,6 +159,7 @@ static int run_put(const char *socket, const char *id, const char *name,
   struct ycl_msg_store_req reqmsg = {{0}};
   struct ycl_msg_status_resp respmsg = {{0}};
   struct ycl_msg_store_entered_req openmsg = {{0}};
+  static time_t *no_see;
 
   ret = ycl_connect(&ctx, socket);
   if (ret != YCL_OK) {
@@ -178,6 +179,7 @@ static int run_put(const char *socket, const char *id, const char *name,
   reqmsg.store_id.len = id ? strlen(id) : 0;
   reqmsg.name.data = name;
   reqmsg.name.len = name ? strlen(name) : 0;
+  reqmsg.indexed = (long)time(no_see);
   ret = ycl_msg_create_store_req(&msg, &reqmsg);
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_msg_create_store_enter failure\n");

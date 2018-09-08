@@ -290,33 +290,40 @@ function CSV(separator_) {
   self.parse = function(data) {
     let rows = [];
     let row = [];
+    let lastfield = "";
     pos_ = 0;
+
     while (pos_ < data.length) {
       switch(data.charAt(pos_)) {
       case separator_:
-        row.push("");
+        row.push(lastfield);
+        lastfield = "";
+        pos_++;
         break;
       case "\"":
-        row.push(self.parseEscaped(data));
+        lastfield = self.parseEscaped(data);
         break;
       case "\r":
-        break;
       case "\n":
+        if (row.length > 0 || lastfield.length > 0) {
+          row.push(lastfield);
+        }
+        lastfield = "";
         if (row.length > 0) { 
           rows.push(row);
           row = [];
         }
+        pos_++;
         break;
       default:
-        row.push(self.parseUnescaped(data));
-        if (data.charAt(pos_) === "\n") {
-          rows.push(row);
-          row = [];
-        }
+        lastfield = self.parseUnescaped(data);
+        break;
       }
-      pos_++;
     }
 
+    if (row.length > 0 || lastfield.length > 0) {
+      row.push(lastfield);
+    }
     if (row.length > 0) {
       rows.push(row);
     }

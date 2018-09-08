@@ -217,7 +217,7 @@ function _diffString(n, str) {
 }
 
 function diffString(start, end) {
-  var diff = end - start;
+  let diff = end - start;
   if (diff < 10) {
     return "now";
   } else if (diff < 60) {
@@ -249,12 +249,12 @@ function CSV(separator_) {
   if (!(this instanceof CSV))
     return new CSV(separator_);
 
-  var self = this;
-  var pos_;
+  let self = this;
+  let pos_;
 
   self.parseEscaped = function(data) {
     pos_++;
-    var start = pos_;
+    let start = pos_;
     while (pos_ < data.length) {
       if (data.charAt(pos_) === "\"") {
         if (data.charAt(pos_+1) === "\"") {
@@ -270,13 +270,13 @@ function CSV(separator_) {
   };
 
   self.parseUnescaped = function(data) {
-    var start = pos_;
+    let start = pos_;
     while (pos_ < data.length) {
-      var ch = data.charAt(pos_);
+      let ch = data.charAt(pos_);
       if (ch === separator_ || ch === "\n") {
         return data.substring(start, pos_);
       } else if (ch === "\r" && data.charAt(pos_+1) === "\n") {
-        var str = data.substring(start, pos_);
+        let str = data.substring(start, pos_);
         pos_++;
         return str;
       }
@@ -288,16 +288,18 @@ function CSV(separator_) {
   };
 
   self.parse = function(data) {
-    var rows = [];
-    var row = [];
+    let rows = [];
+    let row = [];
     pos_ = 0;
     while (pos_ < data.length) {
       switch(data.charAt(pos_)) {
+      case separator_:
+        row.push("");
+        break;
       case "\"":
         row.push(self.parseEscaped(data));
         break;
       case "\r":
-      case separator_:
         break;
       case "\n":
         if (row.length > 0) { 
@@ -393,21 +395,21 @@ function Roger(errfunc, defaultRoute) {
     return new Roger(errfunc, defaultRoute);
   }
 
-  var self = this;
+  let self = this;
   self.LUT = {};
   self.defaultRoute = defaultRoute;
   self.errfunc = errfunc || function(msg) {};
 
   self.routeRequest = function() {
     /* parse the URL in the URI fragment */
-    var url = document.createElement("a"); 
+    let url = document.createElement("a"); 
     if (window.location.hash) {
       url.href = window.location.hash.substring(1);
     }
 
     /* find out what we should request */
-    var dst;
-    var func = self.LUT[url.pathname];
+    let dst;
+    let func = self.LUT[url.pathname];
     if (func) {
       dst = url.pathname + url.search;
     } else {
@@ -441,30 +443,30 @@ function Roger(errfunc, defaultRoute) {
 }
 
 function Loader() {
-  var d = document.createElement("div");
+  let d = document.createElement("div");
   d.className = "loader";
   return d;
 }
 
 function ListEntry(opts) {
   /* create the left part of the header, w/ title and subtitle (if any) */
-  var left = document.createElement("div");
+  let left = document.createElement("div");
   left.className = "entry-header-left";
   if (opts.title) {
-    var t = document.createElement("div");
+    let t = document.createElement("div");
     t.className = "entry-title";
     t.appendChild(opts.title);
     left.appendChild(t);
   }
   if (opts.subtitle) {
-    var st = document.createElement("div");
+    let st = document.createElement("div");
     st.className = "entry-subtitle";
     st.innerText = opts.subtitle;
     left.appendChild(st);
   }
 
   /* create the entry header itself */
-  var hdr = document.createElement("div");
+  let hdr = document.createElement("div");
   hdr.className = "entry-header";
   hdr.appendChild(left);
 
@@ -473,17 +475,17 @@ function ListEntry(opts) {
     if (typeof opts.right === "string") {
       opts.right = document.createTextNode(opts.right);
     }
-    var r = document.createElement("div");
+    let r = document.createElement("div");
     r.className = "entry-header-right";
     r.appendChild(opts.right);
     hdr.appendChild(r);
   }
 
-  var cnt = document.createElement("div");
+  let cnt = document.createElement("div");
   cnt.className = "entry-content";
   cnt.id = opts.cntId;
 
-  var e = document.createElement("div");
+  let e = document.createElement("div");
   e.appendChild(hdr);
   e.appendChild(cnt);
 
@@ -495,11 +497,11 @@ function YansView(pname) {
     return new YansView(pname);
   }
 
-  var self = this;
-  var parent = document.getElementById(pname);
+  let self = this;
+  let parent = document.getElementById(pname);
   
   self.getRunningSymbol = function(is_running) {
-    var r;
+    let r;
     if (is_running) {
       r = Loader();
     } else {
@@ -510,16 +512,16 @@ function YansView(pname) {
   };
 
   self.renderReportEntries = function(report) {
-    var report_id = report.id;
-    var elem = document.getElementById("report-" + report_id);
+    let report_id = report.id;
+    let elem = document.getElementById("report-" + report_id);
     if (!elem) {
-      var reportdiv = document.createElement("div");
+      let reportdiv = document.createElement("div");
       reportdiv.className = "entry-list";
 
-      var anchor = document.createElement("a");
+      let anchor = document.createElement("a");
       anchor.href = "#/a1/report-sections?id=" + report_id;
       anchor.text = report.name;
-      var entry = ListEntry({
+      let entry = ListEntry({
         title: anchor,
         subtitle: diffString(report.started, report.now_ts),
         right: self.getRunningSymbol(report.running),
@@ -531,7 +533,7 @@ function YansView(pname) {
       elem = document.getElementById("report-" + report_id);
     }
 
-    var sectiondiv = document.createElement("div");
+    let sectiondiv = document.createElement("div");
     sectiondiv.className = "report-entries";
     report.entries.sort(function(a,b) {
       let aorder = /^report-([0-9]+)-/g.exec(a.name)[1];
@@ -539,7 +541,7 @@ function YansView(pname) {
       return aorder - border;
 
     })
-    for (var i = 0; i < report.entries.length; i++) {
+    for (let i = 0; i < report.entries.length; i++) {
       const entry_name = report.entries[i].name;
 
       const adiv = document.createElement("div");
@@ -581,17 +583,17 @@ function YansView(pname) {
   };
 
   self.renderReports = function(reports) {
-    var entries = reports.entries;
+    let entries = reports.entries;
     entries.reverse();
-    var now = reports.now_ts;
-    var reportdiv = document.createElement("div");
+    let now = reports.now_ts;
+    let reportdiv = document.createElement("div");
     reportdiv.className = "entry-list";
-    for (var i = 0; i < entries.length; i++) {
-      var anchor = document.createElement("a");
+    for (let i = 0; i < entries.length; i++) {
+      let anchor = document.createElement("a");
       anchor.href = "#/a1/report-sections?id=" + entries[i].id;
       anchor.text = entries[i].name;
 
-      var entry = ListEntry({
+      let entry = ListEntry({
         title: anchor,
         subtitle: diffString(entries[i].ts, now),
         right: self.getRunningSymbol(entries[i].running),
@@ -609,7 +611,7 @@ function YansView(pname) {
 
 /* functionality for closing the alert thingy */
 document.getElementById("alert-close").onclick = function() {
-  var p = this.parentElement;
+  let p = this.parentElement;
   p.style.opacity = 0;
   setTimeout(function() {
     p.style.display = "none";
@@ -618,20 +620,20 @@ document.getElementById("alert-close").onclick = function() {
 
 /* called whenever something breaks */
 function appErrFunc(text) {
-  var txt = document.getElementById("alert-text");
+  let txt = document.getElementById("alert-text");
   txt.innerText = text;
   txt.parentElement.style.opacity = 1;
   txt.parentElement.style.display = "unset";
 }
 
 document.getElementById("scan-btn").onclick = function() {
-  var subject = document.getElementById("scan-subject").value;
+  let subject = document.getElementById("scan-subject").value;
   if (!subject || subject.length == 0) {
     appErrFunc("Missing/invalid scan subject");
     return;
   }
 
-  var datas = JSON.stringify({subject: subject});
+  let datas = JSON.stringify({subject: subject});
   JReq("POST", "/a1/scan", datas)
       .done(function(data) {
         data = JSON.parse(data);
@@ -646,7 +648,7 @@ document.getElementById("scan-btn").onclick = function() {
       }).send();
 };
 
-var ui = YansView("main-box");
+let ui = YansView("main-box");
 Roger(appErrFunc, "/a1/reports")
   .register("/a1/fail", function(data) {
     data = JSON.parse(data);

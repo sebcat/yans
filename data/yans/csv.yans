@@ -1,0 +1,24 @@
+_M = {}
+
+-- RFC4180
+
+function _M.row(...)
+  local res = {}
+  local input = {...}
+  for i = 1, #input do
+    str = input[i] or ""
+    -- 7. If double-quotes are used to enclose fields, then a double-quote
+    --    appearing inside a field must be escaped by preceding it with
+    --    another double quote
+    str, nreplaced = string.gsub(str, "\"", "\"\"")
+    if nreplaced > 0 or string.find(str, "[\r\n,\"]") then
+      -- 6. Fields containing line breaks (CRLF), double quotes, and commas
+      --    should be enclosed in double-quotes
+      str = string.format("\"%s\"", str)
+    end
+    table.insert(res, str)
+  end
+  return table.concat(res, ",") .. "\n"
+end
+
+return _M

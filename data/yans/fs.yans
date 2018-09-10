@@ -1,0 +1,27 @@
+_M = {}
+
+function _M:new(o)
+  o = o or {}
+  self.__index = self
+  setmetatable(o, self)
+  return o
+end
+
+function _M:open(path, mode)
+  if self.store then
+    local flags = yans.file.flags(mode)
+    return self.store:open(path, flags)
+  else
+    return yans.file.open(path, mode)
+  end
+end
+
+function _M:rename(from, to)
+  if self.store then
+    self.store:rename(from, to)
+  else
+    assert(os.rename(from, to))
+  end
+end
+
+return _M

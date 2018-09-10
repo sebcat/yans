@@ -13,7 +13,7 @@ yans.util.sandbox() -- enter sandbox
 local id = store:enter{id=os.getenv("YANS_ID")}
 print("STORE:", id)
 
-resolver:resolve("trololo.gz", "www.svd.se www.aftonbladet.se www.reddit.com")
+resolver:resolve("trololo.gz", "www.svd.se www.aftonbladet.se www.reddit.com idontextist")
 for line in resolver:get_result_stream("trololo.gz"):lines() do
   print(line)
 end

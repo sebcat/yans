@@ -88,6 +88,10 @@ static int _flags(lua_State *L, const char *mode) {
   int mods;
   int ok = 1;
 
+  if (strncmp(mode, "zlib:", 5) == 0) {
+    mode = mode + 5;
+  }
+
   switch (*mode++) {
   case 'a':
     oflags = O_WRONLY;
@@ -298,12 +302,10 @@ static int l_streamclose(lua_State *L) {
   }
 }
 
-static int l_zopen(lua_State *L) {
+static int l_open(lua_State *L) {
   const char *path;
   const char *mode;
-  luaL_Stream *s;
   int flags;
-  FILE *fp;
   int fd;
 
   path = luaL_checkstring(L, 1);
@@ -319,18 +321,7 @@ static int l_zopen(lua_State *L) {
     return luaL_error(L, "%s: %s", path, strerror(errno));
   }
 
-  fp = zfile_fdopen(fd, mode);
-  if (fp == NULL) {
-    close(fd);
-    return luaL_error(L, "zfile_fdopen %s: %s", path,
-        (errno == 0) ? "unknown error" : strerror(errno));
-  }
-
-  s = lua_newuserdata(L, sizeof(luaL_Stream));
-  luaL_setmetatable(L, LUA_FILEHANDLE);
-  s->f = fp;
-  s->closef = &l_streamclose;
-  return 1;
+  return file_mkfd(L, fd);
 }
 
 /* Lua stack: (file_fd-userdata, mode) -> FILE* */
@@ -438,7 +429,7 @@ static const struct luaL_Reg fts_m[] = {
 static const struct luaL_Reg file_f[] = {
   {"fts", l_fts},
   {"flags", l_flags},
-  {"zopen", l_zopen},
+  {"open", l_open},
   {NULL, NULL}
 };
 

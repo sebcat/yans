@@ -4,10 +4,9 @@ local _M = {
 
 function _M:new(o)
   assert(o.path, "missing path")
-  assert(o.store, "missing store")
+  assert(o.opener, "missing opener")
   assert(o.msgbuf, "missing msgbuf")
-  local ycl = yans.ycl
-  o.sock = ycl.connect(o.path)
+  o.sock = yans.ycl.connect(o.path)
   self.__index = self
   setmetatable(o, self)
   return o
@@ -24,8 +23,7 @@ function _M:resolve(dstfile, hosts)
 
   -- open the destination file for writing and send it
   local file = yans.file
-  local dstfd = self.store:open(dstfile,
-      file.O_WRONLY | file.O_CREAT | file.O_TRUNC)
+  local dstfd = self.opener:open(dstfile, "wb")
   self.sock:sendfd(dstfd)
 
   -- create the resolver request
@@ -43,7 +41,18 @@ function _M:resolve(dstfile, hosts)
 end
 
 function _M:get_result_stream(srcfile)
-  return self.store:open(srcfile, yans.file.O_RDONLY):to_stream("zlib:rb")
+  return self.opener:open(srcfile, "rb"):to_stream("zlib:rb")
+end
+
+function _M:entries(srcfile)
+  local stream = self:get_result_stream(srcfile)
+  return function() 
+    local line = stream:read("l")
+    if not line then return end
+    local name, addr = string.match(line, "(%S+)%s*(%S*)")
+    if #addr == 0 then addr = nil end
+    return name, addr
+  end
 end
 
 return _M

@@ -1,6 +1,4 @@
-local _M = {
-
-}
+local _M = {}
 
 function _M:new(o)
   assert(o.path, "missing store path")
@@ -65,7 +63,15 @@ function _M:open(path, flags)
     open_flags = flags,
   }
   self.sock:sendmsg(self.msgbuf)
-  return self.sock:recvfd()
+  --return self.sock:recvfd()
+  ok, res = pcall(self.sock.recvfd, self.sock)
+  if not ok then
+    print(res)
+    print(debug.traceback())
+    os.exit(1)
+  end
+  return res
+
 end
 
 function _M:rename(from, to)

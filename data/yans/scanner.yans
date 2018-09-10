@@ -31,7 +31,8 @@ function _M:store_enter(opts)
   }
 end
 
-function _M:store_open(path, flags)
+function _M:store_open(path, mode)
+  local flags = yans.file.flags(mode)
   return self.store:open(path, flags)
 end
 

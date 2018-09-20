@@ -304,6 +304,7 @@ usage:
   fprintf(stderr, "usage: [opts] <type>\n"
       "opts:\n"
       "  -h|--help            - this text\n"
+      "  -i|--id              - store ID\n"
       "  -p|--param   <param> - kneg parameter\n"
       "  -s|--socket  <path>  - path to knegd socket (%s)\n"
       "  -t|--timeout <n>     - timeout, in seconds\n"

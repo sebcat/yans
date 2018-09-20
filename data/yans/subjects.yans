@@ -95,8 +95,8 @@ em0
 
 ]]--
 
-CSV = require"csv"
-
+local CSV = require"csv"
+local NEXTHOP_BUFSZ = 4
 
 _M = {}
 
@@ -112,29 +112,84 @@ end
 
 -- main entry for subjects to resolve
 function _M:resolve(writer, subjects)
-  writer:write(CSV.row("iface", "src hwaddr", "src ip", "dst ip", "name"))
+  writer:write(CSV.row("iface", "src hwaddr", "src ip", "nexthop hwaddr",
+      "nexthop ip", "dst ip", "name"))
   for name, dstip in self:ns_resolve(subjects) do
-    local iface, src_hwaddr, srcip = self:src_map(dstip, name)
-    writer:write(CSV.row(
-        iface      or "",
-        src_hwaddr or "",
-        srcip      or "",
-        dstip      or "",
-        name       or ""))
+    local iface, src_hwaddr, srcip, nexthop_ip = self:src_map(dstip)
+    local nexthop_hwaddr
+    if nexthop_ip then
+      nexthop_hwaddr = self:nexthop_map(iface, nexthop_ip)
+      if nexthop_hwaddr then
+        writer:write(CSV.row(iface, src_hwaddr, srcip, nexthop_hwaddr,
+          nexthop_ip, dstip, name))
+      else
+        self:nexthop_resolve(writer, iface, src_hwaddr, srcip, nexthop_ip,
+          dstip, name)
+      end
+    end
   end
-
---    local nexthop_hwaddr, nexthop_ip = self:nexhop_map(iface, src_hwaddr, srcip, dstip, name)
---    if not nexthop_hwaddr then
---      self:nexthop_resolve(iface, src_hwaddr, srcip, dstip, name)
---    else
---      self:output(writer, iface, src_hwaddr, srcip, nexthop_hwaddr, nexthop_ip, dstip, name)
---    end
---  end
---  self:flush_resolve(writer)
+  self:nexthop_flush(writer)
 end
 
-function _M:src_map(dstip, name)
-  return nil, nil, nil
+function _M:nexthop_map(iface, nexthop_ip)
+  return self.netconf[iface].ip_neigh[nexthop_ip]
+end
+
+function _M:nexthop_flush(writer)
+  -- TODO: Implement (resolve nexthop_buffer)
+  if self.nexthop_buffer then
+    for i = 1, #self.nexthop_buffer do
+      writer:write(CSV.row(table.unpack(self.nexthop_buffer[i])))
+    end
+  end
+end
+
+function _M:nexthop_resolve(writer, iface, src_hwaddr, srcip, nexthop_ip,
+    dstip, name)
+  self.nexthop_buffer = self.nexthop_buffer or {}
+  local el = {iface, src_hwaddr, src_ip, "", nexthop_ip, dstip, name}
+  table.insert(self.nexthop_buffer, el)
+  if #self.nexthop_buffer == NEXTHOP_BUFSZ then
+    self:nexthop_flush(writer)
+  end
+end
+
+-- returns: iface, src_hwaddr, srcip, nexthop_ip
+function _M:src_map(dstip)
+  -- check if we have a destination IP address
+  if not dstip then return end
+
+  -- check if any of the interfaces has a direct route to this host
+  for iface, cfg in pairs(self.netconf) do
+    for _, src in ipairs(cfg.ip_srcs) do
+      if src.subnet:contains(dstip) then
+        return iface, cfg.ethaddr, tostring(src.addr), dstip
+      end
+    end
+  end
+
+  -- check if any of the interfaces has a gateway serving this host
+  -- TODO: Maybe sort ip_gws by ascending number of addresses in subnet
+  --       to avoid default gateway precedence?
+  for iface, cfg in pairs(self.netconf) do
+    local gw_addr
+    for _, gw in ipairs(cfg.ip_gws) do
+      if gw.subnet:contains(dstip) then
+        gw_addr = gw.addr
+        break
+      end
+    end
+    if gw_addr then
+      -- this iface has a gateway configured for this dstip, find a suitable
+      -- srcip (XXX: only checks by protocol version)
+      local dstver = yans.ip.addr(dstip):version()
+      for _, src in ipairs(cfg.ip_srcs) do
+        if src.addr:version() == dstver then
+          return iface, cfg.ethaddr, tostring(src.addr), tostring(gw_addr)
+        end
+      end
+    end
+  end
 end
 
 -- takes a table of yans.ip.addrs and returns an iterator of address strings

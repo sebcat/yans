@@ -69,12 +69,31 @@ else
 end
 
 local cfg = load_config(services.opener, params.config)
+
+--[[
+function rp(node, depth)
+  depth = depth or 0
+  if type(node) == "table" then
+    for k,v in pairs(node) do
+      print(string.format("%s%s", string.rep("\t", depth), k))
+      rp(v, depth + 1)
+    end
+  else
+    print(string.format("%s%s", string.rep("\t", depth), node))
+  end
+end
+
+rp(services.netconf)
+]]--
+
 local subjects = Subjects:new{
     resolver   = services.resolver,
     netconf    = services.netconf,
 }
-subjects:resolve(io.stdout, cfg.subjects)
-
+local res = services.opener:open("report-10-subjects.csv.gz", "zlib:wb")
+res = res:to_stream("zlib:wb")
+subjects:resolve(res, cfg.subjects)
+res:close()
 
 --[=[
 GLORY = [[

@@ -1,23 +1,23 @@
 --[[
 
 The goal of this code is to take a string consisting of whitespace
-separated IPv[46] ranges (where a single address is also considered to be a
-range) or domain name(s) and map to a
-(iface,src-hwaddr,srcip,nexthop-hwaddr,nexthop-ip,dstip,name)-tuple. In
-doing so, zero or more network actions may be performed.
+separated IPv[46] ranges (where a single address is also considered to be
+a range) or domain name(s) and map to a (iface,src-hwaddr,srcip,
+nexthop-hwaddr,nexthop-ip,dstip,name)-tuple. In doing so, zero or more
+network actions may be performed.
 
-The first part of this procedure, ns_resolve, is to map domain name(s) to IP
-address(es). ns_resolve also punycodes name(s). After this step, we have a
-sequence of (dstip,name)-tuples, where 'name' can be nil.
+The first part of this procedure, ns_resolve, is to map domain name(s) to
+IP address(es). ns_resolve also punycodes name(s). After this step, we
+have a sequence of (dstip,name)-tuples, where 'name' can be nil.
 
 Next up we have src_map, which maps the iface, src-hwaddr and srcip to use
 for the dstip.
 
 After that we have nexthop_map, which tries to map the next hop.
 
-For unknown next hops in nexthop_map, we have nexthop_resolve which tries to
-resolve the next hop, and also updates. nexthop_resolve lookups are batched and
-needs to be flushed at the end.
+For unknown next hops in nexthop_map, we have nexthop_resolve which tries
+to resolve the next hop, and also updates. nexthop_resolve lookups are
+batched and needs to be flushed at the end.
 
              (netconf, subjects)
                     |
@@ -41,7 +41,8 @@ needs to be flushed at the end.
                     +----------+----------+
                                |
                                v
-   (netconf, iface, src-hwaddr, srcip, nexthop-hwaddr, nexthop-ip, dstip, name)
+   (netconf, iface, src-hwaddr, srcip, nexthop-hwaddr, nexthop-ip,
+    dstip, name)
 ]]--
 --[[
 function rp(node, depth)
@@ -116,16 +117,18 @@ function _M:resolve(writer, subjects)
       "nexthop ip", "dst ip", "name"))
   for name, dstip in self:ns_resolve(subjects) do
     local iface, src_hwaddr, srcip, nexthop_ip = self:src_map(dstip)
+
     local nexthop_hwaddr
     if nexthop_ip then
       nexthop_hwaddr = self:nexthop_map(iface, nexthop_ip)
-      if nexthop_hwaddr then
-        writer:write(CSV.row(iface, src_hwaddr, srcip, nexthop_hwaddr,
-          nexthop_ip, dstip, name))
-      else
-        self:nexthop_resolve(writer, iface, src_hwaddr, srcip, nexthop_ip,
-          dstip, name)
-      end
+    end
+
+    if nexthop_ip and not nexthop_hwaddr then
+      self:nexthop_resolve(writer, iface, src_hwaddr, srcip, nexthop_ip,
+        dstip, name)
+    else
+      writer:write(CSV.row(iface, src_hwaddr, srcip, nexthop_hwaddr,
+        nexthop_ip, dstip, name))
     end
   end
   self:nexthop_flush(writer)
@@ -180,8 +183,8 @@ function _M:src_map(dstip)
       end
     end
     if gw_addr then
-      -- this iface has a gateway configured for this dstip, find a suitable
-      -- srcip (XXX: only checks by protocol version)
+      -- this iface has a gateway configured for this dstip, find a
+      -- suitable srcip (XXX: only checks by protocol version)
       local dstver = yans.ip.addr(dstip):version()
       for _, src in ipairs(cfg.ip_srcs) do
         if src.addr:version() == dstver then
@@ -192,7 +195,8 @@ function _M:src_map(dstip)
   end
 end
 
--- takes a table of yans.ip.addrs and returns an iterator of address strings
+-- takes a table of yans.ip.addrs and returns an iterator of address
+-- strings
 local function addr_iter(addrs)
   local i = 1
   if not addrs or not addrs[i] then return end

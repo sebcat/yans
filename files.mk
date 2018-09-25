@@ -10,6 +10,7 @@ include apps/stored/files.mk
 include apps/ethd/files.mk
 include apps/fc2/files.mk
 include apps/clid/files.mk
+include apps/grab-banners/files.mk
 include apps/knegd/files.mk
 include apps/kneg/files.mk
 include apps/store/files.mk

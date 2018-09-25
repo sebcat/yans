@@ -10,6 +10,7 @@ include apps/stored/rules.mk
 include apps/ethd/rules.mk
 include apps/fc2/rules.mk
 include apps/clid/rules.mk
+include apps/grab-banners/rules.mk
 include apps/knegd/rules.mk
 include apps/kneg/rules.mk
 include apps/store/rules.mk

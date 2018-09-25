@@ -7,6 +7,7 @@ lib_net_SOURCES = \
     lib/net/neigh.c \
     lib/net/ports.c \
     lib/net/punycode.c \
+    lib/net/reaplan.c \
     lib/net/route.c \
     lib/net/dnstres.c \
     lib/net/sconn.c \
@@ -21,6 +22,7 @@ lib_net_HEADERS = \
     lib/net/neigh.h \
     lib/net/ports.h \
     lib/net/punycode.h \
+    lib/net/reaplan.h \
     lib/net/route.h \
     lib/net/dnstres.h \
     lib/net/sconn.h \

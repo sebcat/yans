@@ -1,0 +1,149 @@
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#include <errno.h>
+
+#include <lib/net/reaplan.h>
+
+int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts) {
+  ctx->seq = 0;
+  ctx->nconnections = 0;
+  ctx->opts = *opts;
+  ctx->kq = kqueue();
+  if (ctx->kq < 0) {
+    return REAPLAN_ERR;
+  }
+
+  return REAPLAN_OK;
+}
+
+void reaplan_cleanup(struct reaplan_ctx *ctx) {
+  if (ctx) {
+    if (ctx->kq >= 0) {
+      close(ctx->kq);
+      ctx->kq = -1;
+    }
+  }
+}
+
+static inline void reset_closefds(struct reaplan_ctx *ctx) {
+  ctx->nclosefds = 0;
+}
+
+static void closefds(struct reaplan_ctx *ctx) {
+  int i;
+
+  for (i = 0; i < ctx->nclosefds; i++) {
+    /* man 2 kevent: "Calling close() on a file descriptor will remove
+     * any kevents that reference the descriptor." */
+    close(ctx->closefds[i]);
+  }
+}
+
+int reaplan_close_fd(struct reaplan_ctx *ctx, int fd) {
+  int i;
+
+  /* TODO: add errno to list of fds and call on_done with it later */
+
+  if (ctx->nclosefds == CONNS_PER_SEQ) {
+    return REAPLAN_ERR;
+  }
+
+  for (i = 0; i < ctx->nclosefds; i++) {
+    if (ctx->closefds[i] == fd) {
+      return REAPLAN_OK;
+    }
+  }
+
+  ctx->closefds[ctx->nclosefds++] = fd;
+  return REAPLAN_OK;
+}
+
+static int setup_connections(struct reaplan_ctx * restrict ctx,
+    struct kevent * restrict evs, size_t * restrict nevs) {
+  size_t i = 0;
+  size_t end = *nevs;
+  struct reaplan_conn conn;
+  int ret = REAPLANC_ERR;
+
+  while (i < (end - 2)) {
+    conn.fd = -1;
+    conn.events = 0;
+    ret = ctx->opts.funcs.on_connect(ctx, &conn);
+    if (ret != REAPLANC_OK || conn.fd < 0) {
+      break;
+    } else if (!(conn.events &
+        (REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT))) {
+      close(conn.fd);
+      if (ctx->opts.funcs.on_done) {
+        ctx->opts.funcs.on_done(ctx, conn.fd, 0);
+      }
+      continue;
+    }
+
+    ctx->nconnections++;
+    if (conn.events & REAPLAN_READABLE) {
+      EV_SET(&evs[i++], conn.fd, EVFILT_READ, EV_ADD, 0, 0, NULL);
+    }
+
+    if (conn.events & REAPLAN_WRITABLE_ONESHOT) {
+      EV_SET(&evs[i++], conn.fd, EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0,
+         NULL);
+    }
+  }
+
+  *nevs = i;
+  return ret;
+}
+
+int reaplan_run(struct reaplan_ctx *ctx) {
+  struct kevent evs[CONNS_PER_SEQ * 2];
+  size_t nevs;
+  int connect_done = 0;
+  int ret;
+  struct timespec tv = {.tv_sec = 0, .tv_nsec = 50000000}; /* FIXME */
+  struct timespec *tp = &tv;
+  int i;
+
+  while (!connect_done || ctx->nconnections > 0) {
+    if (!connect_done) {
+      nevs = sizeof(evs) / sizeof(struct kevent);
+      ret = setup_connections(ctx, evs, &nevs);
+      if (ret == REAPLANC_DONE) {
+        connect_done = 1;
+      } else if (ret == REAPLANC_ERR) {
+        return REAPLAN_ERR;
+      }
+    } else {
+      nevs = 0;
+      tp = NULL;
+    }
+
+    ret = kevent(ctx->kq, evs, nevs, evs, CONNS_PER_SEQ, tp);
+    if (ret < 0) {
+      return REAPLAN_ERR;
+    }
+
+    nevs = ret;
+    reset_closefds(ctx);
+    for (i = 0; i < nevs; i++) {
+      if (evs[i].flags & EV_ERROR) {
+        reaplan_close_fd(ctx, evs[i].ident);
+        continue;
+      }
+
+      if (evs[i].filter == EVFILT_READ) {
+        ctx->opts.funcs.on_readable(ctx, evs[i].ident);
+      } else if (evs[i].filter == EVFILT_WRITE) {
+        ctx->opts.funcs.on_writable(ctx, evs[i].ident);
+      }
+    }
+
+    closefds(ctx);
+  }
+
+  return REAPLAN_OK;
+}

@@ -35,30 +35,37 @@ static inline void reset_closefds(struct reaplan_ctx *ctx) {
 
 static void closefds(struct reaplan_ctx *ctx) {
   int i;
+  struct reaplan_closefd *f;
 
   for (i = 0; i < ctx->nclosefds; i++) {
+    f = ctx->closefds + i;
     /* man 2 kevent: "Calling close() on a file descriptor will remove
      * any kevents that reference the descriptor." */
-    close(ctx->closefds[i]);
+    close(f->fd);
+    if (ctx->opts.funcs.on_done) {
+      ctx->opts.funcs.on_done(ctx, f->fd, f->err);
+    }
+    ctx->nconnections--;
   }
 }
 
-int reaplan_close_fd(struct reaplan_ctx *ctx, int fd) {
+/* queues an fd for later closing by closefds */
+static int closefd(struct reaplan_ctx *ctx, int fd, int err) {
   int i;
-
-  /* TODO: add errno to list of fds and call on_done with it later */
 
   if (ctx->nclosefds == CONNS_PER_SEQ) {
     return REAPLAN_ERR;
   }
 
   for (i = 0; i < ctx->nclosefds; i++) {
-    if (ctx->closefds[i] == fd) {
+    if (ctx->closefds[i].fd == fd) {
       return REAPLAN_OK;
     }
   }
 
-  ctx->closefds[ctx->nclosefds++] = fd;
+  ctx->closefds[i].fd = fd;
+  ctx->closefds[i].err = err;
+  ctx->nclosefds++;
   return REAPLAN_OK;
 }
 
@@ -99,6 +106,24 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
   return ret;
 }
 
+static void handle_readable(struct reaplan_ctx *ctx, int fd) {
+  ssize_t ret;
+  /* NB: the callback should exist if we listen for readable events */
+  ret = ctx->opts.funcs.on_readable(ctx, fd);
+  if (ret <= 0) {
+    closefd(ctx, fd, ret < 0 ? errno : 0);
+  }
+}
+
+static void handle_writable(struct reaplan_ctx *ctx, int fd) {
+  ssize_t ret;
+  /* NB: the callback should exist if we listen for writable events */
+  ret = ctx->opts.funcs.on_writable(ctx, fd);
+  if (ret <= 0) {
+    closefd(ctx, fd, ret < 0 ? errno : 0);
+  }
+}
+
 int reaplan_run(struct reaplan_ctx *ctx) {
   struct kevent evs[CONNS_PER_SEQ * 2];
   size_t nevs;
@@ -131,14 +156,14 @@ int reaplan_run(struct reaplan_ctx *ctx) {
     reset_closefds(ctx);
     for (i = 0; i < nevs; i++) {
       if (evs[i].flags & EV_ERROR) {
-        reaplan_close_fd(ctx, evs[i].ident);
+        closefd(ctx, evs[i].ident, evs[i].data);
         continue;
       }
 
       if (evs[i].filter == EVFILT_READ) {
-        ctx->opts.funcs.on_readable(ctx, evs[i].ident);
+        handle_readable(ctx, evs[i].ident);
       } else if (evs[i].filter == EVFILT_WRITE) {
-        ctx->opts.funcs.on_writable(ctx, evs[i].ident);
+        handle_writable(ctx, evs[i].ident);
       }
     }
 

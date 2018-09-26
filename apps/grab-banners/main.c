@@ -24,27 +24,20 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
   return REAPLANC_DONE;
 }
 
-static int on_readable(struct reaplan_ctx *ctx, int fd) {
+static ssize_t on_readable(struct reaplan_ctx *ctx, int fd) {
   ssize_t nread;
   char buf[512];
 
   nread = read(fd, buf, sizeof(buf));
-  if (nread < 0) {
-    return REAPLAN_ERR;
-  } else if (nread > 0) {
+  if (nread > 0) {
     write(STDOUT_FILENO, buf, nread);
   }
 
-  return REAPLAN_OK;
+  return nread;
 }
 
-static int on_writable(struct reaplan_ctx *ctx, int fd) {
-  return 0;
-}
-
-static int on_done(struct reaplan_ctx *ctx, int fd, int err) {
+static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
   printf("done fd:%d err:%d\n", fd, err);
-  return REAPLAN_OK;
 }
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
@@ -63,7 +56,7 @@ int main(int argc, char *argv[]) {
     .funcs = {
       .on_connect = on_connect,
       .on_readable = on_readable,
-      .on_writable = on_writable,
+      .on_writable = NULL,
       .on_done = on_done,
     },
     .data = NULL,

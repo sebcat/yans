@@ -27,14 +27,20 @@ struct reaplan_conn {
 
 struct reaplan_funcs {
   int (*const on_connect)(struct reaplan_ctx *, struct reaplan_conn *);
-  int (*const on_readable)(struct reaplan_ctx *, int);
-  int (*const on_writable)(struct reaplan_ctx *, int);
-  int (*const on_done)(struct reaplan_ctx *, int, int);
+  ssize_t (*const on_readable)(struct reaplan_ctx *, int);
+  ssize_t (*const on_writable)(struct reaplan_ctx *, int);
+  void (*const on_done)(struct reaplan_ctx *, int, int);
 };
 
 struct reaplan_opts {
   struct reaplan_funcs funcs;
   void *data;
+};
+
+struct reaplan_closefd {
+  /* internal */
+  int fd;
+  int err;
 };
 
 struct reaplan_ctx {
@@ -43,7 +49,7 @@ struct reaplan_ctx {
   int kq;
   int nconnections;
   unsigned int seq;
-  int closefds[CONNS_PER_SEQ];
+  struct reaplan_closefd closefds[CONNS_PER_SEQ];
   int nclosefds;
 };
 
@@ -52,7 +58,6 @@ struct reaplan_ctx {
 
 int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts);
 void reaplan_cleanup(struct reaplan_ctx *ctx);
-int reaplan_close_fd(struct reaplan_ctx *ctx, int fd);
 int reaplan_run(struct reaplan_ctx *ctx);
 
 #endif

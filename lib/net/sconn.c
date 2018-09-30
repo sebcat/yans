@@ -52,7 +52,8 @@ static int bindaddr(int fd, const char *bindaddr, const char *bindport,
   srchints.ai_socktype = socktype;
   srchints.ai_protocol = protocol;
   ret = getaddrinfo(bindaddr, bindport, &srchints, &srcaddrs);
-  if (ret < 0) {
+  if (ret != 0) {
+    *outerr = eai2errno(ret);
     goto err;
   }
 
@@ -66,7 +67,6 @@ static int bindaddr(int fd, const char *bindaddr, const char *bindport,
 
   freeaddrinfo(srcaddrs);
 err:
-  *outerr = errno;
   return -1;
 }
 
@@ -98,7 +98,7 @@ static int _sconn_connect(struct sconn_ctx *ctx, struct sconn_opts *opts) {
   dsthints.ai_protocol = protocol;
   dsthints.ai_socktype = socktype;
   ret = getaddrinfo(opts->dstaddr, opts->dstport, &dsthints, &dstaddrs);
-  if (ret < 0) {
+  if (ret != 0) {
     ctx->errcode = eai2errno(ret);
     return -1;
   }
@@ -109,16 +109,9 @@ static int _sconn_connect(struct sconn_ctx *ctx, struct sconn_opts *opts) {
       continue;
     }
 
-    fd = socket(family, socktype, protocol);
+    fd = socket(family, socktype | SOCK_NONBLOCK, protocol);
     if (fd < 0) {
       stored_err = errno;
-      continue;
-    }
-
-    /* set the socket as non-blocking */
-    ret = fcntl(fd, F_SETFL, O_NONBLOCK);
-    if (ret < 0) {
-      close(fd);
       continue;
     }
 

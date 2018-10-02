@@ -1,5 +1,6 @@
 grab_banners_DEPS = \
-    lib/net/reaplan.c
+    lib/net/reaplan.c \
+    lib/net/sconn.c
 
 grab_banners_DEPSOBJS = ${grab_banners_DEPS:.c=.o}
 

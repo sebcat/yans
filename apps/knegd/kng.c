@@ -339,7 +339,7 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     }
     ret = execve(path, argv, envp);
     if (ret < 0) {
-      fprintf(stderr, "execve: %s\n", strerror(errno));
+      fprintf(stderr, "%s: %s\n", path, strerror(errno));
     }
     _exit(EXIT_FAILURE);
   }

@@ -291,7 +291,7 @@ static int sc2_serve(struct sc2_ctx *ctx) {
 
     /* timeout 1000 because we need to check for process timeouts, but only if
      * we have waiting processes */
-    ret = poll(&pfd, 1, ctx->used > 0 ? 1000 : INFTIM);
+    ret = poll(&pfd, 1, ctx->used > 0 ? 1000 : -1);
     if (ret < 0) {
       if (errno == EINTR) {
         continue;

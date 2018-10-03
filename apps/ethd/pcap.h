@@ -36,7 +36,7 @@ struct pcap_client {
   pcap_t *pcap;
   pcap_dumper_t *dumper;
   struct eds_client *dumpcli;
-  char msg[128];
+  char msg[256];
 };
 
 struct pcap_clients {

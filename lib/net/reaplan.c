@@ -2,18 +2,22 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#ifdef __FreeBSD__
 #include <sys/event.h>
+#endif
 #include <sys/time.h>
 #include <errno.h>
 
 #include <lib/net/reaplan.h>
 
+#if defined(__FreeBSD__)
+
 int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts) {
   ctx->seq = 0;
   ctx->nconnections = 0;
   ctx->opts = *opts;
-  ctx->kq = kqueue();
-  if (ctx->kq < 0) {
+  ctx->fd = kqueue();
+  if (ctx->fd < 0) {
     return REAPLAN_ERR;
   }
 
@@ -22,9 +26,9 @@ int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts) {
 
 void reaplan_cleanup(struct reaplan_ctx *ctx) {
   if (ctx) {
-    if (ctx->kq >= 0) {
-      close(ctx->kq);
-      ctx->kq = -1;
+    if (ctx->fd >= 0) {
+      close(ctx->fd);
+      ctx->fd = -1;
     }
   }
 }
@@ -147,7 +151,7 @@ int reaplan_run(struct reaplan_ctx *ctx) {
       tp = NULL;
     }
 
-    ret = kevent(ctx->kq, evs, nevs, evs, CONNS_PER_SEQ, tp);
+    ret = kevent(ctx->fd, evs, nevs, evs, CONNS_PER_SEQ, tp);
     if (ret < 0) {
       return REAPLAN_ERR;
     }
@@ -172,3 +176,21 @@ int reaplan_run(struct reaplan_ctx *ctx) {
 
   return REAPLAN_OK;
 }
+
+#elif defined(__linux__)
+
+/* TODO: Implement */
+int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts) {
+  return REAPLAN_ERR;
+}
+
+void reaplan_cleanup(struct reaplan_ctx *ctx) {
+}
+
+int reaplan_run(struct reaplan_ctx *ctx) {
+  return REAPLAN_ERR;
+}
+
+#else
+#error "NYI"
+#endif

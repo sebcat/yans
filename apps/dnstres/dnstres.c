@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <limits.h>
 
 #include <lib/net/dnstres.h>
 

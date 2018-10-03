@@ -46,7 +46,7 @@ struct reaplan_closefd {
 struct reaplan_ctx {
   /* internal */
   struct reaplan_opts opts;
-  int kq;
+  int fd; /* kqueue, epoll fd */
   int nconnections;
   unsigned int seq;
   struct reaplan_closefd closefds[CONNS_PER_SEQ];

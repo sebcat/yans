@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <limits.h>
 
 #include <lib/net/dnstres.h>
 
@@ -153,9 +154,7 @@ void dnstres_pool_free(struct dnstres_pool *p) {
   }
 
   for (i = 0; i < (size_t)p->opts.nthreads; i++) {
-    if (p->threads[i] != NULL) {
-      pthread_join(p->threads[i], NULL);
-    }
+    pthread_join(p->threads[i], NULL);
   }
 }
 
@@ -204,8 +203,8 @@ struct dnstres_pool *dnstres_pool_new(struct dnstres_pool_opts *opts) {
 
   for (curr_thread = 0; curr_thread < opts->nthreads; curr_thread++) {
     ret = pthread_create(&p->threads[curr_thread], NULL, resolver, p);
-    if (ret != 0 && curr_thread == 0) {
-      /* we couldn't start the first thread - error out */
+    if (ret != 0) {
+      /* require all threads to start correctly */
       goto cleanup_attr;
     }
   }

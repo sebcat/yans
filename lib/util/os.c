@@ -429,7 +429,7 @@ int os_isfile(const char *path) {
 }
 
 int os_isexec(const char *path) {
-  return eaccess(path, X_OK) == 0 ? 1 : 0;
+  return access(path, X_OK) == 0 ? 1 : 0;
 }
 
 int os_fdisfile(int fd) {

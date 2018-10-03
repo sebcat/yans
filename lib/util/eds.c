@@ -1,3 +1,7 @@
+#ifdef __linux__
+#define _GNU_SOURCE
+#endif
+
 #include <stdlib.h>
 #include <assert.h>
 #include <stdarg.h>

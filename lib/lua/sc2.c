@@ -245,7 +245,7 @@ static int l_sc2_pserve(lua_State *L) {
 
     /* timeout 1000 because we need to check for process timeouts, but only if
      * we have waiting processes */
-    ret = poll(&pfd, 1, active_children_ > 0 ? 1000 : INFTIM);
+    ret = poll(&pfd, 1, active_children_ > 0 ? 1000 : -1);
     if (ret < 0) {
       if (errno == EINTR) {
         continue;

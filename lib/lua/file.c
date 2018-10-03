@@ -86,7 +86,6 @@ static int _flags(lua_State *L, const char *mode) {
   char ch;
   int oflags;
   int mods;
-  int ok = 1;
 
   if (strncmp(mode, "zlib:", 5) == 0) {
     mode = mode + 5;
@@ -123,8 +122,7 @@ static int _flags(lua_State *L, const char *mode) {
       mods |= O_EXCL;
       break;
     default:
-      ok = 0;
-      break;
+      return luaL_error(L, "invalid mode string");
     }
   }
 
@@ -261,7 +259,7 @@ static int l_fdwait(lua_State *L) {
   lua_Integer timeout;
 
   lfd = checkyclfd(L, 1);
-  timeout = luaL_optinteger(L, 2, INFTIM);
+  timeout = luaL_optinteger(L, 2, -1);
   if (timeout < -1 || timeout > INT_MAX) {
     return luaL_error(L, "invalid timeout value");
   }

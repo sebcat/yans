@@ -485,7 +485,7 @@ static void jobs_stop(const char *id) {
 /* NB: Must only be called after the child is reaped by eds */
 static void jobs_remove(pid_t pid) {
   struct kng_ctx *curr;
-  struct kng_ctx *prev;
+  struct kng_ctx *prev = NULL;
 
   assert(pid > 0);
 

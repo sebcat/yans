@@ -1,6 +1,7 @@
 #ifndef UTIL_SINDEX_H__
 #define UTIL_SINDEX_H__
 
+#include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 

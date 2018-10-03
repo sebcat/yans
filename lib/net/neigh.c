@@ -183,7 +183,7 @@ struct neigh_entry *neigh_get_entries(size_t *nentries, int *err) {
   return NULL;
 }
 
-void neigh_free_entries(struct neigh_ip4_entry *entries) {
+void neigh_free_entries(struct neigh_entry *entries) {
 
 }
 

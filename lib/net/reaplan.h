@@ -26,10 +26,10 @@ struct reaplan_conn {
 };
 
 struct reaplan_funcs {
-  int (*const on_connect)(struct reaplan_ctx *, struct reaplan_conn *);
-  ssize_t (*const on_readable)(struct reaplan_ctx *, int);
-  ssize_t (*const on_writable)(struct reaplan_ctx *, int);
-  void (*const on_done)(struct reaplan_ctx *, int, int);
+  int (*on_connect)(struct reaplan_ctx *, struct reaplan_conn *);
+  ssize_t (*on_readable)(struct reaplan_ctx *, int);
+  ssize_t (*on_writable)(struct reaplan_ctx *, int);
+  void (*on_done)(struct reaplan_ctx *, int, int);
 };
 
 struct reaplan_opts {

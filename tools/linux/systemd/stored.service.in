@@ -1,0 +1,14 @@
+[Unit]
+Description=Yans Store Daemon
+
+[Service]
+User=stored
+Group=yans
+RuntimeDirectory=yans/stored
+#FIXME: Avoid absolute path to /run, resolve from
+#       RuntimeDirectory somehow?
+ExecStart=@BINDIR@/stored -n -b /run/yans/stored
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

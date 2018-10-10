@@ -1,0 +1,59 @@
+#!/bin/sh -xe
+
+die() {
+  printf '%s\n' "$1" >&2
+  exit 1
+}
+
+: ${MOUNTPOINT:=$(pwd)/mntpoint}
+: ${IMG:=$1}
+: ${VMSIZE:=256M}
+: ${WORLDDIR:=/usr/src}
+: ${KERNCONF:=MYKERNEL}
+: ${SRCCONF:=$(pwd)/src.conf.installworld}
+: ${PKGS:=nginx tmux}
+
+[ -e "$MOUNTPOINT" ] && die "MOUNTPOINT exists"
+[ -z "$IMG" -o -e "$IMG" ] && die "missing IMG name or existing IMG"
+
+case $MOUNTPOINT in
+  [^/]*)
+    die "MOUNTPOINT must be an absolute path"
+    ;;
+esac
+
+#TODO: install trap for cleaning up md(4) and mount point
+
+# Create the root file system and mount it at MOUNTPOINT
+mkdir -p "$MOUNTPOINT"
+truncate -s "$VMSIZE" "$IMG"
+DEVICE=$(mdconfig -f "$IMG")
+DEVICEPATH=/dev/$DEVICE
+newfs -L rootfs "$DEVICEPATH"
+mount "$DEVICEPATH" "$MOUNTPOINT"
+
+# install world, kernel and distribution into the rootfs
+# assume no modules are to be installed (empty MODULES_OVERRIDE)
+make -C "$WORLDDIR" "DESTDIR=$MOUNTPOINT" "KERNCONF=$KERNCONF" \
+    "SRCCONF=$SRCCONF" MODULES_OVERRIDE= \
+    installworld installkernel distribution || \
+    die "failed to install system to rootfs"
+
+# mount devfs and chroot into rootfs to update stuff
+mkdir -p "$MOUNTPOINT/dev"
+mount -t devfs devfs "$MOUNTPOINT/dev"
+if [ -f "$MOUNTPOINT/usr/bin/newaliases" ]; then
+  chroot "$MOUNTPOINT" /usr/bin/newaliases
+fi
+chroot "$MOUNTPOINT" /etc/rc.d/ldconfig forcestart
+ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" install -y $PKGS
+ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" clean -y -a
+
+cat <<EOF > "$MOUNTPOINT/etc/fstab"
+/dev/gpt/rootfs / ufs ro 1 1
+EOF
+
+umount "$MOUNTPOINT/dev"
+umount "$MOUNTPOINT"
+rmdir "$MOUNTPOINT"
+mdconfig -du "$DEVICE"

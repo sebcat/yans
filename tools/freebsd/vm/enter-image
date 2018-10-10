@@ -1,0 +1,8 @@
+#!/bin/sh
+
+: ${IDENTITY:=$HOME/.ssh/keys/rev/id_rsa}
+
+[ -f "$IDENTITY" ] || die "missing IDENTITY"
+
+ssh -i "$IDENTITY" -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null scan-user@127.0.0.1 -p 7722

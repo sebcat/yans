@@ -1,0 +1,19 @@
+#!/bin/sh
+
+die() {
+  printf '%s\n' "$1" >&2
+  exit 1
+}
+
+: ${MEMSIZE:=1024}
+: ${IMAGE:=$1}
+
+[ -f "$IMAGE" ] || die "missing IMAGE"
+
+# -enable-kvm for platforms supporting it
+# figure out how virtio works
+qemu-system-x86_64 -m "$MEMSIZE" \
+ -hda "$IMAGE" \
+ -netdev user,id=mynet0,hostfwd=tcp:127.0.0.1:7722-:22 \
+ -device e1000,netdev=mynet0
+

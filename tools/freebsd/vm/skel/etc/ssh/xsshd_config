@@ -1,0 +1,11 @@
+HostKey /var/xsshd/ssh_host_ed25519_key
+PermitRootLogin no
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+AllowAgentForwarding no
+AllowTcpForwarding no
+X11Forwarding no
+PrintMotd no
+VersionAddendum none
+Subsystem       sftp    /usr/libexec/sftp-server
+

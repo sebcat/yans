@@ -49,10 +49,26 @@ chroot "$MOUNTPOINT" /etc/rc.d/ldconfig forcestart
 ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" install -y $PKGS
 ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" clean -y -a
 
-cat <<EOF > "$MOUNTPOINT/etc/fstab"
-/dev/gpt/rootfs / ufs ro 1 1
-EOF
+# install template files and setup users
+DESTDIR=$MOUNTPOINT make install-skel
+./setup-users "$MOUNTPOINT"
 
+# Remove empty dirs  
+for A in rescue .snap media mnt net; do
+  rmdir "$MOUNTPOINT/$A" || echo "$A: failed to remove"
+done
+
+# Remove static libraries stuff
+find "$MOUNTPOINT" -type f -name '*.a' -delete
+
+# Remove content of /var, since we'll mount a memory disk over it anyway
+chflags noschg "$MOUNTPOINT/var/empty"
+rm -rf "$MOUNTPOINT/var/*"
+
+# Compress kernel
+gzip -9 "$MOUNTPOINT/boot/kernel/kernel"
+
+# umount and cleanup
 umount "$MOUNTPOINT/dev"
 umount "$MOUNTPOINT"
 rmdir "$MOUNTPOINT"

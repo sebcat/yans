@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# PROVIDE: xsshd
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="xsshd"
+desc="R/O sshd"
+rcvar="xsshd_enable"
+command="/usr/sbin/sshd"
+command_args="-f /etc/ssh/xsshd_config"
+start_precmd="sshd_precmd"
+pidfile="/var/run/sshd.pid"
+
+sshd_precmd() {
+  local xsshd_dir="/var/xsshd"
+  local keyfile="${xsshd_dir}/ssh_host_ed25519_key"
+  [ -f "$keyfile" ] && return 0
+  install -d -m 0700 ${xsshd_dir}
+  /usr/bin/ssh-keygen -q -t ed25519 -f "$keyfile" -N ""
+  /usr/bin/ssh-keygen -l -f "$keyfile.pub"
+}
+
+load_rc_config $name
+run_rc_command "$1"
+

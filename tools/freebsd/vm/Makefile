@@ -5,23 +5,29 @@ CFGFILES=skel/boot/loader.conf \
     skel/etc/fstab \
     skel/etc/host.conf \
     skel/etc/motd \
+    skel/etc/newsyslog.conf \
     skel/etc/rc.conf \
+    skel/etc/resolv.conf \
+    skel/etc/resolvconf.conf \
     skel/etc/ssh/xsshd_config \
     skel/etc/sysctl.conf \
+    skel/etc/syslog.conf \
     skel/etc/ttys \
+    skel/etc/unbound.conf.template \
     skel/usr/local/etc/nginx/mime.types \
-    skel/usr/local/etc/nginx/scgi_params \
-    skel/usr/local/etc/nginx/nginx.conf
+    skel/usr/local/etc/nginx/nginx.conf \
+    skel/usr/local/etc/nginx/scgi_params
 
 
-SCRIPTS=skel/etc/rc.d/xsshd
+SCRIPTS=skel/etc/rc.d/unbound_cfg \
+    skel/etc/rc.d/xsshd
 
 .PHONY: install-skel clean
 
-all: template.qcow2
+all: yans.qcow2
 
 clean:
-	rm -f template.img template.qcow2	
+	rm -f template.img template.qcow2 yans.img yans.qcow2
 
 template.img:
 	./create-rootfs template.img

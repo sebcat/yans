@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# make sure /var/unbound is setup correctly 
+#
+
+# PROVIDE: unbound_cfg
+# REQUIRE: var
+# BEFORE: local_unbound
+
+. /etc/rc.subr
+
+name="unbound_cfg"
+desc="Setup /var/unbound"
+rcvar="${name}_enable"
+
+start_cmd="${name}_start"
+stop_cmd=":"
+extra_commands="reload"
+reload_cmd="${name}_start"
+
+unbound_cfg_start() {
+  mkdir -p /var/unbound
+  chown unbound:unbound /var/unbound
+  install -m 0644 -u unbound -g unbound /etc/unbound.conf.sample /var/unbound/unbound.conf
+}
+
+load_rc_config $name
+run_rc_command "$1"

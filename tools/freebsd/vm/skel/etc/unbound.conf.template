@@ -1,0 +1,21 @@
+server:
+	username: unbound
+	directory: /var/unbound
+	chroot: /var/unbound
+	pidfile: /var/run/local_unbound.pid
+	auto-trust-anchor-file: /var/unbound/root.key
+	# Unblock reverse lookups for LAN addresses
+	# TODO: This seems bad, fix?
+	unblock-lan-zones: yes
+	insecure-lan-zones: yes
+
+forward-zone:
+	name: .
+	# TODO: Maybe not hardcode these here...
+	forward-addr: 1.1.1.1
+	forward-addr: 8.8.8.8
+
+remote-control:
+	control-enable: yes
+	control-interface: /var/run/local_unbound.ctl
+	control-use-cert: no

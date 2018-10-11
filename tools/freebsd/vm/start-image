@@ -14,6 +14,6 @@ die() {
 # figure out how virtio works
 qemu-system-x86_64 -m "$MEMSIZE" \
  -hda "$IMAGE" \
- -netdev user,id=mynet0,hostfwd=tcp:127.0.0.1:7722-:22 \
+ -netdev user,id=mynet0,hostfwd=tcp:127.0.0.1:7722-:22,hostfwd=tcp:127.0.0.1:7780-:80 \
  -device e1000,netdev=mynet0
 

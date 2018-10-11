@@ -1,4 +1,4 @@
-SKELDIRS=boot etc etc/ssh etc/rc.d
+SKELDIRS=boot etc etc/ssh etc/rc.d usr/local/etc/nginx
 
 CFGFILES=skel/boot/loader.conf \
     skel/etc/devfs.rules \
@@ -8,7 +8,11 @@ CFGFILES=skel/boot/loader.conf \
     skel/etc/rc.conf \
     skel/etc/ssh/xsshd_config \
     skel/etc/sysctl.conf \
-    skel/etc/ttys
+    skel/etc/ttys \
+    skel/usr/local/etc/nginx/mime.types \
+    skel/usr/local/etc/nginx/scgi_params \
+    skel/usr/local/etc/nginx/nginx.conf
+
 
 SCRIPTS=skel/etc/rc.d/xsshd
 
@@ -19,11 +23,15 @@ all: template.qcow2
 clean:
 	rm -f template.img template.qcow2	
 
-template.img: $(CFGFILES) $(SCRIPTS)
+template.img:
 	./create-rootfs template.img
 
 template.qcow2: template.img
 	./create-image template.img
+
+yans.qcow2: template.img $(CFGFILES) $(SCRIPTS)
+	./install-yans template.img yans.img
+	./create-image yans.img
 
 install-skel:
 	@if [ -z "$(DESTDIR)" ]; then echo "Set DESTDIR";  exit 1; fi

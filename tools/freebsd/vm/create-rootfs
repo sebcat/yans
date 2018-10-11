@@ -49,10 +49,6 @@ chroot "$MOUNTPOINT" /etc/rc.d/ldconfig forcestart
 ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" install -y $PKGS
 ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" clean -y -a
 
-# install template files and setup users
-DESTDIR=$MOUNTPOINT make install-skel
-./setup-users "$MOUNTPOINT"
-
 # Remove empty dirs  
 for A in rescue .snap media mnt net; do
   rmdir "$MOUNTPOINT/$A" || echo "$A: failed to remove"

@@ -208,6 +208,8 @@ table tr:nth-child(1) td {
 <script>
 "use strict";
 
+/* Beware of dragons */
+
 function _diffString(n, str) {
   n = Math.floor(n);
   if (n == 1) {
@@ -491,9 +493,11 @@ function ListEntry(opts) {
 
   let cnt = document.createElement("div");
   cnt.className = "entry-content";
-  cnt.id = opts.cntId;
+  cnt.id = "content-" + opts.cntId;
 
   let e = document.createElement("div");
+  e.className = "entry";
+  e.id = "entry-" + opts.cntId;
   e.appendChild(hdr);
   e.appendChild(cnt);
 
@@ -519,9 +523,21 @@ function YansView(pname) {
     return r;
   };
 
+  self.updateReport = function(id, is_running, entries) {
+    let entry  = document.getElementById("entry-" + id);
+    if (!is_running) {
+      /* not running: replace the running symbol */
+      let ehr = entry.querySelector(".entry-header-right");
+      ehr.replaceChild(self.getRunningSymbol(false), ehr.firstChild);
+
+      /* TODO: Maybe merge the old entries with the new, keeping any
+       *       expanded entries expanded &c */
+    }
+  };
+
   self.renderReportEntries = function(report) {
     let report_id = report.id;
-    let elem = document.getElementById("report-" + report_id);
+    let elem = document.getElementById("content-" + report_id);
     if (!elem) {
       let reportdiv = document.createElement("div");
       reportdiv.className = "entry-list";
@@ -533,12 +549,12 @@ function YansView(pname) {
         title: anchor,
         subtitle: diffString(report.started, report.now_ts),
         right: self.getRunningSymbol(report.running),
-        cntId: "report-" + report_id
+        cntId: report_id
       });
       reportdiv.appendChild(entry);
       parent.innerHTML = '';
       parent.appendChild(reportdiv);
-      elem = document.getElementById("report-" + report_id);
+      elem = document.getElementById("content-" + report_id);
     }
 
     let sectiondiv = document.createElement("div");
@@ -563,12 +579,12 @@ function YansView(pname) {
 
       anchor.addEventListener("click", function(e) {
         e.preventDefault();
-        const section_id = "report-section-" + report_id + "-" + entry_name;
+        let section_id = "report-section-" + report_id + "-" + entry_name;
         if (!document.getElementById(section_id)) {
           JReq("GET", url)
             .done(function(data) {
-              const ctype = this.xhr.getResponseHeader("Content-Type")
-              const secdiv = document.createElement("div");
+              let ctype = this.xhr.getResponseHeader("Content-Type")
+              let secdiv = document.createElement("div");
               secdiv.className = "report-section";
               secdiv.id = section_id;
               if (ctype === "application/vnd.ms-excel") {
@@ -605,7 +621,7 @@ function YansView(pname) {
         title: anchor,
         subtitle: diffString(entries[i].ts, now),
         right: self.getRunningSymbol(entries[i].running),
-        cntId: "report-" + entries[i].id,
+        cntId: entries[i].id,
       });
 
       reportdiv.appendChild(entry);
@@ -656,8 +672,9 @@ document.getElementById("scan-btn").onclick = function() {
       }).send();
 };
 
+
 let ui = YansView("main-box");
-Roger(appErrFunc, "/a1/reports")
+let roger = Roger(appErrFunc, "/a1/reports")
   .register("/a1/fail", function(data) {
     data = JSON.parse(data);
     if (!data.success) {
@@ -679,7 +696,42 @@ Roger(appErrFunc, "/a1/reports")
       return;
     }
     ui.renderReportEntries(data.data);
-  }).run();
+  });
+
+roger.run();
+
+/* Poll running scans every once in a while. This is very hacky and
+ * fragile. But hey, can't spell fragile without agile! */
+function xxx() {
+  let entries = document.getElementsByClassName("entry");
+  let to_refresh = [];
+  for (let i = 0; i < entries.length; i++) {
+    let entry = entries[i];
+    let is_running = entry.querySelector(".loader") == null ? false : true;
+    if (is_running) {
+      let entId = entry.id.replace(/entry-/, "");
+      to_refresh.push(entId);
+    }
+  }
+
+  for (let i = 0; i < to_refresh.length; i++) {
+    let report_id = to_refresh[i];
+    JReq("GET","/a1/report-sections?id=" + report_id)
+      .done(function(data) {
+        data = JSON.parse(data);
+        if (!data.success) {
+          appErrFunc(data.errmsg);
+          return;
+        }
+        let res = data.data;
+        ui.updateReport(res.id, res.running, res.entries);
+      }).error(function(msg) {
+        appErrFunc(msg);
+      }).send();
+  }
+}
+
+window.setInterval(xxx, 2000);
 
 </script>
 

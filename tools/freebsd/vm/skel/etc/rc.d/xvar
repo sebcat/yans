@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# Patch some things up in /var
+#
+
+# PROVIDE: xvar
+# REQUIRE: var
+# BEFORE: local_unbound nginx
+
+. /etc/rc.subr
+
+name="xvar"
+desc="Yans fixes for /var"
+rcvar="${name}_enable"
+
+start_cmd="${name}_start"
+stop_cmd=":"
+extra_commands="reload"
+reload_cmd="${name}_start"
+
+xvar_start() {
+  install -d /var/log/nginx
+  install -d -o unbound -g unbound /var/unbound
+  install -m 0644 -o unbound -g unbound /etc/unbound.conf.template /var/unbound/unbound.conf
+}
+
+load_rc_config $name
+run_rc_command "$1"

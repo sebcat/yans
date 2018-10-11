@@ -19,8 +19,8 @@ CFGFILES=skel/boot/loader.conf \
     skel/usr/local/etc/nginx/scgi_params
 
 
-SCRIPTS=skel/etc/rc.d/unbound_cfg \
-    skel/etc/rc.d/xsshd
+SCRIPTS=skel/etc/rc.d/xsshd \
+    skel/etc/rc.d/xvar
 
 .PHONY: install-skel clean
 

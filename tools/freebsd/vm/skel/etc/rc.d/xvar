@@ -19,7 +19,7 @@ extra_commands="reload"
 reload_cmd="${name}_start"
 
 xvar_start() {
-  install -d /var/log/nginx
+  install -d /var/log/nginx /var/cache/nginx
   install -d -o unbound -g unbound /var/unbound
   install -m 0644 -o unbound -g unbound /etc/unbound.conf.template /var/unbound/unbound.conf
 }

@@ -5,19 +5,22 @@ die() {
   exit 1
 }
 
+RM_RF_PATHS="/rescue /media /mnt /net /usr/share/misc /etc/periodic"
+RM_F_PATHS="/usr/sbin/cxgbetool /etc/defaults/periodic.conf"
+
 : ${MOUNTPOINT:=$(pwd)/mntpoint}
 : ${IMG:=$1}
 : ${VMSIZE:=256M}
 : ${WORLDDIR:=/usr/src}
 : ${KERNCONF:=MYKERNEL}
 : ${SRCCONF:=$(pwd)/src.conf.installworld}
-: ${PKGS:=nginx tmux}
+: ${PKGS:=nginx}
 
 [ -e "$MOUNTPOINT" ] && die "MOUNTPOINT exists"
 [ -z "$IMG" -o -e "$IMG" ] && die "missing IMG name or existing IMG"
 
 case $MOUNTPOINT in
-  [^/]*)
+  ''|[^/]*)
     die "MOUNTPOINT must be an absolute path"
     ;;
 esac
@@ -49,12 +52,18 @@ chroot "$MOUNTPOINT" /etc/rc.d/ldconfig forcestart
 ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" install -y $PKGS
 ASSUME_ALWAYS_YES=yes /usr/sbin/pkg -r "$MOUNTPOINT" clean -y -a
 
-# Remove empty dirs  
-for A in rescue .snap media mnt net; do
-  rmdir "$MOUNTPOINT/$A" || echo "$A: failed to remove"
+# Remove trees
+for A in $RM_RF_PATHS; do
+  rm -rf "$MOUNTPOINT$A"
 done
 
-# Remove static libraries stuff
+# remove files found with find $MOUNTPOINT -type f -size +1M
+# or other files we don't need
+for A in  $RM_F_PATHS; do
+  rm -f "$MOUNTPOINT$A"
+done
+
+# Remove static libraries
 find "$MOUNTPOINT" -type f -name '*.a' -delete
 
 # Remove content of /var, since we'll mount a memory disk over it anyway

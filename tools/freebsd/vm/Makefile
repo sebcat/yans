@@ -1,6 +1,7 @@
 SKELDIRS=boot etc etc/ssh etc/rc.d usr/local/etc/nginx
 
 CFGFILES=skel/boot/loader.conf \
+    skel/etc/crontab \
     skel/etc/devd.conf \
     skel/etc/devfs.rules \
     skel/etc/fstab \

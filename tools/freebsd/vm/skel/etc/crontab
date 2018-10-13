@@ -1,0 +1,7 @@
+SHELL=/bin/sh
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+#minute	hour	mday	month	wday	who	command
+# *     *       *       *       *       root    /usr/bin/true
+*/10	*	*	*	*	root	newsyslog
+1,31	0-5	*	*	*	root	adjkerntz -a

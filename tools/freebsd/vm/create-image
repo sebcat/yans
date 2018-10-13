@@ -8,6 +8,8 @@ die() {
 : ${MBR:=/usr/obj/usr/src/sys/boot/i386/pmbr/pmbr}
 : ${BOOTFS:=/usr/obj/usr/src/sys/boot/i386/gptboot/gptboot}
 : ${ROOTFS:=$1}
+: ${VMSIZE:=128M}
+: ${DESTDIR:=$(pwd)}
 
 [ -f "$MBR" ] || die "missing MBR"
 [ -f "$BOOTFS" ] || die "missing BOOTFS"
@@ -16,10 +18,48 @@ die() {
 : ${OUTFILE:=$2}
 : ${OUTFILE:=$(basename "$ROOTFS" .img).qcow2}
 
+copy_rootfs() {
+  # when the rootfs was build, unneeded base artifacts were removed,
+  # packages were installed, repo data was removed &c. This creates
+  # garbage on the rootfs.
+  #
+  # create a new image, set it up, mount ROOTFS and copy the files from
+  # it to the newly created image to get rid of that.
+
+  local moldyimg=$1
+  local freshimg=$2
+  local freshmnt="$DESTDIE/fresh"
+  local moldymnt="$DESTDIR/moldy"
+  rm -f "$freshimg"
+  truncate -s "$VMSIZE" "$freshimg"
+  mkdir -p "$moldymnt" || die "unable to create moldy mount point"
+  mkdir -p "$freshmnt" || die "unable to create fresh mount point"
+  local mdmoldy=$(mdconfig -f "$moldyimg") || die "moldy mdconfig failed"
+  local mdfresh=$(mdconfig -f "$freshimg") || die "fresh mdconfig failed"
+  newfs -L rootfs "/dev/$mdfresh"
+  mount "/dev/$mdfresh" "$freshmnt" || die "failed fresh mount"
+  mount "/dev/$mdmoldy" "$moldymnt" || die "failed moldy mount"
+  tar -cf- -C "$moldymnt" . | tar -xUf- -C "$freshmnt" || \
+    die "failed to copy moldy to fresh"
+  umount "$moldymnt"
+  umount "$freshmnt"
+  mdconfig -du "$mdmoldy"
+  mdconfig -du "$mdfresh"
+  rmdir "$moldymnt" "$freshmnt"
+}
+
+copy_rootfs "$ROOTFS" "$DESTDIR/fresh.img"
+
+# on fresh rootfs: enable soft updates and set minfree to 2%
+# XXX: currently the file system is r/o and a low minfree is OK. Should
+#      it be made r/w, it should be at the default and the image size
+#      should be increased to fit that.
+tunefs -m '2%' -n enable "$DESTDIR/fresh.img"
+
 mkimg \
     -s gpt \
     -f qcow2 \
     -b "$MBR" \
     -p "freebsd-boot/bootfs:=$BOOTFS" \
-    -p "freebsd-ufs/rootfs:=$ROOTFS" \
+    -p "freebsd-ufs/rootfs:=$DESTDIR/fresh.img" \
     -o "$OUTFILE"

@@ -31,7 +31,3 @@ DESTDIR=$MOUNTPOINT make install-skel
 umount "$MOUNTPOINT"
 mdconfig -du "$DEVICE"
 rmdir "$MOUNTPOINT"
-
-# enable soft updates on the image
-tunefs -n enable "$TOIMAGE" # enable soft updates
-

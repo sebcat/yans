@@ -1,4 +1,6 @@
 #!/usr/bin/env yans
+-- vim: syntax=lua :
+
 Resolver     = require"svcs.resolver"
 Store        = require"svcs.store"
 Netconf      = require"svcs.netconf"
@@ -90,28 +92,26 @@ local subjects = Subjects:new{
     resolver   = services.resolver,
     netconf    = services.netconf,
 }
-local res = services.opener:open("report-10-subjects.csv.gz", "zlib:wb")
+local res = services.opener:open("subjects.csv.gz", "zlib:wb")
 res = res:to_stream("zlib:wb")
 subjects:resolve(res, cfg.subjects)
 res:close()
+services.opener:rename("subjects.csv.gz", "report-10-subjects.csv.gz")
 
---[=[
-GLORY = [[
-iface,src hwaddr,next hop,src ip,dst ip,name
-em0,00:11:22:33:44:55,55:44:33:22:11:00,127.0.0.1,192.168.0.1,foobar.com
-em0,00:11:22:33:44:55,55:44:33:22:11:00,127.0.0.1,192.168.0.1,barbar.com
-]]
-
-print(store_id)
 files = {
   {"noshowpls.txt", "wb", "pls no show"},
-  {"report-11-s.txt", "wb", cfg.subject},
-  {"report-10-subjects.csv.gz", "zlib:wb", GLORY},
+  {"report-11-s.txt", "wb", cfg.subjects},
   {"report-51-ports.txt.gz", "zlib:wb", "This is the bar report"},
   {"report-20-services.csv", "wb", "foo,bar,baz\n1,2,3"},
   {"report-33-products.csv.gz", "zlib:wb", "baz,bar,foo\n3,2,1\n"},
 }
 
-]=]--
+for _, f in pairs(files) do
+  local s = services.opener:open(f[1]..".tmp", f[2]):to_stream(f[2])
+  s:write(f[3])
+  s:close()
+  services.opener:rename(f[1]..".tmp", f[1])
+end
+
 
 

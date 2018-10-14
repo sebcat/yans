@@ -127,11 +127,12 @@ table tr:nth-child(1) td {
   padding: .5rem;
 }
 
-.report-entries a {
+.report-sections a {
   font-size: small;
 }
 
 .report-section {
+  font-family: monospace;
   margin: .5rem;
 }
 
@@ -188,7 +189,8 @@ table tr:nth-child(1) td {
 
 <div class="navbar">
   <div class="input-group">
-    <input id="scan-subject" type="text" class="input-group-append" placeholder="domain or address..." />
+    <input id="scan-subject" type="text" class="input-group-append"
+        placeholder="domain or address..." />
     <button id="scan-btn" class="input-group-append">Scan Now!</button>
   </div>
 </div>
@@ -204,8 +206,6 @@ table tr:nth-child(1) td {
 
 <script>
 "use strict";
-
-/* Beware of dragons */
 
 function _diffString(n, str) {
   n = Math.floor(n);
@@ -555,7 +555,7 @@ function YansView(pname) {
     }
 
     let sectiondiv = document.createElement("div");
-    sectiondiv.className = "report-entries";
+    sectiondiv.className = "report-sections";
     report.entries.sort(function(a,b) {
       let aorder = /^report-([0-9]+)-/g.exec(a.name)[1];
       let border = /^report-([0-9]+)-/g.exec(b.name)[1];
@@ -577,7 +577,10 @@ function YansView(pname) {
       anchor.addEventListener("click", function(e) {
         e.preventDefault();
         let section_id = "report-section-" + report_id + "-" + entry_name;
-        if (!document.getElementById(section_id)) {
+        let se = document.getElementById(section_id);
+        if (se) {
+          se.parentElement.removeChild(se);
+        } else {
           JReq("GET", url)
             .done(function(data) {
               let ctype = this.xhr.getResponseHeader("Content-Type")

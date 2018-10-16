@@ -1,12 +1,13 @@
-#!/bin/sh
+#!/bin/sh -xe
 
 die() {
   printf '%s\n' "$1" >&2
   exit 1
 }
 
-: ${MBR:=/usr/obj/usr/src/sys/boot/i386/pmbr/pmbr}
-: ${BOOTFS:=/usr/obj/usr/src/sys/boot/i386/gptboot/gptboot}
+: ${MBR:=/usr/obj/usr/src/stand/i386/pmbr/pmbr}
+: ${EFIBOOT1:=/usr/obj/usr/src/stand/efi/boot1/boot1.efifat}
+: ${BOOTFS:=/usr/obj/usr/src/stand/i386/gptboot/gptboot}
 : ${ROOTFS:=$1}
 : ${VMSIZE:=128M}
 : ${DESTDIR:=$(pwd)}
@@ -16,7 +17,7 @@ die() {
 [ -f "$ROOTFS" ] || die "missing ROOTFS"
 
 : ${OUTFILE:=$2}
-: ${OUTFILE:=$(basename "$ROOTFS" .img).qcow2}
+: ${OUTFILE:=$(basename "$ROOTFS" .img).raw}
 
 copy_rootfs() {
   # when the rootfs was build, unneeded base artifacts were removed,
@@ -56,10 +57,11 @@ copy_rootfs "$ROOTFS" "$DESTDIR/fresh.img"
 #      should be increased to fit that.
 tunefs -m '2%' -n enable "$DESTDIR/fresh.img"
 
-mkimg \
-    -s gpt \
-    -f qcow2 \
+mkimg -s gpt \
+    -a 3 \
+    -f raw
     -b "$MBR" \
-    -p "freebsd-boot/bootfs:=$BOOTFS" \
-    -p "freebsd-ufs/rootfs:=$DESTDIR/fresh.img" \
+    -p "efi:=${EFIBOOT1}" \
+    -p "freebsd-boot/bootfs:=${BOOTFS}" \
+    -p "freebsd-ufs/rootfs:=${ROOTFS}" \
     -o "$OUTFILE"

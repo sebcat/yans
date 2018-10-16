@@ -1,0 +1,35 @@
+#!/bin/sh -xe
+
+die() {
+  printf '%s\n' "$1" >&2
+  exit 1
+}
+
+mk_efiboot_img() {
+  dd if=/dev/zero of=efiboot.img bs=4k count=200
+  local device=`mdconfig -a -t vnode -f efiboot.img`
+  newfs_msdos -F 12 -m 0xf8 /dev/$device
+  mkdir efi
+  mount -t msdosfs /dev/$device efi
+  mkdir -p efi/efi/boot
+  cp "$1/boot/loader.efi" efi/efi/boot/bootx64.efi
+  umount efi
+  rmdir efi
+  mdconfig -d -u $device
+}
+
+[ -d "$1" ] || die "Missing workdir"
+[ -z "$2" ] && die "Missing ISO name" 
+
+WORKDIR=$1
+ISO=$2
+LABEL=STARBURST
+PUBLISHER=Starburst
+
+bootable=""
+
+mk_efiboot_img "$WORKDIR"
+echo "/dev/iso9660/$LABEL / cd9660 ro 0 0" > "$WORKDIR/etc/fstab"
+makefs -t cd9660  -o "bootimage=i386;${WORKDIR}/boot/cdboot" -o no-emul-boot -o "bootimage=i386;efiboot.img" -o no-emul-boot -o platformid=efi -o rockridge -o label="$LABEL" -o publisher="$PUBLISHER" "$ISO" "$WORKDIR"
+rm -f "$1/etc/fstab"
+rm -f efiboot.img

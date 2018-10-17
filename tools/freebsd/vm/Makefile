@@ -26,24 +26,23 @@ SCRIPTS=skel/etc/rc.d/xsshd \
 
 .PHONY: install-skel clean
 
-all: yans.raw.gz
+all: yans.raw
 
 clean:
-	rm -f template.img template.raw yans.img fresh.img yans.raw \
-		yans.raw.gz
+	rm -f template.rootfs template.raw yans.rootfs fresh.rootfs \
+		 yans.raw
 
-template.img:
-	./create-rootfs template.img
+template.rootfs:
+	./create-rootfs template.rootfs
 
-template.raw: template.img
-	./create-image template.img
+template.raw: template.rootfs
+	./create-image template.rootfs
 
-yans.raw: template.img $(CFGFILES) $(SCRIPTS)
-	./install-yans template.img yans.img
-	./create-image yans.img
+yans.rootfs: template.rootfs $(CFGFILES) $(SCRIPTS)
+	./install-yans template.rootfs yans.rootfs
 
-yans.raw.gz: yans.raw
-	gzip yans.raw
+yans.raw: yans.rootfs
+	./create-image yans.rootfs yans.raw
 
 install-skel:
 	@if [ -z "$(DESTDIR)" ]; then echo "Set DESTDIR";  exit 1; fi

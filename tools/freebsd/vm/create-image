@@ -17,7 +17,7 @@ die() {
 [ -f "$ROOTFS" ] || die "missing ROOTFS"
 
 : ${OUTFILE:=$2}
-: ${OUTFILE:=$(basename "$ROOTFS" .img).raw}
+: ${OUTFILE:=$(basename "$ROOTFS" .rootfs).raw}
 
 copy_rootfs() {
   # when the rootfs was build, unneeded base artifacts were removed,
@@ -29,7 +29,7 @@ copy_rootfs() {
 
   local moldyimg=$1
   local freshimg=$2
-  local freshmnt="$DESTDIE/fresh"
+  local freshmnt="$DESTDIR/fresh"
   local moldymnt="$DESTDIR/moldy"
   rm -f "$freshimg"
   truncate -s "$VMSIZE" "$freshimg"
@@ -49,19 +49,20 @@ copy_rootfs() {
   rmdir "$moldymnt" "$freshmnt"
 }
 
-copy_rootfs "$ROOTFS" "$DESTDIR/fresh.img"
+FRESHROOTFS=$DESTDIR/fresh.rootfs
+copy_rootfs "$ROOTFS" "$FRESHROOTFS"
 
 # on fresh rootfs: enable soft updates and set minfree to 2%
 # XXX: currently the file system is r/o and a low minfree is OK. Should
 #      it be made r/w, it should be at the default and the image size
 #      should be increased to fit that.
-tunefs -m '2%' -n enable "$DESTDIR/fresh.img"
+tunefs -m '2%' -n enable "$FRESHROOTFS"
 
 mkimg -s gpt \
     -a 3 \
-    -f raw
+    -f raw \
     -b "$MBR" \
     -p "efi:=${EFIBOOT1}" \
     -p "freebsd-boot/bootfs:=${BOOTFS}" \
-    -p "freebsd-ufs/rootfs:=${ROOTFS}" \
+    -p "freebsd-ufs/rootfs:=${FRESHROOTFS}" \
     -o "$OUTFILE"

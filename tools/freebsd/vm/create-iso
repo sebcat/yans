@@ -23,6 +23,7 @@ mk_efiboot_img() {
 
 WORKDIR=$1
 ISO=$2
+# Must be upper case
 LABEL=STARBURST
 PUBLISHER=Starburst
 

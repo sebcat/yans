@@ -6,6 +6,7 @@
 #include <limits.h>
 
 #include <lib/util/buf.h>
+#include <lib/util/sandbox.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 
@@ -42,6 +43,12 @@ static int reqresp(const char *path, struct ycl_msg_knegd_req *req) {
   if (ret != YCL_OK) {
     fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
     return -1;
+  }
+
+  ret = sandbox_enter();
+  if (ret < 0) {
+    fprintf(stderr, "sandbox_enter failure\n");
+    goto ycl_cleanup;
   }
 
   ret = ycl_msg_init(&msg);

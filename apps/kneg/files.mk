@@ -1,7 +1,8 @@
 kneg_DEPS = \
-    lib/util/netstring.c \
     lib/util/buf.c \
     lib/util/io.c \
+    lib/util/netstring.c \
+    lib/util/sandbox.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c
 

@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <lib/util/sandbox.h>
 #include <lib/util/sindex.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
@@ -19,6 +20,35 @@
 
 static char databuf_[32768]; /* get/put buffer */
 
+static int setup_ycl_state(struct ycl_ctx *ctx, const char *socket,
+    struct ycl_msg *msg) {
+  int ret;
+
+  ret = ycl_connect(ctx, socket);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(ctx));
+    goto fail;
+  }
+
+  ret = sandbox_enter();
+  if (ret < 0) {
+    fprintf(stderr, "sandbox_enter failure\n");
+    goto ycl_cleanup;
+  }
+
+  ret = ycl_msg_init(msg);
+  if (ret != YCL_OK) {
+    fprintf(stderr, "ycl_msg_init failure\n");
+    goto ycl_cleanup;
+  }
+
+  return 0;
+ycl_cleanup:
+  ycl_close(ctx);
+fail:
+  return -1;
+}
+
 static int run_get(const char *socket, const char *id, const char *filename) {
   int ret;
   int result = -1;
@@ -29,16 +59,9 @@ static int run_get(const char *socket, const char *id, const char *filename) {
   struct ycl_msg_status_resp respmsg = {{0}};
   struct ycl_msg_store_entered_req openmsg = {{0}};
 
-  ret = ycl_connect(&ctx, socket);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+  ret = setup_ycl_state(&ctx, socket, &msg);
+  if (ret < 0) {
     return -1;
-  }
-
-  ret = ycl_msg_init(&msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_init failure\n");
-    goto ycl_cleanup;
   }
 
   reqmsg.action.data = "enter";
@@ -144,7 +167,6 @@ getfd_cleanup:
   close(getfd);
 ycl_msg_cleanup:
   ycl_msg_cleanup(&msg);
-ycl_cleanup:
   ycl_close(&ctx);
   return result;
 }
@@ -161,16 +183,9 @@ static int run_put(const char *socket, const char *id, const char *name,
   struct ycl_msg_store_entered_req openmsg = {{0}};
   static time_t *no_see;
 
-  ret = ycl_connect(&ctx, socket);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+  ret = setup_ycl_state(&ctx, socket, &msg);
+  if (ret < 0) {
     return -1;
-  }
-
-  ret = ycl_msg_init(&msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_init failure\n");
-    goto ycl_cleanup;
   }
 
   reqmsg.action.data = "enter";
@@ -283,7 +298,6 @@ putfd_cleanup:
   close(putfd);
 ycl_msg_cleanup:
   ycl_msg_cleanup(&msg);
-ycl_cleanup:
   ycl_close(&ctx);
   return result;
 }
@@ -347,16 +361,9 @@ static int run_list(const char *socket, const char *id,
   struct ycl_msg_store_req reqmsg = {{0}};
   struct ycl_msg_store_list respmsg = {{0}};
 
-  ret = ycl_connect(&ctx, socket);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+  ret = setup_ycl_state(&ctx, socket, &msg);
+  if (ret < 0) {
     return -1;
-  }
-
-  ret = ycl_msg_init(&msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_init failure\n");
-    goto ycl_cleanup;
   }
 
   reqmsg.action.data = "list";
@@ -407,7 +414,6 @@ static int run_list(const char *socket, const char *id,
   result = 0;
 ycl_msg_cleanup:
   ycl_msg_cleanup(&msg);
-ycl_cleanup:
   ycl_close(&ctx);
   return result;
 }
@@ -531,16 +537,9 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   size_t last = 0;
   size_t i;
 
-  ret = ycl_connect(&ctx, socket);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+  ret = setup_ycl_state(&ctx, socket, &msg);
+  if (ret < 0) {
     return -1;
-  }
-
-  ret = ycl_msg_init(&msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_init failure\n");
-    goto ycl_cleanup;
   }
 
   reqmsg.action.data = "index";
@@ -599,7 +598,6 @@ fp_cleanup:
   fclose(fp);
 ycl_msg_cleanup:
   ycl_msg_cleanup(&msg);
-ycl_cleanup:
   ycl_close(&ctx);
   return result;
 }
@@ -710,16 +708,9 @@ int run_rename(const char *socket, const char *id, const char *from,
   struct ycl_msg_status_resp respmsg = {{0}};
   struct ycl_msg_store_entered_req renamemsg = {{0}};
 
-  ret = ycl_connect(&ctx, socket);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ctx));
+  ret = setup_ycl_state(&ctx, socket, &msg);
+  if (ret < 0) {
     return -1;
-  }
-
-  ret = ycl_msg_init(&msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_init failure\n");
-    goto ycl_cleanup;
   }
 
   reqmsg.action.data = "enter";
@@ -799,7 +790,6 @@ int run_rename(const char *socket, const char *id, const char *from,
   result = 0;
 ycl_msg_cleanup:
   ycl_msg_cleanup(&msg);
-ycl_cleanup:
   ycl_close(&ctx);
   return result;
 }

@@ -63,15 +63,7 @@ function _M:open(path, flags)
     open_flags = flags,
   }
   self.sock:sendmsg(self.msgbuf)
-  --return self.sock:recvfd()
-  ok, res = pcall(self.sock.recvfd, self.sock)
-  if not ok then
-    print(res)
-    print(debug.traceback())
-    os.exit(1)
-  end
-  return res
-
+  return self.sock:recvfd()
 end
 
 function _M:rename(from, to)

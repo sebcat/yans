@@ -541,10 +541,13 @@ function YansView(pname) {
 
       let anchor = document.createElement("a");
       anchor.href = "#/a1/report-sections?id=" + report_id;
-      anchor.text = report.name;
+      anchor.text = report.name ? report.name : report_id;
+      let subtitlestr = report.started ?
+          diffString(report.started, report.now_ts) : 
+          "";
       let entry = ListEntry({
         title: anchor,
-        subtitle: diffString(report.started, report.now_ts),
+        subtitle: subtitlestr,
         right: self.getRunningSymbol(report.running),
         cntId: report_id
       });

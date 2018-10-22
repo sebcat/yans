@@ -1,4 +1,5 @@
 #!/usr/bin/env yans
+-- vim: set syntax=lua :
 local JAPI        = require "japi"
 local Store       = require "svcs.store"
 local Kneg        = require "svcs.kneg"
@@ -236,10 +237,15 @@ local function get_report_sections(ctx)
       entries = entries << entry
     end
 
-    -- enter store and fetch job data (must exist or time &c will be wrong)
+    -- enter store and fetch job data. If the job data is missing, due
+    -- to the job being started manually, we should not fail and the
+    -- UI should be able to handle the missing time &c
     store:enter{id=id}
-    datastr = store:open("job.json", yans.file.O_RDONLY):to_stream("rb"):
-        read("a")
+    local ok, ret = pcall(store.open, store, "job.json",
+        yans.file.O_RDONLY)
+    if ok then
+      datastr = ret:to_stream("rb"):read("a")
+    end
     if not datastr or #datastr < 2 then
       datastr = "{}"
     end

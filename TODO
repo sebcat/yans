@@ -3,12 +3,16 @@
     Aug 21 06:55:20 resistance knegd[88314]: failure: premature connection termination fd:5
     Aug 21 06:55:20 resistance knegd[88314]: knegd: fd 5 write error: Broken pipe
 - have eds use wait4 instead of waitpid and report rusage? (utime,stime,maxrss)
-- log server rotation means no logs are stores - why? (maybe syslogd -ss issues)
 - store list <store-id> - pass dir-fd from stored and have client list store?
 - pass fopen-style mode string to store instead of flags, have the mode string
   copied to the Lua file descriptor type and make it possible to write
   foo:open("trololo", "rb"):to_stream() without passing the mode string to
   to_stream
+
+- Currently, a hard restart prevents services from starting again due to
+  existing PID-files. Clean pidfiles on service start (potential issues
+  if service is started two times?)
+- store index --name-must-match?
 
 
 

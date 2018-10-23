@@ -101,6 +101,57 @@ ycl_cleanup:
   return res;
 }
 
+static int queue(int argc, char **argv) {
+  int ret;
+  int ch;
+  struct ycl_msg_knegd_req req = {0};
+  const char *optstr = "hs:";
+  const char *argv0 = argv[0];
+  const char *sock = DFL_KNEGDSOCK;
+  static struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      sock = optarg;
+      break;
+    case 'h':
+    case '?':
+      goto usage;
+    }
+  }
+
+  argc -= optind + 1;
+  argv += optind + 1;
+  if (argc != 2) {
+    goto usage;
+  }
+
+  req.action.data = "queue";
+  req.action.len = sizeof("queue")-1;
+  req.id.data = argv[0];
+  req.id.len = strlen(argv[0]);
+  req.type.data = argv[1];
+  req.type.len = strlen(argv[1]);
+  ret = reqresp(sock, &req);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+
+usage:
+  fprintf(stderr, "usage: %s queue [opts] <id> <type>\n"
+      "opts:\n"
+      "  -h|--help           - this text\n"
+      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      , argv0, DFL_KNEGDSOCK);
+  return EXIT_FAILURE;
+}
+
 static int pids(int argc, char **argv) {
   int ret;
   int ch;
@@ -340,6 +391,7 @@ int main(int argc, char *argv[]) {
   static const struct subcmd subcmds[] = {
     {"start", start},
     {"pids", pids},
+    {"queue", queue},
     {"stop", stop},
     {NULL, NULL},
   };

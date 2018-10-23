@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <signal.h>
@@ -47,21 +48,87 @@ struct kng_ctx {
 
 struct kng_opts {
   const char *knegdir;
+  const char *queuedir;
   time_t timeout;
   const char *storesock;
 };
 
-/* list of running jobs */
-struct kng_ctx *jobs_;
-
 struct kng_opts opts_ = {
   .knegdir = DFL_KNEGDIR,
+  .queuedir = DFL_QUEUEDIR,
   .timeout = DFL_TIMEOUT,
   .storesock = DFL_STORESOCK,
 };
 
+/* persistent work queue */
+struct kng_queue {
+  const char *basepath;  /* queue root directory */
+  int err;               /* saved errno, if any */
+};
+
+struct kng_ctx *jobs_;    /* list of running jobs */
+struct kng_queue kngq_;  /* work queue instance */
+
+static int kngq_init(struct kng_queue *kngq, const char *basepath) {
+  int ret;
+
+  kngq->basepath = basepath;
+  ret = mkdir(kngq->basepath, 0700);
+  if (ret != 0 && errno != EEXIST) {
+    kngq->err = errno;
+    return -1;
+  }
+
+  return 0;
+}
+
+static const char *kngq_strerror(struct kng_queue *kngq) {
+  if (kngq->err == 0) {
+    return "unknown error";
+  } else {
+    return strerror(kngq->err);
+  }
+}
+
+static int kngq_put(struct kng_queue *kngq, const char *type,
+    const char *id) {
+  char path[1024];
+  char timestr[32];
+  size_t timelen;
+  int ret;
+
+  /* get a string of the current time in hex, at least 8 chars wide */
+  snprintf(timestr, sizeof(timestr), "%.08lx", time(NULL));
+  timelen = strlen(timestr);
+
+  /* get a string of the subdir where to put the entry and create it */
+  snprintf(path, sizeof(path), "%s/%c%c", kngq->basepath,
+      timestr[timelen-4], timestr[timelen-3]);
+  ret = mkdir(path, 0700);
+  if (ret != 0 && errno != EEXIST) {
+    kngq->err = errno;
+    return -1;
+  }
+
+  /* create the entry path and create the file */ 
+  snprintf(path, sizeof(path), "%s/%c%c/%s-%s-%s", kngq->basepath,
+      timestr[timelen-4], timestr[timelen-3], timestr, id, type);
+  ret = open(path, O_WRONLY|O_CREAT, 0600);
+  if (ret < 0) {
+    kngq->err = errno;
+    return -1;
+  }
+
+  close(ret);
+  return 0;
+}
+
 void kng_set_knegdir(const char *dir) {
   opts_.knegdir = dir;
+}
+
+void kng_set_queuedir(const char *dir) {
+  opts_.queuedir = dir;
 }
 
 void kng_set_storesock(const char *path) {
@@ -589,12 +656,38 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* anything past this point requires ID, so check it */
   if (req.id.data == NULL || *req.id.data == '\0') {
-    errmsg = "missing job ID";
+    errmsg = "missing id";
     goto fail;
   }
 
   /* check req/resp actions, or error out on unknown action */
-  if (strcmp(req.action.data, "pids") == 0) {
+  if (strcmp(req.action.data, "queue") == 0) {
+    if (req.type.len == 0) {
+      errmsg = "missing type";
+      goto fail;
+    } else if (req.id.len == 0) {
+      errmsg = "missing id";
+      goto fail;
+    }
+
+    if (strchr(req.type.data, '/') != NULL) {
+      errmsg = "invalid type";
+      goto fail;
+    } else if (strchr(req.id.data, '/') != NULL) {
+      errmsg = "invalid id";
+      goto fail;
+    }
+
+    LOGINFO("queue request received id:\"%s\" type:\"%s\"", req.id.data,
+        req.type.data);
+    ret = kngq_put(&kngq_, req.type.data, req.id.data);
+    if (ret != 0) {
+      errmsg = kngq_strerror(&kngq_);
+      LOGERR("queue request failed id:\"%s\" type:\"%s\" %s", req.id.data,
+          req.type.data, errmsg);
+      goto fail;
+    }
+  } else if (strcmp(req.action.data, "pids") == 0) {
     append_job_pids(&ecli->respbuf, req.id.data, req.id.len);
     okmsg = ecli->respbuf.data;
   } else if (strcmp(req.action.data, "stop") == 0) {
@@ -672,6 +765,18 @@ void kng_on_finalize(struct eds_client *cli) {
     buf_cleanup(&ecli->respbuf);
     ecli->flags &= ~KNGFL_HASRESPBUF;
   }
+}
+
+int kng_mod_init(struct eds_service *svc) {
+  int ret;
+
+  ret = kngq_init(&kngq_, opts_.queuedir);
+  if (ret < 0) {
+    fprintf(stderr, "kng_mod_init: %s\n", kngq_strerror(&kngq_));
+    return -1;
+  }
+
+  return 0;
 }
 
 void kng_mod_fini(struct eds_service *svc) {

@@ -18,6 +18,7 @@ struct opts {
   const char *single;
   const char *basepath;
   const char *knegdir;
+  const char *queuedir;
   long timeout;
   uid_t uid;
   gid_t gid;
@@ -43,6 +44,7 @@ static void usage() {
       "  -s|--single <name>    name of single service to start\n"
       "  -n|--no-daemon        do not daemonize\n"
       "  -k|--knegdir <path>   path do kneg directory\n"
+      "  -q|--queue <path>     path to kneg queue directory\n"
       "  -t|--timeout <secs>   default timeout, in seconds (%d)\n"
       "  -S|--storesock <path> path to store socket (%s)\n"
       "  -h|--help             this text\n",
@@ -54,7 +56,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
   long l;
-  static const char *optstr = "u:g:b:ns:k:t:S:h";
+  static const char *optstr = "u:g:b:ns:k:q:t:S:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -62,6 +64,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"single", required_argument, NULL, 's'},
     {"no-daemon", no_argument, NULL, 'n'},
     {"knegdir", required_argument, NULL, 'k'},
+    {"queue", required_argument, NULL, 'q'},
     {"timeout", required_argument, NULL, 't'},
     {"storesock", required_argument, NULL, 'S'},
     {"help", no_argument, NULL, 'h'},
@@ -72,6 +75,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->basepath = NULL;
   opts->single = NULL;
   opts->knegdir = NULL;
+  opts->queuedir = NULL;
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
@@ -103,6 +107,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'k':
         opts->knegdir = optarg;
+        break;
+      case 'q':
+        opts->queuedir = optarg;
         break;
       case 't':
         l = strtol(optarg, NULL, 10);
@@ -150,6 +157,7 @@ int main(int argc, char *argv[]) {
       .on_svc_reaped_child = kng_on_svc_reaped_child,
       .on_svc_error = on_svc_error,
       .on_svc_tick = kng_on_tick,
+      .mod_init = kng_mod_init,
       .mod_fini = kng_mod_fini,
       .nprocs = 1,
     },
@@ -163,6 +171,10 @@ int main(int argc, char *argv[]) {
   kng_set_storesock(opts.storesock);
   if (opts.knegdir != NULL) {
     kng_set_knegdir(opts.knegdir);
+  }
+
+  if (opts.queuedir != NULL) {
+    kng_set_queuedir(opts.queuedir);
   }
 
   if (opts.timeout > 0) {

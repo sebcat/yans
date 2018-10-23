@@ -15,6 +15,10 @@
 #define DFL_KNEGDIR DATAROOTDIR "/kneg"
 #endif
 
+#ifndef DFL_QUEUEDIR
+#define DFL_QUEUEDIR "queue"
+#endif
+
 #define DFL_TIMEOUT 43200 /* default process timeout, in seconds */
 
 #ifndef LOCALSTATEDIR
@@ -32,6 +36,7 @@ struct kng_cli {
 };
 
 void kng_set_knegdir(const char *dir);
+void kng_set_queuedir(const char *dir);
 void kng_set_timeout(long timeout);
 void kng_set_storesock(const char *path);
 
@@ -39,6 +44,7 @@ void kng_on_readable(struct eds_client *cli, int fd);
 void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status);
 void kng_on_finalize(struct eds_client *cli);
+int kng_mod_init(struct eds_service *svc);
 void kng_mod_fini(struct eds_service *svc);
 void kng_on_tick(struct eds_service *svc);
 

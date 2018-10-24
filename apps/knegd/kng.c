@@ -387,7 +387,7 @@ struct kng_jobopts {
   const char *type;    /* kneg type */
   const char *id;      /* job ID, if any */
   const char *name;    /* name for stored index, if any */
-  time_t timeout_nsec; /* timeout in seconds, or 0 for no timeout */
+  time_t timeout_sec;  /* timeout in seconds, or 0 for no timeout */
 };
 
 static struct kng_ctx *kng_new(struct kng_jobopts *opts,
@@ -514,8 +514,8 @@ static struct kng_ctx *kng_new(struct kng_jobopts *opts,
     goto cleanup_logfd;
   }
 
-  if (opts->timeout_nsec > 0) {
-    s->timeout = opts->timeout_nsec;
+  if (opts->timeout_sec > 0) {
+    s->timeout = opts->timeout_sec;
   } else {
     s->timeout = opts_.timeout;
   }
@@ -781,7 +781,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
       .type = req.type.data,
       .id = req.id.data,
       .name = req.name.data,
-      .timeout_nsec = req.timeout > 0 ? (time_t)req.timeout : 0,
+      .timeout_sec = req.timeout > 0 ? (time_t)req.timeout : 0,
     };
 
     job = kng_new(&opts, &errmsg);
@@ -986,8 +986,10 @@ void kng_on_tick(struct eds_service *svc) {
   int nslots;
   int nrunning;
 
+  /* check if any job has exceeded their allocated execution time */
   jobs_check_times();
 
+  /* start queued jobs, if any */
   nslots = kngq_nslots(&kngq_);
   nrunning = kngq_nrunning(&kngq_);
   if (nrunning < nslots) {

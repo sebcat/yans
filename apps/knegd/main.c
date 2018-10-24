@@ -18,7 +18,8 @@ struct opts {
   const char *single;
   const char *basepath;
   const char *knegdir;
-  const char *queuedir;
+  char *queuedir;
+  int nqueueslots;
   long timeout;
   uid_t uid;
   gid_t gid;
@@ -45,6 +46,7 @@ static void usage() {
       "  -n|--no-daemon        do not daemonize\n"
       "  -k|--knegdir <path>   path do kneg directory\n"
       "  -q|--queue <path>     path to kneg queue directory\n"
+      "  -N|--queue-slots <n>  number of slots in knegd queue\n"
       "  -t|--timeout <secs>   default timeout, in seconds (%d)\n"
       "  -S|--storesock <path> path to store socket (%s)\n"
       "  -h|--help             this text\n",
@@ -56,7 +58,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
   long l;
-  static const char *optstr = "u:g:b:ns:k:q:t:S:h";
+  static const char *optstr = "u:g:b:ns:k:q:N:t:S:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -65,6 +67,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"no-daemon", no_argument, NULL, 'n'},
     {"knegdir", required_argument, NULL, 'k'},
     {"queue", required_argument, NULL, 'q'},
+    {"queue-slots", required_argument, NULL, 'N'},
     {"timeout", required_argument, NULL, 't'},
     {"storesock", required_argument, NULL, 'S'},
     {"help", no_argument, NULL, 'h'},
@@ -76,6 +79,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->single = NULL;
   opts->knegdir = NULL;
   opts->queuedir = NULL;
+  opts->nqueueslots = 0;
   opts->uid = 0;
   opts->gid = 0;
   opts->no_daemon = 0;
@@ -110,6 +114,14 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'q':
         opts->queuedir = optarg;
+        break;
+      case 'N':
+        l = strtol(optarg, NULL, 10);
+        if (l <= 0 || l == INT_MAX) {
+          fprintf(stderr, "invalid number of slots\n");
+          exit(EXIT_FAILURE);
+        }
+        opts->nqueueslots = (int)l;
         break;
       case 't':
         l = strtol(optarg, NULL, 10);
@@ -149,7 +161,7 @@ int main(int argc, char *argv[]) {
       .name = DAEMON_NAME,
       .path = DAEMON_NAME ".sock",
       .udata_size = sizeof(struct kng_cli),
-      .tick_slice_us = 5 * 1000000,
+      .tick_slice_us = 30 * 1000000,
       .actions = {
         .on_readable = kng_on_readable,
         .on_finalize = kng_on_finalize,
@@ -175,6 +187,10 @@ int main(int argc, char *argv[]) {
 
   if (opts.queuedir != NULL) {
     kng_set_queuedir(opts.queuedir);
+  }
+
+  if (opts.nqueueslots > 0) {
+    kng_set_nqueueslots(opts.nqueueslots);
   }
 
   if (opts.timeout > 0) {

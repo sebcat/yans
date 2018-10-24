@@ -97,5 +97,4 @@ knegd_req {
   data id;
   data name;
   data type;
-  data[] params;
 }

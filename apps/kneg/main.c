@@ -28,8 +28,6 @@ struct start_opts {
   const char *id;
   const char *name;
   long timeout;
-  struct ycl_data *params;
-  size_t nparams;
 };
 
 static int reqresp(const char *path, struct ycl_msg_knegd_req *req) {
@@ -266,8 +264,6 @@ static int run_start(struct start_opts *opts) {
   req.id.len = opts->id != NULL ? strlen(opts->id) : 0;
   req.name.data = opts->name;
   req.name.len = opts->name != NULL ? strlen(opts->name) : 0;
-  req.params = opts->params;
-  req.nparams = opts->nparams;
   return reqresp(opts->sock, &req);
 }
 
@@ -275,13 +271,9 @@ static int start(int argc, char **argv) {
   int ch;
   int ret;
   long l;
-  const char *optstr = "hp:s:t:i:n:";
-  struct ycl_data *params = NULL;
-  struct ycl_data *tmp;
-  size_t nparams = 0;
+  const char *optstr = "hs:t:i:n:";
   static struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
-    {"param", required_argument, NULL, 'p'},
     {"socket", required_argument, NULL, 's'},
     {"timeout", required_argument, NULL, 't'},
     {"id", required_argument, NULL, 'i'},
@@ -309,20 +301,6 @@ static int start(int argc, char **argv) {
       }
       opts.timeout = l;
       break;
-    case 'p':
-      tmp = realloc(params, sizeof(struct ycl_data) * (nparams + 1));
-      if (tmp == NULL) {
-        fprintf(stderr, "%s\n", strerror(errno));
-        if (params != NULL) {
-          free(params);
-        }
-        exit(EXIT_FAILURE);
-      }
-      params = tmp;
-      params[nparams].len = strlen(optarg);
-      params[nparams].data = optarg;
-      nparams++;
-      break;
     case 'i':
       opts.id = optarg;
       break;
@@ -346,12 +324,7 @@ static int start(int argc, char **argv) {
     goto fail;
   }
 
-  opts.params = params;
-  opts.nparams = nparams;
   ret = run_start(&opts);
-  if (params != NULL) {
-    free(params);
-  }
   if (ret < 0) {
     goto fail;
   }

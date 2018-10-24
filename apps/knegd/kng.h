@@ -19,6 +19,10 @@
 #define DFL_QUEUEDIR "queue"
 #endif
 
+#ifndef DFL_NQUEUESLOTS
+#define DFL_NQUEUESLOTS 10
+#endif
+
 #define DFL_TIMEOUT 43200 /* default process timeout, in seconds */
 
 #ifndef LOCALSTATEDIR
@@ -36,7 +40,8 @@ struct kng_cli {
 };
 
 void kng_set_knegdir(const char *dir);
-void kng_set_queuedir(const char *dir);
+void kng_set_queuedir(char *dir);
+void kng_set_nqueueslots(int nslots);
 void kng_set_timeout(long timeout);
 void kng_set_storesock(const char *path);
 

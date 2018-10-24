@@ -11,7 +11,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fts.h>
 
+#include <lib/util/macros.h>
 #include <lib/util/str.h>
 #include <lib/util/ylog.h>
 #include <lib/ycl/ycl_msg.h>
@@ -27,6 +29,9 @@
 #define KNGFL_HASRESPBUF (1 << 1)
 
 #define DFL_RESPBUFSZ 1024
+
+#define KNGQ_IDSIZE 48
+#define KNGQ_TYPESIZE 256
 
 #define LOGERR(...) \
     ylog_error(__VA_ARGS__)
@@ -48,7 +53,8 @@ struct kng_ctx {
 
 struct kng_opts {
   const char *knegdir;
-  const char *queuedir;
+  char *queuedir;
+  int nqueueslots;
   time_t timeout;
   const char *storesock;
 };
@@ -56,23 +62,44 @@ struct kng_opts {
 struct kng_opts opts_ = {
   .knegdir = DFL_KNEGDIR,
   .queuedir = DFL_QUEUEDIR,
+  .nqueueslots = DFL_NQUEUESLOTS,
   .timeout = DFL_TIMEOUT,
   .storesock = DFL_STORESOCK,
 };
 
 /* persistent work queue */
 struct kng_queue {
-  const char *basepath;  /* queue root directory */
-  int err;               /* saved errno, if any */
+  char *basepath;              /* queue root directory */
+  int err;                     /* saved errno, if any */
+  int nslots;                  /* total number of slots */
+  int nrunning;                /* number of occupied slots */
+  FTS *fts;                    /* current fts context, if any */
+  char id[KNGQ_IDSIZE];        /* saved ID, valid for one iteration */
+  char type[KNGQ_TYPESIZE];    /* saved type, valid for one iteration */
 };
 
 struct kng_ctx *jobs_;    /* list of running jobs */
 struct kng_queue kngq_;  /* work queue instance */
 
-static int kngq_init(struct kng_queue *kngq, const char *basepath) {
+static inline int kngq_nslots(struct kng_queue *kngq) {
+  return kngq->nslots;
+}
+
+static inline int kngq_nrunning(struct kng_queue *kngq) {
+  return kngq->nrunning;
+}
+
+static inline void kngq_update_running(struct kng_queue *kngq, int diff) {
+  kngq->nrunning += diff;
+}
+
+static int kngq_init(struct kng_queue *kngq, char *basepath, int nslots) {
   int ret;
 
+  assert(basepath != NULL);
+
   kngq->basepath = basepath;
+  kngq->nslots = nslots;
   ret = mkdir(kngq->basepath, 0700);
   if (ret != 0 && errno != EEXIST) {
     kngq->err = errno;
@@ -123,12 +150,147 @@ static int kngq_put(struct kng_queue *kngq, const char *type,
   return 0;
 }
 
+static int fts_oldest_first(const FTSENT * const *a,
+    const FTSENT * const *b) {
+  if ((*a)->fts_info == FTS_NS || (*a)->fts_info == FTS_NSOK ||
+      (*b)->fts_info == FTS_NS || (*b)->fts_info == FTS_NSOK) {
+    /* fallback on string comparison of name */
+    return strcmp((*a)->fts_name, (*b)->fts_name);
+  }
+
+  return  (*a)->fts_statp->st_mtim.tv_sec -
+      (*b)->fts_statp->st_mtim.tv_sec;
+}
+
+static FTSENT *_kngq_next_file(struct kng_queue *kngq) {
+  FTSENT *ent;
+
+  while ((ent = fts_read(kngq->fts)) != NULL) {
+    if (ent->fts_info == FTS_F) {
+      break;
+    } else if (ent->fts_info == FTS_DP && ent->fts_level >= 1) {
+      /* post-order subdir - try to rmdir it. If it's empty - good. If
+       * it's not - no problem */
+      rmdir(ent->fts_path);
+    }
+  }
+
+  return ent;
+}
+
+static FTSENT *kngq_next_file(struct kng_queue *kngq) {
+  char *paths[] = {
+    kngq->basepath, NULL
+  };
+  FTSENT *ent;
+  int retry = 1;
+
+  /* open the fts context, if none exists. If an fts context does not exist
+   * and _kngq_next_file  return NULL, there's no need to retry a second
+   * time - there are no jobs in the queue */
+  if (kngq->fts == NULL) {
+    kngq->fts = fts_open(paths, FTS_PHYSICAL | FTS_NOCHDIR,
+        fts_oldest_first);
+    retry = 0;
+  }
+
+  /* iterate over the entries until end or found file */
+  ent = _kngq_next_file(kngq);
+
+  /* if we've reached the end, reopen once and try again */
+  if (ent == NULL && retry) {
+    fts_close(kngq->fts);
+    kngq->fts = fts_open(paths, FTS_PHYSICAL | FTS_NOCHDIR,
+        fts_oldest_first);
+    ent = _kngq_next_file(kngq);
+    if (ent == NULL) {
+      fts_close(kngq->fts);
+      kngq->fts = NULL;
+    }
+  }
+
+  return ent;
+}
+
+/* return -1 on error, 0 on success */ 
+static int kngq_get_fields(struct kng_queue *kngq, const char *str,
+  const char **id, const char **type) {
+  const char *curr;
+  const char *next;
+  size_t len;
+
+  /*      curr
+   *         v       
+   * timestr-id-type */
+  curr = strchr(str, '-');
+  if (curr == NULL || *(++curr) == '\0') {
+    return -1;
+  }
+
+  /*      curr next
+   *         v v
+   * timestr-id-type */
+  next = strchr(curr, '-');
+  if (next == NULL) {
+    return -1;
+  }
+  len = MIN(sizeof(kngq->id), next-curr);
+  strncpy(kngq->id, curr, next-curr);
+  kngq->id[sizeof(kngq->id)-1] = '\0';
+
+  /*            curr
+   *            v
+   * timestr-id-type */
+  curr = next + 1;
+  if (*curr == '\0') {
+    return -1;
+  }
+  snprintf(kngq->type, sizeof(kngq->type), "%s", curr);
+
+  *id = kngq->id;
+  *type = kngq->type;
+  return 0;
+}
+
+/* returns -1 on error, 0 on no elements in queue, 1 on returned element.
+ * The returned element will be the one of the oldest mtime - meaning
+ * the oldest entry unless we wrap around and start placing new entries
+ * in subdirs which have not yet been depleted. This may be problematic */
+static int kngq_next(struct kng_queue *kngq, const char **id,
+    const char **type) {
+  int ret;
+  FTSENT *ent;
+
+  /* get the FTS entry of the next file in the queue, if any */
+  ent = kngq_next_file(kngq);
+  if (ent == NULL) {
+    return 0;
+  }
+
+  /* remove the file to avoid double queueing */
+  unlink(ent->fts_path);
+
+  /* Get the id and the type fields and copy them to kng_queue.
+   * ent->fts_name should be of format timestr-id-type. */
+  ret = kngq_get_fields(kngq, ent->fts_name, id, type);
+  if (ret < 0) {
+    kngq->err = EINVAL;
+    return -1;
+  }
+ 
+  return 1;
+}
+
 void kng_set_knegdir(const char *dir) {
   opts_.knegdir = dir;
 }
 
-void kng_set_queuedir(const char *dir) {
+void kng_set_queuedir(char *dir) {
   opts_.queuedir = dir;
+}
+
+void kng_set_nqueueslots(int nslots) {
+  opts_.nqueueslots = nslots;
 }
 
 void kng_set_storesock(const char *path) {
@@ -188,25 +350,6 @@ static char *consk(const char *name, const char *value) {
   return str;
 }
 
-static char *consp(const char *prefix, const char *param) {
-  size_t prefixlen;
-  size_t paramlen;
-  size_t totlen;
-  char *str;
-
-  assert(prefix != NULL);
-  assert(param != NULL);
-  prefixlen = strlen(prefix);
-  paramlen = strlen(param);
-  totlen = prefixlen + paramlen + 2;
-  str = malloc(totlen);
-  if (str == NULL) {
-    return NULL;
-  }
-  snprintf(str, totlen, "%s_%s", prefix, param);
-  return str;
-}
-
 /* known, constant names */
 #define ENVP_VAR(name__, value__) \
     if ((value__) != NULL && *(value__) != '\0') {   \
@@ -217,37 +360,22 @@ static char *consp(const char *prefix, const char *param) {
       off++;                                         \
     }
 
-/* arbitrary vars prefixed with known, constant prefix */
-#define ENVP_PARAM(prefix__, param__)                \
-    if ((param__) != NULL && *(param__) != '\0') {   \
-      envp[off] = consp((prefix__), (param__));      \
-      if (envp[off] == NULL) {                       \
-        goto fail;                                   \
-      }                                              \
-      off++;                                         \
-    }
-
-
 /* build the environment from the knegd request */
-static char **mkenvp(struct ycl_msg_knegd_req *req, const char *id) {
+static char **mkenvp(const char *id, const char *type) {
   size_t off = 0;
-  size_t i;
   char **envp;
 
-  /* must be: number of ENVP_PARAM + number of ENVP_VARs + NULL sentinel */
-  envp = calloc(req->nparams + 4, sizeof(char*));
+  /* must be: number of ENVP_VARs + NULL sentinel */
+  envp = calloc(4, sizeof(char*));
   if (envp == NULL) {
     return NULL;
   }
 
   ENVP_VAR("PATH", "/usr/local/bin:/bin:/usr/bin");
   ENVP_VAR("YANS_ID", id);
-  ENVP_VAR("YANS_TYPE", req->type.data);
-  for (i = 0; i < req->nparams; i++) {
-    ENVP_PARAM("YANSP", req->params[i].data);
-  }
+  ENVP_VAR("YANS_TYPE", type);
 
-  assert(off <= req->nparams + 3);
+  assert(off <= 3);
   return envp;
 
 fail:
@@ -255,7 +383,14 @@ fail:
   return NULL;
 }
 
-static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
+struct kng_jobopts {
+  const char *type;    /* kneg type */
+  const char *id;      /* job ID, if any */
+  const char *name;    /* name for stored index, if any */
+  time_t timeout_nsec; /* timeout in seconds, or 0 for no timeout */
+};
+
+static struct kng_ctx *kng_new(struct kng_jobopts *opts,
     const char **err) {
   struct kng_ctx *s = NULL;
   int logfd;
@@ -270,10 +405,10 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
   struct ycl_msg_store_entered_req enteredmsg = {{0}};
   struct ycl_msg_status_resp resp = {{0}};
 
-  assert(req != NULL);
+  assert(opts != NULL);
   assert(err != NULL);
 
-  if (!is_valid_type(req->type.data)) {
+  if (!is_valid_type(opts->type)) {
     *err = "empty or invalid job type";
     goto fail;
   }
@@ -300,10 +435,10 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
 
   storereqmsg.action.data = "enter";
   storereqmsg.action.len = sizeof("enter")-1;
-  storereqmsg.store_id.len = req->id.len;
-  storereqmsg.store_id.data = req->id.data;
-  storereqmsg.name.len = req->name.len;
-  storereqmsg.name.data = req->name.data;
+  storereqmsg.store_id.len = opts->id ? strlen(opts->id) : 0;
+  storereqmsg.store_id.data = opts->id;
+  storereqmsg.name.len = opts->name ? strlen(opts->name) : 0;
+  storereqmsg.name.data =opts->name;
   storereqmsg.indexed = (long)time(NULL);
   ret = ycl_msg_create_store_req(&msg, &storereqmsg);
   if (ret != YCL_OK) {
@@ -342,13 +477,13 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
 
   strncpy(s->id, resp.okmsg.data, sizeof(s->id));
   s->id[sizeof(s->id)-1] = '\0';
-  envp = mkenvp(req, s->id);
+  envp = mkenvp(s->id, opts->type);
   if (envp == NULL) {
     *err = "insufficient memory";
     goto cleanup_ycl_msg;
   }
 
-  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, req->type.data);
+  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, opts->type);
   enteredmsg.action.data = "open";
   enteredmsg.action.len = 5;
   enteredmsg.open_path.data = "kneg.log";
@@ -379,8 +514,8 @@ static struct kng_ctx *kng_new(struct ycl_msg_knegd_req *req,
     goto cleanup_logfd;
   }
 
-  if (req->timeout > 0) {
-    s->timeout = (time_t)req->timeout;
+  if (opts->timeout_nsec > 0) {
+    s->timeout = opts->timeout_nsec;
   } else {
     s->timeout = opts_.timeout;
   }
@@ -642,7 +777,14 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* check if the client wants a job to start */
   if (strcmp(req.action.data, "start") == 0) {
-    job = kng_new(&req, &errmsg);
+    struct kng_jobopts opts = {
+      .type = req.type.data,
+      .id = req.id.data,
+      .name = req.name.data,
+      .timeout_nsec = req.timeout > 0 ? (time_t)req.timeout : 0,
+    };
+
+    job = kng_new(&opts, &errmsg);
     if (job == NULL) {
       goto fail;
     }
@@ -662,30 +804,29 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* check req/resp actions, or error out on unknown action */
   if (strcmp(req.action.data, "queue") == 0) {
-    if (req.type.len == 0) {
-      errmsg = "missing type";
+    if (!is_valid_type(req.type.data)) {
+      errmsg = "empty or invalid job type";
       goto fail;
-    } else if (req.id.len == 0) {
+    }
+
+    if (req.id.len == 0) {
       errmsg = "missing id";
       goto fail;
     }
 
-    if (strchr(req.type.data, '/') != NULL) {
-      errmsg = "invalid type";
-      goto fail;
-    } else if (strchr(req.id.data, '/') != NULL) {
+    if (strchr(req.id.data, '/') != NULL) {
       errmsg = "invalid id";
       goto fail;
     }
 
-    LOGINFO("queue request received id:\"%s\" type:\"%s\"", req.id.data,
-        req.type.data);
     ret = kngq_put(&kngq_, req.type.data, req.id.data);
     if (ret != 0) {
       errmsg = kngq_strerror(&kngq_);
       LOGERR("queue request failed id:\"%s\" type:\"%s\" %s", req.id.data,
           req.type.data, errmsg);
       goto fail;
+    } else {
+      LOGINFO("queued id:\"%s\" type:\"%s\"", req.id.data, req.type.data);
     }
   } else if (strcmp(req.action.data, "pids") == 0) {
     append_job_pids(&ecli->respbuf, req.id.data, req.id.len);
@@ -770,7 +911,7 @@ void kng_on_finalize(struct eds_client *cli) {
 int kng_mod_init(struct eds_service *svc) {
   int ret;
 
-  ret = kngq_init(&kngq_, opts_.queuedir);
+  ret = kngq_init(&kngq_, opts_.queuedir, opts_.nqueueslots);
   if (ret < 0) {
     fprintf(stderr, "kng_mod_init: %s\n", kngq_strerror(&kngq_));
     return -1;
@@ -819,6 +960,37 @@ void kng_mod_fini(struct eds_service *svc) {
   }
 }
 
+static void dispatch_n_jobs(int n) {
+  int ret;
+  const char *id;
+  const char *type;
+
+  while (n > 0) {
+    ret = kngq_next(&kngq_, &id, &type);
+    if (ret < 0) {
+      LOGERR("kngq_next: %s", kngq_strerror(&kngq_));
+      break;
+    } else if (ret == 0) {
+      break;
+    }
+
+    LOGINFO("TODO: dispatch %s %s", id, type);
+    /* we should update nrunning for each dispatched job, and update it
+     * again when we reap the queued job */
+    kngq_update_running(&kngq_, 0); /* TODO: update diff */
+    n--;
+  }
+}
+
 void kng_on_tick(struct eds_service *svc) {
+  int nslots;
+  int nrunning;
+
   jobs_check_times();
+
+  nslots = kngq_nslots(&kngq_);
+  nrunning = kngq_nrunning(&kngq_);
+  if (nrunning < nslots) {
+    dispatch_n_jobs(nslots - nrunning);
+  }
 }

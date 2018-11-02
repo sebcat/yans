@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fts.h>
 
+#include <lib/util/io.h>
 #include <lib/util/macros.h>
 #include <lib/util/str.h>
 #include <lib/util/ylog.h>
@@ -76,6 +77,9 @@ struct kng_queue {
   FTS *fts;                    /* current fts context, if any */
   char id[KNGQ_IDSIZE];        /* saved ID, valid for one iteration */
   char type[KNGQ_TYPESIZE];    /* saved type, valid for one iteration */
+  unsigned long seq;           /* sequence number for this session */
+
+  struct ycl_msg msgbuf;      /* message buffer used to store next msg */
 };
 
 struct kng_ctx *jobs_;    /* list of running jobs */
@@ -98,15 +102,31 @@ static int kngq_init(struct kng_queue *kngq, char *basepath, int nslots) {
 
   assert(basepath != NULL);
 
+  memset(kngq, 0, sizeof(*kngq));
+  ret = ycl_msg_init(&kngq->msgbuf);
+  if (ret != YCL_OK) {
+    goto fail;
+  }
+
   kngq->basepath = basepath;
   kngq->nslots = nslots;
   ret = mkdir(kngq->basepath, 0700);
   if (ret != 0 && errno != EEXIST) {
-    kngq->err = errno;
-    return -1;
+    goto ycl_msg_cleanup;
   }
 
   return 0;
+ycl_msg_cleanup:
+  ycl_msg_cleanup(&kngq->msgbuf);
+fail:
+  kngq->err = errno;
+  return -1;
+}
+
+static void kngq_cleanup(struct kng_queue *kngq) {
+  if (kngq) {
+    ycl_msg_cleanup(&kngq->msgbuf);
+  }
 }
 
 static const char *kngq_strerror(struct kng_queue *kngq) {
@@ -117,12 +137,34 @@ static const char *kngq_strerror(struct kng_queue *kngq) {
   }
 }
 
-static int kngq_put(struct kng_queue *kngq, const char *type,
-    const char *id) {
+static int _kngq_put(struct kng_queue *kngq, struct ycl_msg_knegd_req *req,
+    int fd) {
+  io_t io;
+  int ret;
+
+  IO_INIT(&io, fd);
+  ycl_msg_reset(&kngq->msgbuf);
+  ret = ycl_msg_create_knegd_req(&kngq->msgbuf, req);
+  if (ret != YCL_OK) {
+    return -1;
+  }
+
+  ret = io_writeall(&io, ycl_msg_bytes(&kngq->msgbuf),
+      ycl_msg_nbytes(&kngq->msgbuf));
+  if (ret != IO_OK) {
+    return -1;
+  }
+
+  return 0;
+}
+
+static int kngq_put(struct kng_queue *kngq,
+    struct ycl_msg_knegd_req *req) {
   char path[1024];
   char timestr[32];
   size_t timelen;
   int ret;
+  int fd;
 
   /* get a string of the current time in hex, at least 8 chars wide */
   snprintf(timestr, sizeof(timestr), "%.08lx", time(NULL));
@@ -138,11 +180,20 @@ static int kngq_put(struct kng_queue *kngq, const char *type,
   }
 
   /* create the entry path and create the file */ 
-  snprintf(path, sizeof(path), "%s/%c%c/%s-%s-%s", kngq->basepath,
-      timestr[timelen-4], timestr[timelen-3], timestr, id, type);
-  ret = open(path, O_WRONLY|O_CREAT, 0600);
+  snprintf(path, sizeof(path), "%s/%c%c/%s-%lu", kngq->basepath,
+      timestr[timelen-4], timestr[timelen-3], timestr, kngq->seq);
+  kngq->seq++;
+  fd = open(path, O_WRONLY|O_CREAT, 0600);
+  if (fd < 0) {
+    kngq->err = errno;
+    return -1;
+  }
+
+  /* file the request */
+  ret = _kngq_put(kngq, req, fd);
   if (ret < 0) {
     kngq->err = errno;
+    close(fd);
     return -1;
   }
 
@@ -179,9 +230,7 @@ static FTSENT *_kngq_next_file(struct kng_queue *kngq) {
 }
 
 static FTSENT *kngq_next_file(struct kng_queue *kngq) {
-  char *paths[] = {
-    kngq->basepath, NULL
-  };
+  char *paths[] = { kngq->basepath, NULL };
   FTSENT *ent;
   int retry = 1;
 
@@ -212,54 +261,18 @@ static FTSENT *kngq_next_file(struct kng_queue *kngq) {
   return ent;
 }
 
-/* return -1 on error, 0 on success */ 
-static int kngq_get_fields(struct kng_queue *kngq, const char *str,
-  const char **id, const char **type) {
-  const char *curr;
-  const char *next;
-  size_t len;
-
-  /*      curr
-   *         v       
-   * timestr-id-type */
-  curr = strchr(str, '-');
-  if (curr == NULL || *(++curr) == '\0') {
-    return -1;
-  }
-
-  /*      curr next
-   *         v v
-   * timestr-id-type */
-  next = strchr(curr, '-');
-  if (next == NULL) {
-    return -1;
-  }
-  len = MIN(sizeof(kngq->id), next-curr);
-  strncpy(kngq->id, curr, next-curr);
-  kngq->id[sizeof(kngq->id)-1] = '\0';
-
-  /*            curr
-   *            v
-   * timestr-id-type */
-  curr = next + 1;
-  if (*curr == '\0') {
-    return -1;
-  }
-  snprintf(kngq->type, sizeof(kngq->type), "%s", curr);
-
-  *id = kngq->id;
-  *type = kngq->type;
-  return 0;
-}
-
 /* returns -1 on error, 0 on no elements in queue, 1 on returned element.
+ * The returned knegd_req will be valid until the next call to kngq_next.
  * The returned element will be the one of the oldest mtime - meaning
  * the oldest entry unless we wrap around and start placing new entries
  * in subdirs which have not yet been depleted. This may be problematic */
-static int kngq_next(struct kng_queue *kngq, const char **id,
-    const char **type) {
-  int ret;
+static int kngq_next(struct kng_queue *kngq,
+    struct ycl_msg_knegd_req *req) {
   FTSENT *ent;
+  int ret;
+  int fd;
+  int res = -1;
+  struct ycl_ctx ycl;
 
   /* get the FTS entry of the next file in the queue, if any */
   ent = kngq_next_file(kngq);
@@ -267,18 +280,31 @@ static int kngq_next(struct kng_queue *kngq, const char **id,
     return 0;
   }
 
-  /* remove the file to avoid double queueing */
-  unlink(ent->fts_path);
-
-  /* Get the id and the type fields and copy them to kng_queue.
-   * ent->fts_name should be of format timestr-id-type. */
-  ret = kngq_get_fields(kngq, ent->fts_name, id, type);
-  if (ret < 0) {
-    kngq->err = EINVAL;
-    return -1;
+  fd = open(ent->fts_path, O_RDONLY);
+  if (fd < 0) {
+    goto cleanup_unlink;
   }
- 
-  return 1;
+
+  ycl_init(&ycl, fd); /* takes ownership of fd */
+  ycl_msg_reset(&kngq->msgbuf);
+  ret = ycl_recvmsg(&ycl, &kngq->msgbuf);
+  if (ret != YCL_OK) {
+    goto cleanup_ycl;
+  }
+
+  ret = ycl_msg_parse_knegd_req(&kngq->msgbuf, req);
+  if (ret != YCL_OK) {
+    goto cleanup_ycl;
+  }
+
+  res = 1; /* signal success - that we have an entry */
+cleanup_ycl:
+  ycl_close(&ycl);
+cleanup_unlink:
+  /* always remove the file to avoid double queueing, regardless of
+   * success/failure to read it */
+  unlink(ent->fts_path);
+  return res;
 }
 
 void kng_set_knegdir(const char *dir) {
@@ -819,7 +845,10 @@ static void on_readreq(struct eds_client *cli, int fd) {
       goto fail;
     }
 
-    ret = kngq_put(&kngq_, req.type.data, req.id.data);
+    /* TODO: If we have available slots for the job right now, we don't
+     *       need to queue it */
+
+    ret = kngq_put(&kngq_, &req);
     if (ret != 0) {
       errmsg = kngq_strerror(&kngq_);
       LOGERR("queue request failed id:\"%s\" type:\"%s\" %s", req.id.data,
@@ -958,15 +987,16 @@ void kng_mod_fini(struct eds_service *svc) {
       nprocs--;
     }
   }
+
+  kngq_cleanup(&kngq_);
 }
 
 static void dispatch_n_jobs(int n) {
   int ret;
-  const char *id;
-  const char *type;
+  struct ycl_msg_knegd_req req;
 
   while (n > 0) {
-    ret = kngq_next(&kngq_, &id, &type);
+    ret = kngq_next(&kngq_, &req);
     if (ret < 0) {
       LOGERR("kngq_next: %s", kngq_strerror(&kngq_));
       break;
@@ -974,7 +1004,12 @@ static void dispatch_n_jobs(int n) {
       break;
     }
 
-    LOGINFO("TODO: dispatch %s %s", id, type);
+    if (req.type.len == 0 || req.id.len == 0) {
+      LOGERR("dispatch_n_jobs: Missing type or ID in job");
+      continue;
+    }
+
+    LOGINFO("TODO: dispatch %s %s", req.id.data, req.type.data);
     /* we should update nrunning for each dispatched job, and update it
      * again when we reap the queued job */
     kngq_update_running(&kngq_, 0); /* TODO: update diff */

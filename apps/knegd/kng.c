@@ -1003,14 +1003,6 @@ void kng_on_tick(struct eds_service *svc) {
 
   /* check if any job has exceeded their allocated execution time */
   jobs_check_times(jobs_);
-
-  /* start queued jobs, if any. It would be better to do this when jobs are
-   * added to the queue, and when jobs are completed, but this is good for
-   * now */
-  navail = kngq_navailable(&kngq_);
-  if (navail > 0) {
-    dispatch_n_jobs(navail);
-  }
 }
 
 void kng_on_finalize(struct eds_client *cli) {
@@ -1027,12 +1019,19 @@ void kng_on_finalize(struct eds_client *cli) {
 }
 
 int kng_mod_init(struct eds_service *svc) {
+  int navail;
   int ret;
 
   ret = kngq_init(&kngq_, opts_.queuedir, opts_.nqueueslots);
   if (ret < 0) {
     fprintf(stderr, "kng_mod_init: %s\n", kngq_strerror(&kngq_));
     return -1;
+  }
+
+  /* start any jobs queued from before */
+  navail = kngq_navailable(&kngq_);
+  if (navail > 0) {
+    dispatch_n_jobs(navail);
   }
 
   return 0;

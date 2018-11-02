@@ -38,9 +38,10 @@ ethframe_req {
 store_req {
   data action;
   data store_id;
-  data name;            # display name, used when creating stores with 'enter'
   data list_must_match; # ERE for filtering content of store_list reply
-  long indexed;         # UNIX timestamp for store index, when creating store
+  long index;           # store index: append entry to index on "enter"
+  data name;            # store index: entry display name in index
+  long indexed;         # store index: UNIX timestamp for index
 }
 
 store_list {

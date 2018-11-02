@@ -211,8 +211,17 @@ static int enter_store(struct store_cli *ecli, const char *store_id,
   return 0;
 }
 
-static int put_index(char *store_id, const char *name, long indexed) {
+static int put_index(const char *store_id, const char *name,
+    long indexed) {
   struct sindex_entry ie = {0};
+
+  if (store_id == NULL) {
+    return -1;
+  }
+
+  if (name == NULL) {
+    name = store_id;
+  }
 
   memcpy(ie.id, store_id, SINDEX_IDSZ);
   strncpy(ie.name, name, SINDEX_NAMESZ);
@@ -221,8 +230,7 @@ static int put_index(char *store_id, const char *name, long indexed) {
   return sindex_put(&sindex_, &ie);
 }
 
-static int create_and_enter_store(int fd, struct store_cli *ecli,
-    const char *name, long indexed) {
+static int create_and_enter_store(int fd, struct store_cli *ecli) {
   char store_id[STORE_IDSZ+1];
   int i;
   int ret;
@@ -231,13 +239,6 @@ static int create_and_enter_store(int fd, struct store_cli *ecli,
     gen_store_path(store_id, sizeof(store_id));
     ret = enter_store(ecli, store_id, STORE_IDSZ, 1);
     if (ret == 0) {
-      if (name == NULL) {
-        name = store_id;
-      }
-      if (put_index(store_id, name, indexed) < 0) {
-        /* indexing is not *that* important, so only log this */
-        LOGERRF(fd, "unable to index newly created store %s", store_id);
-      }
       break;
     }
   }
@@ -628,13 +629,21 @@ static void on_readreq(struct eds_client *cli, int fd) {
     if (req.store_id.data != NULL) {
       ret = enter_store(ecli, req.store_id.data, req.store_id.len, 0);
     } else {
-      const char *name = req.name.len > 0 ? req.name.data : NULL;
-      ret = create_and_enter_store(fd, ecli, name, req.indexed);
+      ret = create_and_enter_store(fd, ecli);
     }
 
     if (ret < 0) {
       errmsg = "unable to enter store";
       goto fail;
+    }
+
+    if (req.index) {
+      const char *store_id = STORE_ID(ecli);
+      ret = put_index(store_id, req.name.data, req.indexed);
+      if (ret < 0) {
+        /* indexing is not *that* important, so only log this */
+        LOGERRF(fd, "unable to add store to index: %s", store_id);
+      }
     }
 
     LOGINFOF(fd, "%s: entered store", STORE_ID(ecli));

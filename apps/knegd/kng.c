@@ -197,7 +197,7 @@ static int kngq_put(struct kng_queue *kngq,
     return -1;
   }
 
-  close(ret);
+  close(fd);
   return 0;
 }
 
@@ -461,7 +461,8 @@ static struct kng_job *job_new(
   storereqmsg.store_id.len = id ? strlen(id) : 0;
   storereqmsg.store_id.data = id;
   storereqmsg.name.len = name ? strlen(name) : 0;
-  storereqmsg.name.data =name;
+  storereqmsg.name.data = name;
+  storereqmsg.index = 1;
   storereqmsg.indexed = (long)time(NULL);
   ret = ycl_msg_create_store_req(&msg, &storereqmsg);
   if (ret != YCL_OK) {
@@ -785,6 +786,7 @@ static struct kng_job *start_knegd_job(struct ycl_msg_knegd_req *req,
       req->timeout > 0 ? (time_t)req->timeout : 0, errmsg);
   if (job != NULL) {
     jobs_add(&jobs_, job);
+    kngq_update_running(&kngq_, 1);
   }
 
   return job;
@@ -869,10 +871,11 @@ static void on_readreq(struct eds_client *cli, int fd) {
         goto fail;
       }
     
-    /* log the job start and respond with the job ID */
-    LOGINFO("started queue job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
-        req.type.data, job->pid, job->id);
+      /* log the job start and respond with the job ID */
+      LOGINFO("started queue job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
+          req.type.data, job->pid, job->id);
     } else {
+      /* No execution slots available, put it in the queue */
       ret = kngq_put(&kngq_, &req);
       if (ret != 0) {
         errmsg = kngq_strerror(&kngq_);
@@ -933,6 +936,8 @@ fail:
 static void dispatch_n_jobs(int n) {
   int ret;
   struct ycl_msg_knegd_req req;
+  struct kng_job *job;
+  const char *errmsg = NULL;
 
   while (n > 0) {
     ret = kngq_next(&kngq_, &req);
@@ -948,11 +953,16 @@ static void dispatch_n_jobs(int n) {
       continue;
     }
 
-    LOGINFO("TODO: dispatch %s %s", req.id.data, req.type.data);
-    /* we should update nrunning for each dispatched job, and update it
-     * again when we reap the queued job */
-    kngq_update_running(&kngq_, 1);
-    n--;
+    job = start_knegd_job(&req, &errmsg);
+    if (!job) {
+      LOGERR("dispatch_n_jobs: failed to start: %s", errmsg);
+    } else {
+      /* we should update nrunning for each dispatched job, and update it
+       * again when we reap the queued job */
+      LOGINFO("started queued job type:\"%s\" pid:%d id:\"%s\"",
+          req.type.data, job->pid, job->id);
+      n--;
+    }
   }
 }
 

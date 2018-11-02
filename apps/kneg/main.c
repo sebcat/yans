@@ -100,15 +100,18 @@ ycl_cleanup:
 }
 
 static int queue(int argc, char **argv) {
+  long l;
   int ret;
   int ch;
   struct ycl_msg_knegd_req req = {0};
-  const char *optstr = "hs:";
+  const char *optstr = "hs:t:n:";
   const char *argv0 = argv[0];
   const char *sock = DFL_KNEGDSOCK;
   static struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
+    {"timeout", required_argument, NULL, 't'},
+    {"name", required_argument, NULL, 'n'},
     {NULL, 0, NULL, 0},
   };
 
@@ -116,6 +119,18 @@ static int queue(int argc, char **argv) {
     switch(ch) {
     case 's':
       sock = optarg;
+      break;
+    case 't':
+      l = strtol(optarg, NULL, 10);
+      if (l <= 0 || l == LONG_MAX) {
+        fprintf(stderr, "invalid timeout\n");
+        exit(EXIT_FAILURE);
+      }
+      req.timeout = l;
+      break;
+    case 'n':
+      req.name.data = optarg;
+      req.name.len = strlen(optarg);
       break;
     case 'h':
     case '?':
@@ -144,8 +159,10 @@ static int queue(int argc, char **argv) {
 usage:
   fprintf(stderr, "usage: %s queue [opts] <id> <type>\n"
       "opts:\n"
-      "  -h|--help           - this text\n"
-      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      "  -h|--help            - this text\n"
+      "  -s|--socket  <path>  - path to knegd socket (%s)\n"
+      "  -t|--timeout <n>     - timeout, in seconds\n"
+      "  -n|--name    <name>  - name of job\n"
       , argv0, DFL_KNEGDSOCK);
   return EXIT_FAILURE;
 }
@@ -336,7 +353,6 @@ usage:
       "opts:\n"
       "  -h|--help            - this text\n"
       "  -i|--id              - store ID\n"
-      "  -p|--param   <param> - kneg parameter\n"
       "  -s|--socket  <path>  - path to knegd socket (%s)\n"
       "  -t|--timeout <n>     - timeout, in seconds\n"
       "  -n|--name    <name>  - name of job\n",

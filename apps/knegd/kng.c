@@ -999,8 +999,6 @@ void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
 }
 
 void kng_on_tick(struct eds_service *svc) {
-  int navail;
-
   /* check if any job has exceeded their allocated execution time */
   jobs_check_times(jobs_);
 }

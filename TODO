@@ -14,6 +14,9 @@
   if service is started two times?)
 - store index --name-must-match?
 
+- sync index vs job.json times - queued or started? Maybe no duplication?
+- have yansapi use "queue" instead of "start" action
+
 
 
 ## subject

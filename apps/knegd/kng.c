@@ -43,8 +43,8 @@
 #define KNG_SENTSIGTERM (1 << 0)
 #define KNG_STOPPED     (1 << 1)
 
-struct kng_ctx {
-  struct kng_ctx *next;
+struct kng_job {
+  struct kng_job *next;
   int flags;
   struct timespec started; /* CLOCK_MONOTONIC time of start */
   time_t timeout;
@@ -70,6 +70,7 @@ struct kng_opts opts_ = {
 
 /* persistent work queue */
 struct kng_queue {
+  /* internal fields - do not use directly */
   char *basepath;              /* queue root directory */
   int err;                     /* saved errno, if any */
   int nslots;                  /* total number of slots */
@@ -78,20 +79,19 @@ struct kng_queue {
   char id[KNGQ_IDSIZE];        /* saved ID, valid for one iteration */
   char type[KNGQ_TYPESIZE];    /* saved type, valid for one iteration */
   unsigned long seq;           /* sequence number for this session */
-
-  struct ycl_msg msgbuf;      /* message buffer used to store next msg */
+  struct ycl_msg msgbuf;       /* message buffer used to store next msg */
 };
 
-struct kng_ctx *jobs_;    /* list of running jobs */
+struct kng_job *jobs_;    /* list of running jobs */
 struct kng_queue kngq_;  /* work queue instance */
 
-static inline int kngq_nslots(struct kng_queue *kngq) {
-  return kngq->nslots;
+static inline int kngq_navailable(struct kng_queue *kngq) {
+  int navail;
+
+  navail = kngq->nslots - kngq->nrunning;
+  return CLAMP(navail, 0, kngq->nslots);
 }
 
-static inline int kngq_nrunning(struct kng_queue *kngq) {
-  return kngq->nrunning;
-}
 
 static inline void kngq_update_running(struct kng_queue *kngq, int diff) {
   kngq->nrunning += diff;
@@ -409,16 +409,14 @@ fail:
   return NULL;
 }
 
-struct kng_jobopts {
-  const char *type;    /* kneg type */
-  const char *id;      /* job ID, if any */
-  const char *name;    /* name for stored index, if any */
-  time_t timeout_sec;  /* timeout in seconds, or 0 for no timeout */
-};
-
-static struct kng_ctx *kng_new(struct kng_jobopts *opts,
-    const char **err) {
-  struct kng_ctx *s = NULL;
+static struct kng_job *job_new(
+    const char *type,    /* kneg type */
+    const char *id,      /* job ID, if any */
+    const char *name,    /* name for stored index, if any */
+    time_t timeout_sec,  /* timeout in seconds, or 0 for no timeout */
+    const char **err     /* (out) a string describing failure, if any */
+    ) {
+  struct kng_job *s = NULL;
   int logfd;
   int ret;
   int closed_ycls = 0;
@@ -431,15 +429,14 @@ static struct kng_ctx *kng_new(struct kng_jobopts *opts,
   struct ycl_msg_store_entered_req enteredmsg = {{0}};
   struct ycl_msg_status_resp resp = {{0}};
 
-  assert(opts != NULL);
   assert(err != NULL);
 
-  if (!is_valid_type(opts->type)) {
+  if (!is_valid_type(type)) {
     *err = "empty or invalid job type";
     goto fail;
   }
 
-  s = calloc(1, sizeof(struct kng_ctx));
+  s = calloc(1, sizeof(struct kng_job));
   if (s == NULL) {
     *err = "insufficient memory";
     goto fail;
@@ -461,10 +458,10 @@ static struct kng_ctx *kng_new(struct kng_jobopts *opts,
 
   storereqmsg.action.data = "enter";
   storereqmsg.action.len = sizeof("enter")-1;
-  storereqmsg.store_id.len = opts->id ? strlen(opts->id) : 0;
-  storereqmsg.store_id.data = opts->id;
-  storereqmsg.name.len = opts->name ? strlen(opts->name) : 0;
-  storereqmsg.name.data =opts->name;
+  storereqmsg.store_id.len = id ? strlen(id) : 0;
+  storereqmsg.store_id.data = id;
+  storereqmsg.name.len = name ? strlen(name) : 0;
+  storereqmsg.name.data =name;
   storereqmsg.indexed = (long)time(NULL);
   ret = ycl_msg_create_store_req(&msg, &storereqmsg);
   if (ret != YCL_OK) {
@@ -503,13 +500,13 @@ static struct kng_ctx *kng_new(struct kng_jobopts *opts,
 
   strncpy(s->id, resp.okmsg.data, sizeof(s->id));
   s->id[sizeof(s->id)-1] = '\0';
-  envp = mkenvp(s->id, opts->type);
+  envp = mkenvp(s->id, type);
   if (envp == NULL) {
     *err = "insufficient memory";
     goto cleanup_ycl_msg;
   }
 
-  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, opts->type);
+  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, type);
   enteredmsg.action.data = "open";
   enteredmsg.action.len = 5;
   enteredmsg.open_path.data = "kneg.log";
@@ -540,13 +537,13 @@ static struct kng_ctx *kng_new(struct kng_jobopts *opts,
     goto cleanup_logfd;
   }
 
-  if (opts->timeout_sec > 0) {
-    s->timeout = opts->timeout_sec;
+  if (timeout_sec > 0) {
+    s->timeout = timeout_sec;
   } else {
     s->timeout = opts_.timeout;
   }
 
-  /* NB: We cleanup before fork because we dont want to inherit the ycl fd */
+  /* NB: cleanup before fork in order to close the ycl fd */
   ycl_msg_cleanup(&msg);
   ycl_close(&ctx);
   closed_ycls = 1;
@@ -597,32 +594,33 @@ fail:
   return NULL;
 }
 
-static void kng_free(struct kng_ctx *s) {
+static void job_free(struct kng_job *s) {
   if (s != NULL) {
     free(s);
   }
 }
 
-static void kng_stop(struct kng_ctx *s) {
+static void job_stop(struct kng_job *s) {
   assert(s != NULL);
   kill(s->pid, SIGTERM);
   s->flags |= KNG_STOPPED;
 }
 
-static void jobs_add(struct kng_ctx *s) {
-  assert(s != NULL);
-  assert(s->id != NULL);
+static void jobs_add(struct kng_job **jobs, struct kng_job *job) {
+  assert(job != NULL);
+  assert(job->id != NULL);
 
-  s->next = jobs_;
-  jobs_ = s;
+  job->next = *jobs;
+  *jobs = job;
 }
 
-static struct kng_ctx *jobs_find_by_id(const char *id) {
-  struct kng_ctx *curr;
+static struct kng_job *jobs_find_by_id(struct kng_job *jobs,
+    const char *id) {
+  struct kng_job *curr;
 
   assert(id != NULL);
 
-  for (curr = jobs_; curr != NULL; curr = curr->next) {
+  for (curr = jobs; curr != NULL; curr = curr->next) {
     if (strcmp(curr->id, id) == 0) {
       return curr;
     }
@@ -631,8 +629,8 @@ static struct kng_ctx *jobs_find_by_id(const char *id) {
   return NULL;
 }
 
-static void jobs_check_times() {
-  struct kng_ctx *curr;
+static void jobs_check_times(struct kng_job *jobs) {
+  struct kng_job *curr;
   struct timespec tv;
   int ret;
   time_t nsecs;
@@ -643,7 +641,7 @@ static void jobs_check_times() {
     return;
   }
 
-  for (curr = jobs_; curr != NULL; curr = curr->next) {
+  for (curr = jobs; curr != NULL; curr = curr->next) {
     if (curr->flags & KNG_SENTSIGTERM) {
       LOGERR("sending SIGKILL to pid:%d", curr->pid);
       kill(curr->pid, SIGKILL);
@@ -671,11 +669,11 @@ static void jobs_check_times() {
 }
 
 
-static pid_t jobs_pid(const char *id) {
-  struct kng_ctx *s;
+static pid_t jobs_pid(struct kng_job *jobs, const char *id) {
+  struct kng_job *s;
   assert(id != NULL);
 
-  s = jobs_find_by_id(id);
+  s = jobs_find_by_id(jobs, id);
   if (s != NULL) {
     return s->pid;
   }
@@ -683,7 +681,7 @@ static pid_t jobs_pid(const char *id) {
   return -1;
 }
 
-int append_job_pid(const char *s, size_t len, void *data) {
+static int append_job_pid(const char *s, size_t len, void *data) {
   char pidstr[32];
   buf_t *buf = data;
 
@@ -691,7 +689,7 @@ int append_job_pid(const char *s, size_t len, void *data) {
     buf_achar(buf, ' ');
   }
 
-  snprintf(pidstr, sizeof(pidstr), "%d", jobs_pid(s));
+  snprintf(pidstr, sizeof(pidstr), "%d", jobs_pid(jobs_, s));
   buf_adata(buf, pidstr, strlen(pidstr));
   return 1;
 }
@@ -701,24 +699,24 @@ static void append_job_pids(buf_t *buf, const char *s, size_t len) {
   buf_achar(buf, '\0');
 }
 
-static void jobs_stop(const char *id) {
-  struct kng_ctx *curr;
+static void jobs_stop(struct kng_job *jobs, const char *id) {
+  struct kng_job *curr;
 
   assert(id != NULL);
-  curr = jobs_find_by_id(id);
+  curr = jobs_find_by_id(jobs, id);
   if (curr != NULL) {
-    kng_stop(curr);
+    job_stop(curr);
   }
 }
 
-/* NB: Must only be called after the child is reaped by eds */
-static void jobs_remove(pid_t pid) {
-  struct kng_ctx *curr;
-  struct kng_ctx *prev = NULL;
+/* returns 0 on success, -1 on nonexistent job */
+static int jobs_remove(pid_t pid) {
+  struct kng_job *curr;
+  struct kng_job *prev = NULL;
 
   assert(pid > 0);
 
-  /* find the element, if any */
+  /* find the job corresponding to the PID */
   for (curr = jobs_; curr != NULL; curr = curr->next) {
     if (curr->pid == pid) {
       break;
@@ -726,15 +724,20 @@ static void jobs_remove(pid_t pid) {
     prev = curr;
   }
 
+  /* Check if a job was found */
   if (curr == NULL) {
-    return;
-  } else if (curr == jobs_) {
+    return -1;
+  }
+
+  /* remove the job from the job list */
+  if (curr == jobs_) {
     jobs_ = curr->next;
   } else {
     prev->next = curr->next;
   }
 
-  kng_free(curr);
+  job_free(curr);
+  return 0;
 }
 
 static void write_err_response(struct eds_client *cli, int fd,
@@ -774,12 +777,25 @@ static void write_ok_response(struct eds_client *cli, int fd,
   }
 }
 
+static struct kng_job *start_knegd_job(struct ycl_msg_knegd_req *req,
+    const char **errmsg) {
+  struct kng_job *job;
+
+  job = job_new(req->type.data, req->id.data, req->name.data,
+      req->timeout > 0 ? (time_t)req->timeout : 0, errmsg);
+  if (job != NULL) {
+    jobs_add(&jobs_, job);
+  }
+
+  return job;
+}
+
 static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   const char *okmsg = "OK";
   struct kng_cli *ecli = KNG_CLI(cli);
   struct ycl_msg_knegd_req req = {0};
-  struct kng_ctx *job;
+  struct kng_job *job;
   int ret;
 
   ret = ycl_recvmsg(&ecli->ycl, &ecli->msgbuf);
@@ -803,21 +819,16 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* check if the client wants a job to start */
   if (strcmp(req.action.data, "start") == 0) {
-    struct kng_jobopts opts = {
-      .type = req.type.data,
-      .id = req.id.data,
-      .name = req.name.data,
-      .timeout_sec = req.timeout > 0 ? (time_t)req.timeout : 0,
-    };
-
-    job = kng_new(&opts, &errmsg);
+    /* start the job, if possible */
+    job = start_knegd_job(&req, &errmsg);
     if (job == NULL) {
       goto fail;
     }
-    jobs_add(job);
-    buf_adata(&ecli->respbuf, job->id, strlen(job->id) + 1);
+    
+    /* log the job start and respond with the job ID */
     LOGINFO("started job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
         req.type.data, job->pid, job->id);
+    buf_adata(&ecli->respbuf, job->id, strlen(job->id) + 1);
     write_ok_response(cli, fd, ecli->respbuf.data);
     return;
   }
@@ -830,6 +841,8 @@ static void on_readreq(struct eds_client *cli, int fd) {
 
   /* check req/resp actions, or error out on unknown action */
   if (strcmp(req.action.data, "queue") == 0) {
+    int navail;
+
     if (!is_valid_type(req.type.data)) {
       errmsg = "empty or invalid job type";
       goto fail;
@@ -845,23 +858,36 @@ static void on_readreq(struct eds_client *cli, int fd) {
       goto fail;
     }
 
-    /* TODO: If we have available slots for the job right now, we don't
-     *       need to queue it */
-
-    ret = kngq_put(&kngq_, &req);
-    if (ret != 0) {
-      errmsg = kngq_strerror(&kngq_);
-      LOGERR("queue request failed id:\"%s\" type:\"%s\" %s", req.id.data,
-          req.type.data, errmsg);
-      goto fail;
+    /* check number of execution slots available. Start the job at once
+     * if we have available execution slots, queue the job for future
+     * execution if no execution slots are available */
+    navail = kngq_navailable(&kngq_);
+    if (navail > 0) {
+      /* we have execution slots available ATM, start the job directly */
+      job = start_knegd_job(&req, &errmsg);
+      if (job == NULL) {
+        goto fail;
+      }
+    
+    /* log the job start and respond with the job ID */
+    LOGINFO("started queue job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
+        req.type.data, job->pid, job->id);
     } else {
-      LOGINFO("queued id:\"%s\" type:\"%s\"", req.id.data, req.type.data);
+      ret = kngq_put(&kngq_, &req);
+      if (ret != 0) {
+        errmsg = kngq_strerror(&kngq_);
+        LOGERR("queue request failed id:\"%s\" type:\"%s\" %s", req.id.data,
+            req.type.data, errmsg);
+        goto fail;
+      } else {
+        LOGINFO("queued id:\"%s\" type:\"%s\"", req.id.data, req.type.data);
+      }
     }
   } else if (strcmp(req.action.data, "pids") == 0) {
     append_job_pids(&ecli->respbuf, req.id.data, req.id.len);
     okmsg = ecli->respbuf.data;
   } else if (strcmp(req.action.data, "stop") == 0) {
-    jobs_stop(req.id.data);
+    jobs_stop(jobs_, req.id.data);
     LOGINFO("stop request received id:\"%s\"", req.id.data);
   } else {
     errmsg = "unknown action";
@@ -904,9 +930,37 @@ fail:
   eds_client_clear_actions(cli);
 }
 
+static void dispatch_n_jobs(int n) {
+  int ret;
+  struct ycl_msg_knegd_req req;
+
+  while (n > 0) {
+    ret = kngq_next(&kngq_, &req);
+    if (ret < 0) {
+      LOGERR("kngq_next: %s", kngq_strerror(&kngq_));
+      break;
+    } else if (ret == 0) {
+      break;
+    }
+
+    if (req.type.len == 0 || req.id.len == 0) {
+      LOGERR("dispatch_n_jobs: Missing type or ID in job");
+      continue;
+    }
+
+    LOGINFO("TODO: dispatch %s %s", req.id.data, req.type.data);
+    /* we should update nrunning for each dispatched job, and update it
+     * again when we reap the queued job */
+    kngq_update_running(&kngq_, 1);
+    n--;
+  }
+}
+
 void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     int status) {
   int code;
+  int navail;
+  int ret;
 
   /* NB: anything but exit code 0 is logged as an error */
   if (WIFEXITED(status)) {
@@ -921,7 +975,32 @@ void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
   } else {
     LOGERR("job terminated pid:%d status:0x%x", pid, status);
   }
-  jobs_remove(pid);
+
+  ret = jobs_remove(pid);
+  if (ret == 0) {
+    kngq_update_running(&kngq_, -1);
+  }
+
+  /* start at most 'navail' new jobs */
+  navail = kngq_navailable(&kngq_);
+  if (navail > 0) {
+    dispatch_n_jobs(navail);
+  }
+}
+
+void kng_on_tick(struct eds_service *svc) {
+  int navail;
+
+  /* check if any job has exceeded their allocated execution time */
+  jobs_check_times(jobs_);
+
+  /* start queued jobs, if any. It would be better to do this when jobs are
+   * added to the queue, and when jobs are completed, but this is good for
+   * now */
+  navail = kngq_navailable(&kngq_);
+  if (navail > 0) {
+    dispatch_n_jobs(navail);
+  }
 }
 
 void kng_on_finalize(struct eds_client *cli) {
@@ -951,8 +1030,8 @@ int kng_mod_init(struct eds_service *svc) {
 
 void kng_mod_fini(struct eds_service *svc) {
   int nprocs = 0;
-  struct kng_ctx *curr;
-  struct kng_ctx *next;
+  struct kng_job *curr;
+  struct kng_job *next;
   struct timespec sleep;
   struct timespec remaining;
   pid_t pid;
@@ -973,7 +1052,7 @@ void kng_mod_fini(struct eds_service *svc) {
     for (curr = jobs_; curr != NULL; curr = next) {
       kill(curr->pid, SIGKILL);
       next = curr->next;
-      kng_free(curr);
+      job_free(curr);
     }
 
     while (nprocs > 0) {
@@ -991,43 +1070,3 @@ void kng_mod_fini(struct eds_service *svc) {
   kngq_cleanup(&kngq_);
 }
 
-static void dispatch_n_jobs(int n) {
-  int ret;
-  struct ycl_msg_knegd_req req;
-
-  while (n > 0) {
-    ret = kngq_next(&kngq_, &req);
-    if (ret < 0) {
-      LOGERR("kngq_next: %s", kngq_strerror(&kngq_));
-      break;
-    } else if (ret == 0) {
-      break;
-    }
-
-    if (req.type.len == 0 || req.id.len == 0) {
-      LOGERR("dispatch_n_jobs: Missing type or ID in job");
-      continue;
-    }
-
-    LOGINFO("TODO: dispatch %s %s", req.id.data, req.type.data);
-    /* we should update nrunning for each dispatched job, and update it
-     * again when we reap the queued job */
-    kngq_update_running(&kngq_, 0); /* TODO: update diff */
-    n--;
-  }
-}
-
-void kng_on_tick(struct eds_service *svc) {
-  int nslots;
-  int nrunning;
-
-  /* check if any job has exceeded their allocated execution time */
-  jobs_check_times();
-
-  /* start queued jobs, if any */
-  nslots = kngq_nslots(&kngq_);
-  nrunning = kngq_nrunning(&kngq_);
-  if (nrunning < nslots) {
-    dispatch_n_jobs(nslots - nrunning);
-  }
-}

@@ -638,11 +638,14 @@ static void on_readreq(struct eds_client *cli, int fd) {
     }
 
     if (req.index) {
+      /* add the store ID to the index, if possible */
       const char *store_id = STORE_ID(ecli);
       ret = put_index(store_id, req.name.data, req.indexed);
       if (ret < 0) {
-        /* indexing is not *that* important, so only log this */
         LOGERRF(fd, "unable to add store to index: %s", store_id);
+      } else {
+        LOGINFOF(fd, "%s: indexed store w/ name:%s",
+            store_id, req.name.data ? req.name.data : "");
       }
     }
 

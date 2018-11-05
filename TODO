@@ -12,8 +12,31 @@
 - Currently, a hard restart prevents services from starting again due to
   existing PID-files. Clean pidfiles on service start (potential issues
   if service is started two times?)
+- Do not wait while shutting down a service if all children are terminated
 - store index --name-must-match?
 
+- n/a, queued, started, completed - how to differentiate?
+  kneg status <id>
+  1)
+    * queue_knegd_job: queued
+    * start_knegd_job: started
+    * kng_on_svc_reaped_child: completed
+    * everything else: n/a
+    * store status as file in store
+    * job_update_status(kng_job *s, const char *status);
+  2)
+    * queued, started, inactive - Have knegd keep state of queued and
+      started jobs and consider everything else "inactive"
+      (n/a or completed)
+    * symlink e.g., queue/ids/31/abcdedaaff1231 -> queue/45/01234567-1
+      and implement int kngq_contains(struct kng_queue *q, const char *id);
+      kngq_put: Add symlink
+      kngq_next: Remove symlink
+    * if kngq_contains, status: queued
+      else if jobs_find_by_id != NULL: started
+      else: inactive
+  1) requires IPC and harder coupling with store, 2) is less coupled with
+  store, however we do not know if something is queued or not
 - sync index vs job.json times - queued or started? Maybe no duplication?
 - have yansapi use "queue" instead of "start" action
 

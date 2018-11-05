@@ -20,7 +20,7 @@
 #endif
 
 #ifndef DFL_NQUEUESLOTS
-#define DFL_NQUEUESLOTS 10
+#define DFL_NQUEUESLOTS 7
 #endif
 
 #define DFL_TIMEOUT 43200 /* default process timeout, in seconds */

@@ -60,14 +60,6 @@ struct kng_opts {
   const char *storesock;
 };
 
-struct kng_opts opts_ = {
-  .knegdir = DFL_KNEGDIR,
-  .queuedir = DFL_QUEUEDIR,
-  .nqueueslots = DFL_NQUEUESLOTS,
-  .timeout = DFL_TIMEOUT,
-  .storesock = DFL_STORESOCK,
-};
-
 /* persistent work queue */
 struct kng_queue {
   /* internal fields - do not use directly */
@@ -82,8 +74,15 @@ struct kng_queue {
   struct ycl_msg msgbuf;       /* message buffer used to store next msg */
 };
 
-struct kng_job *jobs_;    /* list of running jobs */
-struct kng_queue kngq_;  /* work queue instance */
+static struct kng_job *jobs_;       /* list of running jobs */
+static struct kng_queue kngq_;      /* work queue instance */
+static struct kng_opts opts_ = {    /* module options */
+  .knegdir = DFL_KNEGDIR,
+  .queuedir = DFL_QUEUEDIR,
+  .nqueueslots = DFL_NQUEUESLOTS,
+  .timeout = DFL_TIMEOUT,
+  .storesock = DFL_STORESOCK,
+};
 
 static inline int kngq_navailable(struct kng_queue *kngq) {
   int navail;
@@ -91,7 +90,6 @@ static inline int kngq_navailable(struct kng_queue *kngq) {
   navail = kngq->nslots - kngq->nrunning;
   return CLAMP(navail, 0, kngq->nslots);
 }
-
 
 static inline void kngq_update_running(struct kng_queue *kngq, int diff) {
   kngq->nrunning += diff;
@@ -420,7 +418,6 @@ static struct kng_job *job_new(
   int logfd;
   int ret;
   int closed_ycls = 0;
-  char path[256];
   pid_t pid = -1;
   char **envp = NULL;
   struct ycl_ctx ctx;
@@ -507,7 +504,6 @@ static struct kng_job *job_new(
     goto cleanup_ycl_msg;
   }
 
-  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, type);
   enteredmsg.action.data = "open";
   enteredmsg.action.len = 5;
   enteredmsg.open_path.data = "kneg.log";
@@ -554,7 +550,10 @@ static struct kng_job *job_new(
     *err = "fork failure";
     goto cleanup_logfd;
   } else if (pid == 0) {
+    char path[256];
     char *argv[2] = {path, NULL};
+
+    snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, type);
     dup2(logfd, STDIN_FILENO);
     dup2(logfd, STDOUT_FILENO);
     dup2(logfd, STDERR_FILENO);
@@ -605,14 +604,6 @@ static void job_stop(struct kng_job *s) {
   assert(s != NULL);
   kill(s->pid, SIGTERM);
   s->flags |= KNG_STOPPED;
-}
-
-static void jobs_add(struct kng_job **jobs, struct kng_job *job) {
-  assert(job != NULL);
-  assert(job->id != NULL);
-
-  job->next = *jobs;
-  *jobs = job;
 }
 
 static struct kng_job *jobs_find_by_id(struct kng_job *jobs,
@@ -710,15 +701,23 @@ static void jobs_stop(struct kng_job *jobs, const char *id) {
   }
 }
 
+static void jobs_add(struct kng_job **jobs, struct kng_job *job) {
+  assert(job != NULL);
+  assert(job->id != NULL);
+
+  job->next = *jobs;
+  *jobs = job;
+}
+
 /* returns 0 on success, -1 on nonexistent job */
-static int jobs_remove(pid_t pid) {
+static int jobs_remove(struct kng_job **jobs, pid_t pid) {
   struct kng_job *curr;
   struct kng_job *prev = NULL;
 
   assert(pid > 0);
 
   /* find the job corresponding to the PID */
-  for (curr = jobs_; curr != NULL; curr = curr->next) {
+  for (curr = *jobs; curr != NULL; curr = curr->next) {
     if (curr->pid == pid) {
       break;
     }
@@ -731,8 +730,8 @@ static int jobs_remove(pid_t pid) {
   }
 
   /* remove the job from the job list */
-  if (curr == jobs_) {
-    jobs_ = curr->next;
+  if (curr == *jobs) {
+    *jobs = curr->next;
   } else {
     prev->next = curr->next;
   }
@@ -986,7 +985,7 @@ void kng_on_svc_reaped_child(struct eds_service *svc, pid_t pid,
     LOGERR("job terminated pid:%d status:0x%x", pid, status);
   }
 
-  ret = jobs_remove(pid);
+  ret = jobs_remove(&jobs_, pid);
   if (ret == 0) {
     kngq_update_running(&kngq_, -1);
   }

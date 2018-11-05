@@ -320,14 +320,18 @@ local function post_scan(ctx)
   -- create new store and write the request to it
   local store, kneg, file = ctx.data.store, ctx.data.kneg, yans.file
   local started = os.time()
-  local id = store:enter{name=store_name, indexed=started}
+  local id = store:enter()
   req.name = store_name
   req.started = started
   store:open("job.json", file.O_WRONLY | file.O_CREAT |
       file.O_TRUNC):to_stream("wb"):write(tostring(req)):close()
 
   -- Start kneg scan with same ID
-  kneg:start(SCANTYPE, id)
+  kneg:start{
+    type = SCANTYPE,
+    id   = id,
+    name = store_name,
+  }
 
   -- build response
   local data  = json.from_str"{}"

@@ -27,12 +27,9 @@ function _M:pids(ids)
   return resp.okmsg
 end
 
-function _M:start(t, id)
-  self.msgbuf:create_knegd_req{
-    action = "start",
-    type   = t,
-    id     = id,
-  }
+function _M:start(o)
+  o.action = "start"
+  self.msgbuf:create_knegd_req(o)
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)
   local resp = self.msgbuf:parse_status_resp()

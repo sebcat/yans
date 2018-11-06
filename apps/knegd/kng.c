@@ -97,25 +97,35 @@ static inline void kngq_update_running(struct kng_queue *kngq, int diff) {
 
 static int kngq_init(struct kng_queue *kngq, char *basepath, int nslots) {
   int ret;
+  char iddir[256];
 
   assert(basepath != NULL);
 
   memset(kngq, 0, sizeof(*kngq));
+  kngq->basepath = basepath;
+  kngq->nslots = nslots;
+
+  /* create basepath directory, unless it exists */
+  ret = mkdir(kngq->basepath, 0700);
+  if (ret != 0 && errno != EEXIST) {
+    goto fail;
+  }
+
+  /* create directory holding symlinks from ID to
+   * entry, unless it exists */
+  snprintf(iddir, sizeof(iddir), "%s/ids", kngq->basepath);
+  ret = mkdir(iddir, 0700);
+  if (ret != 0 && errno != EEXIST) {
+    goto fail;
+  }
+
+  /* init IPC message buffer */
   ret = ycl_msg_init(&kngq->msgbuf);
   if (ret != YCL_OK) {
     goto fail;
   }
 
-  kngq->basepath = basepath;
-  kngq->nslots = nslots;
-  ret = mkdir(kngq->basepath, 0700);
-  if (ret != 0 && errno != EEXIST) {
-    goto ycl_msg_cleanup;
-  }
-
   return 0;
-ycl_msg_cleanup:
-  ycl_msg_cleanup(&kngq->msgbuf);
 fail:
   kngq->err = errno;
   return -1;
@@ -133,6 +143,93 @@ static const char *kngq_strerror(struct kng_queue *kngq) {
   } else {
     return strerror(kngq->err);
   }
+}
+
+static void kngq_mklinkdirpath(struct kng_queue *kngq, char *buf,
+    size_t len, const char *id, size_t idlen) {
+  assert(buf != NULL);
+  assert(len > 8);
+  assert(id != NULL);
+  assert(idlen > 2);
+
+  snprintf(buf, len, "%s/ids/%c%c", kngq->basepath, id[idlen-2],
+      id[idlen-1]);
+}
+
+static int kngq_link_id(struct kng_queue *kngq, const char *id,
+    const char *srcpath) {
+  char dirpath[512];
+  char dstpath[512];
+  int ret;
+
+  /* create directory path and symlink destination path */
+  kngq_mklinkdirpath(kngq, dirpath, sizeof(dirpath), id, strlen(id));
+  ret = snprintf(dstpath, sizeof(dstpath), "%s/%s", dirpath, id);
+  if (ret < 0 || ret > sizeof(dstpath)-1) {
+    kngq->err = E2BIG;
+    return -1;
+  }
+
+  /* Create symlink. Assume dirpath directory exists at first */
+  ret = symlink(srcpath, dstpath);
+  if (ret < 0 && errno == ENOENT) {
+    mkdir(dirpath, 0700);
+    ret = symlink(srcpath, dstpath);
+  }
+  if (ret < 0) {
+    kngq->err = errno;
+    return -1;
+  }
+
+  return 0;
+}
+
+static int kngq_unlink_id(struct kng_queue *kngq, const char *id) {
+  char dirpath[512];
+  char dstpath[512];
+  int ret;
+
+  /* create directory path and symlink destination path */
+  kngq_mklinkdirpath(kngq, dirpath, sizeof(dirpath), id, strlen(id));
+  ret = snprintf(dstpath, sizeof(dstpath), "%s/%s", dirpath, id);
+  if (ret < 0 || ret > sizeof(dstpath)-1) {
+    kngq->err = E2BIG;
+    return -1;
+  }
+
+  ret = unlink(dstpath);
+  if (ret < 0) {
+    kngq->err = errno;
+    return -1;
+  }
+
+  return 0;
+}
+
+/* returns 1 if the queue contains an element referenced by ID, 0 if not */
+static int kngq_contains(struct kng_queue *kngq, const char *id) {
+  char dirpath[512];
+  char dstpath[512];
+  int ret;
+  struct stat sb;
+
+  /* create directory path and symlink destination path */
+  kngq_mklinkdirpath(kngq, dirpath, sizeof(dirpath), id, strlen(id));
+  ret = snprintf(dstpath, sizeof(dstpath), "%s/%s", dirpath, id);
+  if (ret < 0 || ret > sizeof(dstpath)-1) {
+    kngq->err = E2BIG;
+    return 0; /* report as non-existant */
+  }
+
+  /* stat(2), unlinke lstat(2), follows symlinks and will return a failure
+   * for missing/invalid links. Disregard the exact nature of the failure
+   * and return true only on stat(2) success */
+  ret = stat(dstpath, &sb);
+  if (ret == 0) {
+    return 1;
+  }
+
+  return 0;
 }
 
 static int _kngq_put(struct kng_queue *kngq, struct ycl_msg_knegd_req *req,
@@ -158,7 +255,8 @@ static int _kngq_put(struct kng_queue *kngq, struct ycl_msg_knegd_req *req,
 
 static int kngq_put(struct kng_queue *kngq,
     struct ycl_msg_knegd_req *req) {
-  char path[1024];
+  char path[512];
+  char relpath[512];
   char timestr[32];
   size_t timelen;
   int ret;
@@ -192,11 +290,33 @@ static int kngq_put(struct kng_queue *kngq,
   if (ret < 0) {
     kngq->err = errno;
     close(fd);
-    return -1;
+    goto cleanup_unlink;
   }
 
   close(fd);
+
+  /* create the link source path */
+  if (path[0] != '/') {
+    ret = snprintf(relpath, sizeof(relpath), "../../../%s", path);
+  } else {
+    ret = snprintf(relpath, sizeof(relpath), "%s", path);
+  }
+  if (ret > sizeof(relpath)-1) {
+    kngq->err = E2BIG;
+    goto cleanup_unlink;
+  }
+
+  /* create id -> entry link */
+  ret = kngq_link_id(kngq, req->id.data, relpath);
+  if (ret < 0) {
+    goto cleanup_unlink;
+  }
+
   return 0;
+
+cleanup_unlink:
+  unlink(path);
+  return -1;
 }
 
 static int fts_oldest_first(const FTSENT * const *a,
@@ -217,9 +337,10 @@ static FTSENT *_kngq_next_file(struct kng_queue *kngq) {
   while ((ent = fts_read(kngq->fts)) != NULL) {
     if (ent->fts_info == FTS_F) {
       break;
-    } else if (ent->fts_info == FTS_DP && ent->fts_level >= 1) {
-      /* post-order subdir - try to rmdir it. If it's empty - good. If
-       * it's not - no problem */
+    } else if (ent->fts_info == FTS_DP && ent->fts_level >= 1 &&
+        strcmp(ent->fts_name, "ids") != 0) {
+      /* post-order entry subdir - try to rmdir it. If it's empty - good.
+       * If it's not - no problem */
       rmdir(ent->fts_path);
     }
   }
@@ -293,6 +414,11 @@ static int kngq_next(struct kng_queue *kngq,
   ret = ycl_msg_parse_knegd_req(&kngq->msgbuf, req);
   if (ret != YCL_OK) {
     goto cleanup_ycl;
+  }
+
+  /* remove ID symlink */
+  if (req->id.data) {
+    kngq_unlink_id(kngq, req->id.data);
   }
 
   res = 1; /* signal success - that we have an entry */
@@ -691,6 +817,40 @@ static void append_job_pids(buf_t *buf, const char *s, size_t len) {
   buf_achar(buf, '\0');
 }
 
+static int append_job_status(const char *s, size_t len, void *data) {
+  struct kng_job *job;
+  buf_t *buf = data;
+
+  assert(s != NULL);
+  assert(s > 0);
+  assert(data != NULL);
+
+  if (buf->len > 0) {
+    buf_achar(buf, ' ');
+  }
+
+  /* does the ID refer to a running job? */
+  job = jobs_find_by_id(jobs_, s);
+  if (job != NULL) {
+    buf_adata(buf, "running", sizeof("running")-1);
+    return 1;
+  }
+
+  /* does the ID refer to a queued job? */
+  if (kngq_contains(&kngq_, s)) {
+    buf_adata(buf, "queued", sizeof("queued")-1);
+    return 1;
+  }
+
+  buf_adata(buf, "n/a", sizeof("n/a")-1);
+  return 1;
+}
+
+static void append_job_statuses(buf_t *buf, const char *s, size_t len) {
+  str_map_field(s, len, "", 1, append_job_status, buf);
+  buf_achar(buf, '\0');
+}
+
 static void jobs_stop(struct kng_job *jobs, const char *id) {
   struct kng_job *curr;
 
@@ -887,6 +1047,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
     }
   } else if (strcmp(req.action.data, "pids") == 0) {
     append_job_pids(&ecli->respbuf, req.id.data, req.id.len);
+    okmsg = ecli->respbuf.data;
+  } else if (strcmp(req.action.data, "status") == 0) {
+    append_job_statuses(&ecli->respbuf, req.id.data, req.id.len);
     okmsg = ecli->respbuf.data;
   } else if (strcmp(req.action.data, "stop") == 0) {
     jobs_stop(jobs_, req.id.data);

@@ -220,6 +220,59 @@ usage:
   return EXIT_FAILURE;
 }
 
+static int status(int argc, char **argv) {
+  int ret;
+  int ch;
+  int i;
+  buf_t b;
+  struct ycl_msg_knegd_req req = {0};
+  const char *optstr = "hs:";
+  const char *argv0 = argv[0];
+  const char *sock = DFL_KNEGDSOCK;
+  static struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      sock = optarg;
+      break;
+    case 'h':
+    case '?':
+      goto usage;
+    }
+  }
+
+  argc -= optind + 1;
+  argv += optind + 1;
+  buf_init(&b, 1024);
+  for (i = 0; i < argc; i++) {
+    buf_adata(&b, argv[i], strlen(argv[i]) + 1);
+  }
+
+  req.action.data = "status";
+  req.action.len = sizeof("status")-1;
+  req.id.data = b.data;
+  req.id.len = b.len;
+  ret = reqresp(sock, &req);
+  buf_cleanup(&b);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+
+usage:
+  fprintf(stderr, "usage: %s status [opts] <id0> [id1] ... [idN]\n"
+      "opts:\n"
+      "  -h|--help           - this text\n"
+      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      , argv0, DFL_KNEGDSOCK);
+  return EXIT_FAILURE;
+}
+
 static int stop(int argc, char **argv) {
   int ret;
   int ch;
@@ -380,6 +433,7 @@ int main(int argc, char *argv[]) {
   static const struct subcmd subcmds[] = {
     {"start", start},
     {"pids", pids},
+    {"status", status},
     {"queue", queue},
     {"stop", stop},
     {NULL, NULL},

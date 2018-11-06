@@ -1,13 +1,14 @@
 - scanny: --limit-nsubjects=${N} - before, after resolve
-- check and fix:
-    Aug 21 06:55:20 resistance knegd[88314]: failure: premature connection termination fd:5
-    Aug 21 06:55:20 resistance knegd[88314]: knegd: fd 5 write error: Broken pipe
-- have eds use wait4 instead of waitpid and report rusage? (utime,stime,maxrss)
+  or maybe not, could be that we should accept an arbitrary large number
+  of subjects, limited only by disk and execution time.
 - store list <store-id> - pass dir-fd from stored and have client list store?
 - pass fopen-style mode string to store instead of flags, have the mode string
   copied to the Lua file descriptor type and make it possible to write
   foo:open("trololo", "rb"):to_stream() without passing the mode string to
   to_stream
+
+- yans-fe: If 1) is selected, then 2) then 1) again: report entries are
+  appended. Make them replace instead of append
 
 - Currently, a hard restart prevents services from starting again due to
   existing PID-files. Clean pidfiles on service start (potential issues
@@ -39,26 +40,6 @@
   store, however we do not know if something is queued or not
 - sync index vs job.json times - queued or started? Maybe no duplication?
 - have yansapi use "queue" instead of "start" action
-
-
-
-## subject
-  - A subject is one IP(v4/v6) address reachable from a certain NIC with a
-    specific hardware address as the next hop (which may or may not be the
-    subject's hardware address)
-  - a subject has:
-    - source interface
-    - source hwaddr
-    - next hop hwaddr (gw or the subject itself)
-    - destination IP address
-    - name (optional, used for HTTP Host header and SNI)
-  - 10.0.2.72 is two different subjects if found on different NICs
-  - 10.0.2.72 is two different subjects if found with different hwaddrs as
-    the next hop
-  - 10.0.2.72 with a name of example.com and 10.0.2.72 without a name
-    are the same subject. If both 10.0.2.72 without and with a name is
-    entered, the name is/should be associated with 10.0.2.72 and 10.0.2.72
-    is scanned with that name when doing TLS-SNI and HTTP requests.
 
 ## ethd
   - interfaces and stuff are loaded at boot, may change during uptime

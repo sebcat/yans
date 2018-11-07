@@ -327,7 +327,7 @@ local function post_scan(ctx)
       file.O_TRUNC):to_stream("wb"):write(tostring(req)):close()
 
   -- Start kneg scan with same ID
-  kneg:start{
+  kneg:queue{
     type = SCANTYPE,
     id   = id,
     name = store_name,

@@ -27,14 +27,23 @@ function _M:pids(ids)
   return resp.okmsg
 end
 
-function _M:start(o)
-  o.action = "start"
+function _M:_rr(o)
   self.msgbuf:create_knegd_req(o)
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)
   local resp = self.msgbuf:parse_status_resp()
   assert(not resp.errmsg, resp.errmsg)
   return resp.okmsg
+end
+
+function _M:start(o)
+  o.action = "start"
+  self:_rr(o)
+end
+
+function _M:queue(o)
+  o.action = "queue"
+  self:_rr(o)
 end
 
 return _M

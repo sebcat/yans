@@ -391,6 +391,9 @@ static void handle_store_rename(struct eds_client *cli, int fd,
     snprintf(to_path, sizeof(to_path), "rename: %s", strerror(errno));
     errmsg = to_path;
     LOGERR(fd, errmsg);
+  } else {
+    LOGINFOF(fd, "%s: renamed %s -> %s", STORE_ID(ecli), from_path,
+        to_path);
   }
 
   /* send the response */

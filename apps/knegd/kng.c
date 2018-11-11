@@ -386,7 +386,7 @@ static FTSENT *kngq_next_file(struct kng_queue *kngq) {
  * the oldest entry unless we wrap around and start placing new entries
  * in subdirs which have not yet been depleted. This may be problematic */
 static int kngq_next(struct kng_queue *kngq,
-    struct ycl_msg_knegd_req *req) {
+    struct ycl_msg_knegd_req *req, time_t *ctime) {
   FTSENT *ent;
   int ret;
   int fd;
@@ -419,6 +419,11 @@ static int kngq_next(struct kng_queue *kngq,
   /* remove ID symlink */
   if (req->id.data) {
     kngq_unlink_id(kngq, req->id.data);
+  }
+
+  /* save the creation time */
+  if (ctime) {
+    *ctime = ent->fts_statp->st_ctime;
   }
 
   res = 1; /* signal success - that we have an entry */
@@ -1100,9 +1105,10 @@ static void dispatch_n_jobs(int n) {
   struct ycl_msg_knegd_req req;
   struct kng_job *job;
   const char *errmsg = NULL;
+  time_t ctime = 0;
 
   while (n > 0) {
-    ret = kngq_next(&kngq_, &req);
+    ret = kngq_next(&kngq_, &req, &ctime);
     if (ret < 0) {
       LOGERR("kngq_next: %s", kngq_strerror(&kngq_));
       break;
@@ -1121,8 +1127,9 @@ static void dispatch_n_jobs(int n) {
     } else {
       /* we should update nrunning for each dispatched job, and update it
        * again when we reap the queued job */
-      LOGINFO("started queued job type:\"%s\" pid:%d id:\"%s\"",
-          req.type.data, job->pid, job->id);
+      LOGINFO("started queued job type:\"%s\" pid:%d id:\"%s\" "
+          "queued-for:%ds",
+          req.type.data, job->pid, job->id, (int)(time(NULL) - ctime));
       n--;
     }
   }

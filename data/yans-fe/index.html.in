@@ -509,10 +509,13 @@ function YansView(pname) {
   let self = this;
   let parent = document.getElementById(pname);
   
-  self.getRunningSymbol = function(is_running) {
+  self.getStatusSymbol = function(statusstr) {
     let r;
-    if (is_running) {
+    if (statusstr === "running") {
       r = Loader();
+    } else if (statusstr === "queued") {
+      r = document.createElement("span");
+      r.innerHTML = "Q";
     } else {
       r = document.createElement("span");
       r.innerHTML = "&#10004";
@@ -520,12 +523,13 @@ function YansView(pname) {
     return r;
   };
 
-  self.updateReport = function(id, is_running, entries) {
-    let entry  = document.getElementById("entry-" + id);
-    if (!is_running) {
+  self.updateReport = function(id, status, entries) {
+    let entry = document.getElementById("entry-" + id);
+    /* FIXME: if was running, but no longer is running */
+    if (status !== "running") {
       /* not running: replace the running symbol */
       let ehr = entry.querySelector(".entry-header-right");
-      ehr.replaceChild(self.getRunningSymbol(false), ehr.firstChild);
+      ehr.replaceChild(self.getStatusSymbol(status), ehr.firstChild);
 
       /* TODO: Maybe merge the old entries with the new, keeping any
        *       expanded entries expanded &c */
@@ -548,7 +552,7 @@ function YansView(pname) {
       let entry = ListEntry({
         title: anchor,
         subtitle: subtitlestr,
-        right: self.getRunningSymbol(report.running),
+        right: self.getStatusSymbol(report.status),
         cntId: report_id
       });
       reportdiv.appendChild(entry);
@@ -623,7 +627,7 @@ function YansView(pname) {
       let entry = ListEntry({
         title: anchor,
         subtitle: diffString(entries[i].ts, now),
-        right: self.getRunningSymbol(entries[i].running),
+        right: self.getStatusSymbol(entries[i].status),
         cntId: entries[i].id,
       });
 
@@ -733,7 +737,7 @@ function xxx() {
           return;
         }
         let res = data.data;
-        ui.updateReport(res.id, res.running, res.entries);
+        ui.updateReport(res.id, res.status, res.entries);
       }).error(function(msg) {
         appErrFunc(msg);
       }).send();

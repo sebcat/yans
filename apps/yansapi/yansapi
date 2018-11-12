@@ -43,7 +43,7 @@ local function get_reports(ctx)
           "row": 0,
           "ts": 1530356368,
           "id": "70a7a85d0004f8b9c2be",
-          "active": bool
+          "status": "str"
         },
         ...
       ]
@@ -64,16 +64,12 @@ local function get_reports(ctx)
     table.insert(rows, e)
   end
 
-  -- check with kneg if any of the jobs are still running
+  -- check with kneg status
   if #ids > 0 then
-    local pids = ctx.data.kneg:pids(ids)
+    local statuses = ctx.data.kneg:status(ids)
     local i = 1
-    for pid in string.gmatch(pids, "-?[0-9]+") do
-      if tonumber(pid) < 0 then
-        rows[i].running = false
-      else
-        rows[i].running = true
-      end
+    for status in string.gmatch(statuses, "[^ \r\n\t]+") do
+      rows[i].status = status
       i = i + 1
     end
   end
@@ -83,8 +79,8 @@ local function get_reports(ctx)
   local entries = json.from_str"[]"
   for _, e in ipairs(rows) do
     local entry = json.from_str"{}"
-    entry.id, entry.name, entry.ts, entry.row, entry.running =
-        e.id, e.name, e.ts, e.row, e.running
+    entry.id, entry.name, entry.ts, entry.row, entry.status =
+        e.id, e.name, e.ts, e.row, e.status
     entries = entries << entry
   end
   local data = json.from_str"{}"
@@ -201,7 +197,7 @@ local function get_report_sections(ctx)
       "subject": "str",
       "indexed": 666,
       "now_ts": 777,
-      "running": bool,
+      "status": "str",
       "entries": [
         {
           "name": "str",
@@ -226,9 +222,10 @@ local function get_report_sections(ctx)
 
   -- build response
   local datastr
-  local running = false
+  local status = "n/a"
   local entries = json.from_str"[]"
   if id then
+    status = ctx.data.kneg:status(id)
     local etable = store:list(id, must_match)
     for i = 1, #etable, 2 do
       local entry = json.from_str"{}"
@@ -249,16 +246,11 @@ local function get_report_sections(ctx)
     if not datastr or #datastr < 2 then
       datastr = "{}"
     end
-
-    -- check if running
-    if tonumber(ctx.data.kneg:pids(id)) > 0 then
-      running = true
-    end
   end
   local data   = json.from_str(datastr)
   data.id      = id
   data.now_ts  = os.time()
-  data.running = running
+  data.status  = status
   data.entries = entries
   local res    = json.from_str"{}"
   res.success  = true

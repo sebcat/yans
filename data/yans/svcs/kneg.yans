@@ -1,6 +1,4 @@
-local _M = {
-
-}
+local _M = {}
 
 function _M:new(o)
   assert(o.path, "missing kneg path")
@@ -12,19 +10,25 @@ function _M:new(o)
   return o
 end
 
-function _M:pids(ids)
-  if type(ids) == "table" then
-    ids = table.concat(ids, "\0")
+-- returns: whitespace delimited string of elements
+function _M:_listreq(o)
+  if type(o.id) == "table" then
+    o.id = table.concat(o.id, "\0")
   end
-  self.msgbuf:create_knegd_req{
-    action = "pids",
-    id = ids,
-  }
+  self.msgbuf:create_knegd_req(o)
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)
   local resp = self.msgbuf:parse_status_resp()
   assert(not resp.errmsg, resp.errmsg)
   return resp.okmsg
+end
+
+function _M:status(ids)
+  return self:_listreq{action = "status", id = ids}
+end
+
+function _M:pids(ids)
+  return self:_listreq{action = "pids", id = ids}
 end
 
 function _M:_rr(o)

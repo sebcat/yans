@@ -98,7 +98,6 @@ table tr:nth-child(1) td {
   border-bottom-right-radius: .5rem;
 }
 
-
 .entry-header-left {
   display: flex;
   flex-direction: column;
@@ -136,13 +135,17 @@ table tr:nth-child(1) td {
   margin: .5rem;
 }
 
-.loader {
+.running {
   animation: spin 1.5s linear infinite;
   border: .1rem solid #ffffff;
   border-top: .1rem solid lightblue;
   border-radius: 100%;
   width: 1rem;
   height: 1rem;
+}
+
+.queued {
+  font-weight: bold;
 }
 
 @keyframes spin {
@@ -449,12 +452,6 @@ function Roger(errfunc, defaultRoute) {
   return self;
 }
 
-function Loader() {
-  let d = document.createElement("div");
-  d.className = "loader";
-  return d;
-}
-
 function ListEntry(opts) {
   /* create the left part of the header, w/ title and subtitle (if any) */
   let left = document.createElement("div");
@@ -512,12 +509,15 @@ function YansView(pname) {
   self.getStatusSymbol = function(statusstr) {
     let r;
     if (statusstr === "running") {
-      r = Loader();
+      r = document.createElement("div");
+      r.className = "running";
     } else if (statusstr === "queued") {
       r = document.createElement("span");
+      r.className = "queued";
       r.innerHTML = "Q";
     } else {
       r = document.createElement("span");
+      r.className = "completed";
       r.innerHTML = "&#10004";
     }
     return r;
@@ -720,8 +720,8 @@ function xxx() {
   let to_refresh = [];
   for (let i = 0; i < entries.length; i++) {
     let entry = entries[i];
-    let is_running = entry.querySelector(".loader") == null ? false : true;
-    if (is_running) {
+    let is_completed = entry.querySelector(".completed") == null ? false : true;
+    if (!is_completed) {
       let entId = entry.id.replace(/entry-/, "");
       to_refresh.push(entId);
     }

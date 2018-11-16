@@ -1,6 +1,3 @@
-- scanny: --limit-nsubjects=${N} - before, after resolve
-  or maybe not, could be that we should accept an arbitrary large number
-  of subjects, limited only by disk and execution time.
 - store list <store-id> - pass dir-fd from stored and have client list store?
 - pass fopen-style mode string to store instead of flags, have the mode string
   copied to the Lua file descriptor type and make it possible to write
@@ -16,30 +13,7 @@
 - Do not wait while shutting down a service if all children are terminated
 - store index --name-must-match?
 
-- n/a, queued, started, completed - how to differentiate?
-  kneg status <id>
-  1)
-    * queue_knegd_job: queued
-    * start_knegd_job: started
-    * kng_on_svc_reaped_child: completed
-    * everything else: n/a
-    * store status as file in store
-    * job_update_status(kng_job *s, const char *status);
-  2)
-    * queued, started, inactive - Have knegd keep state of queued and
-      started jobs and consider everything else "inactive"
-      (n/a or completed)
-    * symlink e.g., queue/ids/31/abcdedaaff1231 -> queue/45/01234567-1
-      and implement int kngq_contains(struct kng_queue *q, const char *id);
-      kngq_put: Add symlink
-      kngq_next: Remove symlink
-    * if kngq_contains, status: queued
-      else if jobs_find_by_id != NULL: started
-      else: inactive
-  1) requires IPC and harder coupling with store, 2) is less coupled with
-  store, however we do not know if something is queued or not
 - sync index vs job.json times - queued or started? Maybe no duplication?
-- have yansapi use "queue" instead of "start" action
 
 ## ethd
   - interfaces and stuff are loaded at boot, may change during uptime
@@ -93,26 +67,6 @@ ev:clear_on_writable(fd)
 ## lib/net/ip
   - make it possible to add/remove an address/range to/from a range
   - have contains work on current instead of first?
-
-## new services
-
-  - bannerd: UDP/TCP banner grabbing with (D)TLS support (libressl?)
-  - tlshellod: TLS negotiation w/ STARTTLS
-  - spiderd: HTTP crawler (or HTTP proxy?)
-    * have a file with requests (raw HTTP requests?), pass it to the daemon
-      which generates a file with responses. Parse responses and generate new
-      requests. How to find requests? Have identity hash mapped to offsets?
-
-## distribution
-  - Yocto linux based? NanoBSD based?( XXX NanoBSD is obsolete) Homebrewn
-    FreeBSD dist?
-  - .vmdk image
-  - read-only fs
-  - /var/yans as tmpfs/md(4)
-  - nginx
-  - /usr/share/www/a1
-  - API implemented as yans CGIs, with implicit seccomp-bpf/capsicum
-    on cgi.init
 
 more areas:
   protocols: dns, ssh, ftp, http, smtp, pop3, imap, vnc, rdp

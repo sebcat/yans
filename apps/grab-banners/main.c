@@ -168,9 +168,10 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 usage:
   fprintf(stderr, "usage: %s [opts]\n"
       "opts:\n"
-      "  -f|--subject-file <file>  file with <addr>,<name>\n lines (%s)\n"
-      "  -p|--ports <portspec>     ports to connect to (%s)\n",
-      argv[0], DFL_SUBJECTFILE, DFL_PORTS);
+      "  -f|--subject-file <file>  file with <addr>,<name>\\n lines (%s)\n"
+      "  -p|--ports <portspec>     ports to connect to (%s)\n"
+      "  -n|--nclients <n>         number of clients (%d)\n",
+      argv[0], DFL_SUBJECTFILE, DFL_PORTS, DFL_NCLIENTS);
   exit(EXIT_FAILURE);
 }
 

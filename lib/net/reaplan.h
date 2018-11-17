@@ -56,7 +56,8 @@ struct reaplan_ctx {
 #define reaplan_get_seq(ctx__) (ctx__)->seq
 #define reaplan_get_data(ctx__) (ctx__)->opts.data
 
-int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts);
+int reaplan_init(struct reaplan_ctx *ctx,
+    const struct reaplan_opts *opts);
 void reaplan_cleanup(struct reaplan_ctx *ctx);
 int reaplan_run(struct reaplan_ctx *ctx);
 

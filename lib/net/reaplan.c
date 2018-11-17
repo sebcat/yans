@@ -55,7 +55,8 @@ static int closefd(struct reaplan_ctx *ctx, int fd, int err) {
   return REAPLAN_OK;
 }
 
-int reaplan_init(struct reaplan_ctx *ctx, struct reaplan_opts *opts) {
+int reaplan_init(struct reaplan_ctx *ctx,
+    const struct reaplan_opts *opts) {
   ctx->seq = 0;
   ctx->nconnections = 0;
   ctx->opts = *opts;

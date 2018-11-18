@@ -1,4 +1,5 @@
 lib_net_SOURCES = \
+    lib/net/dsts.c \
     lib/net/eth.c \
     lib/net/fcgi.c \
     lib/net/scgi.c \
@@ -14,6 +15,7 @@ lib_net_SOURCES = \
     lib/net/url.c
 
 lib_net_HEADERS = \
+    lib/net/dsts.h \
     lib/net/eth.h \
     lib/net/fcgi.h \
     lib/net/scgi.h \
@@ -29,9 +31,16 @@ lib_net_HEADERS = \
     lib/net/url.h
 
 lib_net_CTESTSRCS = \
+    lib/net/dsts_test.c \
     lib/net/punycode_test.c \
     lib/net/url_test.c \
     lib/net/scgi_test.c
+
+lib_net_dsts_test_DEPS =  lib/util/buf.c lib/net/ip.c lib/net/dsts.c \
+    lib/util/reorder.c lib/net/ports.c
+lib_net_dsts_test_DEPSOBJS = ${lib_net_dsts_test_DEPS:.c=.o}
+lib_net_dsts_test_SOURCES = lib/net/dsts_test.c
+lib_net_dsts_test_OBJS = ${lib_net_dsts_test_SOURCES:.c=.o}
 
 lib_net_punycode_test_DEPS = \
     lib/util/buf.c \
@@ -78,5 +87,5 @@ lib_net_CTESTS = ${lib_net_CTESTSRCS:.c=}
 lib_net_OBJS = ${lib_net_SOURCES:.c=.o}
 
 OBJS += $(lib_net_OBJS) $(lib_net_url_test_OBJS) $(lib_net_punycode_test_OBJS)
-OBJS += $(lib_net_scgi_test_OBJS)
+OBJS += $(lib_net_scgi_test_OBJS) $(lib_net_dsts_test_OBJS)
 CTESTS += $(lib_net_CTESTS)

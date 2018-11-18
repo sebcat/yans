@@ -4,6 +4,7 @@
 apps/clid/clid
 apps/dnstres/dnstres
 apps/ethd/ethd
+apps/expand-dst/expand-dst
 apps/fc2/fc2
 apps/grab-banners/grab-banners
 apps/kneg/kneg

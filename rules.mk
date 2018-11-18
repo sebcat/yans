@@ -9,6 +9,7 @@ include lib/net/rules.mk
 include lib/ycl/rules.mk
 include apps/stored/rules.mk
 include apps/ethd/rules.mk
+include apps/expand-dst/rules.mk
 include apps/fc2/rules.mk
 include apps/clid/rules.mk
 include apps/grab-banners/rules.mk

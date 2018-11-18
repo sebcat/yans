@@ -72,8 +72,7 @@ int dsts_add(struct dsts_ctx *dsts, const char *addrs,
   return 0;
 }
 
-static int dsts_next_init(struct dsts_ctx *dsts) {
-  dsts->dsts_next = 0; /* (re)set next dst offset */
+static int dsts_next_dst(struct dsts_ctx *dsts) {
   while (dsts->dsts_next + sizeof(struct dst_ctx) - 1 < dsts->buf.len) {
     /* load next dst and advance offset */
     memcpy(&dsts->currdst, dsts->buf.data + dsts->dsts_next,
@@ -81,11 +80,11 @@ static int dsts_next_init(struct dsts_ctx *dsts) {
     dsts->dsts_next += sizeof(struct dst_ctx);
     /* Load next address, if any */
     if (ip_blocks_next(&dsts->currdst.addrs, &dsts->curraddr)) {
-      return 0;
+      return 1;
     }
   }
 
-  return -1; /* no blocks with addresses present */
+  return 0; /* no blocks with addresses present */
 }
 
 /* returns zero on completion, non-zero otherwise */
@@ -100,7 +99,8 @@ int dsts_next(struct dsts_ctx *dsts, struct sockaddr *dst,
 
   /* (re)initialize ctx for iteration */
   if (!(dsts->flags & DSTS_FINITED)) {
-    if (dsts_next_init(dsts) < 0) {
+    dsts->dsts_next = 0; /* reset next dst offset */
+    if (!dsts_next_dst(dsts)) {
       /* no destinations registered with any addresses in them */
       return 0;
     }
@@ -110,9 +110,11 @@ int dsts_next(struct dsts_ctx *dsts, struct sockaddr *dst,
 again:
   if (!port_ranges_next(&dsts->currdst.ports, &currport)) {
     if (!ip_blocks_next(&dsts->currdst.addrs, &dsts->curraddr)) {
-      /* we've reached the end */
-      dsts->flags &= ~DSTS_FINITED;
-      return 0;
+      if (!dsts_next_dst(dsts)) {
+        /* we've reached the end */
+        dsts->flags &= ~DSTS_FINITED;
+        return 0;
+      }
     }
     goto again; /* get next port */
   }

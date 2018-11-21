@@ -28,18 +28,12 @@ static int start_nonblock_connect(struct ycl_msg_connector_req *req,
   struct sconn_ctx ctx = {0};
   struct sconn_opts opts = {
     .reuse_addr = (int)req->reuse_addr,
-    .proto = req->proto.data,
-    .bindaddr = req->bindaddr.data,
-    .bindport = req->bindport.data,
-    .dstaddr = req->dstaddr.data,
-    .dstport = req->dstport.data,
+    .proto = req->proto,
+    .bindaddr = (struct sockaddr *)req->bindaddr.data,
+    .bindaddrlen = req->bindaddr.len,
+    .dstaddr = (struct sockaddr *)req->dstaddr.data,
+    .dstaddrlen = req->dstaddr.len,
   };
-
-  /* setup nretries if it's in a sane range, for an arbitrary definition of
-   * "sane" */
-  if (req->nretries > 0 && req->nretries < CONNECTOR_MAX_RETRIES) {
-    opts.nretries = (int)req->nretries;
-  }
 
   ret = sconn_connect(&ctx, &opts);
   if (ret < 0 && outerr != NULL) {

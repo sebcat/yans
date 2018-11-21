@@ -79,13 +79,10 @@ resolver_req {
 }
 
 connector_req {
-  long nretries;
   long reuse_addr;
-  data proto;
+  long proto;
   data bindaddr;
-  data bindport;
   data dstaddr;
-  data dstport;
 }
 
 ##

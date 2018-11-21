@@ -68,23 +68,23 @@ static void banner_grabber_cleanup(struct banner_grabber *b) {
 }
 
 static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
-  struct sconn_ctx sconn;
-  struct sconn_opts sopts = {
-    .proto = "tcp",  /* FIXME: sconn has too many string options  */
-    .dstport = "80", /* FIXME: port_range */
-  };
+  struct sconn_ctx sconn = {0};
+  struct sconn_opts sopts = {0};
   struct banner_grabber *grabber;
   FILE *fp;
   char linebuf[56];
   char addrbuf[56];
   int fd = -1;
+  int ret;
+  union {
+    struct sockaddr_in sin;
+    struct sockaddr_in6 sin6;
+  } addr;
 
   grabber = reaplan_get_data(ctx);
   fp = banner_grabber_get_src(grabber);
 
   while (fd < 0) {
-    /* TODO: Instead of reading one address at a time, read N addresses
-     *       to a table and iterate once over the table for each port */
     if (fgets(linebuf, sizeof(linebuf), fp) == NULL) {
       return REAPLANC_DONE;
     }
@@ -93,7 +93,17 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
       continue;
     }
 
-    sopts.dstaddr = addrbuf;
+    ret = sconn_parse_addr(&sconn, addrbuf, "80", (struct sockaddr *)&addr,
+        sizeof(addr));
+    if (ret < 0) {
+      fprintf(stderr, "unable to parse address %s: %s\n", addrbuf,
+          strerror(sconn_errno(&sconn)));
+      continue;
+    }
+
+    sopts.proto = IPPROTO_TCP;
+    sopts.dstaddr = (struct sockaddr *)&addr;
+    sopts.dstaddrlen = ret;
     fd = sconn_connect(&sconn, &sopts);
     if (fd < 0) {
       fprintf(stderr, "connection failed: \"%s\" %s\n", addrbuf,
@@ -130,7 +140,7 @@ static ssize_t on_writable(struct reaplan_ctx *ctx, int fd) {
 }
 
 static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
-  printf("done fd:%d err:%d\n", fd, err);
+  fprintf(stderr, "done fd:%d err:%d\n", fd, err);
 }
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {

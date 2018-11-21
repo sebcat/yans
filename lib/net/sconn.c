@@ -58,8 +58,7 @@ int sconn_connect(struct sconn_ctx *ctx, struct sconn_opts *opts) {
   socktype = opts->proto == IPPROTO_TCP ? SOCK_STREAM : SOCK_DGRAM;
   fd = socket(family, socktype | SOCK_NONBLOCK, opts->proto);
   if (fd < 0) {
-    ctx->errcode = errno;
-    return -1;
+    goto fail;
   }
 
   if (opts->reuse_addr) {
@@ -69,9 +68,7 @@ int sconn_connect(struct sconn_ctx *ctx, struct sconn_opts *opts) {
   if (opts->bindaddr != NULL && opts->bindaddrlen > 0) {
     ret = bind(fd, opts->bindaddr, opts->bindaddrlen);
     if (ret < 0) {
-      close(fd);
-      ctx->errcode = errno;
-      return -1;
+      goto fail_close_fd;
     }
   }
 
@@ -81,11 +78,15 @@ int sconn_connect(struct sconn_ctx *ctx, struct sconn_opts *opts) {
      *   "The connection will be established in the background, as in the
      *    case of EINPROGRESS"
      */
-    close(fd);
-    ctx->errcode = errno;
-    return -1;
+    goto fail_close_fd;
   }
 
   return fd;
+
+fail_close_fd:
+  close(fd);
+fail:
+  ctx->errcode = errno;
+  return -1;
 }
 

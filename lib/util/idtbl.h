@@ -18,8 +18,8 @@ struct idtbl_entry {
 struct idtbl_table {
   uint32_t cap;  /* total number of entries (even power of two) */
   uint32_t size; /* number of entries in use */
-  uint32_t max_distance; /* the longest distance of any inserted value */
   uint32_t hashseed; /* seed value for hash */
+  uint32_t modmask; /* bitmask used for power-of-two modulus */
   struct idtbl_entry entries[];
 };
 
@@ -27,7 +27,11 @@ struct idtbl_table {
 struct idtbl_table *idtbl_init(uint32_t nslots, uint32_t seed);
 void idtbl_cleanup(struct idtbl_table *ctx);
 int idtbl_get(struct idtbl_table *ctx, uint32_t key, void **value);
+int idtbl_contains(struct idtbl_table *tbl, uint32_t key);
+int idtbl_remove(struct idtbl_table *tbl, uint32_t key);
 /* -1 on failed insertion (e.g., because table is full), 0 on success */
 int idtbl_set(struct idtbl_table *ctx, uint32_t key, void *value);
+
+const char *idtbl_strerror(int code);
 
 #endif

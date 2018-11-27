@@ -15,18 +15,19 @@ struct idtbl_entry {
   void *value;
 };
 
-struct idtbl_ctx {
+struct idtbl_table {
   uint32_t cap;  /* total number of entries (even power of two) */
   uint32_t size; /* number of entries in use */
   uint32_t max_distance; /* the longest distance of any inserted value */
+  uint32_t hashseed; /* seed value for hash */
   struct idtbl_entry entries[];
 };
 
 /* NULL on failed allocation, non-NULL on success */
-struct idtbl_ctx *idtbl_init(uint32_t nslots);
-void idtbl_cleanup(struct idtbl_ctx *ctx);
-int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value);
+struct idtbl_table *idtbl_init(uint32_t nslots, uint32_t seed);
+void idtbl_cleanup(struct idtbl_table *ctx);
+int idtbl_get(struct idtbl_table *ctx, uint32_t key, void **value);
 /* -1 on failed insertion (e.g., because table is full), 0 on success */
-int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value);
+int idtbl_set(struct idtbl_table *ctx, uint32_t key, void *value);
 
 #endif

@@ -5,16 +5,18 @@
 #include <lib/util/idtbl.h>
 
 #define IDTBL_SIZE(cap_) \
-    (sizeof(struct idtbl_ctx) + (cap_ * sizeof(struct idtbl_entry)))
+    (sizeof(struct idtbl_table) + (cap_ * sizeof(struct idtbl_entry)))
 
-/* FNV-1a */
-static inline uint32_t hashfunc(uint32_t key) {
-  uint32_t hash = 0x811c9dc5;
+#define FNV1A_OFFSET 0x811c9dc5
+#define FNV1A_PRIME   0x1000193
+
+static uint32_t hashfunc(uint32_t key, uint32_t seed) {
+  uint32_t hash = seed;
   int i;
 
   for (i = 0; i < 4; i++) {
     hash ^= key & 0xff;
-    hash *= 0x1000193;
+    hash *= FNV1A_PRIME;
     key >>= 8;
   }
 
@@ -35,8 +37,8 @@ static inline uint32_t round_up_pow2(uint32_t v) {
 }
 
 /* -1 on failed allocation, 0 on success */
-struct idtbl_ctx *idtbl_init(uint32_t nslots) {
-  struct idtbl_ctx *ctx;
+struct idtbl_table *idtbl_init(uint32_t nslots, uint32_t seed) {
+  struct idtbl_table *ctx;
   uint32_t cap;
 
   if (nslots == 0) {
@@ -57,14 +59,15 @@ struct idtbl_ctx *idtbl_init(uint32_t nslots) {
   }
 
   ctx->cap = cap;
+  ctx->hashseed = hashfunc(seed, FNV1A_OFFSET);
   return ctx;
 }
 
-void idtbl_cleanup(struct idtbl_ctx *ctx) {
+void idtbl_cleanup(struct idtbl_table *ctx) {
   free(ctx);
 }
 
-int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **out) {
+int idtbl_get(struct idtbl_table *ctx, uint32_t key, void **out) {
   uint32_t pos;
   uint32_t i;
   uint32_t modmask;
@@ -72,7 +75,7 @@ int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **out) {
 
   key++; /* internally, key 0 is used to denote an empty slot */
   modmask = ctx->cap - 1; /* NB: cap is an even power of two */
-  pos = hashfunc(key) & modmask; /* initial pos for hash-table search */
+  pos = hashfunc(key, ctx->hashseed) & modmask;
 
   /* Probe linearly for at most the maximum probe length for the table.
    * If the current element has a key equal to the key of the value we
@@ -97,7 +100,7 @@ int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **out) {
 }
 
 /* -1 on failed insertion (e.g., because table is full), 0 on success */
-int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value) {
+int idtbl_set(struct idtbl_table *ctx, uint32_t key, void *value) {
   uint32_t start_pos;
   uint32_t current_pos;
   uint32_t modmask;
@@ -113,7 +116,7 @@ int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value) {
   
   key++; /* internally, key 0 is used to denote an empty slot */
   modmask = ctx->cap - 1; /* NB: cap is an even power of two */
-  current_pos = start_pos = hashfunc(key) & modmask;
+  current_pos = start_pos = hashfunc(key, ctx->hashseed) & modmask;
 
   /* initialize our element to insert */
   elem.key = key;
@@ -159,7 +162,7 @@ int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value) {
 
 int main(int argc, char *argv[])
 {
-  struct idtbl_ctx *tbl;
+  struct idtbl_table *tbl;
   size_t i;
   size_t sum_distance = 0;
   int initval = 2;
@@ -168,7 +171,7 @@ int main(int argc, char *argv[])
     initval = atoi(argv[1]);
   }
 
-  tbl = idtbl_init(initval);
+  tbl = idtbl_init(initval, 0);
 
   for (i = 0; i < tbl->cap - tbl->cap / 8; i++) {
     idtbl_set(tbl, (i+1) * 1000, (void*)((i+1) * 4000));

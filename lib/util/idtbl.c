@@ -21,13 +21,17 @@
 #define FNV1A_OFFSET 0x811c9dc5
 #define FNV1A_PRIME   0x1000193
 
+ /* macros to make sure we rehash at 83.34% load, or 5/6-th of the total
+  * size */
+#define REHASH_ROUND_UP(val) ((val) + (val)/6) /* for allocating */
+#define REHASH_LIMIT(val) ((val) - (val)/6)    /* for calculating limit */
+
 static uint32_t hashfunc(uint32_t key, uint32_t seed) {
   uint32_t hash = seed;
   int i;
 
   for (i = 0; i < 4; i++) {
-    hash ^= key & 0xff;
-    hash *= FNV1A_PRIME;
+    hash = (hash ^ (key & 0xff)) * FNV1A_PRIME;
     key >>= 8;
   }
 
@@ -48,17 +52,10 @@ static inline uint32_t round_up_pow2(uint32_t v) {
 }
 
 /* -1 on failed allocation, 0 on success */
-struct idtbl_table *idtbl_init(uint32_t nslots, uint32_t seed) {
+static struct idtbl_table *create_table(uint32_t nslots, uint32_t seed) {
   struct idtbl_table *tbl;
   uint32_t cap;
 
-  if (nslots == 0) {
-    return NULL;
-  }
-
-  /* heuristics for calculating the hash table capacity from the number
-   * of required slots. */
-  cap = nslots * 8 / 7;     /* lower the load factor */
   cap = round_up_pow2(cap); /* we're using '&' for modulus of hash */
   if (cap < nslots) {       /* check for overflow */
     return NULL;
@@ -75,11 +72,11 @@ struct idtbl_table *idtbl_init(uint32_t nslots, uint32_t seed) {
   return tbl;
 }
 
-void idtbl_cleanup(struct idtbl_table *tbl) {
+static void free_table(struct idtbl_table *tbl) {
   free(tbl);
 }
 
-static struct idtbl_entry *find_entry(struct idtbl_table *tbl,
+static struct idtbl_entry *find_table_entry(struct idtbl_table *tbl,
     uint32_t key) {
   uint32_t current_pos;
   uint32_t start_pos;
@@ -107,10 +104,11 @@ static struct idtbl_entry *find_entry(struct idtbl_table *tbl,
   return NULL;
 }
 
-int idtbl_get(struct idtbl_table *tbl, uint32_t key, void **out) {
+static int get_table_value(struct idtbl_table *tbl, uint32_t key,
+    void **out) {
   struct idtbl_entry *ent;
 
-  ent = find_entry(tbl, key);
+  ent = find_table_entry(tbl, key);
   if (!ent) {
     return IDTBL_ENOTFOUND;
   }
@@ -122,17 +120,17 @@ int idtbl_get(struct idtbl_table *tbl, uint32_t key, void **out) {
   return IDTBL_OK;
 }
 
-int idtbl_contains(struct idtbl_table *tbl, uint32_t key) {
-  return find_entry(tbl, key) != NULL ? IDTBL_OK : IDTBL_ENOTFOUND;
+static int table_contains(struct idtbl_table *tbl, uint32_t key) {
+  return find_table_entry(tbl, key) == NULL ? 0 : 1;
 }
 
-int idtbl_remove(struct idtbl_table *tbl, uint32_t key) {
+static int remove_table_entry(struct idtbl_table *tbl, uint32_t key) {
   struct idtbl_entry *ent;
   uint32_t curr;
   uint32_t next;
   struct idtbl_entry empty = {0};
 
-  ent = find_entry(tbl, key);
+  ent = find_table_entry(tbl, key);
   if (!ent) {
     return IDTBL_ENOTFOUND;
   }
@@ -153,7 +151,8 @@ int idtbl_remove(struct idtbl_table *tbl, uint32_t key) {
 }
 
 /* -1 on failed insertion (e.g., because table is full), 0 on success */
-int idtbl_set(struct idtbl_table *tbl, uint32_t key, void *value) {
+static int set_table_value(struct idtbl_table *tbl, uint32_t key,
+    void *value) {
   uint32_t start_pos;
   uint32_t current_pos;
   struct idtbl_entry *curr;
@@ -205,6 +204,89 @@ int idtbl_set(struct idtbl_table *tbl, uint32_t key, void *value) {
   return IDTBL_ENOSLOT;
 }
 
+static int grow(struct idtbl_ctx *ctx) {
+  uint32_t new_cap;
+  struct idtbl_table *new_tbl;
+  size_t i;
+  struct idtbl_entry *ent;
+
+  /* calculate the capacity of the new table */
+  new_cap = ctx->tbl->cap << 1;
+  if (new_cap < ctx->tbl->cap) {
+    return IDTBL_ENOMEM;
+  }
+
+  /* allocate a new table */
+  new_tbl = create_table(new_cap, ctx->tbl->hashseed);
+  if (new_tbl == NULL) {
+    return IDTBL_ENOMEM;
+  }
+
+  /* insert non-empty entries from the old table to the new one */
+  for (i = 0; i < ctx->tbl->cap; i++) {
+    ent = ctx->tbl->entries + i;
+    if (ent->key != 0) {
+      set_table_value(new_tbl, ent->key, ent->value);
+    }
+  }
+
+  ctx->rehash_limit = REHASH_LIMIT(new_tbl->cap);
+  ctx->tbl = new_tbl;
+  return IDTBL_OK;
+}
+
+int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed) {
+  struct idtbl_table *tbl;
+  uint32_t cap;
+
+  if (nslots == 0) {
+    return IDTBL_EINVAL;
+  }
+
+  cap = REHASH_ROUND_UP(nslots);
+  if (cap < nslots) {
+    return IDTBL_ENOMEM;
+  }
+
+  tbl = create_table(cap, seed);
+  if (tbl == NULL) {
+    return IDTBL_ENOMEM;
+  }
+
+  ctx->rehash_limit = REHASH_LIMIT(tbl->cap);
+  ctx->tbl = tbl;
+  return IDTBL_OK;
+}
+
+void idtbl_cleanup(struct idtbl_ctx *ctx) {
+  free_table(ctx->tbl);
+}
+
+int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value) {
+  return get_table_value(ctx->tbl, key, value);
+}
+
+int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key) {
+  return table_contains(ctx->tbl, key);
+}
+
+int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key) {
+  return remove_table_entry(ctx->tbl, key);
+}
+
+int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value) {
+  int ret;
+
+  if (ctx->tbl->size >= ctx->rehash_limit) {
+    ret = grow(ctx);
+    if (ret != IDTBL_OK) {
+      return ret;
+    }
+  }
+
+  return set_table_value(ctx->tbl, key, value);
+}
+
 const char *idtbl_strerror(int code) {
   switch (code) {
     case IDTBL_OK:
@@ -217,6 +299,8 @@ const char *idtbl_strerror(int code) {
       return "invalid argument";
     case IDTBL_ENOSLOT:
       return "no slot available";
+    case IDTBL_ENOMEM:
+      return "out of memory";
     default:
       return "unknown error";
   }

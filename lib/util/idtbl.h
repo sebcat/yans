@@ -8,14 +8,17 @@
 #define IDTBL_EFULL        -2
 #define IDTBL_EINVAL       -3
 #define IDTBL_ENOSLOT      -4
+#define IDTBL_ENOMEM       -5
 
 struct idtbl_entry {
+  /* internal */
   int32_t distance; /* # of elements from wanted slot to actual slot */
   int32_t key;
   void *value;
 };
 
 struct idtbl_table {
+  /* internal */
   uint32_t cap;  /* total number of entries (even power of two) */
   uint32_t size; /* number of entries in use */
   uint32_t hashseed; /* seed value for hash */
@@ -23,15 +26,18 @@ struct idtbl_table {
   struct idtbl_entry entries[];
 };
 
-/* NULL on failed allocation, non-NULL on success */
-struct idtbl_table *idtbl_init(uint32_t nslots, uint32_t seed);
-void idtbl_cleanup(struct idtbl_table *ctx);
-int idtbl_get(struct idtbl_table *ctx, uint32_t key, void **value);
-int idtbl_contains(struct idtbl_table *tbl, uint32_t key);
-int idtbl_remove(struct idtbl_table *tbl, uint32_t key);
-/* -1 on failed insertion (e.g., because table is full), 0 on success */
-int idtbl_set(struct idtbl_table *ctx, uint32_t key, void *value);
+struct idtbl_ctx {
+  /* internal */
+  struct idtbl_table *tbl;
+  uint32_t rehash_limit;
+};
 
+int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed);
+void idtbl_cleanup(struct idtbl_ctx *ctx);
+int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value);
+int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key);
+int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key);
+int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value);
 const char *idtbl_strerror(int code);
 
 #endif

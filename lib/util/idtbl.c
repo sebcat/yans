@@ -56,8 +56,8 @@ static struct idtbl_table *create_table(uint32_t nslots, uint32_t seed) {
   struct idtbl_table *tbl;
   uint32_t cap;
 
-  cap = round_up_pow2(cap); /* we're using '&' for modulus of hash */
-  if (cap < nslots) {       /* check for overflow */
+  cap = round_up_pow2(nslots); /* we're using '&' for modulus of hash */
+  if (cap < nslots) {          /* check for overflow */
     return NULL;
   }
 
@@ -159,7 +159,7 @@ static int set_table_value(struct idtbl_table *tbl, uint32_t key,
   struct idtbl_entry elem;
   struct idtbl_entry tmp;
 
-  if (key == UINT32_MAX-1) {
+  if (key == UINT32_MAX) {
     return IDTBL_EINVAL; /* invalid key */
   } else if (tbl->size >= tbl->cap) {
     return IDTBL_EFULL; /* full table */
@@ -226,12 +226,13 @@ static int grow(struct idtbl_ctx *ctx) {
   for (i = 0; i < ctx->tbl->cap; i++) {
     ent = ctx->tbl->entries + i;
     if (ent->key != 0) {
-      set_table_value(new_tbl, ent->key, ent->value);
+      set_table_value(new_tbl, ent->key - 1, ent->value);
     }
   }
 
-  ctx->rehash_limit = REHASH_LIMIT(new_tbl->cap);
+  free(ctx->tbl);
   ctx->tbl = new_tbl;
+  ctx->rehash_limit = REHASH_LIMIT(ctx->tbl->cap);
   return IDTBL_OK;
 }
 
@@ -240,7 +241,7 @@ int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed) {
   uint32_t cap;
 
   if (nslots == 0) {
-    return IDTBL_EINVAL;
+    nslots = 1;
   }
 
   cap = REHASH_ROUND_UP(nslots);
@@ -274,7 +275,7 @@ int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key) {
   return remove_table_entry(ctx->tbl, key);
 }
 
-int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value) {
+int idtbl_insert(struct idtbl_ctx *ctx, uint32_t key, void *value) {
   int ret;
 
   if (ctx->tbl->size >= ctx->rehash_limit) {

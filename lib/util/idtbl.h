@@ -32,12 +32,14 @@ struct idtbl_ctx {
   uint32_t rehash_limit;
 };
 
+#define idtbl_size(ctx__) ((ctx__)->tbl->size)
+
 int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed);
 void idtbl_cleanup(struct idtbl_ctx *ctx);
 int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value);
 int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key);
 int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key);
-int idtbl_set(struct idtbl_ctx *ctx, uint32_t key, void *value);
+int idtbl_insert(struct idtbl_ctx *ctx, uint32_t key, void *value);
 const char *idtbl_strerror(int code);
 
 #endif

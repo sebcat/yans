@@ -20,12 +20,6 @@
       }                                    \
     } while(0)
 
-
-/* TODO:
- *   - add table statistics
- *   - add optional support for dumping tables to stdout
- */
-
 static uint32_t test_values[] = {
   0x00000000, 0xfffffffe, 0x7fffffff, 0x80000000, 0xb70e7ace, 0x550d8d32,
   0x822f04f8, 0xe8155374, 0xa2706988, 0x39faa2da, 0x0f3ae434, 0xe3436e76,

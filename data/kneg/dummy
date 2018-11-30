@@ -1,0 +1,4 @@
+#!/bin/sh
+cat <<EOF | store put -i "$YANS_ID" report-10-foobar.txt
+<h1>ohai</h1>
+EOF

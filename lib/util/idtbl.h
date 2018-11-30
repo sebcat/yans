@@ -32,6 +32,15 @@ struct idtbl_ctx {
   uint32_t rehash_limit;
 };
 
+struct idtbl_stats {
+  size_t nbytes; /* table size, in bytes */
+  size_t size;   /* number of elements occupying slots */
+  size_t cap;    /* total number of slots in current table */
+  unsigned int mean_probe_distance;
+  unsigned int max_probe_distance;
+  double average_probe_distance;
+};
+
 #define idtbl_size(ctx__) ((ctx__)->tbl->size)
 
 int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed);
@@ -40,6 +49,9 @@ int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value);
 int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key);
 int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key);
 int idtbl_insert(struct idtbl_ctx *ctx, uint32_t key, void *value);
+int idtbl_copy(struct idtbl_ctx *dst, struct idtbl_ctx *src);
+int idtbl_calc_stats(struct idtbl_ctx *ctx, struct idtbl_stats *result);
+
 const char *idtbl_strerror(int code);
 
 #endif

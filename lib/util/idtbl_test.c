@@ -10,9 +10,18 @@
 #define LOG_FAILURE() \
     fprintf(stderr, "%s:%d test failure\n", __FILE__, __LINE__)
 
+/* A little bit dirty to have a goto inside a macro like this, but it will
+ * do for now... */
+#define ASSERT_SIZE(tbl_, size_)           \
+    do {                                   \
+      if (idtbl_size((tbl_)) != (size_)) { \
+        LOG_FAILURE();                     \
+        goto end_idtbl_cleanup;            \
+      }                                    \
+    } while(0)
+
 
 /* TODO:
- *   - expose and validate table size and cap at various test stages
  *   - add table statistics
  *   - add optional support for dumping tables to stdout
  */
@@ -38,6 +47,7 @@ static uint32_t test_values[] = {
 
 struct opts {
   uint32_t seed;
+  int dump_tables;
 };
 
 /* test initialization and cleanup, with varying # of slots and seed  */
@@ -80,12 +90,14 @@ static int test_insert_contains(struct opts *opts) {
   }
 
   /* test non-existent retrieval in empty table */
+  ASSERT_SIZE(&idtbl, 0);
   if (idtbl_contains(&idtbl, 0x8029au)) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
   }
 
   /* insert a value in idtbl */
+  ASSERT_SIZE(&idtbl, 0);
   ret = idtbl_insert(&idtbl, 0x29au, &ret);
   if (ret != IDTBL_OK) {
     LOG_FAILURE();
@@ -93,23 +105,76 @@ static int test_insert_contains(struct opts *opts) {
   }
 
   /* test non-existent retrieval in non-empty table */
+  ASSERT_SIZE(&idtbl, 1);
   if (idtbl_contains(&idtbl, 0x8029au)) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
   }
 
   /* retrieve the value of an existing element */
+  ASSERT_SIZE(&idtbl, 1);
   if (!idtbl_contains(&idtbl, 0x29au)) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
   }
 
+  ASSERT_SIZE(&idtbl, 1);
   result = EXIT_SUCCESS;
 end_idtbl_cleanup:
   idtbl_cleanup(&idtbl);
 end:
   return result;
 }
+
+/* test simple insertion and lookup using contains, with a NULL value */
+static int test_insert_contains_nullval(struct opts *opts) {
+  struct idtbl_ctx idtbl;
+  int result = EXIT_FAILURE;
+  int ret;
+
+  ret = idtbl_init(&idtbl, 1, opts->seed);
+  if (ret != IDTBL_OK) {
+    LOG_FAILURE();
+    goto end;
+  }
+
+  /* test non-existent retrieval in empty table */
+  ASSERT_SIZE(&idtbl, 0);
+  if (idtbl_contains(&idtbl, 0x8029au)) {
+    LOG_FAILURE();
+    goto end_idtbl_cleanup;
+  }
+
+  /* insert a NULL value in idtbl */
+  ASSERT_SIZE(&idtbl, 0);
+  ret = idtbl_insert(&idtbl, 0x29au, NULL);
+  if (ret != IDTBL_OK) {
+    LOG_FAILURE();
+    goto end_idtbl_cleanup;
+  }
+
+  /* test non-existent retrieval in non-empty table */
+  ASSERT_SIZE(&idtbl, 1);
+  if (idtbl_contains(&idtbl, 0x8000029au)) {
+    LOG_FAILURE();
+    goto end_idtbl_cleanup;
+  }
+
+  /* retrieve the value of an existing element */
+  ASSERT_SIZE(&idtbl, 1);
+  if (!idtbl_contains(&idtbl, 0x29au)) {
+    LOG_FAILURE();
+    goto end_idtbl_cleanup;
+  }
+
+  ASSERT_SIZE(&idtbl, 1);
+  result = EXIT_SUCCESS;
+end_idtbl_cleanup:
+  idtbl_cleanup(&idtbl);
+end:
+  return result;
+}
+
 
 /* test simple insertion and lookup */
 static int test_insert_get(struct opts *opts) {
@@ -125,6 +190,7 @@ static int test_insert_get(struct opts *opts) {
   }
 
   /* test non-existent retrieval in empty table */
+  ASSERT_SIZE(&idtbl, 0);
   ret = idtbl_get(&idtbl, 0x8029au, &val);
   if (ret != IDTBL_ENOTFOUND) {
     LOG_FAILURE();
@@ -132,6 +198,7 @@ static int test_insert_get(struct opts *opts) {
   }
 
   /* insert a value in idtbl */
+  ASSERT_SIZE(&idtbl, 0);
   ret = idtbl_insert(&idtbl, 0x29au, &val);
   if (ret != IDTBL_OK) {
     LOG_FAILURE();
@@ -139,6 +206,7 @@ static int test_insert_get(struct opts *opts) {
   }
 
   /* test non-existent retrieval in non-empty table */
+  ASSERT_SIZE(&idtbl, 1);
   ret = idtbl_get(&idtbl, 0x8029au, &val);
   if (ret != IDTBL_ENOTFOUND) {
     LOG_FAILURE();
@@ -146,6 +214,7 @@ static int test_insert_get(struct opts *opts) {
   }
 
   /* retrieve the value of an existing element */
+  ASSERT_SIZE(&idtbl, 1);
   ret = idtbl_get(&idtbl, 0x29au, &val);
   if (ret != IDTBL_OK) {
     LOG_FAILURE();
@@ -153,6 +222,7 @@ static int test_insert_get(struct opts *opts) {
   }
 
   /* make sure we retrieve the correct value */
+  ASSERT_SIZE(&idtbl, 1);
   if (val != &val) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
@@ -181,6 +251,7 @@ static int test_insert_get_duplicate(struct opts *opts) {
   }
 
   /* insert a value in idtbl */
+  ASSERT_SIZE(&idtbl, 0);
   ret = idtbl_insert(&idtbl, 0x29au, &val1);
   if (ret != IDTBL_OK) {
     LOG_FAILURE();
@@ -188,23 +259,27 @@ static int test_insert_get_duplicate(struct opts *opts) {
   }
 
   /* insert a value in idtbl with the same key as the previous one */
+  ASSERT_SIZE(&idtbl, 1);
   ret = idtbl_insert(&idtbl, 0x29au, &val2);
   if (ret != IDTBL_OK) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
   }
 
+  ASSERT_SIZE(&idtbl, 1);
   ret = idtbl_get(&idtbl, 0x29au, &val);
   if (ret != IDTBL_OK) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
   }
 
+  ASSERT_SIZE(&idtbl, 1);
   if (*(int*)val != val2) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
   }
 
+  ASSERT_SIZE(&idtbl, 1);
   if (idtbl_size(&idtbl) != 1) {
     LOG_FAILURE();
     goto end_idtbl_cleanup;
@@ -226,12 +301,14 @@ static int test_insert_get_rehash(struct opts *opts) {
   uint32_t ntest_values = sizeof(test_values) / sizeof(*test_values);
   void *val = NULL;
 
+  /* initialize the table, with an "expected" element count of four */
   ret = idtbl_init(&idtbl, 4, opts->seed);
   if (ret != IDTBL_OK) {
     goto end;
   }
 
   /* insert pointers to a bunch of test values */
+  ASSERT_SIZE(&idtbl, 0);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_insert(&idtbl, i, test_values + i);
     if (ret != IDTBL_OK) {
@@ -241,6 +318,7 @@ static int test_insert_get_rehash(struct opts *opts) {
   }
 
   /* retrieve and validate table content */
+  ASSERT_SIZE(&idtbl, ntest_values);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_get(&idtbl, i, &val);
     if (ret != IDTBL_OK) {
@@ -277,6 +355,7 @@ static int test_insert_get_rehash_nonseq(struct opts *opts) {
   }
 
   /* insert a bunch of test values */
+  ASSERT_SIZE(&idtbl, 0);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_insert(&idtbl, test_values[i], test_values + i);
     if (ret != IDTBL_OK) {
@@ -286,6 +365,7 @@ static int test_insert_get_rehash_nonseq(struct opts *opts) {
   }
 
   /* retrieve and validate table content */
+  ASSERT_SIZE(&idtbl, ntest_values);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_get(&idtbl, test_values[i], &val);
     if (ret != IDTBL_OK) {
@@ -321,6 +401,7 @@ static int test_get_insert_get_remove_get(struct opts *opts) {
   }
 
   /* retrieve non-existent content */
+  ASSERT_SIZE(&idtbl, 0);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_get(&idtbl, test_values[i], &val);
     if (ret != IDTBL_ENOTFOUND) {
@@ -330,6 +411,7 @@ static int test_get_insert_get_remove_get(struct opts *opts) {
   }
 
   /* insert table content */
+  ASSERT_SIZE(&idtbl, 0);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_insert(&idtbl, test_values[i], test_values + i);
     if (ret != IDTBL_OK) {
@@ -339,6 +421,7 @@ static int test_get_insert_get_remove_get(struct opts *opts) {
   }
 
   /* retrieve existing table content and validate result */
+  ASSERT_SIZE(&idtbl, ntest_values);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_get(&idtbl, test_values[i], &val);
     if (ret != IDTBL_OK) {
@@ -353,6 +436,7 @@ static int test_get_insert_get_remove_get(struct opts *opts) {
   }
 
   /* remove existing table content */
+  ASSERT_SIZE(&idtbl, ntest_values);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_remove(&idtbl, test_values[i]);
     if (ret != IDTBL_OK) {
@@ -362,6 +446,7 @@ static int test_get_insert_get_remove_get(struct opts *opts) {
   }
 
   /* retrieve non-existent content */
+  ASSERT_SIZE(&idtbl, 0);
   for (i = 0; i < ntest_values; i++) {
     ret = idtbl_get(&idtbl, test_values[i], &val);
     if (ret != IDTBL_ENOTFOUND) {
@@ -377,23 +462,120 @@ end:
   return result;
 }
 
+static void dump_table(struct idtbl_ctx *ctx, FILE *fp) {
+  struct idtbl_entry *ent;
+  uint32_t i;
+
+  for (i = 0; i < ctx->tbl->cap; i++) {
+    ent = ctx->tbl->entries + i;
+    fprintf(fp, "      %s distance:%u\n", ent->key ? "XXXX" : "____",
+      ent->distance);
+  }
+
+}
+
+static int test_stats(struct opts *opts) {
+  struct idtbl_stats stats;
+  struct idtbl_ctx idtbl;
+  int result = EXIT_FAILURE;
+  int ret;
+  size_t i;
+  size_t nelems;
+
+  srand((unsigned int)opts->seed);
+  for (nelems = 100;  nelems <= 100000; nelems *= 10) {
+    ret = idtbl_init(&idtbl, 8, opts->seed);
+    if (ret != IDTBL_OK) {
+      LOG_FAILURE();
+      goto end;
+    }
+
+    for (i = 0; i < nelems; i++) {
+      ret = idtbl_insert(&idtbl, (uint32_t)rand(), NULL);
+      if (ret != IDTBL_OK) {
+        LOG_FAILURE();
+        goto end_idtbl_cleanup;
+      }
+    }
+
+    ret = idtbl_calc_stats(&idtbl, &stats);
+    if (ret != IDTBL_OK) {
+      LOG_FAILURE();
+      goto end_idtbl_cleanup;
+    }
+
+    printf("    rnd-%zu: nbytes:%zu load:%.2f avg:%.2f mean:%u max:%u\n"
+        , nelems, stats.nbytes, (double)stats.size / (double)stats.cap,
+        stats.average_probe_distance, stats.mean_probe_distance,
+        stats.max_probe_distance);
+    if (opts->dump_tables) {
+      dump_table(&idtbl, stdout);
+    }
+
+    idtbl_cleanup(&idtbl);
+
+    ret = idtbl_init(&idtbl, 8, opts->seed);
+    if (ret != IDTBL_OK) {
+      LOG_FAILURE();
+      goto end;
+    }
+
+    for (i = 0; i < nelems; i++) {
+      ret = idtbl_insert(&idtbl, (uint32_t)i, NULL);
+      if (ret != IDTBL_OK) {
+        LOG_FAILURE();
+        goto end_idtbl_cleanup;
+      }
+    }
+
+    ret = idtbl_calc_stats(&idtbl, &stats);
+    if (ret != IDTBL_OK) {
+      LOG_FAILURE();
+      goto end_idtbl_cleanup;
+    }
+
+    printf("    seq-%zu: nbytes:%zu load:%.2f avg:%.2f mean:%u max:%u\n"
+        , nelems, stats.nbytes, (double)stats.size / (double)stats.cap,
+        stats.average_probe_distance, stats.mean_probe_distance,
+        stats.max_probe_distance);
+    if (opts->dump_tables) {
+      dump_table(&idtbl, stdout);
+    }
+
+    idtbl_cleanup(&idtbl);
+  }
+  
+  result = EXIT_SUCCESS;
+end:
+  return result;
+end_idtbl_cleanup:
+  idtbl_cleanup(&idtbl);
+  return result;
+}
+
+
 static void opts_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
-  static const char *optstr = "hs:";
+  static const char *optstr = "hds:";
   struct timespec tp = {0};
   struct option lopts[] = {
     {"seed", required_argument, NULL, 's'},
+    {"dump", no_argument, NULL, 'd'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
 
   clock_gettime(CLOCK_MONOTONIC, &tp);
   opts->seed = tp.tv_nsec;
+  opts->dump_tables = 0;
 
   while ((ch = getopt_long(argc, argv, optstr, lopts, NULL)) != -1) {
     switch(ch) {
     case 's':
       opts->seed = (uint32_t)strtoul(optarg, NULL, 10);
+      break;
+    case 'd':
+      opts->dump_tables = 1;
       break;
     case 'h':
     default:
@@ -408,6 +590,7 @@ usage:
       "%s\n"
       "options:\n"
       "  -s|--seed <n>         seed to use for tables\n"
+      "  -d|--dump             dump stats tables\n"
       , argv[0]);
   exit(EXIT_FAILURE);
 }
@@ -423,11 +606,13 @@ int main(int argc, char *argv[]) {
   } tests[] = {
     {"init_cleanup", test_init_cleanup},
     {"insert_contains", test_insert_contains},
+    {"insert_contains_nullval", test_insert_contains_nullval},
     {"insert_get", test_insert_get},
     {"insert_get_duplicate", test_insert_get_duplicate},
     {"insert_get_rehash", test_insert_get_rehash},
     {"insert_get_rehash_nonseq", test_insert_get_rehash_nonseq},
     {"get_insert_get_remove_get", test_get_insert_get_remove_get},
+    {"stats", test_stats},
   };
 
   /* load and print options */

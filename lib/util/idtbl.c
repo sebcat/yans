@@ -1,6 +1,7 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <limits.h>
+#include <stdio.h>
 
 #include <lib/util/idtbl.h>
 
@@ -70,6 +71,20 @@ static struct idtbl_table *create_table(uint32_t nslots, uint32_t seed) {
   tbl->hashseed = hashfunc(seed, FNV1A_OFFSET);
   tbl->modmask = tbl->cap - 1; /* NB: cap is an even power of two */
   return tbl;
+}
+
+struct idtbl_table *copy_table(struct idtbl_table *src) {
+  struct idtbl_table *dst;
+  size_t nbytes;
+
+  nbytes = IDTBL_SIZE(src->cap);
+  dst = calloc(1, nbytes);
+  if (dst == NULL) {
+    return NULL;
+  }
+
+  memcpy(dst, src, nbytes);
+  return dst;
 }
 
 static void free_table(struct idtbl_table *tbl) {
@@ -286,6 +301,75 @@ int idtbl_insert(struct idtbl_ctx *ctx, uint32_t key, void *value) {
   }
 
   return set_table_value(ctx->tbl, key, value);
+}
+
+int idtbl_copy(struct idtbl_ctx *dst, struct idtbl_ctx *src) {
+  struct idtbl_table *tbl;
+
+  tbl = copy_table(src->tbl);
+  if (tbl == NULL) {
+    return IDTBL_ENOMEM;
+  }
+
+  dst->tbl = tbl;
+  dst->rehash_limit = src->rehash_limit;
+  return IDTBL_OK;
+}
+
+static int keycmp(const void *a, const void *b) {
+  const struct idtbl_entry *ent0 = a;
+  const struct idtbl_entry *ent1 = b;
+  return ent1->key - ent0->key;
+}
+
+int distcmp(const void *a, const void *b) {
+  const struct idtbl_entry *ent0 = a;
+  const struct idtbl_entry *ent1 = b;
+  return ent1->distance - ent0->distance;
+}
+
+int idtbl_calc_stats(struct idtbl_ctx *ctx, struct idtbl_stats *result) {
+  struct idtbl_ctx dst;
+  struct idtbl_entry *ent;
+  size_t tot_distance = 0;
+  size_t i;
+  int ret;
+
+  /* we will sort the table later, so make a copy of it */
+  ret = idtbl_copy(&dst, ctx);
+  if (ret != IDTBL_OK) {
+    return ret;
+  }
+
+  memset(result, 0, sizeof(*result));
+  result->nbytes = sizeof(struct idtbl_ctx) + sizeof(struct idtbl_table) +
+      (sizeof(struct idtbl_entry) * dst.tbl->cap);
+  result->size = (size_t)dst.tbl->size;
+  result->cap = (size_t)dst.tbl->cap;
+
+  /* iterate over the table summing the distances of non-empty elements */
+  for (i = 0; i < dst.tbl->cap; i++) {
+    ent = &dst.tbl->entries[i];
+    if (ent->key != 0) {
+      tot_distance += ent->distance;
+    }
+  }
+
+  /* calculate average probe distance for all elements */
+  result->average_probe_distance =
+      (double)tot_distance / (double)dst.tbl->size;
+
+  /* sort the table entries by keys in descending order, so we can get rid
+   * of all the empty slots. Then sort them by distance, giving us
+   * the mean and maximum probe values  */
+  qsort(dst.tbl->entries, dst.tbl->cap, sizeof(struct idtbl_entry),
+      &keycmp);
+  qsort(dst.tbl->entries, dst.tbl->size, sizeof(struct idtbl_entry),
+      &distcmp);
+  result->max_probe_distance = dst.tbl->entries[0].distance;
+  result->mean_probe_distance = dst.tbl->entries[dst.tbl->size >> 1].distance;
+  idtbl_cleanup(&dst);
+  return IDTBL_OK;
 }
 
 const char *idtbl_strerror(int code) {

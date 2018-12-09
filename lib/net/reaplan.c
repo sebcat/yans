@@ -161,9 +161,14 @@ int reaplan_run(struct reaplan_ctx *ctx) {
       tp = NULL;
     }
 
+kevent_again:
     ret = kevent(ctx->fd, evs, nevs, evs, CONNS_PER_SEQ, tp);
     if (ret < 0) {
-      return REAPLAN_ERR;
+      if (errno == EINTR) {
+        goto kevent_again;
+      } else {
+        return REAPLAN_ERR;
+      }
     }
 
     nevs = ret;

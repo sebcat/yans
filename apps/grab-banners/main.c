@@ -4,50 +4,53 @@
 #include <string.h>
 #include <getopt.h>
 
+#include <lib/net/dsts.h>
 #include <lib/net/sconn.h>
 #include <lib/net/reaplan.h>
 
-#define DFL_SUBJECTFILE "-"
-#define DFL_PORTS       "80,443"
 #define DFL_NCLIENTS    16
 
 #define RECVBUF_SIZE   8192
 
 struct opts {
-  const char *subjectfile;
-  const char *ports;
   int nclients;
+  char **dsts;
+  int ndsts;
 };
 
 struct banner_grabber {
-  FILE *src;
+  struct dsts_ctx dsts;
   size_t nclients;
   size_t active_clients;
   int *clients;
   char *recvbuf;
 };
 
-#define banner_grabber_get_src(b_) (b_)->src
 #define banner_grabber_get_recvbuf(b_) (b_)->recvbuf
 
-static int banner_grabber_init(struct banner_grabber *b, FILE *src,
-    size_t nclients) {
+static int banner_grabber_init(struct banner_grabber *b, size_t nclients) {
   int *clients;
   char *recvbuf;
   size_t i;
+  int ret;
+  struct dsts_ctx dsts;
 
   clients = malloc(nclients * sizeof(int));
   if (clients == NULL) {
-    return -1;
+    goto fail;
   }
 
-  recvbuf = calloc(RECVBUF_SIZE, sizeof(char));
+  recvbuf = malloc(RECVBUF_SIZE * sizeof(char));
   if (recvbuf == NULL) {
-    free(clients);
-    return -1;
+    goto fail_free_clients;
   }
 
-  b->src = src;
+  ret = dsts_init(&dsts);
+  if (ret < 0) {
+    goto fail_free_recvbuf;
+  }
+
+  b->dsts = dsts;
   b->nclients = nclients;
   b->active_clients = 0;
   b->clients = clients;
@@ -57,63 +60,66 @@ static int banner_grabber_init(struct banner_grabber *b, FILE *src,
   }
 
   return 0;
+
+fail_free_recvbuf:
+  free(recvbuf);
+fail_free_clients:
+  free(clients);
+fail:
+  return -1;
 }
 
 static void banner_grabber_cleanup(struct banner_grabber *b) {
   free(b->clients);
   free(b->recvbuf);
+  dsts_cleanup(&b->dsts);
   b->nclients = 0;
   b->clients = NULL;
   b->recvbuf = NULL;
+}
+
+static int banner_grabber_add_dsts(struct banner_grabber *b,
+    const char *addrs, const char *ports) {
+  int ret;
+
+  ret = dsts_add(&b->dsts, addrs, ports, NULL);
+  if (ret < 0) {
+    return -1;
+  }
+
+  return 0;
 }
 
 static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
   struct sconn_ctx sconn = {0};
   struct sconn_opts sopts = {0};
   struct banner_grabber *grabber;
-  FILE *fp;
-  char linebuf[56];
-  char addrbuf[56];
   int fd = -1;
-  int ret;
   union {
+    struct sockaddr sa;
     struct sockaddr_in sin;
     struct sockaddr_in6 sin6;
   } addr;
+  socklen_t addrlen;
 
   grabber = reaplan_get_data(ctx);
-  fp = banner_grabber_get_src(grabber);
-
-  while (fd < 0) {
-    if (fgets(linebuf, sizeof(linebuf), fp) == NULL) {
-      return REAPLANC_DONE;
-    }
-
-    if (sscanf(linebuf, "%s", addrbuf) != 1) {
-      continue;
-    }
-
-    ret = sconn_parse_addr(&sconn, addrbuf, "80", (struct sockaddr *)&addr,
-        sizeof(addr));
-    if (ret < 0) {
-      fprintf(stderr, "unable to parse address %s: %s\n", addrbuf,
-          strerror(sconn_errno(&sconn)));
-      continue;
-    }
-
+  while (dsts_next(&grabber->dsts, &addr.sa, &addrlen, NULL)) {
     sopts.proto = IPPROTO_TCP;
-    sopts.dstaddr = (struct sockaddr *)&addr;
-    sopts.dstaddrlen = ret;
+    sopts.dstaddr = &addr.sa;
+    sopts.dstaddrlen = addrlen;
     fd = sconn_connect(&sconn, &sopts);
     if (fd < 0) {
-      fprintf(stderr, "connection failed: \"%s\" %s\n", addrbuf,
-          strerror(sconn_errno(&sconn)));
+      /* TODO: connect_failure callback? */
+      fprintf(stderr, "connection failed: %s\n", strerror(sconn_errno(&sconn)));
+      continue;
     }
+
+    conn->fd = fd;
+    conn->events = REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT;
+    return REAPLANC_OK;
   }
 
-  conn->fd = fd;
-  conn->events = REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT;
-  return REAPLANC_OK;
+  return REAPLANC_DONE;
 }
 
 static ssize_t on_readable(struct reaplan_ctx *ctx, int fd) {
@@ -145,59 +151,63 @@ static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "f:p:n:";
+  const char *optstring = "n:";
+  const char *argv0;
   struct option optcfgs[] = {
-    {"subject-file", required_argument, NULL, 'f'},
-    {"ports",        required_argument, NULL, 'p'},
     {"nclients",     required_argument, NULL, 'n'},
     {NULL, 0, NULL, 0}
   };
 
+  argv0 = argv[0];
+
   /* fill in defaults */
-  opts->subjectfile = DFL_SUBJECTFILE;
-  opts->ports = DFL_PORTS;
   opts->nclients = DFL_NCLIENTS;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
     switch(ch) {
-    case 'f':
-      opts->subjectfile = optarg;
-      break;
-    case 'p':
-      opts->ports = optarg;
-      break;
     case 'n':
       opts->nclients = strtol(optarg, NULL, 10);
+      break;
     default:
       goto usage;
     }
   }
 
+  argc -= optind;
+  argv += optind;
+  if (argc <= 0) {
+    fprintf(stderr, "missing host/port pairs\n");
+    goto usage;
+  } else if (argc & 1) {
+    fprintf(stderr, "uneven number of host/port elements\n");
+    goto usage;
+  }
+  opts->dsts = argv;
+  opts->ndsts = argc;
+
   return;
 usage:
-  fprintf(stderr, "usage: %s [opts]\n"
+  fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -f|--subject-file <file>  file with <addr>,<name>\\n lines (%s)\n"
-      "  -p|--ports <portspec>     ports to connect to (%s)\n"
       "  -n|--nclients <n>         number of clients (%d)\n",
-      argv[0], DFL_SUBJECTFILE, DFL_PORTS, DFL_NCLIENTS);
+      argv0, DFL_NCLIENTS);
   exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
+  int i;
   int ret;
-  FILE *src = NULL;
   struct opts opts;
   struct reaplan_ctx reaplan;
   struct banner_grabber grabber;
   int status = EXIT_FAILURE;
   struct reaplan_opts rpopts = {
     .funcs = {
-      .on_connect = on_connect,
+      .on_connect  = on_connect,
       .on_readable = on_readable,
       .on_writable = on_writable,
-      .on_done = on_done,
+      .on_done     = on_done,
     },
     .data = NULL,
   };
@@ -205,21 +215,21 @@ int main(int argc, char *argv[]) {
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
 
-  /* set/open src file */
-  if (opts.subjectfile[0] == '-' && opts.subjectfile[1] == '\0') {
-    src = stdin;
-  } else {
-    src = fopen(opts.subjectfile, "rb");
-    if (src == NULL) {
-      perror("fopen");
-      return EXIT_FAILURE;
-    }
-  }
-
   /* initialize the banner grabber */
-  if (banner_grabber_init(&grabber, src, opts.nclients) < 0) {
+  if (banner_grabber_init(&grabber, opts.nclients) < 0) {
     perror("banner_grabber_init");
     goto done;
+  }
+
+  /* add the destinations to the banner grabber */
+  for (i = 0; i < opts.ndsts / 2; i++) {
+    ret = banner_grabber_add_dsts(&grabber, opts.dsts[i*2],
+        opts.dsts[i*2+1]);
+    if (ret != 0) {
+      fprintf(stderr, "banner_grabber_add_dsts: failed to add: %s %s\n",
+          opts.dsts[i*2], opts.dsts[i*2+1]);
+      goto done_banner_grabber_cleanup;
+    }
   }
 
   /* initialize the event "engine" */
@@ -243,9 +253,6 @@ done_reaplan_cleanup:
 done_banner_grabber_cleanup:
   banner_grabber_cleanup(&grabber);
 done:
-  if (src != stdin) {
-    fclose(src);
-  }
 
   return status;
 }

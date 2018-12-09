@@ -5,20 +5,24 @@
 #include <getopt.h>
 
 #include <lib/net/dsts.h>
-#include <lib/net/sconn.h>
 #include <lib/net/reaplan.h>
+#include <lib/util/sandbox.h>
+
+#include <lib/go-between/connector.h>
 
 #define DFL_NCLIENTS    16
 
 #define RECVBUF_SIZE   8192
 
 struct opts {
+  const char *connector_path;
   int nclients;
   char **dsts;
   int ndsts;
 };
 
 struct banner_grabber {
+  struct connector_ctx *connector;
   struct dsts_ctx dsts;
   size_t nclients;
   size_t active_clients;
@@ -28,7 +32,8 @@ struct banner_grabber {
 
 #define banner_grabber_get_recvbuf(b_) (b_)->recvbuf
 
-static int banner_grabber_init(struct banner_grabber *b, size_t nclients) {
+static int banner_grabber_init(struct banner_grabber *b,
+    struct connector_ctx *connector, size_t nclients) {
   int *clients;
   char *recvbuf;
   size_t i;
@@ -50,6 +55,7 @@ static int banner_grabber_init(struct banner_grabber *b, size_t nclients) {
     goto fail_free_recvbuf;
   }
 
+  b->connector = connector;
   b->dsts = dsts;
   b->nclients = nclients;
   b->active_clients = 0;
@@ -91,7 +97,6 @@ static int banner_grabber_add_dsts(struct banner_grabber *b,
 }
 
 static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
-  struct sconn_ctx sconn = {0};
   struct sconn_opts sopts = {0};
   struct banner_grabber *grabber;
   int fd = -1;
@@ -107,10 +112,11 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
     sopts.proto = IPPROTO_TCP;
     sopts.dstaddr = &addr.sa;
     sopts.dstaddrlen = addrlen;
-    fd = sconn_connect(&sconn, &sopts);
+    fd = connector_connect(grabber->connector, &sopts);
     if (fd < 0) {
       /* TODO: connect_failure callback? */
-      fprintf(stderr, "connection failed: %s\n", strerror(sconn_errno(&sconn)));
+      fprintf(stderr, "connection failed: %s\n",
+          connector_strerror(grabber->connector));
       continue;
     }
 
@@ -151,10 +157,11 @@ static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:";
+  const char *optstring = "n:c:";
   const char *argv0;
   struct option optcfgs[] = {
     {"nclients",     required_argument, NULL, 'n'},
+    {"connector",    required_argument, NULL, 'c'},
     {NULL, 0, NULL, 0}
   };
 
@@ -162,12 +169,16 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 
   /* fill in defaults */
   opts->nclients = DFL_NCLIENTS;
+  opts->connector_path = NULL;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
     switch(ch) {
     case 'n':
       opts->nclients = strtol(optarg, NULL, 10);
+      break;
+    case 'c':
+      opts->connector_path = optarg;
       break;
     default:
       goto usage;
@@ -190,7 +201,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -n|--nclients <n>         number of clients (%d)\n",
+      "  -c|--connector <path>     path to connector service\n"
+      "  -n|--nclients  <n>        number of clients (%d)\n",
       argv0, DFL_NCLIENTS);
   exit(EXIT_FAILURE);
 }
@@ -201,6 +213,9 @@ int main(int argc, char *argv[]) {
   struct opts opts;
   struct reaplan_ctx reaplan;
   struct banner_grabber grabber;
+  struct connector_opts copts = {0};
+  struct connector_ctx connector;
+  struct ycl_msg msgbuf;
   int status = EXIT_FAILURE;
   struct reaplan_opts rpopts = {
     .funcs = {
@@ -211,14 +226,46 @@ int main(int argc, char *argv[]) {
     },
     .data = NULL,
   };
+  int do_sandbox = 0;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
 
-  /* initialize the banner grabber */
-  if (banner_grabber_init(&grabber, opts.nclients) < 0) {
-    perror("banner_grabber_init");
+  /* initialize the connector go-between, which handles connections for
+   * cases where we're using an external service for connections or not.
+   * If we use an external service (typically clid) we enter sandbox mode
+   * later. */
+  if (opts.connector_path && *opts.connector_path) {
+    ret = ycl_msg_init(&msgbuf);
+    if (ret != YCL_OK) {
+      fprintf(stderr, "failed to initialize YCL message buffer\n");
+      goto done;
+    }
+    copts.svcpath = opts.connector_path;
+    copts.msgbuf = &msgbuf;
+    do_sandbox = 1;
+  }
+  ret = connector_init(&connector, &copts);
+  if (ret < 0) {
+    if (copts.msgbuf != NULL) {
+      ycl_msg_cleanup(copts.msgbuf);
+    }
+    fprintf(stderr, "failed to initialize connector go-between\n");
     goto done;
+  }
+
+  if (do_sandbox) {
+    ret = sandbox_enter();
+    if (ret != 0) {
+      fprintf(stderr, "failed to enter sandbox mode\n");
+      goto done_connector_cleanup;
+    }
+  }
+
+  /* initialize the banner grabber */
+  if (banner_grabber_init(&grabber, &connector, opts.nclients) < 0) {
+    perror("banner_grabber_init");
+    goto done_connector_cleanup;
   }
 
   /* add the destinations to the banner grabber */
@@ -252,7 +299,11 @@ done_reaplan_cleanup:
   reaplan_cleanup(&reaplan);
 done_banner_grabber_cleanup:
   banner_grabber_cleanup(&grabber);
+done_connector_cleanup:
+  if (copts.msgbuf) {
+    ycl_msg_cleanup(copts.msgbuf);
+  }
+  connector_cleanup(&connector);
 done:
-
   return status;
 }

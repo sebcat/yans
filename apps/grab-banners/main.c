@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
+#include <errno.h>
+#include <signal.h>
 
 #include <lib/net/dsts.h>
 #include <lib/net/reaplan.h>
@@ -155,6 +157,34 @@ static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
   fprintf(stderr, "done fd:%d err:%d\n", fd, err);
 }
 
+static int banner_grabber_run(struct banner_grabber *grabber) {
+  int ret;
+  struct reaplan_ctx reaplan;
+  struct reaplan_opts rpopts = {
+    .funcs = {
+      .on_connect  = on_connect,
+      .on_readable = on_readable,
+      .on_writable = on_writable,
+      .on_done     = on_done,
+    },
+    .data = grabber,
+  };
+
+  ret = reaplan_init(&reaplan, &rpopts);
+  if (ret != REAPLAN_OK) {
+    return -1;
+  }
+
+  ret = reaplan_run(&reaplan);
+  reaplan_cleanup(&reaplan);
+  if (ret != REAPLAN_OK) {
+    return -1;
+  }
+
+  return 0;
+
+}
+
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
   const char *optstring = "n:c:";
@@ -211,25 +241,17 @@ int main(int argc, char *argv[]) {
   int i;
   int ret;
   struct opts opts;
-  struct reaplan_ctx reaplan;
   struct banner_grabber grabber;
   struct connector_opts copts = {0};
   struct connector_ctx connector;
   struct ycl_msg msgbuf;
   int status = EXIT_FAILURE;
-  struct reaplan_opts rpopts = {
-    .funcs = {
-      .on_connect  = on_connect,
-      .on_readable = on_readable,
-      .on_writable = on_writable,
-      .on_done     = on_done,
-    },
-    .data = NULL,
-  };
   int do_sandbox = 0;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
+
+  signal(SIGPIPE, SIG_IGN);
 
   /* initialize the connector go-between, which handles connections for
    * cases where we're using an external service for connections or not.
@@ -279,24 +301,13 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  /* initialize the event "engine" */
-  rpopts.data = &grabber;
-  ret = reaplan_init(&reaplan, &rpopts);
-  if (ret != REAPLAN_OK) {
-    perror("reaplan_init");
+  ret = banner_grabber_run(&grabber);
+  if (ret < 0) {
+    fprintf(stderr, "banner_grabber_run: failure (%s)\n", strerror(errno));
     goto done_banner_grabber_cleanup;
   }
 
-  /* run until all connections are completed */
-  ret = reaplan_run(&reaplan);
-  if (ret != REAPLAN_OK) {
-    perror("reaplan_run");
-    goto done_reaplan_cleanup;
-  }
-
   status = EXIT_SUCCESS;
-done_reaplan_cleanup:
-  reaplan_cleanup(&reaplan);
 done_banner_grabber_cleanup:
   banner_grabber_cleanup(&grabber);
 done_connector_cleanup:

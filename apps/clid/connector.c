@@ -95,8 +95,8 @@ static void on_readreq(struct eds_client *cli, int fd) {
     ecli->connerr = 0;
   }
 
-  eds_client_set_on_writable(cli, on_sendfd, 0);
   eds_client_set_on_readable(cli, NULL, 0);
+  eds_client_set_on_writable(cli, on_sendfd, 0);
   return;
 
 fail:

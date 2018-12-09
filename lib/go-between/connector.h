@@ -1,0 +1,27 @@
+#ifndef YANS_OPENER_H__
+#define YANS_OPENER_H__
+
+#include <lib/net/sconn.h>
+#include <lib/ycl/ycl.h>
+
+struct connector_opts {
+  const char *svcpath;    /* optional, socket path */
+  struct ycl_msg *msgbuf; /* required if svcpath is set */
+};
+
+struct connector_ctx {
+  /* internal */
+  int flags;
+  int err;
+  struct ycl_ctx ycl;
+  struct ycl_msg *msgbuf;
+  struct sconn_ctx sconn;
+};
+
+int connector_init(struct connector_ctx *ctx, struct connector_opts *opts);
+void connector_cleanup(struct connector_ctx *ctx);
+
+int connector_connect(struct connector_ctx *ctx, struct sconn_opts *opts);
+const char *connector_strerror(struct connector_ctx *ctx);
+
+#endif

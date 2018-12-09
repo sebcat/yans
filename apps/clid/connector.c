@@ -56,6 +56,7 @@ static void on_sendfd(struct eds_client *cli, int fd) {
     goto done;
   }
 
+  ycl_msg_reset(&ecli->msgbuf);
   eds_client_set_on_readable(cli, on_readreq, EDS_DEFER);
   eds_client_set_on_writable(cli, NULL, 0);
 

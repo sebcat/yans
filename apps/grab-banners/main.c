@@ -18,7 +18,7 @@
 
 struct opts {
   const char *connector_path;
-  int nclients;
+  int max_clients;
   char **dsts;
   int ndsts;
 };
@@ -26,30 +26,29 @@ struct opts {
 struct banner_grabber {
   struct connector_ctx *connector;
   struct dsts_ctx dsts;
-  size_t nclients;
-  size_t active_clients;
-  int *clients;
   char *recvbuf;
+
+  int curr_clients;
+  int max_clients;
 };
 
 #define banner_grabber_get_recvbuf(b_) (b_)->recvbuf
 
 static int banner_grabber_init(struct banner_grabber *b,
-    struct connector_ctx *connector, size_t nclients) {
-  int *clients;
+    struct connector_ctx *connector, int max_clients) {
   char *recvbuf;
-  size_t i;
   int ret;
   struct dsts_ctx dsts;
 
-  clients = malloc(nclients * sizeof(int));
-  if (clients == NULL) {
+  if (max_clients <= 0) {
     goto fail;
   }
 
+  memset(b, 0, sizeof(*b));
+
   recvbuf = malloc(RECVBUF_SIZE * sizeof(char));
   if (recvbuf == NULL) {
-    goto fail_free_clients;
+    goto fail;
   }
 
   ret = dsts_init(&dsts);
@@ -57,32 +56,23 @@ static int banner_grabber_init(struct banner_grabber *b,
     goto fail_free_recvbuf;
   }
 
-  b->connector = connector;
-  b->dsts = dsts;
-  b->nclients = nclients;
-  b->active_clients = 0;
-  b->clients = clients;
-  b->recvbuf = recvbuf;
-  for (i = 0; i < nclients; i++) {
-    b->clients[i] = -1;
-  }
+  b->connector    = connector;
+  b->dsts         = dsts;
+  b->recvbuf      = recvbuf;
+  b->curr_clients = 0;
+  b->max_clients  = max_clients;
 
   return 0;
 
 fail_free_recvbuf:
   free(recvbuf);
-fail_free_clients:
-  free(clients);
 fail:
   return -1;
 }
 
 static void banner_grabber_cleanup(struct banner_grabber *b) {
-  free(b->clients);
   free(b->recvbuf);
   dsts_cleanup(&b->dsts);
-  b->nclients = 0;
-  b->clients = NULL;
   b->recvbuf = NULL;
 }
 
@@ -110,13 +100,18 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
   socklen_t addrlen;
 
   grabber = reaplan_get_data(ctx);
+  if (grabber->curr_clients >= grabber->max_clients) {
+    return REAPLANC_WAIT;
+  }
+
   while (dsts_next(&grabber->dsts, &addr.sa, &addrlen, NULL)) {
     sopts.proto = IPPROTO_TCP;
     sopts.dstaddr = &addr.sa;
     sopts.dstaddrlen = addrlen;
     fd = connector_connect(grabber->connector, &sopts);
     if (fd < 0) {
-      /* TODO: connect_failure callback? */
+      /* TODO: call on_done, increment curr_clients rearlier here as it is
+       *       decremented in on_done */
       fprintf(stderr, "connection failed: %s\n",
           connector_strerror(grabber->connector));
       continue;
@@ -124,6 +119,7 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
 
     conn->fd = fd;
     conn->events = REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT;
+    grabber->curr_clients++;
     return REAPLANC_OK;
   }
 
@@ -154,6 +150,10 @@ static ssize_t on_writable(struct reaplan_ctx *ctx, int fd) {
 }
 
 static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
+  struct banner_grabber *grabber;
+
+  grabber = reaplan_get_data(ctx);
+  grabber->curr_clients--;
   fprintf(stderr, "done fd:%d err:%d\n", fd, err);
 }
 
@@ -187,27 +187,27 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:c:";
+  const char *optstring = "n:s:";
   const char *argv0;
   struct option optcfgs[] = {
-    {"nclients",     required_argument, NULL, 'n'},
-    {"connector",    required_argument, NULL, 'c'},
+    {"max-clients",     required_argument, NULL, 'n'},
+    {"socket",    required_argument, NULL, 's'},
     {NULL, 0, NULL, 0}
   };
 
   argv0 = argv[0];
 
   /* fill in defaults */
-  opts->nclients = DFL_NCLIENTS;
+  opts->max_clients = DFL_NCLIENTS;
   opts->connector_path = NULL;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
     switch(ch) {
     case 'n':
-      opts->nclients = strtol(optarg, NULL, 10);
+      opts->max_clients = strtol(optarg, NULL, 10);
       break;
-    case 'c':
+    case 's':
       opts->connector_path = optarg;
       break;
     default:
@@ -227,12 +227,17 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->dsts = argv;
   opts->ndsts = argc;
 
+  if (opts->max_clients <= 0) {
+    fprintf(stderr, "unvalid max-client value\n");
+    goto usage;
+  }
+
   return;
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -c|--connector <path>     path to connector service\n"
-      "  -n|--nclients  <n>        number of clients (%d)\n",
+      "  -s|--socket       <path>  path to connector service socket\n"
+      "  -n|--max-clients  <n>     # of max concurrent clients (%d)\n",
       argv0, DFL_NCLIENTS);
   exit(EXIT_FAILURE);
 }
@@ -285,7 +290,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* initialize the banner grabber */
-  if (banner_grabber_init(&grabber, &connector, opts.nclients) < 0) {
+  if (banner_grabber_init(&grabber, &connector, opts.max_clients) < 0) {
     perror("banner_grabber_init");
     goto done_connector_cleanup;
   }

@@ -48,12 +48,10 @@ struct reaplan_ctx {
   struct reaplan_opts opts;
   int fd; /* kqueue, epoll fd */
   int nconnections;
-  unsigned int seq;
   struct reaplan_closefd closefds[CONNS_PER_SEQ];
   int nclosefds;
 };
 
-#define reaplan_get_seq(ctx__) (ctx__)->seq
 #define reaplan_get_data(ctx__) (ctx__)->opts.data
 
 int reaplan_init(struct reaplan_ctx *ctx,

@@ -58,7 +58,6 @@ static int closefd(struct reaplan_ctx *ctx, int fd, int err) {
 
 int reaplan_init(struct reaplan_ctx *ctx,
     const struct reaplan_opts *opts) {
-  ctx->seq = 0;
   ctx->nconnections = 0;
   ctx->opts = *opts;
   ctx->fd = kqueue();

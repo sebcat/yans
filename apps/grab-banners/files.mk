@@ -6,6 +6,7 @@ grab_banners_DEPS = \
     lib/net/reaplan.c \
     lib/net/sconn.c \
     lib/util/buf.c \
+    lib/util/idset.c \
     lib/util/io.c \
     lib/util/netstring.c \
     lib/util/reorder.c \

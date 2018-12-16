@@ -77,15 +77,22 @@ static void banner_grabber_cleanup(struct banner_grabber *b) {
 }
 
 static int banner_grabber_add_dsts(struct banner_grabber *b,
-    const char *addrs, const char *ports) {
+    const char *addrs, const char *ports, void *udata) {
   int ret;
 
-  ret = dsts_add(&b->dsts, addrs, ports, NULL);
+  ret = dsts_add(&b->dsts, addrs, ports, udata);
   if (ret < 0) {
     return -1;
   }
 
   return 0;
+}
+
+static void on_done(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
+  struct banner_grabber *grabber;
+
+  grabber = reaplan_get_udata(ctx);
+  grabber->curr_clients--;
 }
 
 static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
@@ -99,43 +106,47 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
   } addr;
   socklen_t addrlen;
 
-  grabber = reaplan_get_data(ctx);
+  grabber = reaplan_get_udata(ctx);
   if (grabber->curr_clients >= grabber->max_clients) {
     return REAPLANC_WAIT;
   }
 
   while (dsts_next(&grabber->dsts, &addr.sa, &addrlen, NULL)) {
+    /* increment the client counter early, so that if the connection fail
+     * the count is corrected by on_done either way */
+    grabber->curr_clients++;
+
     sopts.proto = IPPROTO_TCP;
     sopts.dstaddr = &addr.sa;
     sopts.dstaddrlen = addrlen;
     fd = connector_connect(grabber->connector, &sopts);
     if (fd < 0) {
-      /* TODO: call on_done, increment curr_clients rearlier here as it is
-       *       decremented in on_done */
-      fprintf(stderr, "connection failed: %s\n",
-          connector_strerror(grabber->connector));
+      on_done(ctx, conn);
       continue;
     }
 
-    conn->fd = fd;
-    conn->events = REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT;
-    grabber->curr_clients++;
+    reaplan_conn_register(conn, fd,
+        REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT);
     return REAPLANC_OK;
   }
 
   return REAPLANC_DONE;
 }
 
-static ssize_t on_readable(struct reaplan_ctx *ctx, int fd) {
+static ssize_t on_readable(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn) {
   ssize_t nread;
   struct banner_grabber *grabber;
   char *recvbuf;
+  int fd;
 
-  grabber = reaplan_get_data(ctx);
+  grabber = reaplan_get_udata(ctx);
+  fd = reaplan_conn_get_fd(conn);
   recvbuf = banner_grabber_get_recvbuf(grabber);
 
   nread = read(fd, recvbuf, RECVBUF_SIZE);
   if (nread > 0) {
+    /* TODO: Do something with the data other than writing it */
     write(STDOUT_FILENO, recvbuf, nread);
     return 0; /* signal EOF to reaplan */
   }
@@ -143,31 +154,23 @@ static ssize_t on_readable(struct reaplan_ctx *ctx, int fd) {
   return nread;
 }
 
-static ssize_t on_writable(struct reaplan_ctx *ctx, int fd) {
+static ssize_t on_writable(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn) {
 #define SrTR "GET / HTTP/1.0\r\n\r\n"
-  return write(fd, SrTR, sizeof(SrTR)-1);
+  return write(reaplan_conn_get_fd(conn), SrTR, sizeof(SrTR)-1);
 #undef SrTR
-}
-
-static void on_done(struct reaplan_ctx *ctx, int fd, int err) {
-  struct banner_grabber *grabber;
-
-  grabber = reaplan_get_data(ctx);
-  grabber->curr_clients--;
-  fprintf(stderr, "done fd:%d err:%d\n", fd, err);
 }
 
 static int banner_grabber_run(struct banner_grabber *grabber) {
   int ret;
   struct reaplan_ctx reaplan;
   struct reaplan_opts rpopts = {
-    .funcs = {
-      .on_connect  = on_connect,
-      .on_readable = on_readable,
-      .on_writable = on_writable,
-      .on_done     = on_done,
-    },
-    .data = grabber,
+    .on_connect  = on_connect,
+    .on_readable = on_readable,
+    .on_writable = on_writable,
+    .on_done     = on_done,
+    .max_clients = grabber->max_clients,
+    .udata       = grabber,
   };
 
   ret = reaplan_init(&reaplan, &rpopts);
@@ -256,6 +259,8 @@ int main(int argc, char *argv[]) {
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
 
+  /* ignore SIGPIPE, caused by writes on a file descriptor where the peer
+   * has closed the connection */
   signal(SIGPIPE, SIG_IGN);
 
   /* initialize the connector go-between, which handles connections for
@@ -298,7 +303,7 @@ int main(int argc, char *argv[]) {
   /* add the destinations to the banner grabber */
   for (i = 0; i < opts.ndsts / 2; i++) {
     ret = banner_grabber_add_dsts(&grabber, opts.dsts[i*2],
-        opts.dsts[i*2+1]);
+        opts.dsts[i*2+1], NULL);
     if (ret != 0) {
       fprintf(stderr, "banner_grabber_add_dsts: failed to add: %s %s\n",
           opts.dsts[i*2], opts.dsts[i*2+1]);

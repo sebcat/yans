@@ -1,6 +1,9 @@
 #ifndef REAPLAN_H__
 #define REAPLAN_H__
 
+#include <lib/util/idset.h>
+
+
 /* reaplan status codes */
 #define REAPLAN_ERR -1
 #define REAPLAN_OK   0
@@ -11,7 +14,7 @@
 #define REAPLANC_DONE  1
 #define REAPLANC_WAIT  2
 
-/* reaplan event flags */
+/* reaplan connection flags */
 #define REAPLAN_READABLE         (1 << 0)
 #define REAPLAN_WRITABLE_ONESHOT (1 << 1)
 
@@ -21,42 +24,54 @@
 struct reaplan_ctx;
 
 struct reaplan_conn {
+  /* internal */
+  time_t expires;
+  void *udata;
   int fd;
-  int events; /* REAPLAN_READABLE, REAPLAN_WRITABLE_ONESHOT, ... */
-};
-
-struct reaplan_funcs {
-  int (*on_connect)(struct reaplan_ctx *, struct reaplan_conn *);
-  ssize_t (*on_readable)(struct reaplan_ctx *, int);
-  ssize_t (*on_writable)(struct reaplan_ctx *, int);
-  void (*on_done)(struct reaplan_ctx *, int, int);
+  unsigned int flags;      /* set flags */
+  unsigned int rflags;     /* requested flags */
 };
 
 struct reaplan_opts {
-  struct reaplan_funcs funcs;
-  void *data;
-};
+  /* reaplan callbacks */
+  int (*on_connect)(struct reaplan_ctx *, struct reaplan_conn *);
+  ssize_t (*on_readable)(struct reaplan_ctx *, struct reaplan_conn *);
+  ssize_t (*on_writable)(struct reaplan_ctx *, struct reaplan_conn *);
+  void (*on_done)(struct reaplan_ctx *, struct reaplan_conn *);
 
-struct reaplan_closefd {
-  /* internal */
-  int fd;
-  int err;
+  time_t timeout;             /* read/write/connect timeout, in seconds */
+  void *udata;                /* user-data per reaplan instance */
+  unsigned int max_clients;   /* maximum # of concurrent connections */
 };
 
 struct reaplan_ctx {
   /* internal */
-  struct reaplan_opts opts;
-  int fd; /* kqueue, epoll fd */
-  int nconnections;
-  struct reaplan_closefd closefds[CONNS_PER_SEQ];
-  int nclosefds;
+  int fd;                     /* kqueue fd */
+  int active_conns;           /* # of currently active connections */
+  int nclosefds;              /* # of currently used closefds slots */
+  struct idset_ctx *ids;      /* idset to keep track of used conn slots */
+  struct reaplan_conn *conns; /* array of per-connection state structs */
+  struct reaplan_opts opts;   /* caller supplied options */
+  struct reaplan_conn *closefds[CONNS_PER_SEQ];
 };
-
-#define reaplan_get_data(ctx__) (ctx__)->opts.data
 
 int reaplan_init(struct reaplan_ctx *ctx,
     const struct reaplan_opts *opts);
 void reaplan_cleanup(struct reaplan_ctx *ctx);
 int reaplan_run(struct reaplan_ctx *ctx);
+
+static inline void *reaplan_get_udata(const struct reaplan_ctx *ctx) {
+  return ctx->opts.udata;
+}
+
+static inline int reaplan_conn_get_fd(const struct reaplan_conn *conn) {
+  return conn->fd;
+}
+
+static inline void reaplan_conn_register(struct reaplan_conn *conn, int fd,
+    unsigned int flags) {
+  conn->fd = fd;
+  conn->rflags = flags;
+}
 
 #endif

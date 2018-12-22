@@ -4,7 +4,8 @@
 #include <lib/ycl/ycl_msg.h>
 #include <lib/go-between/connector.h>
 
-#define CONNECTORF_IS_YCL  (1 << 0) /* ycl backend is being used */
+#define CONNECTORF_IS_YCL    (1 << 0) /* ycl backend is being used */
+#define CONNECTORF_IS_TCPSRC (1 << 1) /* tcpsrc(4) backend is being used */
 
 static int connector_init_svc(struct connector_ctx *ctx,
     struct connector_opts *opts) {
@@ -23,7 +24,15 @@ int connector_init(struct connector_ctx *ctx,
   int ret;
 
   memset(ctx, 0, sizeof(*ctx));
-  if (opts->svcpath && *opts->svcpath) {
+  if (opts->use_tcpsrc) {
+    ret = tcpsrc_init(&ctx->tcpsrc);
+    if (ret < 0) {
+      ctx->err = errno;
+      return -1;
+    }
+
+    ctx->flags |= CONNECTORF_IS_TCPSRC;
+  } else if (opts->svcpath && *opts->svcpath) {
     if (!opts->msgbuf) {
       /* svc path without supplied YCL msg buffer is not valid ATM */
       ctx->err = EINVAL;
@@ -78,6 +87,26 @@ static int connector_connect_svc(struct connector_ctx *ctx,
   return getfd;
 }
 
+static int connector_connect_tcpsrc(struct connector_ctx *ctx,
+    struct sconn_opts *opts) {
+  int ret;
+
+  if (opts->proto != IPPROTO_TCP) {
+    ctx->err = EINVAL;
+    return -1;
+  }
+
+  /* TODO: Implement a lot of the other functionality in tcpsrc(4)
+   * (e.g., reuseaddr) */
+
+  ret = tcpsrc_connect(&ctx->tcpsrc, opts->dstaddr);
+  if (ret < 0) {
+    ctx->err = errno;
+  }
+
+  return ret;
+}
+
 static int connector_connect_sconn(struct connector_ctx *ctx,
     struct sconn_opts *opts) {
   int ret;
@@ -94,6 +123,8 @@ static int connector_connect_sconn(struct connector_ctx *ctx,
 int connector_connect(struct connector_ctx *ctx, struct sconn_opts *opts) {
   if (ctx->flags & CONNECTORF_IS_YCL) {
     return connector_connect_svc(ctx, opts);
+  } else if (ctx->flags & CONNECTORF_IS_TCPSRC) {
+    return connector_connect_tcpsrc(ctx, opts);
   } else {
     return connector_connect_sconn(ctx, opts);
   }

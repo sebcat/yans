@@ -21,6 +21,7 @@ struct opts {
   int max_clients;
   char **dsts;
   int ndsts;
+  int use_tcpsrc;
 };
 
 struct banner_grabber {
@@ -190,11 +191,12 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:s:";
+  const char *optstring = "n:s:t";
   const char *argv0;
   struct option optcfgs[] = {
-    {"max-clients",     required_argument, NULL, 'n'},
-    {"socket",    required_argument, NULL, 's'},
+    {"max-clients", required_argument, NULL, 'n'},
+    {"socket",      required_argument, NULL, 's'},
+    {"tcpsrc",      required_argument, NULL, 't'},
     {NULL, 0, NULL, 0}
   };
 
@@ -203,6 +205,7 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   /* fill in defaults */
   opts->max_clients = DFL_NCLIENTS;
   opts->connector_path = NULL;
+  opts->use_tcpsrc = 0;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
@@ -212,6 +215,9 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       break;
     case 's':
       opts->connector_path = optarg;
+      break;
+    case 't':
+      opts->use_tcpsrc = 1;
       break;
     default:
       goto usage;
@@ -240,7 +246,8 @@ usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
       "  -s|--socket       <path>  path to connector service socket\n"
-      "  -n|--max-clients  <n>     # of max concurrent clients (%d)\n",
+      "  -n|--max-clients  <n>     # of max concurrent clients (%d)\n"
+      "  -t|--tcpsrc               use tcpsrc(4) for connections\n",
       argv0, DFL_NCLIENTS);
   exit(EXIT_FAILURE);
 }
@@ -267,7 +274,10 @@ int main(int argc, char *argv[]) {
    * cases where we're using an external service for connections or not.
    * If we use an external service (typically clid) we enter sandbox mode
    * later. */
-  if (opts.connector_path && *opts.connector_path) {
+  if (opts.use_tcpsrc) {
+    copts.use_tcpsrc = 1;
+    do_sandbox = 1;
+  } else if (opts.connector_path && *opts.connector_path) {
     ret = ycl_msg_init(&msgbuf);
     if (ret != YCL_OK) {
       fprintf(stderr, "failed to initialize YCL message buffer\n");
@@ -277,6 +287,7 @@ int main(int argc, char *argv[]) {
     copts.msgbuf = &msgbuf;
     do_sandbox = 1;
   }
+
   ret = connector_init(&connector, &copts);
   if (ret < 0) {
     if (copts.msgbuf != NULL) {

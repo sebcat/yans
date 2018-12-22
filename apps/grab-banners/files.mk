@@ -5,6 +5,7 @@ grab_banners_DEPS = \
     lib/net/ports.c \
     lib/net/reaplan.c \
     lib/net/sconn.c \
+    lib/net/tcpsrc.c \
     lib/util/buf.c \
     lib/util/idset.c \
     lib/util/io.c \

@@ -1,0 +1,221 @@
+NAME
+  tcpsrc - TCP client socket source
+SYNOPSIS
+  tcpsrc
+DESCRIPTION
+  the tcpsrc device allows userspace applications to establish
+  TCP connections using calls to ioctl(2) on a file descriptor previously
+  created by a call to open(2) on the device.
+RATIONALE
+  Using standard POSIX APIs to establish non-blocking TCP client sockets
+  requires three syscalls: socket(2), fcntl(2) and connect(2). Setting
+  both O_NONBLOCK and O_CLOEXEC requires two calls to fcntl(2) per socket.
+
+  Using two widely available options to socket(2): SOCK_NONBLOCK and
+  SOCK_CLOEXEC brings the number of syscalls down to two: socket(2) and
+  connect(2).
+
+  In a sandboxed environment, it is often times impossible or unwise to
+  have direct access to these syscalls.
+
+  One way to make it possible for untrusted processes to establish TCP
+  connections while sandboxed is to open up IPC with a trusted process before
+  entering sandbox mode. After having entered sandbox mode, the untrusted
+  process may then request connections from the trusted process, getting the
+  file descriptors back using file descriptor passing. The trusted process
+  may then choose which addresses the untrusted process are allowed to connect
+  to, or apply any other policies; e.g., the rate of establishing connections
+  or the number of allowed connections.
+
+  One downside with such an approach is the added overhead of the IPC.
+
+  By providing a standard UNIX pseudo-device, tcpsrc attempts to both limit the
+  number of syscalls needed to establish multiple new TCP connections, as well
+  as providing a suitable interface for sandboxed processes. A sandboxed
+  process can obtain a file descriptor to the tcpsrc device and use it to
+  create new TCP connections. This file descriptor can have a set of
+  limitations associated with it before entering sandbox mode or before the
+  file descriptor is passed to an untrusted process.
+IOCTLS
+  All tcpsrc ioctls are defined in:
+
+	#include <yans/tcpsrc.h>
+
+  All tcpsrc ioctls return -1 on error and sets errno accordingly. On
+  success, a valid file descriptor is returned.
+
+    TCPSRC_CONNECT  (struct tcpsrc_conn)  Establish a TCP connection.
+    TCPSRC_ALLOW    (struct tcpsrc_range) Explicitly whitelist a range.
+    TCPSRC_DISALLOW (struct tcpsrc_range) Explicitly blacklist a range.
+
+EXAMPLE
+  This example opens the tcpsrc device and opens a TCP connection to localhost.
+
+	#include <sys/socket.h>
+	#include <arpa/inet.h>
+	#include <unistd.h>
+	#include <stdlib.h>
+	#include <stdio.h>
+	#include <sys/capsicum.h>
+	
+	#include <yans/tcpsrc.h>
+	
+	int main() {
+	  int fd;
+	  int clifd;
+	  int result = EXIT_FAILURE;
+	  struct tcpsrc_conn conn = {{{0}}};
+	
+	  fd = open("/dev/tcpsrc", O_RDWR);
+	  if (fd < 0) {
+	    perror("open");
+	    goto out;
+	  }
+	
+	  cap_enter();
+	
+	  conn.u.sin.sin_family = AF_INET;
+	  conn.u.sin.sin_addr.s_addr = inet_addr("127.0.0.1");
+	  conn.u.sin.sin_port = htons(22);
+	  clifd = ioctl(fd, TCPSRC_CONNECT, &conn);
+	  if (clifd < 0) {
+	    perror("TCPSRC_CONNECT");
+	    goto out_close;
+	  }
+	
+	  close(clifd);
+	  result = EXIT_SUCCESS;
+	out_close:
+	  close(fd);
+	out:
+	  return result;
+	}
+
+COMPARISON
+  1. socket(2)/connect(2)
+
+	kqueue()			 = 3 (0x3)
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP) = 4 (0x4)
+	connect(4,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 5 (0x5)
+	connect(5,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 6 (0x6)
+	connect(6,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 7 (0x7)
+	connect(7,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 8 (0x8)
+	connect(8,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 9 (0x9)
+	connect(9,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 10 (0xa)
+	connect(10,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 11 (0xb)
+	connect(11,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 12 (0xc)
+	connect(12,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 13 (0xd)
+	connect(13,{ ... },16) ERR#36 'Operation now in progress'
+	socket(PF_INET,SOCK_STREAM|SOCK_NONBLOCK,IPPROTO_TCP) = 14 (0xe)
+	connect(14,{ ... },16) ERR#36 'Operation now in progress'
+	kevent(3, {...}, 22, {...}, 64, { 0.050000000 }) = 1 (0x1)
+
+    tcpdump with timestamps being delta between packets (-ttt):
+
+	00:00:00.000000 IP ... > ...: Flags [S], ...
+	00:00:00.000048 IP ... > ...: Flags [S], ...
+	00:00:00.000028 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+
+  2. IPC with external service (netstring serialization) and fd passing
+
+	socket(PF_LOCAL,SOCK_STREAM,0)		 = 3 (0x3)
+	connect(3,{ AF_UNIX "connector.sock" },106) = 0 (0x0)
+	cap_enter()				 = 0 (0x0)
+	kqueue()					 = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	write(3,"42:5:proto,1:6,7:dstaddr,16:\^P"...,46) = 46 (0x2e)
+	recvmsg(3, ... ) = 4 (0x4)
+	kevent(4, {...}, 22, {...}, 64, { 0.050000000 }) = 1 (0x1)
+
+    tcpdump with timestamps being delta between packets (-ttt):
+
+	00:00:00.000000 IP ... > ...: Flags [S], ...
+	00:00:00.000177 IP ... > ...: Flags [S], ...
+	00:00:00.000179 IP ... > ...: Flags [S], ...
+	00:00:00.000151 IP ... > ...: Flags [S], ...
+	00:00:00.000108 IP ... > ...: Flags [S], ...
+	00:00:00.000146 IP ... > ...: Flags [S], ...
+	00:00:00.000126 IP ... > ...: Flags [S], ...
+	00:00:00.000111 IP ... > ...: Flags [S], ...
+	00:00:00.000105 IP ... > ...: Flags [S], ...
+	00:00:00.000096 IP ... > ...: Flags [S], ...
+	00:00:00.000091 IP ... > ...: Flags [S], ...
+
+
+
+  3. tcpsrc(4)
+
+	openat(AT_FDCWD,"/dev/tcpsrc",O_RDWR,00)	 = 3 (0x3)
+	cap_enter()				 = 0 (0x0)
+	kqueue()					 = 4 (0x4)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 5 (0x5)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 6 (0x6)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 7 (0x7)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 8 (0x8)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 9 (0x9)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 10 (0xa)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 11 (0xb)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 12 (0xc)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 13 (0xd)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 14 (0xe)
+	ioctl(3, { IOW 0x38('8'), 0, 28 },0x7fffffffd430) = 15 (0xf)
+	kevent(4, {...}, 22, {...}, 64, { 0.050000000 }) = 1 (0x1)
+
+    tcpdump with timestamps being delta between packets (-ttt):
+
+	00:00:00.000000 IP ... > ...: Flags [S], ...
+	00:00:00.000043 IP ... > ...: Flags [S], ...
+	00:00:00.000024 IP ... > ...: Flags [S], ...
+	00:00:00.000024 IP ... > ...: Flags [S], ...
+	00:00:00.000023 IP ... > ...: Flags [S], ...
+	00:00:00.000023 IP ... > ...: Flags [S], ...
+	00:00:00.000029 IP ... > ...: Flags [S], ...
+	00:00:00.000024 IP ... > ...: Flags [S], ...
+	00:00:00.000023 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+	00:00:00.000025 IP ... > ...: Flags [S], ...
+NOTES
+  As tcpsrc is trusted code running inside the kernel, it is important for
+  tcpsrc to remain small and simple.
+SEE ALSO
+  socket(2), fcntl(2), connect(2), open(2), ioctl(2).
+AUTHOR
+  Sebastian Cato <seb.cato@gmail.com>
+
+txt2man -r yans-1.1.0 -t tcpsrc -s 4 -v "Yans user's manual" tcpsrc.4.txt > tcpsrc.4

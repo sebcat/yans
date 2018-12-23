@@ -16,7 +16,6 @@
 #define RECVBUF_SIZE   8192
 
 struct opts {
-  const char *connector_path;
   int max_clients;
   char **dsts;
   int ndsts;
@@ -185,11 +184,10 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:s:";
+  const char *optstring = "n:";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients", required_argument, NULL, 'n'},
-    {"socket",      required_argument, NULL, 's'},
     {NULL, 0, NULL, 0}
   };
 
@@ -197,16 +195,12 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 
   /* fill in defaults */
   opts->max_clients = DFL_NCLIENTS;
-  opts->connector_path = NULL;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
     switch(ch) {
     case 'n':
       opts->max_clients = strtol(optarg, NULL, 10);
-      break;
-    case 's':
-      opts->connector_path = optarg;
       break;
     default:
       goto usage;
@@ -234,7 +228,6 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -s|--socket       <path>  path to connector service socket\n"
       "  -n|--max-clients  <n>     # of max concurrent clients (%d)\n",
       argv0, DFL_NCLIENTS);
   exit(EXIT_FAILURE);

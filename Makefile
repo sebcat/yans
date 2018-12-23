@@ -34,6 +34,9 @@ YANS_FE =
 # Section 1 man pages
 MANPAGES1 =
 
+# Kernel drivers
+DRIVERS =
+
 UNAME_S != uname -s
 INSTALL = install
 STRIP = strip -s
@@ -56,14 +59,26 @@ CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
 MAYBE_VALGRIND_1 = valgrind --error-exitcode=1 --leak-check=full
 MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
-.PHONY: all clean distclean check manifest manifest-rcfiles install \
-     install-strip install-rcfiles install-docs
+.PHONY: all clean-drivers clean distclean check drivers manifest \
+    manifest-rcfiles  install install-drivers install-strip \
+    install-rcfiles install-docs
 
 include files.mk
 
-all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) $(YANS_FE)
+all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
+	$(YANS_FE) drivers
 
-clean:
+drivers:
+	@for D in $(DRIVERS); do \
+		make -C $$D; \
+	done
+
+clean-drivers:
+	@for D in $(DRIVERS); do \
+		make -C $$D clean; \
+	done
+
+clean: clean-drivers
 	rm -f $(nodist_BINS) $(BINS)
 	rm -f $(CTESTS)
 	rm -f $(OBJS)
@@ -136,5 +151,10 @@ install-rcfiles: $(RCFILES) $(GENERATED_RCFILES)
 
 install-docs: $(MANPAGES1)
 	# TODO: Implement
+
+install-drivers:
+	@for D in $(DRIVERS); do \
+		make -C $$D install; \
+	done
 
 include rules.mk

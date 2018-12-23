@@ -24,3 +24,4 @@ include data/yans/files.mk
 include data/kneg/files.mk
 include data/yans-fe/files.mk
 include apps/scanny/files.mk
+include drivers/files.mk

@@ -4,6 +4,7 @@
 #include <sys/kernel.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
+#include <sys/sockopt.h>
 #include <sys/proc.h>
 #include <sys/fcntl.h>
 #include <sys/file.h>
@@ -27,6 +28,20 @@ static struct cdevsw tcpsrc_cdevsw = {
 };
 
 static struct cdev *tcpsrc_dev;
+
+static int
+_setsockopt(struct socket *so, int level, int name, int val)
+{
+	struct sockopt opt = {
+		.sopt_dir = SOPT_SET,
+		.sopt_level = level,
+		.sopt_name = name,
+		.sopt_val = &val,
+		.sopt_valsize = sizeof(val),
+	};
+
+	return sosetopt(so, &opt);
+}
 
 /* create a non-blocking socket w/ O_CLOEXEC set and connect(2) it */
 static int
@@ -60,6 +75,14 @@ _connect(struct thread *td, struct sockaddr *sa, int *outfd)
 	/* associate the socket with the file, set FNONBLOCK (needed?) */
 	finit(fp, FREAD | FWRITE | FNONBLOCK, DTYPE_SOCKET, so, &socketops);
 	fo_ioctl(fp, FIONBIO, &fflag, td->td_ucred, td);
+
+	/* Set SO_REUSEADDR to 1 - allowing us to rebind on addr:port
+         * pairs in TIME_WAIT state */
+	ret = _setsockopt(so, SOL_SOCKET, SO_REUSEADDR, 1);
+	if (ret != 0) {
+		fdclose(td, fp, fd);
+		goto done;
+	}
 
 	/* connect! */
 	ret = soconnect(so, sa, td);

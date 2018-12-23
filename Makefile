@@ -66,7 +66,12 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 include files.mk
 
 all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
-	$(YANS_FE) drivers
+	$(YANS_FE)
+
+# driver building, installing, cleaning is done explicitly, with no
+# dependencies in targets like "all", "clean", "install" since most
+# compilation flags suitable for user-space apps are not suitable for
+# driver compilation.
 
 drivers:
 	@for D in $(DRIVERS); do \
@@ -78,7 +83,12 @@ clean-drivers:
 		make -C $$D clean; \
 	done
 
-clean: clean-drivers
+install-drivers:
+	@for D in $(DRIVERS); do \
+		make -C $$D install; \
+	done
+
+clean:
 	rm -f $(nodist_BINS) $(BINS)
 	rm -f $(CTESTS)
 	rm -f $(OBJS)
@@ -151,10 +161,5 @@ install-rcfiles: $(RCFILES) $(GENERATED_RCFILES)
 
 install-docs: $(MANPAGES1)
 	# TODO: Implement
-
-install-drivers:
-	@for D in $(DRIVERS); do \
-		make -C $$D install; \
-	done
 
 include rules.mk

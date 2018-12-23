@@ -21,7 +21,8 @@ mount "/dev/$DEVICE" "$MOUNTPOINT" || die "failed to mount $TOIMAGE"
 
 # install Yans
 DESTDIR=$MOUNTPOINT make -C ../../.. \
-    install install-strip install-rcfiles || die "installation failed"
+    install install-strip install-drivers install-rcfiles \
+    || die "installation failed"
 
 # install template files and setup users
 DESTDIR=$MOUNTPOINT make install-skel

@@ -78,13 +78,6 @@ resolver_req {
   data hosts;
 }
 
-connector_req {
-  long reuse_addr;
-  long proto;
-  data bindaddr;
-  data dstaddr;
-}
-
 ##
 ## knegd messages
 ##

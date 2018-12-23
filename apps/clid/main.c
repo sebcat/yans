@@ -12,7 +12,6 @@
 
 #include <apps/clid/netconf.h>
 #include <apps/clid/resolver.h>
-#include <apps/clid/connector.h>
 
 #define DAEMON_NAME "clid"
 
@@ -145,18 +144,6 @@ int main(int argc, char *argv[]) {
         .on_finalize = resolver_on_finalize,
       },
       .mod_init = resolver_init,
-      .on_svc_error = on_svc_error,
-      .nprocs = 1,
-    },
-    {
-      .name = "connector",
-      .path = "connector.sock",
-      .udata_size = sizeof(struct connector_cli),
-      .actions = {
-        .on_readable = connector_on_readable,
-        .on_done = connector_on_done,
-        .on_finalize = connector_on_finalize,
-      },
       .on_svc_error = on_svc_error,
       .nprocs = 1,
     },

@@ -8,9 +8,8 @@
 
 #include <lib/net/dsts.h>
 #include <lib/net/reaplan.h>
+#include <lib/net/tcpsrc.h>
 #include <lib/util/sandbox.h>
-
-#include <lib/go-between/connector.h>
 
 #define DFL_NCLIENTS    16
 
@@ -21,11 +20,10 @@ struct opts {
   int max_clients;
   char **dsts;
   int ndsts;
-  int use_tcpsrc;
 };
 
 struct banner_grabber {
-  struct connector_ctx *connector;
+  struct tcpsrc_ctx tcpsrc;
   struct dsts_ctx dsts;
   char *recvbuf;
 
@@ -36,7 +34,7 @@ struct banner_grabber {
 #define banner_grabber_get_recvbuf(b_) (b_)->recvbuf
 
 static int banner_grabber_init(struct banner_grabber *b,
-    struct connector_ctx *connector, int max_clients) {
+    struct tcpsrc_ctx tcpsrc, int max_clients) {
   char *recvbuf;
   int ret;
   struct dsts_ctx dsts;
@@ -57,7 +55,7 @@ static int banner_grabber_init(struct banner_grabber *b,
     goto fail_free_recvbuf;
   }
 
-  b->connector    = connector;
+  b->tcpsrc       = tcpsrc;
   b->dsts         = dsts;
   b->recvbuf      = recvbuf;
   b->curr_clients = 0;
@@ -97,7 +95,6 @@ static void on_done(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
 }
 
 static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
-  struct sconn_opts sopts = {0};
   struct banner_grabber *grabber;
   int fd = -1;
   union {
@@ -117,10 +114,7 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
      * the count is corrected by on_done either way */
     grabber->curr_clients++;
 
-    sopts.proto = IPPROTO_TCP;
-    sopts.dstaddr = &addr.sa;
-    sopts.dstaddrlen = addrlen;
-    fd = connector_connect(grabber->connector, &sopts);
+    fd = tcpsrc_connect(&grabber->tcpsrc, &addr.sa);
     if (fd < 0) {
       on_done(ctx, conn);
       continue;
@@ -191,12 +185,11 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:s:t";
+  const char *optstring = "n:s:";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients", required_argument, NULL, 'n'},
     {"socket",      required_argument, NULL, 's'},
-    {"tcpsrc",      required_argument, NULL, 't'},
     {NULL, 0, NULL, 0}
   };
 
@@ -205,7 +198,6 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   /* fill in defaults */
   opts->max_clients = DFL_NCLIENTS;
   opts->connector_path = NULL;
-  opts->use_tcpsrc = 0;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
@@ -215,9 +207,6 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       break;
     case 's':
       opts->connector_path = optarg;
-      break;
-    case 't':
-      opts->use_tcpsrc = 1;
       break;
     default:
       goto usage;
@@ -246,8 +235,7 @@ usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
       "  -s|--socket       <path>  path to connector service socket\n"
-      "  -n|--max-clients  <n>     # of max concurrent clients (%d)\n"
-      "  -t|--tcpsrc               use tcpsrc(4) for connections\n",
+      "  -n|--max-clients  <n>     # of max concurrent clients (%d)\n",
       argv0, DFL_NCLIENTS);
   exit(EXIT_FAILURE);
 }
@@ -257,11 +245,8 @@ int main(int argc, char *argv[]) {
   int ret;
   struct opts opts;
   struct banner_grabber grabber;
-  struct connector_opts copts = {0};
-  struct connector_ctx connector;
-  struct ycl_msg msgbuf;
   int status = EXIT_FAILURE;
-  int do_sandbox = 0;
+  struct tcpsrc_ctx tcpsrc;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
@@ -270,45 +255,25 @@ int main(int argc, char *argv[]) {
    * has closed the connection */
   signal(SIGPIPE, SIG_IGN);
 
-  /* initialize the connector go-between, which handles connections for
-   * cases where we're using an external service for connections or not.
-   * If we use an external service (typically clid) we enter sandbox mode
-   * later. */
-  if (opts.use_tcpsrc) {
-    copts.use_tcpsrc = 1;
-    do_sandbox = 1;
-  } else if (opts.connector_path && *opts.connector_path) {
-    ret = ycl_msg_init(&msgbuf);
-    if (ret != YCL_OK) {
-      fprintf(stderr, "failed to initialize YCL message buffer\n");
-      goto done;
-    }
-    copts.svcpath = opts.connector_path;
-    copts.msgbuf = &msgbuf;
-    do_sandbox = 1;
-  }
-
-  ret = connector_init(&connector, &copts);
-  if (ret < 0) {
-    if (copts.msgbuf != NULL) {
-      ycl_msg_cleanup(copts.msgbuf);
-    }
-    fprintf(stderr, "failed to initialize connector go-between\n");
+  /* initialice the TCP client connection source */
+  ret = tcpsrc_init(&tcpsrc);
+  if (ret != 0) {
+    perror("tcpsrc_init");
     goto done;
   }
 
-  if (do_sandbox) {
-    ret = sandbox_enter();
-    if (ret != 0) {
-      fprintf(stderr, "failed to enter sandbox mode\n");
-      goto done_connector_cleanup;
-    }
+  /* enter sandbox mode - from this point we do no longer have access to
+   * the global namespace (file/network I/O &c) */
+  ret = sandbox_enter();
+  if (ret != 0) {
+    fprintf(stderr, "failed to enter sandbox mode\n");
+    goto done_tcpsrc_cleanup;
   }
 
   /* initialize the banner grabber */
-  if (banner_grabber_init(&grabber, &connector, opts.max_clients) < 0) {
+  if (banner_grabber_init(&grabber, tcpsrc, opts.max_clients) < 0) {
     perror("banner_grabber_init");
-    goto done_connector_cleanup;
+    goto done_tcpsrc_cleanup;
   }
 
   /* add the destinations to the banner grabber */
@@ -322,6 +287,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  /* Grab all the banners! */
   ret = banner_grabber_run(&grabber);
   if (ret < 0) {
     fprintf(stderr, "banner_grabber_run: failure (%s)\n", strerror(errno));
@@ -331,11 +297,8 @@ int main(int argc, char *argv[]) {
   status = EXIT_SUCCESS;
 done_banner_grabber_cleanup:
   banner_grabber_cleanup(&grabber);
-done_connector_cleanup:
-  if (copts.msgbuf) {
-    ycl_msg_cleanup(copts.msgbuf);
-  }
-  connector_cleanup(&connector);
+done_tcpsrc_cleanup:
+  tcpsrc_cleanup(&tcpsrc);
 done:
   return status;
 }

@@ -7,7 +7,6 @@ lib/net/neigh.o: lib/net/neigh.c lib/net/neigh.h lib/net/ip.h
 lib/net/ports.o: lib/net/ports.c lib/net/ports.h
 lib/net/punycode.o: lib/net/punycode.c lib/net/punycode.h
 lib/net/route.o: lib/net/route.c lib/net/route.h lib/net/ip.h
-lib/net/sconn.o: lib/net/sconn.c lib/net/sconn.h
 lib/net/url.o: lib/net/url.c lib/net/url.h lib/net/punycode.h lib/net/ip.h
 lib/net/dsts.o: lib/net/ports.c lib/net/ip.c
 

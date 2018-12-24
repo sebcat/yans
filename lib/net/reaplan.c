@@ -127,7 +127,7 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
     struct kevent * restrict evs, size_t * restrict nevs) {
   size_t i = 0;
   size_t end = *nevs;
-  int ret = REAPLANC_ERR;
+  int result = REAPLANC_ERR;
   int conn_id;
   struct reaplan_conn *curr;
 
@@ -135,15 +135,15 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
     conn_id = idset_use_next(ctx->ids);
     if (conn_id < 0) {
       /* no available IDs */
-      ret = REAPLANC_WAIT;
+      result = REAPLANC_WAIT;
       break;
     }
 
     curr = ctx->conns + conn_id;
     memset(curr, 0, sizeof(*curr));
 
-    ret = ctx->opts.on_connect(ctx, curr);
-    if (ret != REAPLANC_OK || curr->fd < 0) {
+    result = ctx->opts.on_connect(ctx, curr);
+    if (result != REAPLANC_OK || curr->fd < 0) {
       idset_clear(ctx->ids, conn_id);
       break;
     } else if (!(curr->rflags &
@@ -170,7 +170,7 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
   }
 
   *nevs = i;
-  return ret;
+  return result;
 }
 
 int reaplan_run(struct reaplan_ctx *ctx) {

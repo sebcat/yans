@@ -15,6 +15,14 @@
 
 #include <lib/net/reaplan.h>
 
+#define TIMEOUT_TIMER 666 /* ident for timeout timer */
+
+/* interval in seconds to check for expired connections */
+#define SECONDS_TOCHECK 2
+
+/* number of milliseconds to wait between ticks */
+#define MSECONDS_CWAIT 25
+
 static inline void reset_closefds(struct reaplan_ctx *ctx) {
   ctx->nclosefds = 0;
 }
@@ -26,9 +34,9 @@ static void closefds(struct reaplan_ctx *ctx) {
   for (i = 0; i < ctx->nclosefds; i++) {
     conn = ctx->closefds[i];
     /* man 2 kevent: "Calling close() on a file descriptor will remove
-     * any kevents that reference the descriptor."
-     * I have no idea what happens with epoll */
+     * any kevents that reference the descriptor." */
     close(conn->fd);
+    conn->fd = -1;
     if (ctx->opts.on_done) {
       ctx->opts.on_done(ctx, conn);
     }
@@ -58,6 +66,7 @@ static int closefd(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
 int reaplan_init(struct reaplan_ctx *ctx,
     const struct reaplan_opts *opts) {
   int fd;
+  unsigned int i;
   struct idset_ctx *ids;
   struct reaplan_conn *conns;
 
@@ -78,6 +87,9 @@ int reaplan_init(struct reaplan_ctx *ctx,
     goto fail_idset_free;
   }
 
+  for (i = 0; i < opts->max_clients; i++) {
+    conns[i].fd = -1;
+  }
   ctx->opts = *opts;
   ctx->fd = fd;
   ctx->ids = ids;
@@ -93,9 +105,17 @@ fail:
 }
 
 void reaplan_cleanup(struct reaplan_ctx *ctx) {
+  unsigned int i;
+
   if (ctx) {
     idset_free(ctx->ids);
+    for (i = 0; i < ctx->opts.max_clients; i++) {
+      if (ctx->conns[i].fd >= 0) {
+        close(ctx->conns[i].fd);
+      }
+    }
     free(ctx->conns);
+
     if (ctx->fd >= 0) {
       close(ctx->fd);
       ctx->fd = -1;
@@ -124,7 +144,8 @@ static void handle_writable(struct reaplan_ctx *ctx,
 }
 
 static int setup_connections(struct reaplan_ctx * restrict ctx,
-    struct kevent * restrict evs, size_t * restrict nevs) {
+    struct kevent * restrict evs, size_t * restrict nevs,
+    time_t expires) {
   size_t i = 0;
   size_t end = *nevs;
   int result = REAPLANC_ERR;
@@ -141,6 +162,7 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
 
     curr = ctx->conns + conn_id;
     memset(curr, 0, sizeof(*curr));
+    curr->fd = -1;
 
     result = ctx->opts.on_connect(ctx, curr);
     if (result != REAPLANC_OK || curr->fd < 0) {
@@ -149,6 +171,7 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
     } else if (!(curr->rflags &
         (REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT))) {
       close(curr->fd);
+      curr->fd = -1;
       if (ctx->opts.on_done) {
         ctx->opts.on_done(ctx, curr);
       }
@@ -157,6 +180,8 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
     }
 
     ctx->active_conns++;
+
+    curr->expires = expires;
     if (curr->rflags & REAPLAN_READABLE) {
       curr->flags |= REAPLAN_READABLE;
       EV_SET(&evs[i++], curr->fd, EVFILT_READ, EV_ADD, 0, 0, curr);
@@ -173,31 +198,134 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
   return result;
 }
 
-int reaplan_run(struct reaplan_ctx *ctx) {
-  struct kevent evs[CONNS_PER_SEQ * 2];
-  size_t nevs;
-  int connect_done = 0;
-  int ret;
-  struct timespec tv = {.tv_sec = 0, .tv_nsec = 50000000}; /* FIXME */
-  struct timespec *tp = &tv;
-  int i;
+static int reaplan_update_timer(struct reaplan_ctx *ctx,
+    struct kevent *ev) {
+  struct reaplan_conn *curr;
+  struct timespec tv = {0};
+  size_t i;
 
-  while (!connect_done || ctx->active_conns > 0) {
-    if (!connect_done) {
-      nevs = sizeof(evs) / sizeof(struct kevent);
-      ret = setup_connections(ctx, evs, &nevs);
+  if (ctx->timer_active || ctx->opts.timeout <= 0) {
+    return 0;
+  }
+
+  /* if at least a second has passed since last time, iterate over the
+   * active connections and close expired ones, if any */
+  clock_gettime(CLOCK_MONOTONIC, &tv);
+  if (tv.tv_sec > ctx->last_time) {
+    for (i = 0; i < ctx->opts.max_clients && ctx->active_conns > 0; i++) {
+      curr = ctx->conns + i;
+      if (curr->fd >= 0 && curr->expires <= tv.tv_sec) {
+        close(curr->fd);
+        curr->fd = -1;
+        ctx->active_conns--;
+      }
+    }
+
+    ctx->last_time = tv.tv_sec;
+  }
+
+  if (ctx->connect_done) {
+    /* We have no more connections to establish. Set the timer to check for
+     * connection expirations periodically. */
+    EV_SET(ev, TIMEOUT_TIMER, EVFILT_TIMER,
+      EV_ADD | EV_ONESHOT, NOTE_SECONDS, SECONDS_TOCHECK, NULL);
+  } else {
+    /* There are more connections to be made, wait for the designated
+     * tick time */
+    EV_SET(ev, TIMEOUT_TIMER, EVFILT_TIMER,
+      EV_ADD | EV_ONESHOT, NOTE_MSECONDS, MSECONDS_CWAIT, NULL);
+  }
+
+  ctx->timer_active = 1;
+  return 1;
+}
+
+static void reaplan_handle_events(struct reaplan_ctx *ctx,
+    struct kevent *evs, size_t nevs) {
+  size_t i;
+
+  reset_closefds(ctx);
+  for (i = 0; i < nevs; i++) {
+    /* check error for read/write events */
+    if ((evs[i].flags & EV_ERROR) != 0 &&
+        (evs[i].filter == EVFILT_READ ||
+          evs[i].filter == EVFILT_WRITE)) {
+      /* NB: evs[i].data contains errno */
+      closefd(ctx, evs[i].udata);
+      continue;
+    }
+
+    if (evs[i].filter == EVFILT_READ) {
+      /* Check if there's any data to read */
+      if (evs[i].data > 0) {
+        handle_readable(ctx, evs[i].udata);
+      }
+
+      /* Check if EOF is set */
+      if (evs[i].flags & EV_EOF) {
+        closefd(ctx, evs[i].udata);
+      }
+    } else if (evs[i].filter == EVFILT_WRITE) {
+      if (evs[i].flags & EV_EOF) {
+        closefd(ctx, evs[i].udata);
+      } else {
+        handle_writable(ctx, evs[i].udata);
+      }
+    } else if (evs[i].filter == EVFILT_TIMER &&
+        evs[i].ident == TIMEOUT_TIMER) {
+      ctx->timer_active = 0;
+    }
+  }
+
+  /* close any file descriptors in done/EOF/error state. The distinction
+   * between done and EOF is that done is signaled from the callbacks
+   * whereas EOF is signaled from the file descriptors. */
+  closefds(ctx);
+}
+
+int reaplan_run(struct reaplan_ctx *ctx) {
+  /* evs: up to two (EV_READ, EV_WRITE) events per conn, + 1 timer */
+  struct kevent evs[CONNS_PER_SEQ*2 + 1];
+  size_t nevs = 0;
+  size_t new_nevs = 0;
+  int ret;
+  struct timespec tv = {0};
+  time_t expires = 0;
+
+  /* setup initial context state for 'run' */
+  ctx->timer_active = 0;
+  ctx->connect_done = 0;
+
+  /* setup initial timeout timer event, if any */
+  if (reaplan_update_timer(ctx, evs)) {
+    nevs++;
+  }
+
+  while (!ctx->connect_done || ctx->active_conns > 0) {
+    /* check if there is more connections to be made. If there is, set
+     * them up. */
+    if (!ctx->connect_done) {
+      /* calculate connection expiration for the new connections, if any */
+      if (ctx->opts.timeout > 0) {
+        ret = clock_gettime(CLOCK_MONOTONIC, &tv);
+        if (ret == 0) {
+          expires = tv.tv_sec + ctx->opts.timeout;
+        }
+      }
+
+      new_nevs = CONNS_PER_SEQ * 2;
+      ret = setup_connections(ctx, evs + nevs, &new_nevs, expires);
+      nevs += new_nevs;
       if (ret == REAPLANC_DONE) {
-        connect_done = 1;
+        ctx->connect_done = 1;
       } else if (ret == REAPLANC_ERR) {
         return REAPLAN_ERR;
       }
-    } else {
-      nevs = 0;
-      tp = NULL;
+      /* NB: REAPLANC_WAIT is not explicitly handled */
     }
 
 kevent_again:
-    ret = kevent(ctx->fd, evs, nevs, evs, CONNS_PER_SEQ, tp);
+    ret = kevent(ctx->fd, evs, nevs, evs, CONNS_PER_SEQ, NULL);
     if (ret < 0) {
       if (errno == EINTR) {
         goto kevent_again;
@@ -206,35 +334,15 @@ kevent_again:
       }
     }
 
-    nevs = ret;
-    reset_closefds(ctx);
-    for (i = 0; i < nevs; i++) {
-      if (evs[i].flags & EV_ERROR) {
-        /* NB: evs[i].data contains errno */
-        closefd(ctx, evs[i].udata);
-        continue;
-      }
+    /* handle events returned from kevent(2) */
+    reaplan_handle_events(ctx, evs, (size_t)ret);
 
-      if (evs[i].filter == EVFILT_READ) {
-        /* Do we have data to read? */
-        if (evs[i].data > 0) {
-          handle_readable(ctx, evs[i].udata);
-        }
-
-        /* is EOF set? */
-        if (evs[i].flags & EV_EOF) {
-          closefd(ctx, evs[i].udata);
-        }
-      } else if (evs[i].filter == EVFILT_WRITE) {
-        if (evs[i].flags & EV_EOF) {
-          closefd(ctx, evs[i].udata);
-        } else {
-          handle_writable(ctx, evs[i].udata);
-        }
-      }
+    /* setup the next round of events, if any */
+    nevs = 0;
+    /* setup timer for next round, if any */
+    if (reaplan_update_timer(ctx, evs)) {
+      nevs++;
     }
-
-    closefds(ctx);
   }
 
   return REAPLAN_OK;

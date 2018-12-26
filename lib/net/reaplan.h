@@ -39,20 +39,23 @@ struct reaplan_opts {
   ssize_t (*on_writable)(struct reaplan_ctx *, struct reaplan_conn *);
   void (*on_done)(struct reaplan_ctx *, struct reaplan_conn *);
 
-  time_t timeout;             /* read/write/connect timeout, in seconds */
   void *udata;                /* user-data per reaplan instance */
+  int timeout;                /* read/write/connect timeout, in seconds */
   unsigned int max_clients;   /* maximum # of concurrent connections */
 };
 
 struct reaplan_ctx {
   /* internal */
+  struct idset_ctx *ids;      /* idset to keep track of used conn slots */
+  struct reaplan_conn *conns; /* array of per-connection state structs */
+  struct reaplan_conn *closefds[CONNS_PER_SEQ];
+  struct reaplan_opts opts;   /* caller supplied options */
+  time_t last_time;           /* last fetched time, in seconds */
   int fd;                     /* kqueue fd */
   int active_conns;           /* # of currently active connections */
   int nclosefds;              /* # of currently used closefds slots */
-  struct idset_ctx *ids;      /* idset to keep track of used conn slots */
-  struct reaplan_conn *conns; /* array of per-connection state structs */
-  struct reaplan_opts opts;   /* caller supplied options */
-  struct reaplan_conn *closefds[CONNS_PER_SEQ];
+  int timer_active;           /* 1 if the timeout timer is active */
+  int connect_done;           /* 1 if on_connect returned REAPLANC_DONE */
 };
 
 int reaplan_init(struct reaplan_ctx *ctx,

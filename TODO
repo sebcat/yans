@@ -7,6 +7,8 @@ per-connection
   write buffer and offset in buffer (in grab-banners?)
   address, port, name of connection in per-connection state (in grab-banners?)
 
+reaplan: "ticks per second" and "wait per tick" delay implementation
+
 ## unsorted
 
 - store list <store-id> - pass dir-fd from stored and have client list store?

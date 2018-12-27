@@ -48,12 +48,12 @@ struct reaplan_ctx {
   /* internal */
   struct idset_ctx *ids;      /* idset to keep track of used conn slots */
   struct reaplan_conn *conns; /* array of per-connection state structs */
-  struct reaplan_conn *closefds[CONNS_PER_SEQ];
+  struct reaplan_conn *closeconns[CONNS_PER_SEQ];
   struct reaplan_opts opts;   /* caller supplied options */
   time_t last_time;           /* last fetched time, in seconds */
   int fd;                     /* kqueue fd */
   int active_conns;           /* # of currently active connections */
-  int nclosefds;              /* # of currently used closefds slots */
+  int ncloseconns;              /* # of currently used closeconns slots */
   int timer_active;           /* 1 if the timeout timer is active */
   int connect_done;           /* 1 if on_connect returned REAPLANC_DONE */
 };

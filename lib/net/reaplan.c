@@ -13,6 +13,8 @@
 #include <sys/time.h>
 #include <errno.h>
 
+#include <assert.h>
+
 #include <lib/net/reaplan.h>
 
 #define TIMEOUT_TIMER 666 /* ident for timeout timer */
@@ -23,43 +25,61 @@
 /* number of milliseconds to wait between ticks */
 #define MSECONDS_CWAIT 25
 
-static inline void reset_closefds(struct reaplan_ctx *ctx) {
-  ctx->nclosefds = 0;
+static inline int reaplan_conn_id(struct reaplan_ctx * restrict ctx,
+    struct reaplan_conn * restrict conn) {
+  if (conn < ctx->conns || conn >= ctx->conns + ctx->opts.max_clients) {
+    return -1;
+  }
+
+  return (int)(conn - ctx->conns);
 }
 
-static void closefds(struct reaplan_ctx *ctx) {
-  int i;
-  struct reaplan_conn *conn;
+static void reaplan_conn_close(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn) {
+  int id;
 
-  for (i = 0; i < ctx->nclosefds; i++) {
-    conn = ctx->closefds[i];
-    /* man 2 kevent: "Calling close() on a file descriptor will remove
-     * any kevents that reference the descriptor." */
-    close(conn->fd);
-    conn->fd = -1;
-    if (ctx->opts.on_done) {
-      ctx->opts.on_done(ctx, conn);
-    }
-    ctx->active_conns--;
+  /* man 2 kevent: "Calling close() on a file descriptor will remove
+   * any kevents that reference the descriptor." */
+  close(conn->fd);
+  conn->fd = -1;
+  if (ctx->opts.on_done) {
+    ctx->opts.on_done(ctx, conn);
+  }
+  ctx->active_conns--;
+  id = reaplan_conn_id(ctx, conn);
+  assert(id >= 0);
+  idset_clear(ctx->ids, id);
+}
+
+static inline void reset_close_queue(struct reaplan_ctx *ctx) {
+  ctx->ncloseconns = 0;
+}
+
+static void close_conns(struct reaplan_ctx *ctx) {
+  int i;
+
+  for (i = 0; i < ctx->ncloseconns; i++) {
+    reaplan_conn_close(ctx, ctx->closeconns[i]);
   }
 }
 
-/* queues an fd for later closing by closefds */
-static int closefd(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
+/* queues an connection for later closing by close_conns */
+static int enqueue_close_conn(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn) {
   int i;
 
-  if (ctx->nclosefds == CONNS_PER_SEQ) {
+  if (ctx->ncloseconns == CONNS_PER_SEQ) {
     return REAPLAN_ERR;
   }
 
-  for (i = 0; i < ctx->nclosefds; i++) {
-    if (ctx->closefds[i] == conn) {
+  for (i = 0; i < ctx->ncloseconns; i++) {
+    if (ctx->closeconns[i] == conn) {
       return REAPLAN_OK;
     }
   }
 
-  ctx->closefds[i] = conn;
-  ctx->nclosefds++;
+  ctx->closeconns[i] = conn;
+  ctx->ncloseconns++;
   return REAPLAN_OK;
 }
 
@@ -111,7 +131,7 @@ void reaplan_cleanup(struct reaplan_ctx *ctx) {
     idset_free(ctx->ids);
     for (i = 0; i < ctx->opts.max_clients; i++) {
       if (ctx->conns[i].fd >= 0) {
-        close(ctx->conns[i].fd);
+        reaplan_conn_close(ctx, &ctx->conns[i]);
       }
     }
     free(ctx->conns);
@@ -129,7 +149,7 @@ static void handle_readable(struct reaplan_ctx *ctx,
   /* NB: the callback should exist if we listen for readable events */
   ret = ctx->opts.on_readable(ctx, conn);
   if (ret <= 0) {
-    closefd(ctx, conn);
+    enqueue_close_conn(ctx, conn);
   }
 }
 
@@ -139,7 +159,7 @@ static void handle_writable(struct reaplan_ctx *ctx,
   /* NB: the callback should exist if we listen for writable events */
   ret = ctx->opts.on_writable(ctx, conn);
   if (ret <= 0) {
-    closefd(ctx, conn);
+    enqueue_close_conn(ctx, conn);
   }
 }
 
@@ -168,18 +188,13 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
     if (result != REAPLANC_OK || curr->fd < 0) {
       idset_clear(ctx->ids, conn_id);
       break;
-    } else if (!(curr->rflags &
-        (REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT))) {
-      close(curr->fd);
-      curr->fd = -1;
-      if (ctx->opts.on_done) {
-        ctx->opts.on_done(ctx, curr);
-      }
-      idset_clear(ctx->ids, conn_id);
-      continue;
     }
 
     ctx->active_conns++;
+    if (!(curr->rflags & (REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT))) {
+      reaplan_conn_close(ctx, curr);
+      continue;
+    }
 
     curr->expires = expires;
     if (curr->rflags & REAPLAN_READABLE) {
@@ -215,9 +230,7 @@ static int reaplan_update_timer(struct reaplan_ctx *ctx,
     for (i = 0; i < ctx->opts.max_clients && ctx->active_conns > 0; i++) {
       curr = ctx->conns + i;
       if (curr->fd >= 0 && curr->expires <= tv.tv_sec) {
-        close(curr->fd);
-        curr->fd = -1;
-        ctx->active_conns--;
+        reaplan_conn_close(ctx, curr);
       }
     }
 
@@ -245,14 +258,14 @@ static void reaplan_handle_events(struct reaplan_ctx *ctx,
     struct kevent *evs, size_t nevs) {
   size_t i;
 
-  reset_closefds(ctx);
+  reset_close_queue(ctx);
   for (i = 0; i < nevs; i++) {
     /* check error for read/write events */
     if ((evs[i].flags & EV_ERROR) != 0 &&
         (evs[i].filter == EVFILT_READ ||
           evs[i].filter == EVFILT_WRITE)) {
       /* NB: evs[i].data contains errno */
-      closefd(ctx, evs[i].udata);
+      enqueue_close_conn(ctx, evs[i].udata);
       continue;
     }
 
@@ -264,11 +277,11 @@ static void reaplan_handle_events(struct reaplan_ctx *ctx,
 
       /* Check if EOF is set */
       if (evs[i].flags & EV_EOF) {
-        closefd(ctx, evs[i].udata);
+        enqueue_close_conn(ctx, evs[i].udata);
       }
     } else if (evs[i].filter == EVFILT_WRITE) {
       if (evs[i].flags & EV_EOF) {
-        closefd(ctx, evs[i].udata);
+        enqueue_close_conn(ctx, evs[i].udata);
       } else {
         handle_writable(ctx, evs[i].udata);
       }
@@ -281,7 +294,7 @@ static void reaplan_handle_events(struct reaplan_ctx *ctx,
   /* close any file descriptors in done/EOF/error state. The distinction
    * between done and EOF is that done is signaled from the callbacks
    * whereas EOF is signaled from the file descriptors. */
-  closefds(ctx);
+  close_conns(ctx);
 }
 
 int reaplan_run(struct reaplan_ctx *ctx) {

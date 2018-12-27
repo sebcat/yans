@@ -18,9 +18,6 @@
 #define REAPLAN_READABLE         (1 << 0)
 #define REAPLAN_WRITABLE_ONESHOT (1 << 1)
 
-/* maximum number of connections to perform per iteration in reaplan_run */
-#define CONNS_PER_SEQ 64
-
 struct reaplan_ctx;
 
 struct reaplan_conn {
@@ -42,13 +39,15 @@ struct reaplan_opts {
   void *udata;                /* user-data per reaplan instance */
   int timeout;                /* read/write/connect timeout, in seconds */
   unsigned int max_clients;   /* maximum # of concurrent connections */
+  unsigned int connects_per_tick; /* # of initiated connections per tick */
 };
 
 struct reaplan_ctx {
   /* internal */
+  struct kevent *evs;
   struct idset_ctx *ids;      /* idset to keep track of used conn slots */
   struct reaplan_conn *conns; /* array of per-connection state structs */
-  struct reaplan_conn *closeconns[CONNS_PER_SEQ];
+  struct reaplan_conn **closeconns; /* conns queued for close(2)  */
   struct reaplan_opts opts;   /* caller supplied options */
   time_t last_time;           /* last fetched time, in seconds */
   int fd;                     /* kqueue fd */

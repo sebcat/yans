@@ -68,7 +68,7 @@ static int enqueue_close_conn(struct reaplan_ctx *ctx,
     struct reaplan_conn *conn) {
   int i;
 
-  if (ctx->ncloseconns == CONNS_PER_SEQ) {
+  if (ctx->ncloseconns == ctx->opts.connects_per_tick) {
     return REAPLAN_ERR;
   }
 
@@ -89,9 +89,18 @@ int reaplan_init(struct reaplan_ctx *ctx,
   unsigned int i;
   struct idset_ctx *ids;
   struct reaplan_conn *conns;
+  struct reaplan_conn **closeconns;
+  struct kevent *evs;
+
+  /* Sanity-check options */
+  if (opts->on_connect == NULL ||
+      opts->max_clients == 0 ||
+      opts->connects_per_tick == 0 ||
+      opts->connects_per_tick > opts->max_clients) {
+    return REAPLAN_ERR;
+  }
 
   memset(ctx, 0, sizeof(*ctx));
-
   fd = kqueue();
   if (fd < 0) {
     goto fail;
@@ -107,15 +116,33 @@ int reaplan_init(struct reaplan_ctx *ctx,
     goto fail_idset_free;
   }
 
+  closeconns = calloc(opts->connects_per_tick,
+      sizeof(struct reaplan_conn *));
+  if (closeconns == NULL) {
+    goto fail_conns_free;
+  }
+
+  /* evs: up to two (EV_READ, EV_WRITE) events per conn, + 1 timer */
+  evs = calloc(opts->connects_per_tick*2 + 1, sizeof(struct kevent));
+  if (evs == NULL) {
+    goto fail_closeconns_free;
+  }
+
   for (i = 0; i < opts->max_clients; i++) {
     conns[i].fd = -1;
   }
+  ctx->evs = evs;
   ctx->opts = *opts;
   ctx->fd = fd;
   ctx->ids = ids;
   ctx->conns = conns;
+  ctx->closeconns = closeconns;
   return REAPLAN_OK;
 
+fail_closeconns_free:
+  free(closeconns);
+fail_conns_free:
+  free(conns);
 fail_idset_free:
   idset_free(ids);
 fail_close_fd:
@@ -135,6 +162,7 @@ void reaplan_cleanup(struct reaplan_ctx *ctx) {
       }
     }
     free(ctx->conns);
+    free(ctx->closeconns);
 
     if (ctx->fd >= 0) {
       close(ctx->fd);
@@ -172,7 +200,7 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
   int conn_id;
   struct reaplan_conn *curr;
 
-  while (i < (end - 2)) {
+  while (i <= (end - 2)) {
     conn_id = idset_use_next(ctx->ids);
     if (conn_id < 0) {
       /* no available IDs */
@@ -298,8 +326,6 @@ static void reaplan_handle_events(struct reaplan_ctx *ctx,
 }
 
 int reaplan_run(struct reaplan_ctx *ctx) {
-  /* evs: up to two (EV_READ, EV_WRITE) events per conn, + 1 timer */
-  struct kevent evs[CONNS_PER_SEQ*2 + 1];
   size_t nevs = 0;
   size_t new_nevs = 0;
   int ret;
@@ -311,7 +337,7 @@ int reaplan_run(struct reaplan_ctx *ctx) {
   ctx->connect_done = 0;
 
   /* setup initial timeout timer event, if any */
-  if (reaplan_update_timer(ctx, evs)) {
+  if (reaplan_update_timer(ctx, ctx->evs)) {
     nevs++;
   }
 
@@ -327,8 +353,8 @@ int reaplan_run(struct reaplan_ctx *ctx) {
         }
       }
 
-      new_nevs = CONNS_PER_SEQ * 2;
-      ret = setup_connections(ctx, evs + nevs, &new_nevs, expires);
+      new_nevs = ctx->opts.connects_per_tick * 2;
+      ret = setup_connections(ctx, ctx->evs + nevs, &new_nevs, expires);
       nevs += new_nevs;
       if (ret == REAPLANC_DONE) {
         ctx->connect_done = 1;
@@ -339,7 +365,8 @@ int reaplan_run(struct reaplan_ctx *ctx) {
     }
 
 kevent_again:
-    ret = kevent(ctx->fd, evs, nevs, evs, CONNS_PER_SEQ, NULL);
+    ret = kevent(ctx->fd, ctx->evs, nevs, ctx->evs,
+        ctx->opts.connects_per_tick, NULL);
     if (ret < 0) {
       if (errno == EINTR) {
         goto kevent_again;
@@ -349,12 +376,12 @@ kevent_again:
     }
 
     /* handle events returned from kevent(2) */
-    reaplan_handle_events(ctx, evs, (size_t)ret);
+    reaplan_handle_events(ctx, ctx->evs, (size_t)ret);
 
     /* setup the next round of events, if any */
     nevs = 0;
     /* setup timer for next round, if any */
-    if (reaplan_update_timer(ctx, evs)) {
+    if (reaplan_update_timer(ctx, ctx->evs)) {
       nevs++;
     }
   }

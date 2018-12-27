@@ -13,6 +13,7 @@
 
 #define DFL_NCLIENTS    16 /* maxumum number of concurrent connections */
 #define DFL_TIMEOUT      9 /* maximum connection lifetime, in seconds */
+#define DFL_CONNECTS_PER_TICK 8
 
 #define RECVBUF_SIZE   8192
 
@@ -22,6 +23,7 @@ struct opts {
   char **dsts;
   int ndsts;
   int no_sandbox;
+  int connects_per_tick;
 };
 
 struct banner_grabber {
@@ -32,12 +34,14 @@ struct banner_grabber {
   int curr_clients;
   int max_clients;
   int timeout;
+  int connects_per_tick;
 };
 
 #define banner_grabber_get_recvbuf(b_) (b_)->recvbuf
 
 static int banner_grabber_init(struct banner_grabber *b,
-    struct tcpsrc_ctx tcpsrc, int max_clients, int timeout) {
+    struct tcpsrc_ctx tcpsrc, int max_clients, int timeout,
+    int connects_per_tick) {
   char *recvbuf;
   int ret;
   struct dsts_ctx dsts;
@@ -58,12 +62,13 @@ static int banner_grabber_init(struct banner_grabber *b,
     goto fail_free_recvbuf;
   }
 
-  b->tcpsrc       = tcpsrc;
-  b->dsts         = dsts;
-  b->recvbuf      = recvbuf;
-  b->curr_clients = 0;
-  b->max_clients  = max_clients;
-  b->timeout      = timeout;
+  b->tcpsrc            = tcpsrc;
+  b->dsts              = dsts;
+  b->recvbuf           = recvbuf;
+  b->curr_clients      = 0;
+  b->max_clients       = max_clients;
+  b->timeout           = timeout;
+  b->connects_per_tick = connects_per_tick;
 
   return 0;
 
@@ -164,13 +169,14 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
   int ret;
   struct reaplan_ctx reaplan;
   struct reaplan_opts rpopts = {
-    .on_connect  = on_connect,
-    .on_readable = on_readable,
-    .on_writable = on_writable,
-    .on_done     = on_done,
-    .max_clients = grabber->max_clients,
-    .udata       = grabber,
-    .timeout     = grabber->timeout,
+    .on_connect        = on_connect,
+    .on_readable       = on_readable,
+    .on_writable       = on_writable,
+    .on_done           = on_done,
+    .udata             = grabber,
+    .max_clients       = grabber->max_clients,
+    .timeout           = grabber->timeout,
+    .connects_per_tick = grabber->connects_per_tick,
   };
 
   ret = reaplan_init(&reaplan, &rpopts);
@@ -190,12 +196,13 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:t:X";
+  const char *optstring = "n:t:Xc:";
   const char *argv0;
   struct option optcfgs[] = {
-    {"max-clients", required_argument, NULL, 'n'},
-    {"timeout",     required_argument, NULL, 't'},
-    {"no-sandbox",  no_argument,       NULL, 'X'},
+    {"max-clients",       required_argument, NULL, 'n'},
+    {"timeout",           required_argument, NULL, 't'},
+    {"no-sandbox",        no_argument,       NULL, 'X'},
+    {"connects-per-tick", required_argument, NULL, 'c'},
     {NULL, 0, NULL, 0}
   };
 
@@ -204,6 +211,7 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   /* fill in defaults */
   opts->max_clients = DFL_NCLIENTS;
   opts->timeout = DFL_TIMEOUT;
+  opts->connects_per_tick = DFL_CONNECTS_PER_TICK;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
@@ -216,6 +224,9 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       break;
     case 'X':
       opts->no_sandbox = 1;
+      break;
+    case 'c':
+      opts->connects_per_tick = strtol(optarg, NULL, 10);
       break;
     default:
       goto usage;
@@ -235,7 +246,13 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->ndsts = argc;
 
   if (opts->max_clients <= 0) {
-    fprintf(stderr, "unvalid max-client value\n");
+    fprintf(stderr, "unvalid max-clients value\n");
+    goto usage;
+  } else if (opts->connects_per_tick <= 0) {
+    fprintf(stderr, "connects-per-tick set too low\n");
+    goto usage;
+  } else if (opts->connects_per_tick > opts->max_clients) {
+    fprintf(stderr, "connects-per-tick higher than max-clients\n");
     goto usage;
   }
 
@@ -243,10 +260,11 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -n|--max-clients <n>   # of max concurrent clients (%d)\n"
-      "  -t|--timeout     <n>   max connection lifetime in seconds (%d)\n"
-      "  -X|--no-sandbox        disable sandbox\n",
-      argv0, DFL_NCLIENTS, DFL_TIMEOUT);
+      "  -n|--max-clients       <n> # of max concurrent clients (%d)\n"
+      "  -t|--timeout           <n> connection lifetime in seconds (%d)\n"
+      "  -X|--no-sandbox            disable sandbox\n"
+      "  -c|--connects-per-tick <n> # of conns per discretization (%d)\n",
+      argv0, DFL_NCLIENTS, DFL_TIMEOUT, DFL_CONNECTS_PER_TICK);
   exit(EXIT_FAILURE);
 }
 
@@ -285,7 +303,7 @@ int main(int argc, char *argv[]) {
 
   /* initialize the banner grabber */
   if (banner_grabber_init(&grabber, tcpsrc, opts.max_clients,
-      opts.timeout) < 0) {
+      opts.timeout, opts.connects_per_tick) < 0) {
     perror("banner_grabber_init");
     goto done_tcpsrc_cleanup;
   }

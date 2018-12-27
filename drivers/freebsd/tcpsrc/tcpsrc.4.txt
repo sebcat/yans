@@ -8,7 +8,7 @@ DESCRIPTION
   created by a call to open(2) on the device.
 RATIONALE
   Using standard POSIX APIs to establish non-blocking TCP client sockets
-  requires three syscalls: socket(2), fcntl(2) and connect(2). Setting
+  require three syscalls: socket(2), fcntl(2) and connect(2). Setting
   both O_NONBLOCK and O_CLOEXEC requires two calls to fcntl(2) per socket.
 
   Using two widely available options to socket(2): SOCK_NONBLOCK and

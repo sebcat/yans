@@ -224,9 +224,10 @@ static int reaplan_update_timer(struct reaplan_ctx *ctx,
     ctx->last_time = tv.tv_sec;
   }
 
-  if (ctx->connect_done) {
-    /* We have no more connections to establish. Set the timer to check for
-     * connection expirations periodically. */
+  if (ctx->connect_done || ctx->active_conns == ctx->opts.max_clients) {
+    /* We have no more connections to establish or we are currently at max
+     * capacity. Set the timer to check for connection expirations
+     * periodically. */
     EV_SET(ev, TIMEOUT_TIMER, EVFILT_TIMER,
       EV_ADD | EV_ONESHOT, NOTE_SECONDS, SECONDS_TOCHECK, NULL);
   } else {

@@ -21,6 +21,7 @@ struct opts {
   int timeout;
   char **dsts;
   int ndsts;
+  int no_sandbox;
 };
 
 struct banner_grabber {
@@ -189,11 +190,12 @@ static int banner_grabber_run(struct banner_grabber *grabber) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:t:";
+  const char *optstring = "n:t:X";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients", required_argument, NULL, 'n'},
     {"timeout",     required_argument, NULL, 't'},
+    {"no-sandbox",  no_argument,       NULL, 'X'},
     {NULL, 0, NULL, 0}
   };
 
@@ -211,6 +213,9 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       break;
     case 't':
       opts->timeout = strtol(optarg, NULL, 10);
+      break;
+    case 'X':
+      opts->no_sandbox = 1;
       break;
     default:
       goto usage;
@@ -239,7 +244,8 @@ usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
       "  -n|--max-clients <n>   # of max concurrent clients (%d)\n"
-      "  -t|--timeout     <n>   max connection lifetime in seconds (%d)\n",
+      "  -t|--timeout     <n>   max connection lifetime in seconds (%d)\n"
+      "  -X|--no-sandbox        disable sandbox\n",
       argv0, DFL_NCLIENTS, DFL_TIMEOUT);
   exit(EXIT_FAILURE);
 }
@@ -247,7 +253,7 @@ usage:
 int main(int argc, char *argv[]) {
   int i;
   int ret;
-  struct opts opts;
+  struct opts opts = {0};
   struct banner_grabber grabber;
   int status = EXIT_FAILURE;
   struct tcpsrc_ctx tcpsrc;
@@ -266,12 +272,15 @@ int main(int argc, char *argv[]) {
     goto done;
   }
 
-  /* enter sandbox mode - from this point we do no longer have access to
-   * the global namespace (file/network I/O &c) */
-  ret = sandbox_enter();
-  if (ret != 0) {
-    fprintf(stderr, "failed to enter sandbox mode\n");
-    goto done_tcpsrc_cleanup;
+  /* enter sandbox mode unless sandbox is disabled */
+  if (opts.no_sandbox) {
+    fprintf(stderr, "warning: sandbox disabled\n");
+  } else {
+    ret = sandbox_enter();
+    if (ret != 0) {
+      fprintf(stderr, "failed to enter sandbox mode\n");
+      goto done_tcpsrc_cleanup;
+    }
   }
 
   /* initialize the banner grabber */

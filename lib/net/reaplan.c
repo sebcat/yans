@@ -163,6 +163,7 @@ void reaplan_cleanup(struct reaplan_ctx *ctx) {
     }
     free(ctx->conns);
     free(ctx->closeconns);
+    free(ctx->evs);
 
     if (ctx->fd >= 0) {
       close(ctx->fd);
@@ -247,22 +248,27 @@ static int reaplan_update_timer(struct reaplan_ctx *ctx,
   struct timespec tv = {0};
   size_t i;
 
-  if (ctx->timer_active || ctx->opts.timeout <= 0) {
+  /* if the timer is active there is no need to go further. Return 0 to
+   * indicate that we have not set up another timer. */
+  if (ctx->timer_active) {
     return 0;
   }
 
-  /* if at least a second has passed since last time, iterate over the
-   * active connections and close expired ones, if any */
-  clock_gettime(CLOCK_MONOTONIC, &tv);
-  if (tv.tv_sec > ctx->last_time) {
-    for (i = 0; i < ctx->opts.max_clients && ctx->active_conns > 0; i++) {
-      curr = ctx->conns + i;
-      if (curr->fd >= 0 && curr->expires <= tv.tv_sec) {
-        reaplan_conn_close(ctx, curr);
+  /* If we have connection expiration configured and if at least a second
+   * has passed since last time, iterate over the active connections and
+   * close expired ones, if any */
+  if (ctx->opts.timeout > 0) {
+    clock_gettime(CLOCK_MONOTONIC, &tv);
+    if (tv.tv_sec > ctx->last_time) {
+      for (i = 0; i < ctx->opts.max_clients && ctx->active_conns > 0; i++) {
+        curr = ctx->conns + i;
+        if (curr->fd >= 0 && curr->expires <= tv.tv_sec) {
+          reaplan_conn_close(ctx, curr);
+        }
       }
-    }
 
-    ctx->last_time = tv.tv_sec;
+      ctx->last_time = tv.tv_sec;
+    }
   }
 
   if (ctx->connect_done || ctx->active_conns == ctx->opts.max_clients) {
@@ -271,11 +277,15 @@ static int reaplan_update_timer(struct reaplan_ctx *ctx,
      * periodically. */
     EV_SET(ev, TIMEOUT_TIMER, EVFILT_TIMER,
       EV_ADD | EV_ONESHOT, NOTE_SECONDS, SECONDS_TOCHECK, NULL);
+  } else if (ctx->opts.mdelay_per_tick <= 0) {
+    /* We have more connections to make and no tick time set up - do not
+     * register a timeout event */
+    return 0;
   } else {
     /* There are more connections to be made, wait for the designated
      * tick time */
-    EV_SET(ev, TIMEOUT_TIMER, EVFILT_TIMER,
-      EV_ADD | EV_ONESHOT, NOTE_MSECONDS, MSECONDS_CWAIT, NULL);
+    EV_SET(ev, TIMEOUT_TIMER, EVFILT_TIMER, EV_ADD | EV_ONESHOT,
+        NOTE_MSECONDS, ctx->opts.mdelay_per_tick, NULL);
   }
 
   ctx->timer_active = 1;
@@ -316,6 +326,7 @@ static void reaplan_handle_events(struct reaplan_ctx *ctx,
     } else if (evs[i].filter == EVFILT_TIMER &&
         evs[i].ident == TIMEOUT_TIMER) {
       ctx->timer_active = 0;
+      ctx->throttle_connect = 0; /* clear any connection throttling */
     }
   }
 
@@ -330,6 +341,8 @@ int reaplan_run(struct reaplan_ctx *ctx) {
   size_t new_nevs = 0;
   int ret;
   struct timespec tv = {0};
+  struct timespec nodelay = {0};
+  struct timespec *evto;
   time_t expires = 0;
 
   /* setup initial context state for 'run' */
@@ -344,7 +357,8 @@ int reaplan_run(struct reaplan_ctx *ctx) {
   while (!ctx->connect_done || ctx->active_conns > 0) {
     /* check if there is more connections to be made. If there is, set
      * them up. */
-    if (!ctx->connect_done) {
+    if (!ctx->connect_done &&
+        (ctx->opts.mdelay_per_tick <= 0 || !ctx->throttle_connect)) {
       /* calculate connection expiration for the new connections, if any */
       if (ctx->opts.timeout > 0) {
         ret = clock_gettime(CLOCK_MONOTONIC, &tv);
@@ -362,11 +376,27 @@ int reaplan_run(struct reaplan_ctx *ctx) {
         return REAPLAN_ERR;
       }
       /* NB: REAPLANC_WAIT is not explicitly handled */
+
+      /* We have made our connections for this tick - do not allow any
+       * more connections to be made until the timeout timer has ticked.
+       * If mdelay_per_tick is <= 0 then throttle_connect has no effect. */
+      ctx->throttle_connect = 1;
+    }
+
+    if (ctx->opts.mdelay_per_tick <= 0 &&
+        !ctx->connect_done &&
+        ctx->active_conns < ctx->opts.max_clients) {
+      /* if we have no delay per tick, still connections to make and
+         slots available for new connections - do not wait in kevent(2) */
+      evto = &nodelay;
+    } else {
+      /* wait indefinitely in kevent(2) for events to trigger */
+      evto = NULL;
     }
 
 kevent_again:
     ret = kevent(ctx->fd, ctx->evs, nevs, ctx->evs,
-        ctx->opts.connects_per_tick, NULL);
+        ctx->opts.connects_per_tick, evto);
     if (ret < 0) {
       if (errno == EINTR) {
         goto kevent_again;

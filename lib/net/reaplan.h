@@ -40,6 +40,7 @@ struct reaplan_opts {
   int timeout;                /* read/write/connect timeout, in seconds */
   unsigned int max_clients;   /* maximum # of concurrent connections */
   unsigned int connects_per_tick; /* # of initiated connections per tick */
+  unsigned int mdelay_per_tick;   /* # of milliseconds to delay per tick */
 };
 
 struct reaplan_ctx {
@@ -52,9 +53,10 @@ struct reaplan_ctx {
   time_t last_time;           /* last fetched time, in seconds */
   int fd;                     /* kqueue fd */
   int active_conns;           /* # of currently active connections */
-  int ncloseconns;              /* # of currently used closeconns slots */
+  int ncloseconns;            /* # of currently used closeconns slots */
   int timer_active;           /* 1 if the timeout timer is active */
   int connect_done;           /* 1 if on_connect returned REAPLANC_DONE */
+  int throttle_connect;       /* 1 if no new connections are to be made */
 };
 
 int reaplan_init(struct reaplan_ctx *ctx,

@@ -40,7 +40,6 @@ struct bgrab_ctx {
   struct ycl_msg msgbuf;
   struct dsts_ctx dsts;
   char *recvbuf;
-  int curr_clients;
 };
 
 /* command line options */
@@ -85,7 +84,6 @@ static int bgrab_init(struct bgrab_ctx *b, struct bgrab_opts *opts,
   b->dsts         = dsts;
   b->msgbuf       = msgbuf;
   b->recvbuf      = recvbuf;
-  b->curr_clients = 0;
   b->opts         = *opts;
   return 0;
 fail_dsts_cleanup:
@@ -118,7 +116,6 @@ static void on_done(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
   struct bgrab_ctx *grabber;
 
   grabber = reaplan_get_udata(ctx);
-  grabber->curr_clients--;
 }
 
 static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
@@ -132,15 +129,7 @@ static int on_connect(struct reaplan_ctx *ctx, struct reaplan_conn *conn) {
   socklen_t addrlen;
 
   grabber = reaplan_get_udata(ctx);
-  if (grabber->curr_clients >= grabber->opts.max_clients) {
-    return REAPLANC_WAIT;
-  }
-
   while (dsts_next(&grabber->dsts, &addr.sa, &addrlen, NULL)) {
-    /* increment the client counter early, so that if the connection fail
-     * the count is corrected by on_done either way */
-    grabber->curr_clients++;
-
     fd = tcpsrc_connect(&grabber->tcpsrc, &addr.sa);
     if (fd < 0) {
       on_done(ctx, conn);

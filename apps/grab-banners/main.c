@@ -4,9 +4,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <apps/grab-banners/bgrab.h>
 #include <lib/util/sandbox.h>
+#include <lib/util/zfile.h>
 
 #define DFL_NCLIENTS    16 /* maxumum number of concurrent connections */
 #define DFL_TIMEOUT      9 /* maximum connection lifetime, in seconds */
@@ -15,10 +17,12 @@
 
 /* command line options */
 struct opts {
+  struct bgrab_opts bgrab;
   char **dsts;
   int ndsts;
   int no_sandbox;
-  struct bgrab_opts bgrab;
+  int compress;          /* 1 if the output should be gzipped */
+  const char *outpath;
 };
 
 static void print_bgrab_error(const char *err) {
@@ -27,7 +31,7 @@ static void print_bgrab_error(const char *err) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:t:Xc:d:";
+  const char *optstring = "n:t:Xc:d:o:z";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients",       required_argument, NULL, 'n'},
@@ -35,6 +39,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
     {"no-sandbox",        no_argument,       NULL, 'X'},
     {"connects-per-tick", required_argument, NULL, 'c'},
     {"mdelay-per-tick",   required_argument, NULL, 'd'},
+    {"output-file",       required_argument, NULL, 'o'},
+    {"compress",          no_argument,       NULL, 'z'},
     {NULL, 0, NULL, 0}
   };
 
@@ -46,6 +52,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->bgrab.connects_per_tick = DFL_CONNECTS_PER_TICK;
   opts->bgrab.mdelay_per_tick = DFL_MDELAY_PER_TICK;
   opts->bgrab.on_error = print_bgrab_error;
+  opts->outpath = NULL;
+  opts->compress = 0;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
@@ -64,6 +72,12 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       break;
     case 'd':
       opts->bgrab.mdelay_per_tick = strtol(optarg, NULL, 10);
+      break;
+    case 'o':
+      opts->outpath = optarg;
+      break;
+    case 'z':
+      opts->compress = 1;
       break;
     default:
       goto usage;
@@ -97,11 +111,20 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -n|--max-clients       <n> # of max concurrent clients (%d)\n"
-      "  -t|--timeout           <n> connection lifetime in seconds (%d)\n"
-      "  -X|--no-sandbox            disable sandbox\n"
-      "  -c|--connects-per-tick <n> # of conns per discretization (%d)\n"
-      "  -d|--mdelay-per-tick   <n> millisecond delay per tick (%d)\n",
+      "  -n|--max-clients       <n>\n"
+      "      # of max concurrent clients (%d)\n"
+      "  -t|--timeout           <n>\n"
+      "      connection lifetime in seconds (%d)\n"
+      "  -X|--no-sandbox\n"
+      "      disable sandbox\n"
+      "  -c|--connects-per-tick <n>\n"
+      "      # of conns per discretization (%d)\n"
+      "  -d|--mdelay-per-tick   <n>\n"
+      "      millisecond delay per tick (%d)\n"
+      "  -o|--output-file       <path>\n"
+      "      output file (stdout)\n"
+      "  -z|--compress\n"
+      "      compress output\n",
       argv0, DFL_NCLIENTS, DFL_TIMEOUT, DFL_CONNECTS_PER_TICK,
       DFL_MDELAY_PER_TICK);
   exit(EXIT_FAILURE);
@@ -114,6 +137,7 @@ int main(int argc, char *argv[]) {
   struct bgrab_ctx grabber;
   int status = EXIT_FAILURE;
   struct tcpsrc_ctx tcpsrc;
+  FILE *outfile = NULL;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
@@ -129,6 +153,31 @@ int main(int argc, char *argv[]) {
     goto done;
   }
 
+  /* set-up the input file */
+  if (opts.outpath != NULL &&
+      opts.outpath[0] != '-' &&
+      opts.outpath[1] != '\0') {
+    if (opts.compress) {
+      outfile = zfile_open(opts.outpath, "wb");
+    } else {
+      outfile = fopen(opts.outpath, "wb");
+    }
+  } else if (opts.compress) {
+    outfile = zfile_fdopen(STDOUT_FILENO, "wb");
+  } else {
+    outfile = stdout;
+  }
+  if (outfile == NULL) {
+    if (errno == 0) {
+      fprintf(stderr, "failed to open output file\n");
+    } else {
+      fprintf(stderr, "failed to open output file: %s\n", strerror(errno));
+    }
+    goto done_tcpsrc_cleanup;
+  } else {
+    opts.bgrab.outfile = outfile;
+  }
+
   /* enter sandbox mode unless sandbox is disabled */
   if (opts.no_sandbox) {
     fprintf(stderr, "warning: sandbox disabled\n");
@@ -136,14 +185,14 @@ int main(int argc, char *argv[]) {
     ret = sandbox_enter();
     if (ret != 0) {
       fprintf(stderr, "failed to enter sandbox mode\n");
-      goto done_tcpsrc_cleanup;
+      goto done_fclose_outfile;
     }
   }
 
   /* initialize the banner grabber */
   if (bgrab_init(&grabber, &opts.bgrab, tcpsrc) < 0) {
     perror("bgrab_init");
-    goto done_tcpsrc_cleanup;
+    goto done_fclose_outfile;
   }
 
   /* add the destinations to the banner grabber */
@@ -167,6 +216,10 @@ int main(int argc, char *argv[]) {
   status = EXIT_SUCCESS;
 done_bgrab_cleanup:
   bgrab_cleanup(&grabber);
+done_fclose_outfile:
+  if (outfile != stdout) {
+    fclose(outfile);
+  }
 done_tcpsrc_cleanup:
   tcpsrc_cleanup(&tcpsrc);
 done:

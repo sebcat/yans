@@ -12,6 +12,7 @@ struct bgrab_opts {
   int connects_per_tick;
   int mdelay_per_tick;
   void (*on_error)(const char *);
+  FILE *outfile;
 };
 
 /* banner grabber context */

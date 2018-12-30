@@ -10,6 +10,7 @@ grab_banners_DEPS = \
     lib/util/netstring.c \
     lib/util/reorder.c \
     lib/util/sandbox.c \
+    lib/util/zfile.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c
 
@@ -19,7 +20,9 @@ grab_banners_SOURCES = \
     apps/grab-banners/bgrab.c \
     apps/grab-banners/main.c
 
-grab_banners_HEADERS =
+grab_banners_HEADERS = apps/grab-banners/bgrab.h
+
+grab_banners_LDADD = -lz
 
 grab_banners_OBJS = ${grab_banners_SOURCES:.c=.o}
 

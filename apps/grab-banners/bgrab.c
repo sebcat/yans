@@ -2,13 +2,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
-
 #include <netdb.h>
+#include <unistd.h>
 
 #include <lib/net/dsts.h>
 #include <lib/net/reaplan.h>
 #include <lib/net/tcpsrc.h>
-#include <lib/util/io.h> /* TODO: Remove when not needed */
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 
@@ -23,7 +22,8 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
   struct dsts_ctx dsts;
   struct ycl_msg msgbuf;
 
-  if (opts->max_clients <= 0) {
+  if (opts->max_clients <= 0 ||
+      opts->outfile == NULL) {
     goto fail;
   }
 
@@ -44,11 +44,11 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
     goto fail_dsts_cleanup;
   }
 
-  ctx->tcpsrc       = tcpsrc;
-  ctx->dsts         = dsts;
-  ctx->msgbuf       = msgbuf;
-  ctx->recvbuf      = recvbuf;
-  ctx->opts         = *opts;
+  ctx->tcpsrc  = tcpsrc;
+  ctx->dsts    = dsts;
+  ctx->msgbuf  = msgbuf;
+  ctx->recvbuf = recvbuf;
+  ctx->opts    = *opts;
   return 0;
 fail_dsts_cleanup:
   dsts_cleanup(&dsts);
@@ -154,7 +154,7 @@ static void write_banner(struct bgrab_ctx *ctx, int sockfd,
   char addrstr[128];
   char servstr[32];
   int ret;
-  io_t io;
+  size_t sz;
 
   ret = socket_peername(sockfd, addrstr, sizeof(addrstr), servstr,
       sizeof(servstr));
@@ -181,13 +181,12 @@ static void write_banner(struct bgrab_ctx *ctx, int sockfd,
     goto ycl_msg_cleanup;
   }
 
-  IO_INIT(&io, STDOUT_FILENO); /* TODO: use different fd */
-  ret = io_writeall(&io, ycl_msg_bytes(&ctx->msgbuf),
-      ycl_msg_nbytes(&ctx->msgbuf));
-  if (ret != IO_OK) {
+  sz = fwrite(ycl_msg_bytes(&ctx->msgbuf), ycl_msg_nbytes(&ctx->msgbuf), 1,
+      ctx->opts.outfile);
+  if (sz != 1) {
     handle_errorf(ctx,
-        "write_banner: failed to write %zu butes banner for %s:%s - %s",
-        bannerlen, addrstr, servstr, io_strerror(&io));
+        "write_banner: failed to write %zu butes banner for %s:%s",
+        bannerlen, addrstr, servstr);
     goto ycl_msg_cleanup;
   }
 

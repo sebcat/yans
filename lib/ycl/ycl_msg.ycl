@@ -89,3 +89,14 @@ knegd_req {
   data name;
   data type;
 }
+
+
+##
+## result types
+##
+banner {
+  data host;
+  data port;
+  data name;
+  data banner;
+}

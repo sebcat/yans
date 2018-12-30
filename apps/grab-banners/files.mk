@@ -6,8 +6,12 @@ grab_banners_DEPS = \
     lib/net/tcpsrc.c \
     lib/util/buf.c \
     lib/util/idset.c \
+    lib/util/io.c \
+    lib/util/netstring.c \
     lib/util/reorder.c \
     lib/util/sandbox.c \
+    lib/ycl/ycl.c \
+    lib/ycl/ycl_msg.c
 
 grab_banners_DEPSOBJS = ${grab_banners_DEPS:.c=.o}
 

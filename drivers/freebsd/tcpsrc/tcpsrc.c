@@ -10,6 +10,7 @@
 #include <sys/file.h>
 #include <sys/filio.h>
 #include <sys/filedesc.h>
+#include <netinet/tcp.h>
 
 #include "tcpsrc.h"
 
@@ -79,6 +80,22 @@ _connect(struct thread *td, struct sockaddr *sa, int *outfd)
 	/* Set SO_REUSEADDR to 1 - allowing us to rebind on addr:port
          * pairs in TIME_WAIT state */
 	ret = _setsockopt(so, SOL_SOCKET, SO_REUSEADDR, 1);
+	if (ret != 0) {
+		fdclose(td, fp, fd);
+		goto done;
+	}
+
+	/* Set TCP_NODELAY to 1.
+         * If the connection has non-ACKed data in transit, the TCP
+         * stack may buffer data passed from userspace before sending it,
+	 * if the size of the data in the send buffer is less than the MTU.
+	 * By turning TCP_NODELAY on, we disable this functionality
+	 * (Nagle's algorithm) and data passed to the kernel will be sent
+	 * ASAP.
+	 * We assume that userspace does not do a lot of calls to write(2)
+	 * with partial data. Userspace should put the data in a buffer
+         * first and/or use writev(2) on all available, relevant data */
+	ret = _setsockopt(so, IPPROTO_TCP, TCP_NODELAY, 1);
 	if (ret != 0) {
 		fdclose(td, fp, fd);
 		goto done;

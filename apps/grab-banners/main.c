@@ -96,17 +96,6 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->dsts = argv;
   opts->ndsts = argc;
 
-  if (opts->bgrab.max_clients <= 0) {
-    fprintf(stderr, "unvalid max-clients value\n");
-    goto usage;
-  } else if (opts->bgrab.connects_per_tick <= 0) {
-    fprintf(stderr, "connects-per-tick set too low\n");
-    goto usage;
-  } else if (opts->bgrab.connects_per_tick > opts->bgrab.max_clients) {
-    fprintf(stderr, "connects-per-tick higher than max-clients\n");
-    goto usage;
-  }
-
   return;
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
@@ -191,7 +180,7 @@ int main(int argc, char *argv[]) {
 
   /* initialize the banner grabber */
   if (bgrab_init(&grabber, &opts.bgrab, tcpsrc) < 0) {
-    perror("bgrab_init");
+    fprintf(stderr, "bgrab_init: %s\n", bgrab_strerror(&grabber));
     goto done_fclose_outfile;
   }
 
@@ -209,7 +198,7 @@ int main(int argc, char *argv[]) {
   /* Grab all the banners! */
   ret = bgrab_run(&grabber);
   if (ret < 0) {
-    fprintf(stderr, "bgrab_run: failure (%s)\n", strerror(errno));
+    fprintf(stderr, "bgrab_run: %s\n", bgrab_strerror(&grabber));
     goto done_bgrab_cleanup;
   }
 

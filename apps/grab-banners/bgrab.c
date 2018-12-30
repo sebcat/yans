@@ -22,8 +22,20 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
   struct dsts_ctx dsts;
   struct ycl_msg msgbuf;
 
-  if (opts->max_clients <= 0 ||
-      opts->outfile == NULL) {
+  /* set initial error state and validate options */
+  ctx->err = BGRABE_NOERR;
+  if (opts->max_clients <= 0) {
+    ctx->err = BGRABE_INVAL_MAX_CLIENTS;
+  } else if (opts->connects_per_tick <= 0) {
+    ctx->err = BGRABE_INVAL_CONNECTS_PER_TICK;
+  } else if (opts->connects_per_tick > opts->max_clients) {
+    ctx->err = BGRABE_TOOHIGH_CONNECTS_PER_TICK;
+  } else if (opts->outfile == NULL) {
+    ctx->err = BGRABE_INVAL_OUTFILE;
+  }
+
+  /* check for errors reported in option check above */
+  if (ctx->err != BGRABE_NOERR) {
     goto fail;
   }
 
@@ -31,16 +43,19 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
 
   recvbuf = malloc(RECVBUF_SIZE * sizeof(char));
   if (recvbuf == NULL) {
+    ctx->err = BGRABE_NOMEM;
     goto fail;
   }
 
   ret = dsts_init(&dsts);
   if (ret < 0) {
+    ctx->err = BGRABE_NOMEM;
     goto fail_free_recvbuf;
   }
 
   ret = ycl_msg_init(&msgbuf);
   if (ret != YCL_OK) {
+    ctx->err = BGRABE_NOMEM;
     goto fail_dsts_cleanup;
   }
 
@@ -70,6 +85,7 @@ int bgrab_add_dsts(struct bgrab_ctx *ctx,
 
   ret = dsts_add(&ctx->dsts, addrs, ports, udata);
   if (ret < 0) {
+    ctx->err = BGRABE_INVAL_DST;
     return -1;
   }
 
@@ -238,15 +254,41 @@ int bgrab_run(struct bgrab_ctx *ctx) {
 
   ret = reaplan_init(&reaplan, &rpopts);
   if (ret != REAPLAN_OK) {
+    ctx->err = BGRABE_RP_INIT;
     return -1;
   }
 
   ret = reaplan_run(&reaplan);
   reaplan_cleanup(&reaplan);
   if (ret != REAPLAN_OK) {
+    ctx->err = BGRABE_RP_RUN;
     return -1;
   }
 
   return 0;
 }
 
+const char *bgrab_strerror(struct bgrab_ctx *ctx) {
+  switch(ctx->err) {
+  case BGRABE_NOERR:
+    return "no known error";
+  case BGRABE_INVAL_MAX_CLIENTS:
+    return "invalid max_clients option";
+  case BGRABE_INVAL_CONNECTS_PER_TICK:
+    return "invalid connects_per_tick option";
+  case BGRABE_TOOHIGH_CONNECTS_PER_TICK:
+    return "connects_per_tick higher than max_clients";
+  case BGRABE_INVAL_OUTFILE:
+    return "invalid outfile option";
+  case BGRABE_NOMEM:
+    return "out of memory";
+  case BGRABE_INVAL_DST:
+    return "invalid destination";
+  case BGRABE_RP_INIT:
+    return "failure to initialize reaplan";
+  case BGRABE_RP_RUN:
+    return "failure to run reaplan";
+  default:
+    return "unknown error";
+  }
+}

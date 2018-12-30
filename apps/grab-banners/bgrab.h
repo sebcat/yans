@@ -5,6 +5,18 @@
 #include <lib/net/tcpsrc.h>
 #include <lib/ycl/ycl.h>
 
+enum bgrab_err {
+  BGRABE_NOERR = 0,
+  BGRABE_INVAL_MAX_CLIENTS,
+  BGRABE_INVAL_CONNECTS_PER_TICK,
+  BGRABE_TOOHIGH_CONNECTS_PER_TICK,
+  BGRABE_INVAL_OUTFILE,
+  BGRABE_NOMEM,
+  BGRABE_INVAL_DST,
+  BGRABE_RP_INIT,
+  BGRABE_RP_RUN,
+};
+
 /* banner grabber options */
 struct bgrab_opts {
   int max_clients;
@@ -23,6 +35,7 @@ struct bgrab_ctx {
   struct ycl_msg msgbuf;
   struct dsts_ctx dsts;
   char *recvbuf; /* TODO: Maybe inline? */
+  enum bgrab_err err;
 };
 
 #define bgrab_get_recvbuf(b_) (b_)->recvbuf
@@ -36,5 +49,7 @@ int bgrab_add_dsts(struct bgrab_ctx *ctx, const char *addrs,
     const char *ports, void *udata);
 
 int bgrab_run(struct bgrab_ctx *ctx);
+
+const char *bgrab_strerror(struct bgrab_ctx *ctx);
 
 #endif

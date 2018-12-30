@@ -16,6 +16,7 @@ grab_banners_DEPS = \
 grab_banners_DEPSOBJS = ${grab_banners_DEPS:.c=.o}
 
 grab_banners_SOURCES = \
+    apps/grab-banners/bgrab.c \
     apps/grab-banners/main.c
 
 grab_banners_HEADERS =

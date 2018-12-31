@@ -88,7 +88,7 @@ _connect(struct thread *td, struct sockaddr *sa, int *outfd)
 	/* Set TCP_NODELAY to 1.
          * If the connection has non-ACKed data in transit, the TCP
          * stack may buffer data passed from userspace before sending it,
-	 * if the size of the data in the send buffer is less than the MTU.
+	 * if the size of the data in the send buffer is less than the MSS.
 	 * By turning TCP_NODELAY on, we disable this functionality
 	 * (Nagle's algorithm) and data passed to the kernel will be sent
 	 * ASAP.

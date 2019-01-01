@@ -1,6 +1,7 @@
 #ifndef REAPLAN_H__
 #define REAPLAN_H__
 
+#include <openssl/ssl.h>
 #include <lib/util/idset.h>
 
 
@@ -17,6 +18,7 @@
 /* reaplan connection flags */
 #define REAPLAN_READABLE         (1 << 0)
 #define REAPLAN_WRITABLE_ONESHOT (1 << 1)
+#define REAPLAN_TLS_HANDSHAKE    (1 << 2)
 
 struct reaplan_ctx;
 
@@ -27,6 +29,7 @@ struct reaplan_conn {
   int fd;
   unsigned int flags;      /* set flags */
   unsigned int rflags;     /* requested flags */
+  SSL *ssl;                /* TLS connection data, if any */
 };
 
 struct reaplan_opts {
@@ -41,6 +44,7 @@ struct reaplan_opts {
   unsigned int max_clients;   /* maximum # of concurrent connections */
   unsigned int connects_per_tick; /* # of initiated connections per tick */
   unsigned int mdelay_per_tick;   /* # of milliseconds to delay per tick */
+  SSL_CTX *ssl_ctx;               /* optional, if set - use TLS */
 };
 
 struct reaplan_ctx {
@@ -64,6 +68,13 @@ int reaplan_init(struct reaplan_ctx *ctx,
 void reaplan_cleanup(struct reaplan_ctx *ctx);
 int reaplan_run(struct reaplan_ctx *ctx);
 
+
+int reaplan_register_conn(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn, int fd, unsigned int flags,
+    const char *name);
+int reaplan_conn_read(struct reaplan_conn *conn, void *data, int len);
+int reaplan_conn_write(struct reaplan_conn *conn, void *data, int len);
+
 static inline void *reaplan_get_udata(const struct reaplan_ctx *ctx) {
   return ctx->opts.udata;
 }
@@ -72,10 +83,13 @@ static inline int reaplan_conn_get_fd(const struct reaplan_conn *conn) {
   return conn->fd;
 }
 
-static inline void reaplan_conn_register(struct reaplan_conn *conn, int fd,
-    unsigned int flags) {
-  conn->fd = fd;
-  conn->rflags = flags;
+static inline void reaplan_conn_set_udata(struct reaplan_conn *conn,
+    void *udata) {
+  conn->udata = udata;
+}
+
+static inline void *reaplan_conn_get_udata(struct reaplan_conn *conn) {
+  return conn->udata;
 }
 
 #endif

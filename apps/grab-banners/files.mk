@@ -18,11 +18,14 @@ grab_banners_DEPSOBJS = ${grab_banners_DEPS:.c=.o}
 
 grab_banners_SOURCES = \
     apps/grab-banners/bgrab.c \
+    apps/grab-banners/payload.c \
     apps/grab-banners/main.c
 
-grab_banners_HEADERS = apps/grab-banners/bgrab.h
+grab_banners_HEADERS = \
+    apps/grab-banners/bgrab.h \
+    apps/grab-banners/payload.h
 
-grab_banners_LDADD = -lz
+grab_banners_LDADD = -lz -lssl -lcrypto
 
 grab_banners_OBJS = ${grab_banners_SOURCES:.c=.o}
 

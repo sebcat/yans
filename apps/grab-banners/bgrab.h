@@ -1,6 +1,8 @@
 #ifndef YANS_BGRAB_H__
 #define YANS_BGRAB_H__
 
+#include <openssl/ssl.h>
+
 #include <lib/net/dsts.h>
 #include <lib/net/tcpsrc.h>
 #include <lib/ycl/ycl.h>
@@ -25,6 +27,7 @@ struct bgrab_opts {
   int mdelay_per_tick;
   void (*on_error)(const char *);
   FILE *outfile;
+  SSL_CTX *ssl_ctx;
 };
 
 /* banner grabber context */
@@ -34,7 +37,7 @@ struct bgrab_ctx {
   struct tcpsrc_ctx tcpsrc;
   struct ycl_msg msgbuf;
   struct dsts_ctx dsts;
-  char *recvbuf; /* TODO: Maybe inline? */
+  char *recvbuf; /* TODO: Maybe VLA at end and alloc bgrab on heap? */
   enum bgrab_err err;
 };
 

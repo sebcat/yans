@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <lib/net/dsts.h>
 #include <lib/net/reaplan.h>
@@ -12,6 +13,7 @@
 #include <lib/ycl/ycl_msg.h>
 
 #include <apps/grab-banners/bgrab.h>
+#include <apps/grab-banners/payload.h>
 
 #define RECVBUF_SIZE   8192
 
@@ -92,38 +94,6 @@ int bgrab_add_dsts(struct bgrab_ctx *ctx,
   return 0;
 }
 
-static void on_done(struct reaplan_ctx *reaplan,
-    struct reaplan_conn *conn) {
-  /* NO-OP */
-}
-
-static int on_connect(struct reaplan_ctx *reaplan,
-    struct reaplan_conn *conn) {
-  struct bgrab_ctx *ctx;
-  int fd = -1;
-  union {
-    struct sockaddr sa;
-    struct sockaddr_in sin;
-    struct sockaddr_in6 sin6;
-  } addr;
-  socklen_t addrlen;
-
-  ctx = reaplan_get_udata(reaplan);
-  while (dsts_next(&ctx->dsts, &addr.sa, &addrlen, NULL)) {
-    fd = tcpsrc_connect(&ctx->tcpsrc, &addr.sa);
-    if (fd < 0) {
-      on_done(reaplan, conn);
-      continue;
-    }
-
-    reaplan_conn_register(conn, fd,
-        REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT);
-    return REAPLANC_OK;
-  }
-
-  return REAPLANC_DONE;
-}
-
 #define handle_errorf(ctx, ...)         \
   if (ctx->opts.on_error != NULL) {     \
     _handle_errorf(ctx, __VA_ARGS__);   \
@@ -137,6 +107,46 @@ static void _handle_errorf(struct bgrab_ctx *ctx, const char *fmt, ...) {
   vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
   ctx->opts.on_error(msgbuf);
   va_end(ap);
+}
+
+static void on_done(struct reaplan_ctx *reaplan,
+    struct reaplan_conn *conn) {
+  /* NO-OP */
+}
+
+static int on_connect(struct reaplan_ctx *reaplan,
+    struct reaplan_conn *conn) {
+  struct bgrab_ctx *ctx;
+  int fd = -1;
+  int ret;
+  union {
+    struct sockaddr sa;
+    struct sockaddr_in sin;
+    struct sockaddr_in6 sin6;
+  } addr;
+  socklen_t addrlen;
+  void *dstarg; /* currently used for hostname */
+
+  ctx = reaplan_get_udata(reaplan);
+  while (dsts_next(&ctx->dsts, &addr.sa, &addrlen, &dstarg)) {
+    fd = tcpsrc_connect(&ctx->tcpsrc, &addr.sa);
+    if (fd < 0) {
+      on_done(reaplan, conn);
+      continue;
+    }
+
+    reaplan_conn_set_udata(conn, dstarg);
+    ret = reaplan_register_conn(reaplan, conn, fd,
+        REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT, dstarg);
+    if (ret < 0) {
+      on_done(reaplan, conn);
+      continue;
+    }
+
+    return REAPLANC_OK;
+  }
+
+  return REAPLANC_DONE;
 }
 
 static int socket_peername(int sock, char *addr, size_t addrlen,
@@ -164,14 +174,17 @@ static int socket_peername(int sock, char *addr, size_t addrlen,
   return 0;
 }
 
-static void write_banner(struct bgrab_ctx *ctx, int sockfd,
+static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
     const char *banner, size_t bannerlen) {
   struct ycl_msg_banner bannermsg = {{0}};
   char addrstr[128];
   char servstr[32];
   int ret;
   size_t sz;
+  int sockfd;
+  const char *name;
 
+  sockfd = reaplan_conn_get_fd(conn);
   ret = socket_peername(sockfd, addrstr, sizeof(addrstr), servstr,
       sizeof(servstr));
   if (ret < 0) {
@@ -182,7 +195,9 @@ static void write_banner(struct bgrab_ctx *ctx, int sockfd,
 
   ycl_msg_reset(&ctx->msgbuf);
 
-  /* TODO: fill in "name" field */
+  name = reaplan_conn_get_udata(conn);
+  bannermsg.name.data = name;
+  bannermsg.name.len = name ? strlen(name) : 0;
   bannermsg.host.data = addrstr;
   bannermsg.host.len = strlen(addrstr);
   bannermsg.port.data = servstr;
@@ -215,16 +230,14 @@ static ssize_t on_readable(struct reaplan_ctx *reaplan,
   ssize_t nread;
   struct bgrab_ctx *ctx;
   char *recvbuf;
-  int fd;
 
   ctx = reaplan_get_udata(reaplan);
-  fd = reaplan_conn_get_fd(conn);
   recvbuf = bgrab_get_recvbuf(ctx);
 
-  nread = read(fd, recvbuf, RECVBUF_SIZE);
+  nread = reaplan_conn_read(conn, recvbuf, RECVBUF_SIZE);
   if (nread > 0) {
-    write_banner(ctx, fd, recvbuf, nread);
-    return 0; /* signal done to reaplan - will close the fd */
+    write_banner(ctx, conn, recvbuf, nread);
+    return 0; /* signal done to reaplan - will close the conn */
   }
 
   return nread;
@@ -232,9 +245,48 @@ static ssize_t on_readable(struct reaplan_ctx *reaplan,
 
 static ssize_t on_writable(struct reaplan_ctx *ctx,
     struct reaplan_conn *conn) {
-#define SrTR "GET / HTTP/1.0\r\n\r\n"
-  return write(reaplan_conn_get_fd(conn), SrTR, sizeof(SrTR)-1);
-#undef SrTR
+  int ret;
+  int fd;
+  struct payload_host h;
+  union {
+    struct sockaddr sa;
+    struct sockaddr_in sin;
+    struct sockaddr_in6 sin6;
+  } u;
+  struct payload_data *payload;
+  ssize_t res;
+
+  h.salen = sizeof(u);
+  h.sa = &u.sa;
+  h.name = reaplan_conn_get_udata(conn);
+  fd = reaplan_conn_get_fd(conn);
+  ret = getpeername(fd, &u.sa, &h.salen);
+  if (ret != 0) {
+    return -1;
+  }
+
+  /* TODO:
+   * - support multiple different payloads, not only HTTP req
+   * - cache payloads across connections (LRU eviction?)
+   * - currently, it is assumed that the entire payload is sent with
+   *   one call to reaplan_conn_write which is often the case but it
+   *   is not a guarantee. It would be better to store the payload and
+   *   a written offset as connection udata and make this func reentrant.
+   */
+  payload = payload_build(
+      "GET / HTTP/1.1\r\n"
+      "Host: $H\r\n"
+      "Accept: */*\r\n"
+      "\r\n",
+      &h);
+  if (payload == NULL) {
+    return -1;
+  }
+
+  res = reaplan_conn_write(conn, payload_get_data(payload),
+      payload_get_len(payload));
+  payload_free(payload);
+  return res;
 }
 
 int bgrab_run(struct bgrab_ctx *ctx) {
@@ -250,6 +302,7 @@ int bgrab_run(struct bgrab_ctx *ctx) {
     .timeout           = ctx->opts.timeout,
     .connects_per_tick = ctx->opts.connects_per_tick,
     .mdelay_per_tick   = ctx->opts.mdelay_per_tick,
+    .ssl_ctx           = ctx->opts.ssl_ctx,
   };
 
   ret = reaplan_init(&reaplan, &rpopts);

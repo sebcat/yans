@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/event.h>
 #include <sys/time.h>
 #include <errno.h>
@@ -44,6 +45,10 @@ static void reaplan_conn_close(struct reaplan_ctx *ctx,
   conn->fd = -1;
   if (ctx->opts.on_done) {
     ctx->opts.on_done(ctx, conn);
+  }
+  if (conn->ssl) {
+    SSL_free(conn->ssl);
+    conn->ssl = NULL;
   }
   ctx->active_conns--;
   id = reaplan_conn_id(ctx, conn);
@@ -177,7 +182,7 @@ static void handle_readable(struct reaplan_ctx *ctx,
   ssize_t ret;
   /* NB: the callback should exist if we listen for readable events */
   ret = ctx->opts.on_readable(ctx, conn);
-  if (ret <= 0) {
+  if (ret == 0 || (ret < 0 && errno != EAGAIN)) {
     enqueue_close_conn(ctx, conn);
   }
 }
@@ -187,19 +192,48 @@ static void handle_writable(struct reaplan_ctx *ctx,
   ssize_t ret;
   /* NB: the callback should exist if we listen for writable events */
   ret = ctx->opts.on_writable(ctx, conn);
-  if (ret <= 0) {
+  if (ret == 0 || (ret < 0 && errno != EAGAIN)) {
     enqueue_close_conn(ctx, conn);
   }
 }
+
+int reaplan_register_conn(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn, int fd, unsigned int flags,
+    const char *name) {
+  int ret;
+
+  if (ctx->opts.ssl_ctx) {
+    conn->ssl = SSL_new(ctx->opts.ssl_ctx);
+    if (conn->ssl == NULL) {
+      return -1;
+    }
+
+    ret = SSL_set_fd(conn->ssl, fd);
+    if (ret != 1) {
+      SSL_free(conn->ssl);
+      conn->ssl = NULL;
+      return -1;
+    }
+
+    if (name != NULL) {
+      SSL_set_tlsext_host_name(conn->ssl, name);
+    }
+  }
+
+  conn->fd = fd;
+  conn->rflags = flags;
+  return 0;
+}
+
 
 static int setup_connections(struct reaplan_ctx * restrict ctx,
     struct kevent * restrict evs, size_t * restrict nevs,
     time_t expires) {
   size_t i = 0;
   size_t end = *nevs;
+  struct reaplan_conn *curr;
   int result = REAPLANC_ERR;
   int conn_id;
-  struct reaplan_conn *curr;
 
   while (i <= (end - 2)) {
     conn_id = idset_use_next(ctx->ids);
@@ -226,15 +260,23 @@ static int setup_connections(struct reaplan_ctx * restrict ctx,
     }
 
     curr->expires = expires;
-    if (curr->rflags & REAPLAN_READABLE) {
-      curr->flags |= REAPLAN_READABLE;
-      EV_SET(&evs[i++], curr->fd, EVFILT_READ, EV_ADD, 0, 0, curr);
-    }
 
-    if (curr->rflags & REAPLAN_WRITABLE_ONESHOT) {
-      curr->flags |= REAPLAN_WRITABLE_ONESHOT;
+    if (curr->ssl) {
+      curr->flags |= REAPLAN_TLS_HANDSHAKE;
+      EV_SET(&evs[i++], curr->fd, EVFILT_READ, EV_ADD, 0, 0, curr);
       EV_SET(&evs[i++], curr->fd, EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0,
-         curr);
+          curr);
+    } else {
+      if (curr->rflags & REAPLAN_READABLE) {
+        curr->flags |= REAPLAN_READABLE;
+        EV_SET(&evs[i++], curr->fd, EVFILT_READ, EV_ADD, 0, 0, curr);
+      }
+
+      if (curr->rflags & REAPLAN_WRITABLE_ONESHOT) {
+        curr->flags |= REAPLAN_WRITABLE_ONESHOT;
+        EV_SET(&evs[i++], curr->fd, EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0,
+           curr);
+      }
     }
   }
 
@@ -292,8 +334,57 @@ static int reaplan_update_timer(struct reaplan_ctx *ctx,
   return 1;
 }
 
+static void handle_tls_handshake(struct reaplan_ctx *ctx,
+    struct reaplan_conn *conn) {
+  int ret;
+  int err;
+  struct kevent evs[2];
+  int i;
+
+  assert(ctx->opts.ssl_ctx != NULL);
+  assert(conn->ssl != NULL);
+
+  ret = SSL_connect(conn->ssl);
+  if (ret < 0) {
+    err = SSL_get_error(conn->ssl, ret);
+    if (err == SSL_ERROR_WANT_WRITE) {
+      EV_SET(&evs[0], conn->fd, EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0,
+          conn);
+      kevent(ctx->fd, evs, 1, NULL, 0, NULL);
+    } else if (err != SSL_ERROR_WANT_READ) {
+      /* connection/handshake failure */
+      enqueue_close_conn(ctx, conn);
+    }
+  } else if (ret == 0) {
+    /* graceful shutdown */
+    enqueue_close_conn(ctx, conn);
+  } else {
+    /* handshake done, set the flags requested by the user. READ is already
+     * set */
+    conn->flags = 0;
+    i = 0;
+    if (conn->rflags & REAPLAN_READABLE) {
+      conn->flags |= REAPLAN_READABLE;
+    } else {
+      EV_SET(&evs[i++], conn->fd, EVFILT_READ, EV_DELETE, 0, 0, conn);
+    }
+
+    if (conn->rflags & REAPLAN_WRITABLE_ONESHOT) {
+      conn->flags |= REAPLAN_WRITABLE_ONESHOT;
+      EV_SET(&evs[i++], conn->fd, EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0,
+           conn);
+    }
+
+    /* We must have at least a readable or writable event registered prior
+     * to the handshake */
+    assert(i > 0);
+    kevent(ctx->fd, evs, i, NULL, 0, NULL);
+  }
+}
+
 static void reaplan_handle_events(struct reaplan_ctx *ctx,
     struct kevent *evs, size_t nevs) {
+  struct reaplan_conn *conn;
   size_t i;
 
   reset_close_queue(ctx);
@@ -308,20 +399,28 @@ static void reaplan_handle_events(struct reaplan_ctx *ctx,
     }
 
     if (evs[i].filter == EVFILT_READ) {
-      /* Check if there's any data to read */
-      if (evs[i].data > 0) {
-        handle_readable(ctx, evs[i].udata);
-      }
+      conn = evs[i].udata;
 
       /* Check if EOF is set */
       if (evs[i].flags & EV_EOF) {
-        enqueue_close_conn(ctx, evs[i].udata);
+        enqueue_close_conn(ctx, conn);
+      }
+
+      /* Check if there's any data to read */
+      if (conn->flags & REAPLAN_TLS_HANDSHAKE) {
+        handle_tls_handshake(ctx, conn);
+      } else if (evs[i].data > 0) {
+        handle_readable(ctx, conn);
       }
     } else if (evs[i].filter == EVFILT_WRITE) {
+      conn = evs[i].udata;
+
       if (evs[i].flags & EV_EOF) {
-        enqueue_close_conn(ctx, evs[i].udata);
+        enqueue_close_conn(ctx, conn);
+      } else if (conn->flags & REAPLAN_TLS_HANDSHAKE) {
+        handle_tls_handshake(ctx, conn);
       } else {
-        handle_writable(ctx, evs[i].udata);
+        handle_writable(ctx, conn);
       }
     } else if (evs[i].filter == EVFILT_TIMER &&
         evs[i].ident == TIMEOUT_TIMER) {
@@ -419,3 +518,39 @@ kevent_again:
   return REAPLAN_OK;
 }
 
+int reaplan_conn_read(struct reaplan_conn *conn, void *data, int len) {
+  int ret;
+  int err;
+
+  if (conn->ssl) {
+    ret = SSL_read(conn->ssl, data, len);
+    if (ret <= 0) {
+      err = SSL_get_error(conn->ssl, ret);
+      if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        errno = EAGAIN;
+      }
+    }
+    return ret;
+  } else {
+    return (int)read(conn->fd, data, (size_t)len);
+  }
+}
+
+int reaplan_conn_write(struct reaplan_conn *conn, void *data, int len) {
+  int ret;
+  int err;
+
+  if (conn->ssl) {
+    ret = SSL_write(conn->ssl, data, len);
+    if (ret <= 0) {
+      err = SSL_get_error(conn->ssl, ret);
+      if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        errno = EAGAIN;
+      }
+    }
+    return ret;
+
+  } else {
+    return (int)send(conn->fd, data, (size_t)len, MSG_NOSIGNAL);
+  }
+}

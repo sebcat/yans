@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <openssl/ssl.h>
+
 #include <apps/grab-banners/bgrab.h>
 #include <lib/util/sandbox.h>
 #include <lib/util/zfile.h>
@@ -20,9 +22,11 @@ struct opts {
   struct bgrab_opts bgrab;
   char **dsts;
   int ndsts;
-  int no_sandbox;
+  int no_sandbox;        /* 1 if the sandbox should be disabled */
   int compress;          /* 1 if the output should be gzipped */
+  int tls;               /* 1 if TLS should be used */
   const char *outpath;
+  char *hostname;
 };
 
 static void print_bgrab_error(const char *err) {
@@ -31,7 +35,7 @@ static void print_bgrab_error(const char *err) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:t:Xc:d:o:z";
+  const char *optstring = "n:t:Xc:d:o:zsH:";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients",       required_argument, NULL, 'n'},
@@ -41,6 +45,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
     {"mdelay-per-tick",   required_argument, NULL, 'd'},
     {"output-file",       required_argument, NULL, 'o'},
     {"compress",          no_argument,       NULL, 'z'},
+    {"tls",               no_argument,       NULL, 's'},
+    {"hostname",          required_argument, NULL, 'H'},
     {NULL, 0, NULL, 0}
   };
 
@@ -54,6 +60,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->bgrab.on_error = print_bgrab_error;
   opts->outpath = NULL;
   opts->compress = 0;
+  opts->tls = 0;
+  opts->hostname = NULL;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
@@ -79,6 +87,12 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
     case 'z':
       opts->compress = 1;
       break;
+    case 's':
+      opts->tls = 1;
+      break;
+    case 'H':
+      opts->hostname = optarg;
+      break;
     default:
       goto usage;
     }
@@ -100,20 +114,24 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
 usage:
   fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
       "opts:\n"
-      "  -n|--max-clients       <n>\n"
-      "      # of max concurrent clients (%d)\n"
-      "  -t|--timeout           <n>\n"
-      "      connection lifetime in seconds (%d)\n"
+      "  -n|--max-clients <n>\n"
+      "      Maximum number of concurrent clients (%d)\n"
+      "  -t|--timeout <n>\n"
+      "      Connection lifetime, in seconds (%d)\n"
       "  -X|--no-sandbox\n"
-      "      disable sandbox\n"
+      "      Disable sandbox\n"
       "  -c|--connects-per-tick <n>\n"
-      "      # of conns per discretization (%d)\n"
-      "  -d|--mdelay-per-tick   <n>\n"
-      "      millisecond delay per tick (%d)\n"
-      "  -o|--output-file       <path>\n"
-      "      output file (stdout)\n"
+      "      Number of connections per time discretization (%d)\n"
+      "  -d|--mdelay-per-tick <n>\n"
+      "      Millisecond delay per tick (%d)\n"
+      "  -o|--output-file <path>\n"
+      "      Output file (stdout)\n"
       "  -z|--compress\n"
-      "      compress output\n",
+      "      Compress output\n"
+      "  -s|--tls\n"
+      "      Use TLS\n"
+      "  -H|--hostname <name>\n"
+      "      Hostname to use, if any\n",
       argv0, DFL_NCLIENTS, DFL_TIMEOUT, DFL_CONNECTS_PER_TICK,
       DFL_MDELAY_PER_TICK);
   exit(EXIT_FAILURE);
@@ -124,12 +142,26 @@ int main(int argc, char *argv[]) {
   int ret;
   struct opts opts = {0};
   struct bgrab_ctx grabber;
-  int status = EXIT_FAILURE;
   struct tcpsrc_ctx tcpsrc;
+  int status = EXIT_FAILURE;
   FILE *outfile = NULL;
+  SSL_CTX *ssl_ctx = NULL;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
+
+  /* if TLS is to be used, initiate the library and allocate the TLS
+   * context */
+  if (opts.tls) {
+    SSL_library_init();
+    ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+    if (ssl_ctx == NULL) {
+      fprintf(stderr, "failed to initialize the TLS context\n");
+      return EXIT_FAILURE;
+    }
+    /* TODO: Implement --(no-)verify flag by setting SSL_VERIFY_NONE
+     *       using SSL_CTX_set_verify here */
+  }
 
   /* ignore SIGPIPE, caused by writes on a file descriptor where the peer
    * has closed the connection */
@@ -163,8 +195,6 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "failed to open output file: %s\n", strerror(errno));
     }
     goto done_tcpsrc_cleanup;
-  } else {
-    opts.bgrab.outfile = outfile;
   }
 
   /* enter sandbox mode unless sandbox is disabled */
@@ -179,6 +209,8 @@ int main(int argc, char *argv[]) {
   }
 
   /* initialize the banner grabber */
+  opts.bgrab.outfile = outfile;
+  opts.bgrab.ssl_ctx = ssl_ctx;
   if (bgrab_init(&grabber, &opts.bgrab, tcpsrc) < 0) {
     fprintf(stderr, "bgrab_init: %s\n", bgrab_strerror(&grabber));
     goto done_fclose_outfile;
@@ -187,7 +219,7 @@ int main(int argc, char *argv[]) {
   /* add the destinations to the banner grabber */
   for (i = 0; i < opts.ndsts / 2; i++) {
     ret = bgrab_add_dsts(&grabber, opts.dsts[i*2],
-        opts.dsts[i*2+1], NULL);
+        opts.dsts[i*2+1], opts.hostname);
     if (ret != 0) {
       fprintf(stderr, "bgrab_add_dsts: failed to add: %s %s\n",
           opts.dsts[i*2], opts.dsts[i*2+1]);
@@ -212,5 +244,9 @@ done_fclose_outfile:
 done_tcpsrc_cleanup:
   tcpsrc_cleanup(&tcpsrc);
 done:
+  if (ssl_ctx != NULL) {
+    SSL_CTX_free(ssl_ctx);
+  }
+
   return status;
 }

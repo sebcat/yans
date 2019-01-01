@@ -554,3 +554,39 @@ int reaplan_conn_write(struct reaplan_conn *conn, void *data, int len) {
     return (int)send(conn->fd, data, (size_t)len, MSG_NOSIGNAL);
   }
 }
+
+void reaplan_conn_append_cert_chain(struct reaplan_conn *conn, buf_t *out) {
+  int ncerts;
+  int i;
+  STACK_OF(X509) *certs;
+  X509 *cert;
+  BIO *bio;
+  long datalen;
+  char *data;
+
+  if (conn->ssl == NULL) {
+    return;
+  }
+
+  certs = SSL_get_peer_cert_chain(conn->ssl);
+  if (certs == NULL) {
+    return;
+  }
+
+  ncerts = sk_X509_num(certs);
+  if (ncerts <= 0) {
+    return;
+  }
+
+  bio = BIO_new(BIO_s_mem());
+  for (i = 0; i < ncerts; i++) {
+    cert = sk_X509_value(certs, i);
+    PEM_write_bio_X509(bio, cert);
+  }
+
+  datalen = BIO_get_mem_data(bio, &data);
+  if (datalen > 0) {
+    buf_adata(out, data, datalen);
+  }
+  BIO_free(bio);
+}

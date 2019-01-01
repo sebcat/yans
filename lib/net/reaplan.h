@@ -2,8 +2,8 @@
 #define REAPLAN_H__
 
 #include <openssl/ssl.h>
+#include <lib/util/buf.h>
 #include <lib/util/idset.h>
-
 
 /* reaplan status codes */
 #define REAPLAN_ERR -1
@@ -74,6 +74,8 @@ int reaplan_register_conn(struct reaplan_ctx *ctx,
     const char *name);
 int reaplan_conn_read(struct reaplan_conn *conn, void *data, int len);
 int reaplan_conn_write(struct reaplan_conn *conn, void *data, int len);
+
+void reaplan_conn_append_cert_chain(struct reaplan_conn *conn, buf_t *out);
 
 static inline void *reaplan_get_udata(const struct reaplan_ctx *ctx) {
   return ctx->opts.udata;

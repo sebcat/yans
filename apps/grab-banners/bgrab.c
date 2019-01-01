@@ -15,7 +15,8 @@
 #include <apps/grab-banners/bgrab.h>
 #include <apps/grab-banners/payload.h>
 
-#define RECVBUF_SIZE   8192
+#define RECVBUF_SIZE         8192
+#define INITIAL_CERTBUF_SIZE 8192
 
 int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
     struct tcpsrc_ctx tcpsrc) {
@@ -61,6 +62,7 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
     goto fail_dsts_cleanup;
   }
 
+  buf_init(&ctx->certbuf, INITIAL_CERTBUF_SIZE);
   ctx->tcpsrc  = tcpsrc;
   ctx->dsts    = dsts;
   ctx->msgbuf  = msgbuf;
@@ -76,9 +78,12 @@ fail:
 }
 
 void bgrab_cleanup(struct bgrab_ctx *ctx) {
-  free(ctx->recvbuf);
-  dsts_cleanup(&ctx->dsts);
-  ctx->recvbuf = NULL;
+  if (ctx) {
+    free(ctx->recvbuf);
+    ctx->recvbuf = NULL;
+    dsts_cleanup(&ctx->dsts);
+    buf_cleanup(&ctx->certbuf);
+  }
 }
 
 int bgrab_add_dsts(struct bgrab_ctx *ctx,
@@ -194,10 +199,13 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
   }
 
   ycl_msg_reset(&ctx->msgbuf);
-
+  buf_clear(&ctx->certbuf);
+  reaplan_conn_append_cert_chain(conn, &ctx->certbuf);
   name = reaplan_conn_get_udata(conn);
   bannermsg.name.data = name;
   bannermsg.name.len = name ? strlen(name) : 0;
+  bannermsg.certs.data = ctx->certbuf.data;
+  bannermsg.certs.len = ctx->certbuf.len;
   bannermsg.host.data = addrstr;
   bannermsg.host.len = strlen(addrstr);
   bannermsg.port.data = servstr;

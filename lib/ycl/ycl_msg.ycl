@@ -99,4 +99,5 @@ banner {
   data port;
   data name;
   data banner;
+  data certs;
 }

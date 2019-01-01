@@ -39,6 +39,7 @@ struct bgrab_ctx {
   struct dsts_ctx dsts;
   char *recvbuf; /* TODO: Maybe VLA at end and alloc bgrab on heap? */
   enum bgrab_err err;
+  buf_t certbuf;
 };
 
 #define bgrab_get_recvbuf(b_) (b_)->recvbuf

@@ -9,7 +9,9 @@
 #include <openssl/ssl.h>
 
 #include <apps/grab-banners/bgrab.h>
+#include <lib/util/lines.h>
 #include <lib/util/sandbox.h>
+#include <lib/util/str.h>
 #include <lib/util/zfile.h>
 
 #define DFL_NCLIENTS    16 /* maxumum number of concurrent connections */
@@ -17,15 +19,70 @@
 #define DFL_CONNECTS_PER_TICK 8
 #define DFL_MDELAY_PER_TICK 500
 
+#define COMPRESS_INPUT  (1 << 0)
+#define COMPRESS_OUTPUT (1 << 1)
+
+struct input_line {
+  char *parts[2];
+  size_t lens[2];
+  unsigned int i;
+};
+
+static int mapfunc(const char *s, size_t len, void *data) {
+  struct input_line *input = data;
+  unsigned int i;
+
+  i = input->i;
+
+  if (i > 1) {
+    return 0;
+  }
+
+  input->parts[i] = (char*)s;
+  input->lens[i] = len;
+  input->parts[i][len] = '\0';
+  input->i++;
+  return 1;
+}
+
+static void parse_input_line(char *line, char **dst, char **name) {
+  struct input_line input = {{0}};
+
+  /* Set default values */
+  *dst = NULL;
+  *name = NULL;
+
+  /*
+  example input:
+
+  nonexistant
+  127.0.0.1/24
+  127.0.0.1 127.0.0.1
+  example.com 93.184.216.34
+  example.com 2606:2800:220:1:248:1893:25c8:1946
+
+  The first field can either be a range, subnet, address or a hostname that
+  may or may not have a corresponding address. Hostnames are assumed to be
+  resolved earlier and will not be resolved in this step.
+  */
+  str_map_fieldz(line, "\r\n\t ", mapfunc, &input);
+  if (input.i == 1) {
+    *dst = input.parts[0];
+  } else if (input.i == 2) {
+    *name = input.parts[0];
+    *dst = input.parts[1];
+  }
+}
+
 /* command line options */
 struct opts {
   struct bgrab_opts bgrab;
-  char **dsts;
-  int ndsts;
   int no_sandbox;        /* 1 if the sandbox should be disabled */
   int compress;          /* 1 if the output should be gzipped */
   int tls;               /* 1 if TLS should be used */
+  int tls_verify;        /* 1 if only conns with valid certs are OK */
   const char *outpath;
+  const char *ports;
   char *hostname;
 };
 
@@ -35,7 +92,7 @@ static void print_bgrab_error(const char *err) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:t:Xc:d:o:zsH:";
+  const char *optstring = "n:t:Xc:d:o:z:sKH:p:";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients",       required_argument, NULL, 'n'},
@@ -44,9 +101,11 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
     {"connects-per-tick", required_argument, NULL, 'c'},
     {"mdelay-per-tick",   required_argument, NULL, 'd'},
     {"output-file",       required_argument, NULL, 'o'},
-    {"compress",          no_argument,       NULL, 'z'},
+    {"compress",          required_argument, NULL, 'z'},
     {"tls",               no_argument,       NULL, 's'},
+    {"tls-verify",        no_argument,       NULL, 'K'},
     {"hostname",          required_argument, NULL, 'H'},
+    {"ports",             required_argument, NULL, 'p'},
     {NULL, 0, NULL, 0}
   };
 
@@ -61,7 +120,9 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->outpath = NULL;
   opts->compress = 0;
   opts->tls = 0;
+  opts->tls_verify = 0;
   opts->hostname = NULL;
+  opts->ports = NULL;
 
   /* override defaults with command line arguments */
   while ((ch = getopt_long(argc, argv, optstring, optcfgs, NULL)) != -1) {
@@ -85,34 +146,41 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       opts->outpath = optarg;
       break;
     case 'z':
-      opts->compress = 1;
+      while ((ch = *optarg++) != '\0') {
+        if (ch == 'i') {
+          opts->compress |= COMPRESS_INPUT;
+        } else if (ch == 'o') {
+          opts->compress |= COMPRESS_OUTPUT;
+        } else {
+          fprintf(stderr, "invalid compression flag: %c\n", ch);
+          goto usage;
+        }
+      }
       break;
     case 's':
       opts->tls = 1;
       break;
+    case 'K':
+      opts->tls_verify = 1;
     case 'H':
       opts->hostname = optarg;
+      break;
+    case 'p':
+      opts->ports = optarg;
       break;
     default:
       goto usage;
     }
   }
 
-  argc -= optind;
-  argv += optind;
-  if (argc <= 0) {
-    fprintf(stderr, "missing host/port pairs\n");
-    goto usage;
-  } else if (argc & 1) {
-    fprintf(stderr, "uneven number of host/port elements\n");
+  if (opts->ports == NULL) {
+    fprintf(stderr, "missing port list\n");
     goto usage;
   }
-  opts->dsts = argv;
-  opts->ndsts = argc;
 
   return;
 usage:
-  fprintf(stderr, "%s [opts] <hosts0> <ports0> .. [hostsN] [portsN]\n"
+  fprintf(stderr, "%s [opts]\n"
       "opts:\n"
       "  -n|--max-clients <n>\n"
       "      Maximum number of concurrent clients (%d)\n"
@@ -126,26 +194,29 @@ usage:
       "      Millisecond delay per tick (%d)\n"
       "  -o|--output-file <path>\n"
       "      Output file (stdout)\n"
-      "  -z|--compress\n"
-      "      Compress output\n"
+      "  -z|--compress <io>\n"
+      "      Compression flags - i: compressed input, o: compress output\n"
       "  -s|--tls\n"
       "      Use TLS\n"
-      "  -H|--hostname <name>\n"
-      "      Hostname to use, if any\n",
+      "  -H|--hostname <hostname>\n"
+      "      Hostname to use, if any. Overrides any name given as input\n"
+      "  -p|--ports <port-def>\n"
+      "      Ports to use\n",
       argv0, DFL_NCLIENTS, DFL_TIMEOUT, DFL_CONNECTS_PER_TICK,
       DFL_MDELAY_PER_TICK);
   exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
-  int i;
   int ret;
   struct opts opts = {0};
   struct bgrab_ctx grabber;
   struct tcpsrc_ctx tcpsrc;
+  struct lines_ctx linebuf;
   int status = EXIT_FAILURE;
   FILE *outfile = NULL;
   SSL_CTX *ssl_ctx = NULL;
+  int chunkret;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
@@ -159,8 +230,12 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "failed to initialize the TLS context\n");
       return EXIT_FAILURE;
     }
-    /* TODO: Implement --(no-)verify flag by setting SSL_VERIFY_NONE
-     *       using SSL_CTX_set_verify here */
+
+    if (opts.tls_verify) {
+      SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL); 
+    } else {
+      SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL); 
+    }
   }
 
   /* ignore SIGPIPE, caused by writes on a file descriptor where the peer
@@ -174,16 +249,16 @@ int main(int argc, char *argv[]) {
     goto done;
   }
 
-  /* set-up the input file */
+  /* set-up the output file */
   if (opts.outpath != NULL &&
       opts.outpath[0] != '-' &&
       opts.outpath[1] != '\0') {
-    if (opts.compress) {
+    if (opts.compress & COMPRESS_OUTPUT) {
       outfile = zfile_open(opts.outpath, "wb");
     } else {
       outfile = fopen(opts.outpath, "wb");
     }
-  } else if (opts.compress) {
+  } else if (opts.compress & COMPRESS_OUTPUT) {
     outfile = zfile_fdopen(STDOUT_FILENO, "wb");
   } else {
     outfile = stdout;
@@ -197,6 +272,14 @@ int main(int argc, char *argv[]) {
     goto done_tcpsrc_cleanup;
   }
 
+  /* set-up the input file and the input line buffering */
+  ret = lines_init(&linebuf, STDIN_FILENO,
+      (opts.compress & COMPRESS_INPUT) ? LINES_FCOMPR : 0);
+  if (ret != LINES_OK) {
+    fprintf(stderr, "failed to set up input\n");
+    goto done_fclose_outfile;
+  }
+
   /* enter sandbox mode unless sandbox is disabled */
   if (opts.no_sandbox) {
     fprintf(stderr, "warning: sandbox disabled\n");
@@ -204,7 +287,7 @@ int main(int argc, char *argv[]) {
     ret = sandbox_enter();
     if (ret != 0) {
       fprintf(stderr, "failed to enter sandbox mode\n");
-      goto done_fclose_outfile;
+      goto done_lines_cleanup;
     }
   }
 
@@ -213,30 +296,51 @@ int main(int argc, char *argv[]) {
   opts.bgrab.ssl_ctx = ssl_ctx;
   if (bgrab_init(&grabber, &opts.bgrab, tcpsrc) < 0) {
     fprintf(stderr, "bgrab_init: %s\n", bgrab_strerror(&grabber));
-    goto done_fclose_outfile;
+    goto done_lines_cleanup;
   }
 
-  /* add the destinations to the banner grabber */
-  for (i = 0; i < opts.ndsts / 2; i++) {
-    ret = bgrab_add_dsts(&grabber, opts.dsts[i*2],
-        opts.dsts[i*2+1], opts.hostname);
-    if (ret != 0) {
-      fprintf(stderr, "bgrab_add_dsts: failed to add: %s %s\n",
-          opts.dsts[i*2], opts.dsts[i*2+1]);
+  /* Process the input in chunks */
+  while((chunkret = lines_next_chunk(&linebuf)) == LINES_CONTINUE) {
+    char *line;
+    char *dst;
+    char *name;
+    /* load a set of destinations */
+    while (lines_next(&linebuf, &line, NULL) == LINES_CONTINUE) {
+      parse_input_line(line, &dst, &name);
+      if (dst != NULL) {
+        if (opts.hostname != NULL) {
+          /* hostname override */
+          name = *opts.hostname ? opts.hostname : NULL;
+        }
+
+        ret = bgrab_add_dsts(&grabber, dst, opts.ports, name);
+        if (ret != 0) {
+          /* this is OK - dst may be an unresolved host name. Log and move
+           * on. */
+          fprintf(stderr, "bgrab: warning: unable to grab dst %s\n", dst);
+        }
+      }
+    }
+
+    /* Grab all the banners! */
+    ret = bgrab_run(&grabber);
+    if (ret < 0) {
+      fprintf(stderr, "bgrab_run: %s\n", bgrab_strerror(&grabber));
       goto done_bgrab_cleanup;
     }
   }
 
-  /* Grab all the banners! */
-  ret = bgrab_run(&grabber);
-  if (ret < 0) {
-    fprintf(stderr, "bgrab_run: %s\n", bgrab_strerror(&grabber));
+  if (LINES_IS_ERR(chunkret)) {
+    fprintf(stderr, "failed to read input chunk: %s\n",
+        lines_strerror(chunkret));
     goto done_bgrab_cleanup;
   }
 
   status = EXIT_SUCCESS;
 done_bgrab_cleanup:
   bgrab_cleanup(&grabber);
+done_lines_cleanup:
+  lines_cleanup(&linebuf);
 done_fclose_outfile:
   if (outfile != stdout) {
     fclose(outfile);

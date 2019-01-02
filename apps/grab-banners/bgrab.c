@@ -316,6 +316,10 @@ int bgrab_run(struct bgrab_ctx *ctx) {
     return -1;
   }
 
+  /* The destinations are reset for every invocation of bgrab_run */
+  dsts_cleanup(&ctx->dsts);
+  dsts_init(&ctx->dsts);
+
   return 0;
 }
 

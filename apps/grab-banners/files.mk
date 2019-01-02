@@ -7,9 +7,11 @@ grab_banners_DEPS = \
     lib/util/buf.c \
     lib/util/idset.c \
     lib/util/io.c \
+    lib/util/lines.c \
     lib/util/netstring.c \
     lib/util/reorder.c \
     lib/util/sandbox.c \
+    lib/util/str.c \
     lib/util/zfile.c \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c

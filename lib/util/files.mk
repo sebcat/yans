@@ -5,6 +5,7 @@ lib_util_SOURCES = \
     lib/util/io.c \
     lib/util/idset.c \
     lib/util/idtbl.c \
+    lib/util/lines.c \
     lib/util/netstring.c \
     lib/util/nullfd.c \
     lib/util/os.c \

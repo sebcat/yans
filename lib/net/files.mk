@@ -1,4 +1,5 @@
 lib_net_SOURCES = \
+    lib/net/dnstres.c \
     lib/net/dsts.c \
     lib/net/eth.c \
     lib/net/fcgi.c \
@@ -10,11 +11,12 @@ lib_net_SOURCES = \
     lib/net/punycode.c \
     lib/net/reaplan.c \
     lib/net/route.c \
-    lib/net/dnstres.c \
     lib/net/sconn.c \
+    lib/net/tcpsrc.c \
     lib/net/url.c
 
 lib_net_HEADERS = \
+    lib/net/dnstres.h \
     lib/net/dsts.h \
     lib/net/eth.h \
     lib/net/fcgi.h \
@@ -26,8 +28,8 @@ lib_net_HEADERS = \
     lib/net/punycode.h \
     lib/net/reaplan.h \
     lib/net/route.h \
-    lib/net/dnstres.h \
     lib/net/sconn.h \
+    lib/net/tcpsrc.h \
     lib/net/url.h
 
 lib_net_CTESTSRCS = \

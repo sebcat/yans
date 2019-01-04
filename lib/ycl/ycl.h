@@ -8,6 +8,8 @@
 #define YCL_OK      0
 #define YCL_ERR    -1
 
+#define YCL_NOFD   -1 /* e.g., ycl_init(ycl, YCL_NOFD) */
+
 /* ycl_msg.flags */
 #define YCLMSGF_HASOPTBUF    (1 << 0)
 
@@ -52,6 +54,9 @@ int ycl_connect(struct ycl_ctx *ycl, const char *dst);
 int ycl_close(struct ycl_ctx *ycl);
 const char *ycl_strerror(struct ycl_ctx *ycl);
 int ycl_setnonblock(struct ycl_ctx *ycl, int status);
+
+/* ycl_readmsg is *only* for use with YCL_NOFD ycl_ctx'es on files */
+int ycl_readmsg(struct ycl_ctx *ycl, struct ycl_msg *msg, FILE *fp);
 
 int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);
 int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg);

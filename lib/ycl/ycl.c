@@ -11,7 +11,7 @@
 #define SETERR(ycl, ...) \
   snprintf((ycl)->errbuf, sizeof((ycl)->errbuf), __VA_ARGS__)
 
-#define DFL_MAXMSGSZ (1 << 20)
+#define DFL_MAXMSGSZ (1024 * 1024)
 
 #define BUFINITSZ 8192 /* initial buffer size for one buffer */
 
@@ -105,10 +105,18 @@ int ycl_sendmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
   return YCL_OK;
 }
 
-int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
-  io_t io;
-  size_t nread = 0;
-  int ret;
+static int parse_err(struct ycl_ctx *ycl, int err) {
+  SETERR(ycl, "message parse error: %s", netstring_strerror(err));
+  return YCL_ERR;
+}
+
+static int toolarge_err(struct ycl_ctx *ycl) {
+  SETERR(ycl, "message too large");
+  return YCL_ERR;
+}
+
+static int check_msg(struct ycl_msg *msg) {
+  int ret = NETSTRING_ERRINCOMPLETE;
 
   /* check if we have a previous invocation */
   if (msg->nextoff > 0) {
@@ -120,17 +128,65 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
       msg->buf.len -= msg->nextoff;
       /* is the previous data a complete message? */
       ret = netstring_tryparse(msg->buf.data, msg->buf.len, &msg->nextoff);
-      if (ret == NETSTRING_OK) {
-        return YCL_OK;
-      } else if (ret != NETSTRING_ERRINCOMPLETE) {
-        goto parse_err;
+      if (ret != NETSTRING_ERRINCOMPLETE) {
+        return ret; /* OK or error */
       }
     } else {
       /* no trailing data from the previous invocation; clear buffer */
       buf_clear(&msg->buf);
     }
   }
+
   msg->nextoff = 0;
+  return ret;
+}
+
+int ycl_readmsg(struct ycl_ctx *ycl, struct ycl_msg *msg, FILE *fp) {
+  char readbuf[4096];
+  size_t nread;
+  int ret;
+
+  ret = check_msg(msg);
+  if (ret == NETSTRING_OK) {
+    return YCL_OK;
+  } else if (ret != NETSTRING_ERRINCOMPLETE) {
+    return parse_err(ycl, ret);
+  }
+
+  while (msg->buf.len == 0 ||
+      (ret = netstring_tryparse(msg->buf.data, msg->buf.len,
+       &msg->nextoff)) == NETSTRING_ERRINCOMPLETE) {
+    nread = fread(readbuf, 1, sizeof(readbuf), fp);
+    if (nread == 0) {
+      SETERR(ycl, "premature EOF");
+      return YCL_ERR;
+    } else if (msg->buf.len >= ycl->max_msgsz) {
+      return toolarge_err(ycl);
+    }
+
+    /* TODO: we could avoid this copy if we fread(3) directly into the
+     * message buffer. */
+    buf_adata(&msg->buf, readbuf, nread);
+  }
+
+  if (ret != NETSTRING_OK) {
+    return parse_err(ycl, ret);
+  }
+
+  return YCL_OK;
+}
+
+int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
+  io_t io;
+  size_t nread = 0;
+  int ret;
+
+  ret = check_msg(msg);
+  if (ret == NETSTRING_OK) {
+    return YCL_OK;
+  } else if (ret != NETSTRING_ERRINCOMPLETE) {
+    return parse_err(ycl, ret);
+  }
 
   IO_INIT(&io, ycl->fd);
   while (msg->buf.len == 0 ||
@@ -146,20 +202,15 @@ int ycl_recvmsg(struct ycl_ctx *ycl, struct ycl_msg *msg) {
       SETERR(ycl, "premature connection termination");
       return YCL_ERR;
     } else if (msg->buf.len >= ycl->max_msgsz) {
-      SETERR(ycl, "message too large");
-      return YCL_ERR;
+      return toolarge_err(ycl);
     }
   }
 
   if (ret != NETSTRING_OK) {
-    goto parse_err;
+    return parse_err(ycl, ret);
   }
 
   return YCL_OK;
-
-parse_err:
-  SETERR(ycl, "message parse error: %s", netstring_strerror(ret));
-  return YCL_ERR;
 }
 
 int ycl_recvfd(struct ycl_ctx *ycl, int *fd) {

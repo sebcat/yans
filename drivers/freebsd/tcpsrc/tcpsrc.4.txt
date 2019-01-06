@@ -41,12 +41,15 @@ IOCTLS
 
 	#include <yans/tcpsrc.h>
 
-  All tcpsrc ioctls return -1 on error and sets errno accordingly. On
-  success, a valid file descriptor is returned.
-
     TCPSRC_CONNECT  (struct tcpsrc_conn)  Establish a TCP connection.
     TCPSRC_ALLOW    (struct tcpsrc_range) Explicitly whitelist a range.
     TCPSRC_DISALLOW (struct tcpsrc_range) Explicitly blacklist a range.
+
+  All tcpsrc ioctls return -1 on error and sets errno accordingly.
+
+  On success, TCPSRC_CONNECT returns a valid file descriptor. TCPSRC_ALLOW
+  and TCLSRC_DISALLOW returns 0.
+
 
 EXAMPLE
   This example opens the tcpsrc device and opens a TCP connection to localhost.

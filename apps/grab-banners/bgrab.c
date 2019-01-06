@@ -124,14 +124,6 @@ static void _handle_errorf(struct bgrab_ctx *ctx, const char *fmt, ...) {
   va_end(ap);
 }
 
-static void on_done(struct reaplan_ctx *reaplan,
-    struct reaplan_conn *conn) {
-  struct bgrab_dst *dst;
-
-  dst = reaplan_conn_get_udata(conn);
-  free(dst);
-}
-
 static int bgrab_next_dst(struct bgrab_ctx *ctx, struct bgrab_dst **out) {
   void *name = NULL;
   struct bgrab_dst *dst;
@@ -152,35 +144,6 @@ static int bgrab_next_dst(struct bgrab_ctx *ctx, struct bgrab_dst **out) {
   dst->name = name;
   *out = dst;
   return 1;
-}
-
-static int on_connect(struct reaplan_ctx *reaplan,
-    struct reaplan_conn *conn) {
-  struct bgrab_ctx *ctx;
-  struct bgrab_dst *dst;
-  int fd = -1;
-  int ret;
-
-  ctx = reaplan_get_udata(reaplan);
-  while (bgrab_next_dst(ctx, &dst)) {
-    reaplan_conn_set_udata(conn, dst);
-    fd = tcpsrc_connect(&ctx->tcpsrc, &dst->addr.sa);
-    if (fd < 0) {
-      on_done(reaplan, conn);
-      continue;
-    }
-
-    ret = reaplan_register_conn(reaplan, conn, fd,
-        REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT, dst->name);
-    if (ret < 0) {
-      on_done(reaplan, conn);
-      continue;
-    }
-
-    return REAPLANC_OK;
-  }
-
-  return REAPLANC_DONE;
 }
 
 static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
@@ -232,6 +195,56 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
 
 ycl_msg_cleanup:
   ycl_msg_cleanup(&ctx->msgbuf);
+}
+
+static void on_done(struct reaplan_ctx *reaplan,
+    struct reaplan_conn *conn) {
+  struct bgrab_dst *dst;
+  unsigned int nwritten;
+  unsigned int nread;
+  struct bgrab_ctx *ctx;
+
+  nwritten = reaplan_conn_get_nwritten(conn);
+  nread = reaplan_conn_get_nread(conn);
+  if (nwritten > 0 && nread == 0) {
+    /* If we have written more than zero bytes, but received zero bytes
+     * we should still call write_banner here to indicate that we have
+     * had an established connection */
+    ctx = reaplan_get_udata(reaplan);
+    write_banner(ctx, conn, NULL, 0);
+  }
+
+  dst = reaplan_conn_get_udata(conn);
+  free(dst);
+}
+
+static int on_connect(struct reaplan_ctx *reaplan,
+    struct reaplan_conn *conn) {
+  struct bgrab_ctx *ctx;
+  struct bgrab_dst *dst;
+  int fd = -1;
+  int ret;
+
+  ctx = reaplan_get_udata(reaplan);
+  while (bgrab_next_dst(ctx, &dst)) {
+    reaplan_conn_set_udata(conn, dst);
+    fd = tcpsrc_connect(&ctx->tcpsrc, &dst->addr.sa);
+    if (fd < 0) {
+      on_done(reaplan, conn);
+      continue;
+    }
+
+    ret = reaplan_register_conn(reaplan, conn, fd,
+        REAPLAN_READABLE | REAPLAN_WRITABLE_ONESHOT, dst->name);
+    if (ret < 0) {
+      on_done(reaplan, conn);
+      continue;
+    }
+
+    return REAPLANC_OK;
+  }
+
+  return REAPLANC_DONE;
 }
 
 static ssize_t on_readable(struct reaplan_ctx *reaplan,

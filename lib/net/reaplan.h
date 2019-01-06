@@ -29,6 +29,8 @@ struct reaplan_conn {
   int fd;
   unsigned int flags;      /* set flags */
   unsigned int rflags;     /* requested flags */
+  unsigned int nwritten;   /* number of bytes written (XXX: wrap-around) */
+  unsigned int nread;      /* number of bytes read (XXX: wrap-around) */
   SSL *ssl;                /* TLS connection data, if any */
 };
 
@@ -92,6 +94,16 @@ static inline void reaplan_conn_set_udata(struct reaplan_conn *conn,
 
 static inline void *reaplan_conn_get_udata(struct reaplan_conn *conn) {
   return conn->udata;
+}
+
+static inline unsigned int reaplan_conn_get_nwritten(
+    struct reaplan_conn *conn) {
+  return conn->nwritten;
+}
+
+static inline unsigned int reaplan_conn_get_nread(
+    struct reaplan_conn *conn) {
+  return conn->nread;
 }
 
 #endif

@@ -530,10 +530,15 @@ int reaplan_conn_read(struct reaplan_conn *conn, void *data, int len) {
         errno = EAGAIN;
       }
     }
-    return ret;
   } else {
-    return (int)read(conn->fd, data, (size_t)len);
+    ret = (int)read(conn->fd, data, (size_t)len);
   }
+
+  if (ret > 0) {
+    conn->nread += (unsigned int)ret;
+  }
+
+  return ret;
 }
 
 int reaplan_conn_write(struct reaplan_conn *conn, void *data, int len) {
@@ -548,11 +553,15 @@ int reaplan_conn_write(struct reaplan_conn *conn, void *data, int len) {
         errno = EAGAIN;
       }
     }
-    return ret;
-
   } else {
-    return (int)send(conn->fd, data, (size_t)len, MSG_NOSIGNAL);
+    ret = (int)send(conn->fd, data, (size_t)len, MSG_NOSIGNAL);
   }
+
+  if (ret > 0) {
+    conn->nwritten += (unsigned int)ret;
+  }
+
+  return ret;
 }
 
 void reaplan_conn_append_cert_chain(struct reaplan_conn *conn, buf_t *out) {

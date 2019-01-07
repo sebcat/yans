@@ -7,7 +7,7 @@
 
 /* calculate the size of an idtbl_table of a certain capacity */
 #define IDTBL_SIZE(cap_) \
-    (sizeof(struct idtbl_table) + (cap_ * sizeof(struct idtbl_entry)))
+    (cap_ * sizeof(struct idtbl_entry))
 
 /* convert an entry to a table entry index */
 #define ENTRY2INDEX(tbl, ent) \
@@ -15,7 +15,7 @@
 
 /* adjust 'val' to be a valid index into the 'tbl'-table */
 #define TABLE_INDEX(tbl, val) \
-    ((val) & (tbl)->modmask)
+    ((val) & (tbl)->header.modmask)
 
 
 /* FNV1a constants */
@@ -52,46 +52,68 @@ static inline uint32_t round_up_pow2(uint32_t v) {
   return v;
 }
 
-/* -1 on failed allocation, 0 on success */
-static struct idtbl_table *create_table(uint32_t nslots, uint32_t seed) {
-  struct idtbl_table *tbl;
+static int init_header(struct idtbl_header *hdr, uint32_t nslots,
+    uint32_t seed) {
   uint32_t cap;
 
   cap = round_up_pow2(nslots); /* we're using '&' for modulus of hash */
   if (cap < nslots) {          /* check for overflow */
-    return NULL;
+    return -1;
   }
 
-  tbl = calloc(1, IDTBL_SIZE(cap));
-  if (tbl == NULL) {
-    return NULL;
+  hdr->cap = cap;
+  hdr->size = 0;
+  hdr->hashseed = hashfunc(seed, FNV1A_OFFSET);
+  hdr->modmask = hdr->cap - 1; /* NB: cap is an even power of two */
+  hdr->rehash_limit = REHASH_LIMIT(cap);
+  return 0;
+}
+
+/* -1 on failed allocation, 0 on success */
+static int init_table(struct idtbl_ctx *ctx, uint32_t nslots,
+    uint32_t seed) {
+  int ret;
+  struct idtbl_header hdr;
+  struct idtbl_entry *entries;
+
+  ret = init_header(&hdr, nslots, seed);
+  if (ret < 0) {
+    return -1;
   }
 
-  tbl->cap = cap;
-  tbl->hashseed = hashfunc(seed, FNV1A_OFFSET);
-  tbl->modmask = tbl->cap - 1; /* NB: cap is an even power of two */
-  return tbl;
-}
-
-struct idtbl_table *copy_table(struct idtbl_table *src) {
-  struct idtbl_table *dst;
-  size_t nbytes;
-
-  nbytes = IDTBL_SIZE(src->cap);
-  dst = calloc(1, nbytes);
-  if (dst == NULL) {
-    return NULL;
+  entries = calloc(1, IDTBL_SIZE(hdr.cap));
+  if (entries == NULL) {
+    return -1;
   }
 
-  memcpy(dst, src, nbytes);
-  return dst;
+  ctx->header  = hdr;
+  ctx->entries = entries;
+  return 0;
 }
 
-static void free_table(struct idtbl_table *tbl) {
-  free(tbl);
+static int copy_table(struct idtbl_ctx *dst,
+    struct idtbl_ctx *src) {
+  struct idtbl_entry *entries;
+
+  entries = malloc(IDTBL_SIZE(src->header.cap));
+  if (entries == NULL) {
+    return -1;
+  }
+
+  memcpy(entries, src->entries, IDTBL_SIZE(src->header.cap));
+  *dst = *src;
+  dst->entries = entries;
+  return 0;
 }
 
-static struct idtbl_entry *find_table_entry(struct idtbl_table *tbl,
+static void cleanup_table(struct idtbl_ctx *ctx) {
+  if (ctx) {
+    free(ctx->entries);
+    memset(ctx, 0, sizeof(*ctx));
+  }
+}
+
+static struct idtbl_entry *find_table_entry(struct idtbl_ctx *tbl,
     uint32_t key) {
   uint32_t current_pos;
   uint32_t start_pos;
@@ -105,7 +127,8 @@ static struct idtbl_entry *find_table_entry(struct idtbl_table *tbl,
    * the entry and return NULL. Entries with lower distances would have
    * been replaced on insertion. */
   key++; /* internally, key 0 is used to denote an empty slot */
-  current_pos = start_pos = TABLE_INDEX(tbl, hashfunc(key, tbl->hashseed));
+  start_pos = TABLE_INDEX(tbl, hashfunc(key, tbl->header.hashseed));
+  current_pos = start_pos;
   do {
     elem = &tbl->entries[current_pos];
     if (elem->key == key) {
@@ -119,7 +142,7 @@ static struct idtbl_entry *find_table_entry(struct idtbl_table *tbl,
   return NULL;
 }
 
-static int get_table_value(struct idtbl_table *tbl, uint32_t key,
+static int get_table_value(struct idtbl_ctx *tbl, uint32_t key,
     void **out) {
   struct idtbl_entry *ent;
 
@@ -135,11 +158,11 @@ static int get_table_value(struct idtbl_table *tbl, uint32_t key,
   return IDTBL_OK;
 }
 
-static int table_contains(struct idtbl_table *tbl, uint32_t key) {
+static int table_contains(struct idtbl_ctx *tbl, uint32_t key) {
   return find_table_entry(tbl, key) == NULL ? 0 : 1;
 }
 
-static int remove_table_entry(struct idtbl_table *tbl, uint32_t key) {
+static int remove_table_entry(struct idtbl_ctx *tbl, uint32_t key) {
   struct idtbl_entry *ent;
   uint32_t curr;
   uint32_t next;
@@ -161,12 +184,12 @@ static int remove_table_entry(struct idtbl_table *tbl, uint32_t key) {
   }
 
   tbl->entries[curr] = empty;
-  tbl->size--;
+  tbl->header.size--;
   return IDTBL_OK;
 }
 
 /* -1 on failed insertion (e.g., because table is full), 0 on success */
-static int set_table_value(struct idtbl_table *tbl, uint32_t key,
+static int set_table_value(struct idtbl_ctx *tbl, uint32_t key,
     void *value) {
   uint32_t start_pos;
   uint32_t current_pos;
@@ -176,12 +199,13 @@ static int set_table_value(struct idtbl_table *tbl, uint32_t key,
 
   if (key == UINT32_MAX) {
     return IDTBL_EINVAL; /* invalid key */
-  } else if (tbl->size >= tbl->cap) {
+  } else if (tbl->header.size >= tbl->header.cap) {
     return IDTBL_EFULL; /* full table */
   }
-  
+
   key++; /* internally, key 0 is used to denote an empty slot */
-  current_pos = start_pos = TABLE_INDEX(tbl, hashfunc(key, tbl->hashseed));
+  start_pos = TABLE_INDEX(tbl, hashfunc(key, tbl->header.hashseed));
+  current_pos = start_pos;
 
   /* initialize our element to insert */
   elem.key = key;
@@ -193,7 +217,7 @@ static int set_table_value(struct idtbl_table *tbl, uint32_t key,
     if (curr->key == 0) {
       /* the current slot is empty - increment the variable holding the
        * number of entries in use and insert at this position */
-      tbl->size++;
+      tbl->header.size++;
       *curr = elem;
       return IDTBL_OK;
     } else if (curr->key == key) {
@@ -221,39 +245,41 @@ static int set_table_value(struct idtbl_table *tbl, uint32_t key,
 
 static int grow(struct idtbl_ctx *ctx) {
   uint32_t new_cap;
-  struct idtbl_table *new_tbl;
+  struct idtbl_ctx new_tbl;
   size_t i;
   struct idtbl_entry *ent;
+  int ret;
 
   /* calculate the capacity of the new table */
-  new_cap = ctx->tbl->cap << 1;
-  if (new_cap < ctx->tbl->cap) {
+  new_cap = ctx->header.cap << 1;
+  if (new_cap < ctx->header.cap) {
     return IDTBL_ENOMEM;
   }
 
-  /* allocate a new table */
-  new_tbl = create_table(new_cap, ctx->tbl->hashseed);
-  if (new_tbl == NULL) {
+  /* initialize the new table */
+  ret = init_table(&new_tbl, new_cap, ctx->header.hashseed);
+  if (ret < 0) {
     return IDTBL_ENOMEM;
   }
 
   /* insert non-empty entries from the old table to the new one */
-  for (i = 0; i < ctx->tbl->cap; i++) {
-    ent = ctx->tbl->entries + i;
+  for (i = 0; i < ctx->header.cap; i++) {
+    ent = ctx->entries + i;
     if (ent->key != 0) {
-      set_table_value(new_tbl, ent->key - 1, ent->value);
+      set_table_value(&new_tbl, ent->key - 1, ent->value);
     }
   }
 
-  free(ctx->tbl);
-  ctx->tbl = new_tbl;
-  ctx->rehash_limit = REHASH_LIMIT(ctx->tbl->cap);
+  /* cleanup the old table and copy the new to it */
+  cleanup_table(ctx);
+  *ctx = new_tbl;
+
   return IDTBL_OK;
 }
 
 int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed) {
-  struct idtbl_table *tbl;
   uint32_t cap;
+  int ret;
 
   if (nslots == 0) {
     nslots = 1;
@@ -264,55 +290,51 @@ int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed) {
     return IDTBL_ENOMEM;
   }
 
-  tbl = create_table(cap, seed);
-  if (tbl == NULL) {
+  ret = init_table(ctx, cap, seed);
+  if (ret < 0) {
     return IDTBL_ENOMEM;
   }
 
-  ctx->rehash_limit = REHASH_LIMIT(tbl->cap);
-  ctx->tbl = tbl;
   return IDTBL_OK;
 }
 
 void idtbl_cleanup(struct idtbl_ctx *ctx) {
-  free_table(ctx->tbl);
+  cleanup_table(ctx);
 }
 
 int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value) {
-  return get_table_value(ctx->tbl, key, value);
+  return get_table_value(ctx, key, value);
 }
 
 int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key) {
-  return table_contains(ctx->tbl, key);
+  return table_contains(ctx, key);
 }
 
 int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key) {
-  return remove_table_entry(ctx->tbl, key);
+  return remove_table_entry(ctx, key);
 }
 
 int idtbl_insert(struct idtbl_ctx *ctx, uint32_t key, void *value) {
   int ret;
 
-  if (ctx->tbl->size >= ctx->rehash_limit) {
+  if (ctx->header.size >= ctx->header.rehash_limit) {
     ret = grow(ctx);
     if (ret != IDTBL_OK) {
       return ret;
     }
   }
 
-  return set_table_value(ctx->tbl, key, value);
+  return set_table_value(ctx, key, value);
 }
 
 int idtbl_copy(struct idtbl_ctx *dst, struct idtbl_ctx *src) {
-  struct idtbl_table *tbl;
+  int ret;
 
-  tbl = copy_table(src->tbl);
-  if (tbl == NULL) {
+  ret = copy_table(dst, src);
+  if (ret < 0) {
     return IDTBL_ENOMEM;
   }
 
-  dst->tbl = tbl;
-  dst->rehash_limit = src->rehash_limit;
   return IDTBL_OK;
 }
 
@@ -342,14 +364,14 @@ int idtbl_calc_stats(struct idtbl_ctx *ctx, struct idtbl_stats *result) {
   }
 
   memset(result, 0, sizeof(*result));
-  result->nbytes = sizeof(struct idtbl_ctx) + sizeof(struct idtbl_table) +
-      (sizeof(struct idtbl_entry) * dst.tbl->cap);
-  result->size = (size_t)dst.tbl->size;
-  result->cap = (size_t)dst.tbl->cap;
+  result->nbytes = sizeof(struct idtbl_ctx) +
+      (sizeof(struct idtbl_entry) * dst.header.cap);
+  result->size = (size_t)dst.header.size;
+  result->cap = (size_t)dst.header.cap;
 
   /* iterate over the table summing the distances of non-empty elements */
-  for (i = 0; i < dst.tbl->cap; i++) {
-    ent = &dst.tbl->entries[i];
+  for (i = 0; i < dst.header.cap; i++) {
+    ent = &dst.entries[i];
     if (ent->key != 0) {
       tot_distance += ent->distance;
     }
@@ -357,17 +379,17 @@ int idtbl_calc_stats(struct idtbl_ctx *ctx, struct idtbl_stats *result) {
 
   /* calculate average probe distance for all elements */
   result->average_probe_distance =
-      (double)tot_distance / (double)dst.tbl->size;
+      (double)tot_distance / (double)dst.header.size;
 
   /* sort the table entries by keys in descending order, so we can get rid
    * of all the empty slots. Then sort them by distance, giving us
    * the mean and maximum probe values  */
-  qsort(dst.tbl->entries, dst.tbl->cap, sizeof(struct idtbl_entry),
+  qsort(dst.entries, dst.header.cap, sizeof(struct idtbl_entry),
       &keycmp);
-  qsort(dst.tbl->entries, dst.tbl->size, sizeof(struct idtbl_entry),
+  qsort(dst.entries, dst.header.size, sizeof(struct idtbl_entry),
       &distcmp);
-  result->max_probe_distance = dst.tbl->entries[0].distance;
-  result->mean_probe_distance = dst.tbl->entries[dst.tbl->size >> 1].distance;
+  result->max_probe_distance = dst.entries[0].distance;
+  result->mean_probe_distance = dst.entries[dst.header.size >> 1].distance;
   idtbl_cleanup(&dst);
   return IDTBL_OK;
 }

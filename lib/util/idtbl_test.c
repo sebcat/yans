@@ -460,8 +460,8 @@ static void dump_table(struct idtbl_ctx *ctx, FILE *fp) {
   struct idtbl_entry *ent;
   uint32_t i;
 
-  for (i = 0; i < ctx->tbl->cap; i++) {
-    ent = ctx->tbl->entries + i;
+  for (i = 0; i < ctx->header.cap; i++) {
+    ent = ctx->entries + i;
     fprintf(fp, "      %s distance:%u\n", ent->key ? "XXXX" : "____",
       ent->distance);
   }

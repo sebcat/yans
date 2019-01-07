@@ -17,19 +17,19 @@ struct idtbl_entry {
   void *value;
 };
 
-struct idtbl_table {
+struct idtbl_header {
   /* internal */
   uint32_t cap;  /* total number of entries (even power of two) */
   uint32_t size; /* number of entries in use */
   uint32_t hashseed; /* seed value for hash */
   uint32_t modmask; /* bitmask used for power-of-two modulus */
-  struct idtbl_entry entries[];
+  uint32_t rehash_limit;
 };
 
 struct idtbl_ctx {
   /* internal */
-  struct idtbl_table *tbl;
-  uint32_t rehash_limit;
+  struct idtbl_header header;
+  struct idtbl_entry *entries;
 };
 
 struct idtbl_stats {
@@ -41,7 +41,7 @@ struct idtbl_stats {
   double average_probe_distance;
 };
 
-#define idtbl_size(ctx__) ((ctx__)->tbl->size)
+#define idtbl_size(ctx__) ((ctx__)->header.size)
 
 int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed);
 void idtbl_cleanup(struct idtbl_ctx *ctx);

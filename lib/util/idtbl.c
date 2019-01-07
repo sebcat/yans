@@ -106,7 +106,7 @@ static int copy_table(struct idtbl_ctx *dst,
   return 0;
 }
 
-static void cleanup_table(struct idtbl_ctx *ctx) {
+void idtbl_cleanup(struct idtbl_ctx *ctx) {
   if (ctx) {
     free(ctx->entries);
     memset(ctx, 0, sizeof(*ctx));
@@ -142,49 +142,48 @@ static struct idtbl_entry *find_table_entry(struct idtbl_ctx *tbl,
   return NULL;
 }
 
-static int get_table_value(struct idtbl_ctx *tbl, uint32_t key,
-    void **out) {
+int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value) {
   struct idtbl_entry *ent;
 
-  ent = find_table_entry(tbl, key);
+  ent = find_table_entry(ctx, key);
   if (!ent) {
     return IDTBL_ENOTFOUND;
   }
 
-  if (out) {
-    *out = ent->value;
+  if (value) {
+    *value = ent->value;
   }
 
   return IDTBL_OK;
 }
 
-static int table_contains(struct idtbl_ctx *tbl, uint32_t key) {
-  return find_table_entry(tbl, key) == NULL ? 0 : 1;
+int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key) {
+  return find_table_entry(ctx, key) == NULL ? 0 : 1;
 }
 
-static int remove_table_entry(struct idtbl_ctx *tbl, uint32_t key) {
+int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key) {
   struct idtbl_entry *ent;
   uint32_t curr;
   uint32_t next;
   struct idtbl_entry empty = {0};
 
-  ent = find_table_entry(tbl, key);
+  ent = find_table_entry(ctx, key);
   if (!ent) {
     return IDTBL_ENOTFOUND;
   }
 
-  curr = ENTRY2INDEX(tbl, ent);
-  next = TABLE_INDEX(tbl, curr + 1);
+  curr = ENTRY2INDEX(ctx, ent);
+  next = TABLE_INDEX(ctx, curr + 1);
 
-  while (tbl->entries[next].key != 0 && tbl->entries[next].distance > 0) {
-    tbl->entries[curr] = tbl->entries[next];
-    tbl->entries[curr].distance--;
-    curr = TABLE_INDEX(tbl, curr + 1);
-    next = TABLE_INDEX(tbl, next + 1);
+  while (ctx->entries[next].key != 0 && ctx->entries[next].distance > 0) {
+    ctx->entries[curr] = ctx->entries[next];
+    ctx->entries[curr].distance--;
+    curr = TABLE_INDEX(ctx, curr + 1);
+    next = TABLE_INDEX(ctx, next + 1);
   }
 
-  tbl->entries[curr] = empty;
-  tbl->header.size--;
+  ctx->entries[curr] = empty;
+  ctx->header.size--;
   return IDTBL_OK;
 }
 
@@ -271,7 +270,7 @@ static int grow(struct idtbl_ctx *ctx) {
   }
 
   /* cleanup the old table and copy the new to it */
-  cleanup_table(ctx);
+  idtbl_cleanup(ctx);
   *ctx = new_tbl;
 
   return IDTBL_OK;
@@ -296,22 +295,6 @@ int idtbl_init(struct idtbl_ctx *ctx, uint32_t nslots, uint32_t seed) {
   }
 
   return IDTBL_OK;
-}
-
-void idtbl_cleanup(struct idtbl_ctx *ctx) {
-  cleanup_table(ctx);
-}
-
-int idtbl_get(struct idtbl_ctx *ctx, uint32_t key, void **value) {
-  return get_table_value(ctx, key, value);
-}
-
-int idtbl_contains(struct idtbl_ctx *ctx, uint32_t key) {
-  return table_contains(ctx, key);
-}
-
-int idtbl_remove(struct idtbl_ctx *ctx, uint32_t key) {
-  return remove_table_entry(ctx, key);
 }
 
 int idtbl_insert(struct idtbl_ctx *ctx, uint32_t key, void *value) {

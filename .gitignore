@@ -20,6 +20,7 @@ lib/lua/ycl.c
 lib/net/dsts_test
 lib/net/punycode_test
 lib/net/scgi_test
+lib/net/tcpproto_test
 lib/net/url_test
 lib/util/flagset_test
 lib/util/idset_test

@@ -103,7 +103,7 @@ struct payload_data *payload_build(const char *fmt, ...) {
   }
 
   va_end(ap);
-  buf_achar(&payload->buf, '\0');
+  /* NB: payload->buf is not \0-terminated */
   return payload;
 
 fail_payload_free:

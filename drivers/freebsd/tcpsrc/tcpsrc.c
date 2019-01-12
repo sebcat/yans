@@ -73,7 +73,7 @@ _connect(struct thread *td, struct sockaddr *sa, int *outfd)
 		goto done;
 	}
 
-	/* associate the socket with the file, set FNONBLOCK (needed?) */
+	/* associate the socket with the file, set FNONBLOCK */
 	finit(fp, FREAD | FWRITE | FNONBLOCK, DTYPE_SOCKET, so, &socketops);
 	fo_ioctl(fp, FIONBIO, &fflag, td->td_ucred, td);
 
@@ -104,7 +104,7 @@ _connect(struct thread *td, struct sockaddr *sa, int *outfd)
 	/* connect! */
 	ret = soconnect(so, sa, td);
 	if (ret != 0) {
-		so->so_state &= ~SS_ISCONNECTING; /* really needed? */
+		so->so_state &= ~SS_ISCONNECTING;
 		fdclose(td, fp, fd);
 		goto done;
 	}

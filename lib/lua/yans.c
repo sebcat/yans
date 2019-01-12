@@ -4,7 +4,6 @@
 
 #include <3rd_party/linenoise.h>
 #include <3rd_party/lua.h>
-#include <3rd_party/lpeg.h>
 
 #include <lib/lua/net.h>
 #include <lib/lua/http.h>
@@ -180,7 +179,6 @@ static lua_State *create_yans_state(const char *arg0, int argc, char **argv) {
 
   /* load 3rd party libraries, or wrappers for 3rd party libraries, to the
    * global namespace */
-  luaL_requiref(L, "lpeg", luaopen_lpeg, 1);
   luaL_requiref(L, "json", luaopen_json, 1);
 
   /* setup package.path */

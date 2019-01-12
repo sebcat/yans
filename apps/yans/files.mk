@@ -1,7 +1,6 @@
 yans_DEPS = \
     3rd_party/lua.c \
     3rd_party/linenoise.c \
-    3rd_party/lpeg.c \
     3rd_party/jansson.c \
     lib/util/ylog.c \
     lib/util/buf.c \

@@ -14,6 +14,7 @@
 #define YCLMSGF_HASOPTBUF    (1 << 0)
 
 #include <stdint.h>
+#include <stdio.h> /* due to ycl_readmsg */
 
 #include <lib/util/buf.h>
 

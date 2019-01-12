@@ -59,6 +59,7 @@ static void parse_input_line(char *line, char **dst, char **name) {
   127.0.0.1/24
   127.0.0.1 127.0.0.1
   example.com 93.184.216.34
+  example.com 93.184.216.0/24
   example.com 2606:2800:220:1:248:1893:25c8:1946
 
   The first field can either be a range, subnet, address or a hostname that

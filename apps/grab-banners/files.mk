@@ -3,6 +3,7 @@ grab_banners_DEPS = \
     lib/net/ip.c \
     lib/net/ports.c \
     lib/net/reaplan.c \
+    lib/net/tcpproto.c \
     lib/net/tcpsrc.c \
     lib/util/buf.c \
     lib/util/idset.c \
@@ -16,7 +17,10 @@ grab_banners_DEPS = \
     lib/ycl/ycl.c \
     lib/ycl/ycl_msg.c
 
-grab_banners_DEPSOBJS = ${grab_banners_DEPS:.c=.o}
+grab_banners_DEPS_CC = lib/util/reset.cc
+
+grab_banners_DEPSOBJS = ${grab_banners_DEPS:.c=.o} \
+    ${grab_banners_DEPS_CC:.cc=.o}
 
 grab_banners_SOURCES = \
     apps/grab-banners/bgrab.c \
@@ -27,7 +31,8 @@ grab_banners_HEADERS = \
     apps/grab-banners/bgrab.h \
     apps/grab-banners/payload.h
 
-grab_banners_LDADD = -lz -lssl -lcrypto
+grab_banners_LDADD != pkg-config --libs re2
+grab_banners_LDADD += -lz -lssl -lcrypto -lstdc++
 
 grab_banners_OBJS = ${grab_banners_SOURCES:.c=.o}
 

@@ -6,10 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <lib/net/dsts.h>
 #include <lib/net/reaplan.h>
-#include <lib/net/tcpsrc.h>
-#include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 
 #include <apps/grab-banners/bgrab.h>
@@ -34,6 +31,7 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
   int ret;
   struct dsts_ctx dsts;
   struct ycl_msg msgbuf;
+  struct tcpproto_ctx proto;
 
   /* set initial error state and validate options */
   ctx->err = BGRABE_NOERR;
@@ -72,13 +70,22 @@ int bgrab_init(struct bgrab_ctx *ctx, struct bgrab_opts *opts,
     goto fail_dsts_cleanup;
   }
 
+  ret = tcpproto_init(&proto);
+  if (ret != 0) {
+    ctx->err = BGRABE_NOMEM;
+    goto fail_ycl_msg_cleanup;
+  }
+
   buf_init(&ctx->certbuf, INITIAL_CERTBUF_SIZE);
   ctx->tcpsrc  = tcpsrc;
   ctx->dsts    = dsts;
   ctx->msgbuf  = msgbuf;
   ctx->recvbuf = recvbuf;
   ctx->opts    = *opts;
+  ctx->proto   = proto;
   return 0;
+fail_ycl_msg_cleanup:
+  ycl_msg_cleanup(&msgbuf);
 fail_dsts_cleanup:
   dsts_cleanup(&dsts);
 fail_free_recvbuf:
@@ -93,6 +100,7 @@ void bgrab_cleanup(struct bgrab_ctx *ctx) {
     ctx->recvbuf = NULL;
     dsts_cleanup(&ctx->dsts);
     buf_cleanup(&ctx->certbuf);
+    tcpproto_cleanup(&ctx->proto);
   }
 }
 
@@ -151,13 +159,22 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
   struct ycl_msg_banner bannermsg = {{0}};
   struct bgrab_dst *dst;
   char addrstr[128];
-  char servstr[32];
   int ret;
   size_t sz;
+  unsigned short portnr;
+  int mflags;
 
   dst = reaplan_conn_get_udata(conn);
+
+  /* lookup the port number from the destination */
+  if (dst->addr.sa.sa_family == AF_INET6) {
+    portnr = ntohs(dst->addr.sin6.sin6_port);
+  } else {
+    portnr = ntohs(dst->addr.sin.sin_port);
+  }
+
   ret = getnameinfo(&dst->addr.sa, dst->addrlen, addrstr, sizeof(addrstr),
-      servstr, sizeof(servstr), NI_NUMERICHOST | NI_NUMERICSERV);
+      NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
   if (ret != 0) {
     handle_errorf(ctx, "write_banner: getnameinfo: %s", gai_strerror(ret));
     return;
@@ -172,15 +189,17 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
   bannermsg.certs.len = ctx->certbuf.len;
   bannermsg.host.data = addrstr;
   bannermsg.host.len = strlen(addrstr);
-  bannermsg.port.data = servstr;
-  bannermsg.port.len = strlen(servstr);
+  bannermsg.port = (long)portnr;
   bannermsg.banner.data = banner;
   bannermsg.banner.len = bannerlen;
+  mflags = ctx->opts.ssl_ctx ? TCPPROTO_MATCHF_TLS : 0;
+  bannermsg.mpid = tcpproto_match(&ctx->proto, banner, bannerlen, mflags);
+  bannermsg.fpid = tcpproto_type_from_port(portnr);
   ret = ycl_msg_create_banner(&ctx->msgbuf, &bannermsg);
   if (ret != YCL_OK) {
     handle_errorf(ctx,
-        "write_banner: failed fo serialize %zu bytes banner for %s:%s",
-        bannerlen, addrstr, servstr);
+        "write_banner: failed fo serialize %zu bytes banner for %s:%hu",
+        bannerlen, addrstr, portnr);
     goto ycl_msg_cleanup;
   }
 
@@ -188,8 +207,8 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
       ctx->opts.outfile);
   if (sz != 1) {
     handle_errorf(ctx,
-        "write_banner: failed to write %zu butes banner for %s:%s",
-        bannerlen, addrstr, servstr);
+        "write_banner: failed to write %zu butes banner for %s:%hu",
+        bannerlen, addrstr, portnr);
     goto ycl_msg_cleanup;
   }
 

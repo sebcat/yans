@@ -18,7 +18,11 @@ lib_util_SOURCES = \
     lib/util/ylog.c \
     lib/util/zfile.c
 
-lib_util_OBJS = ${lib_util_SOURCES:.c=.o}
+lib_util_SOURCES_CC = lib/util/reset.cc
+
+CXXFLAGS_lib_util_reset != pkg-config --cflags re2
+
+lib_util_OBJS = ${lib_util_SOURCES:.c=.o} ${lib_util_SOURCES_CC:.cc=.o}
 
 lib_util_flagset_test_DEPS = lib/util/flagset.c
 lib_util_flagset_test_DEPSOBJS = ${lib_util_flagset_test_DEPS:.c=.o}

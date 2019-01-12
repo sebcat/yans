@@ -12,6 +12,7 @@ lib_net_SOURCES = \
     lib/net/reaplan.c \
     lib/net/route.c \
     lib/net/sconn.c \
+    lib/net/tcpproto.c \
     lib/net/tcpsrc.c \
     lib/net/url.c
 
@@ -29,6 +30,7 @@ lib_net_HEADERS = \
     lib/net/reaplan.h \
     lib/net/route.h \
     lib/net/sconn.h \
+    lib/net/tcpproto.h \
     lib/net/tcpsrc.h \
     lib/net/url.h
 
@@ -36,13 +38,19 @@ lib_net_CTESTSRCS = \
     lib/net/dsts_test.c \
     lib/net/punycode_test.c \
     lib/net/url_test.c \
-    lib/net/scgi_test.c
+    lib/net/scgi_test.c \
+    lib/net/tcpproto_test.c
 
 lib_net_dsts_test_DEPS =  lib/util/buf.c lib/net/ip.c lib/net/dsts.c \
     lib/util/reorder.c lib/net/ports.c
 lib_net_dsts_test_DEPSOBJS = ${lib_net_dsts_test_DEPS:.c=.o}
 lib_net_dsts_test_SOURCES = lib/net/dsts_test.c
 lib_net_dsts_test_OBJS = ${lib_net_dsts_test_SOURCES:.c=.o}
+
+lib_net_tcpproto_test_DEPS = lib/net/tcpproto.c lib/util/reset.cc
+lib_net_tcpproto_test_DEPSOBJS = lib/net/tcpproto.o lib/util/reset.o
+lib_net_tcpproto_test_SOURCES = lib/net/tcpproto_test.c
+lib_net_tcpproto_test_OBJS = ${lib_net_tcpproto_test_SOURCES:.c=.o}
 
 lib_net_punycode_test_DEPS = \
     lib/util/buf.c \
@@ -88,6 +96,8 @@ lib_net_CTESTS = ${lib_net_CTESTSRCS:.c=}
 
 lib_net_OBJS = ${lib_net_SOURCES:.c=.o}
 
-OBJS += $(lib_net_OBJS) $(lib_net_url_test_OBJS) $(lib_net_punycode_test_OBJS)
-OBJS += $(lib_net_scgi_test_OBJS) $(lib_net_dsts_test_OBJS)
+OBJS += $(lib_net_OBJS) $(lib_net_url_test_OBJS) \
+    $(lib_net_punycode_test_OBJS) $(lib_net_scgi_test_OBJS) \
+    $(lib_net_dsts_test_OBJS) $(lib_net_tcpproto_test_OBJS)
+
 CTESTS += $(lib_net_CTESTS)

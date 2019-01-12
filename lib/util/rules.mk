@@ -16,6 +16,9 @@ lib/util/u8.o: lib/util/u8.c lib/util/u8.h
 lib/util/ylog.o: lib/util/ylog.c lib/util/ylog.h
 lib/util/zfile.o: lib/util/zfile.c lib/util/zfile.h
 
+lib/util/reset.o: lib/util/reset.cc
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS_lib_util_reset) -c $< -o $@
+
 lib/util/flagset_test: $(lib_util_flagset_test_DEPSOBJS) \
 		$(lib_util_flagset_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_flagset_test_DEPSOBJS) \

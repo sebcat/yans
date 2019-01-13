@@ -549,6 +549,7 @@ static int serve(struct opts *opts) {
   sigaction(SIGTERM, &sa, 0);
   sigaction(SIGHUP, &sa, 0);
   sigaction(SIGINT, &sa, 0);
+  signal(SIGPIPE, SIG_IGN);
 
   ret = sc2_init(&ctx, &opts->sc2, fd);
   if (ret != SC2_OK) {

@@ -42,3 +42,4 @@ tools/yclgen/parser.c
 tools/yclgen/parser.h
 tools/yclgen/tokens.c
 tools/yclgen/tokens.h
+apps/sysinfoapi/sysinfoapi

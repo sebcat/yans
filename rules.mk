@@ -21,3 +21,4 @@ include apps/scgi_demo/rules.mk
 include apps/sc2/rules.mk
 include data/yans/rules.mk
 include data/yans-fe/rules.mk
+include apps/sysinfoapi/rules.mk

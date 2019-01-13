@@ -11,6 +11,7 @@ DAEMON_DIR=apps/$DAEMON_NAME
 mkdir -p "$DAEMON_DIR"
 cat <<EOF > "$DAEMON_DIR/main.c"
 #include <sys/types.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -156,6 +157,8 @@ int main(int argc, char *argv[]) {
   }
 
   ylog_info("Starting %s", opts.single ? opts.single : DAEMON_NAME);
+
+  signal(SIGPIPE, SIG_IGN);
 
   if (opts.single != NULL) {
     ret = eds_serve_single_by_name(services, opts.single);

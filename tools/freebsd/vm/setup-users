@@ -11,7 +11,7 @@ die() {
 
 # Add user daemons
 pw -R "$DESTDIR" groupadd yans -g 666
-for A in clid ethd knegd stored yansapi; do
+for A in clid ethd knegd stored sysinfoapi yansapi; do
   pw -R "$DESTDIR" useradd "$A" -d /nonexist -g yans -s /usr/sbin/nologin
 done
 

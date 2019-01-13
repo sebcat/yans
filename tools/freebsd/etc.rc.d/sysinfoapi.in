@@ -1,0 +1,46 @@
+#!/bin/sh
+# PROVIDE: sysinfoapi
+# REQUIRE: LOGIN FILESYSTEMS
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+# Creating the user:
+#   pw useradd sysinfoapi -d /nonexistent -g yans -s /usr/sbin/nologin
+#
+# Add the yansgroup if not already present
+#   pw groupadd yans
+#
+#   pw -R <rootdir> ... for images/buildroots/jails
+#
+# The daemon drops user privs itself, which is why sysinfoapi_user and
+# sysinfoapi_group is not used
+: ${sysinfoapi_enable:="no"}
+: ${sysinfoapi_duser:="sysinfoapi"}
+: ${sysinfoapi_dgroup:="yans"}
+: ${ystatedir:="@LOCALSTATEDIR@/yans"}
+: ${sysinfoapi_basepath:="${ystatedir}/sysinfoapi"}
+
+name="sysinfoapi"
+rcvar="sysinfoapi_enable"
+command="@BINDIR@/${name}"
+command_args="-u '${sysinfoapi_duser}' -g '${sysinfoapi_dgroup}' -b '${sysinfoapi_basepath}'"
+start_precmd="sysinfoapi_precmd"
+pidfile="${sysinfoapi_basepath}/sysinfoapi.pid"
+
+sysinfoapi_precmd()
+{
+  install -m 775 -o root -g yans -d "${ystatedir}" || {
+    err 1 "Failed to create ${ystatedir}"
+  }
+
+  install -m 755 -o "${sysinfoapi_duser}" -g "${sysinfoapi_dgroup}" \
+      -d "${sysinfoapi_basepath}" || {
+    err 1 "Failed to create ${sysinfoapi_basepath}"
+  }
+
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

@@ -35,6 +35,7 @@ tools/freebsd/etc.rc.d/clid
 tools/freebsd/etc.rc.d/ethd
 tools/freebsd/etc.rc.d/knegd
 tools/freebsd/etc.rc.d/stored
+tools/freebsd/etc.rc.d/sysinfoapi
 tools/freebsd/etc.rc.d/yansapi
 tools/yclgen/genlycl
 tools/yclgen/genycl

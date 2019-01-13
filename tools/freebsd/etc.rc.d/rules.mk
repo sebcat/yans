@@ -29,3 +29,9 @@ tools/freebsd/etc.rc.d/yansapi: tools/freebsd/etc.rc.d/yansapi.in
 		-e "s,@DATAROOTDIR@,$(DATAROOTDIR)," \
 		< $@.in > $@;
 
+tools/freebsd/etc.rc.d/sysinfoapi: tools/freebsd/etc.rc.d/sysinfoapi.in
+	sed -e "s,@BINDIR@,$(BINDIR)," \
+		-e "s,@LOCALSTATEDIR@,$(LOCALSTATEDIR)," \
+		-e "s,@DATAROOTDIR@,$(DATAROOTDIR)," \
+		< $@.in > $@;
+

@@ -148,6 +148,10 @@ table tr:nth-child(1) td {
   font-weight: bold;
 }
 
+.shady {
+  opacity: 0.5;
+}
+
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -203,7 +207,14 @@ table tr:nth-child(1) td {
 </div>
 
 <div id="footer">
-  @PACKAGE_VERSION@
+  <p>@PACKAGE_VERSION@</p>
+  <div>fcap:
+    <progress class="shady" id="fcap" max="100" value="0"></progress>
+  </div>
+  <div>icap:
+    <progress class="shady" id="icap" max="100" value="0"></progress>
+  </div>
+  <div id="uptime"></div>
 </div>
 
 
@@ -745,6 +756,19 @@ function xxx() {
 }
 
 window.setInterval(xxx, 2000);
+
+/* Update stats once per page load. */
+JReq("GET", "/a1/stats")
+  .done(function(data) {
+    data = JSON.parse(data);
+    document.getElementById("fcap").value = data.fcap;
+    document.getElementById("icap").value = data.icap;
+    let uptime = document.getElementById("uptime");
+    uptime.innerHTML = "";
+    uptime.appendChild(document.createTextNode( "started " +
+        diffString(0, data.uptime) + ", load: " + data.loadavg[0] + " " +
+        data.loadavg[1] + " " + data.loadavg[2]));
+  }).send();
 
 </script>
 

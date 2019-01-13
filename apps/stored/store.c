@@ -392,8 +392,8 @@ static void handle_store_rename(struct eds_client *cli, int fd,
     errmsg = to_path;
     LOGERR(fd, errmsg);
   } else {
-    LOGINFOF(fd, "%s: renamed %s -> %s", STORE_ID(ecli), from_path,
-        to_path);
+    LOGINFOF(fd, "%s: renamed %s -> %s", STORE_ID(ecli),
+        req->rename_from.data, req->rename_to.data);
   }
 
   /* send the response */

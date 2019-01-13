@@ -1,21 +1,18 @@
 ## grab-banners,reaplan,tcpsrc
 
-tcpsrc: reuseaddr
+reaplan: handle_tls_handshake - if the handshake fails we should still
+  write an empty banner in grab-banners
 
-per-connection
-  connect/read/write timeout (in reaplan)
-  write buffer and offset in buffer (in grab-banners?)
-  address, port, name of connection in per-connection state (in grab-banners?)
+lua: use as little Lua as possible. Long-term goal: remove it completly.
 
-reaplan: "ticks per second" and "wait per tick" delay implementation
+tcpsrc: Implement TCPSRC_ALLOW, TCPSRC_DISALLOW. Make ioctl device-/system
+  wide and have rc script setting ranges at boot?
+tcpsrc: have separate device for ALLOW/DISALLOW? Should not be possible
+  to change from sandbox
 
 ## unsorted
 
 - store list <store-id> - pass dir-fd from stored and have client list store?
-- pass fopen-style mode string to store instead of flags, have the mode string
-  copied to the Lua file descriptor type and make it possible to write
-  foo:open("trololo", "rb"):to_stream() without passing the mode string to
-  to_stream
 
 - yans-fe: If 1) is selected, then 2) then 1) again: report entries are
   appended. Make them replace instead of append
@@ -31,49 +28,6 @@ reaplan: "ticks per second" and "wait per tick" delay implementation
 ## ethd
   - interfaces and stuff are loaded at boot, may change during uptime
 
-## lua
-  - receive/transmit buffers for fd
-  - event driven poll
-  - callback system in lua, similar to eds. on_next_fd, on_readable,
-    on_writable, on_done
-
-Events = require "file.events" -- poll wrapper
-FooDriver = {...} -- load like: require"drivers.foo"
-function FooDriver:new{...} ... end
-function FooDriver:register(ev) ... end
-function FooDriver:on_next_fd() ... end
-function FooDriver:on_readable(ev, fd) ... end
-function FooDriver:on_writable(ev, fd) ... end
-function FooDriver:on_eval_error(ev, fd) ... end
-function FooDriver:on_done(ev, fd) ... end
-Events:new{
-  nconcurrent = 10,
-  nsec_timeout = 10,
-  driver = FooDriver:new{...},
-}:run()
-
-Buffer = require"yans.file.buf"
-buf = Buffer:new{initial = ..., max = ...}
-nread, err = fd:read(buf)
-nleft, err = fd:write(buf)
-ev:register(
-ev:clear_actions(fd)
-ev:set_on_readable(fd, rfunc)
-ev:set_on_writable(fd, wfunc)
-ev:clear_on_readable(fd)
-ev:clear_on_writable(fd)
-
-## ethframe
-  - SSDP, MDNS, ICMP multicasts
-  - choose sequential/procedurally generated/PRNG source port within suitable
-    range instead of hard-coding?
-  - generate packet generators from DSL?
-  - only have ethframe distribute /dev/bpf sockets, rip out the frame
-    generation to a library called from lua (preferably DSL generated)
-    or maybe not - too many ethernet writer processes are maybe bad?
-    some MAC checks, &c. If that is a problem, it could be mitigated in the
-    kernel, using a custom devfs-node for accessing the NIC directly
-
 ## lib/net/url
   - url_normalize: if we have a percent-encoding to a valid char, decode it?
 
@@ -81,7 +35,8 @@ ev:clear_on_writable(fd)
   - make it possible to add/remove an address/range to/from a range
   - have contains work on current instead of first?
 
-more areas:
+## To add
+  - SSDP, MDNS, ICMP multicast for host discovery on LAN
   protocols: dns, ssh, ftp, http, smtp, pop3, imap, vnc, rdp
   functionality: enumeration of capabilities (cipher suites, commands, &c)
                  default account testing

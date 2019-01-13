@@ -12,6 +12,7 @@ struct sysinfoapi_cli {
   int offset;
 };
 
+void sysinfoapi_set_rootpath(const char *root);
 void sysinfoapi_on_writable(struct eds_client *cli, int fd);
 
 #endif

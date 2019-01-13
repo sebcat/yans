@@ -11,12 +11,18 @@
 #define LOCALSTATEDIR "/var"
 #endif
 
+static const char *rootpath_ = LOCALSTATEDIR;
+
 static const char scgi_hdr_[] =
     "Status: 200 OK\r\n"
     "Content-Type: application/json\r\n"
     "\r\n";
 
 #define SCGI_HDRLEN (sizeof(scgi_hdr_)-1)
+
+void sysinfoapi_set_rootpath(const char *root) {
+  rootpath_ = root;
+}
 
 static void on_writebody(struct eds_client *cli, int fd) {
   struct sysinfoapi_cli *ecli = SYSINFOAPI_CLI(cli);
@@ -80,7 +86,7 @@ void sysinfoapi_on_writable(struct eds_client *cli, int fd) {
   int ret;
 
   ecli->offset = 0;
-  sysinfo_get(&sinfo, LOCALSTATEDIR);
+  sysinfo_get(&sinfo, rootpath_);
   /* XXX: Do not add stuff here without confirming that it fits in
    *      respbuf. If you do, the JSON output will get truncated. */
   ret = snprintf(ecli->body, sizeof(ecli->body),

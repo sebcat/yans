@@ -141,6 +141,10 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
   } else {
+    /* Since we're chrooted, update the sysinfoapi rootpath. */
+    /* NB: assumes that the chroot is on the same partition as data */
+    sysinfoapi_set_rootpath("/");
+
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
     daemon_opts.name = DAEMON_NAME;
     daemon_opts.path = opts.basepath;

@@ -1,0 +1,5 @@
+# This files contains the list of exported kneg actions.
+# Any action still in the knegdir can still be taken, but
+# only the actions listed here are, well, manifested.
+  
+ scanny		ll-disco

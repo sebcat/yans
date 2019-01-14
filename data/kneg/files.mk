@@ -3,3 +3,5 @@ KNEGLIB = \
     data/kneg/resolver \
     data/kneg/scanny \
     data/kneg/dummy
+
+KNEGMANIFEST = data/kneg/MANIFEST

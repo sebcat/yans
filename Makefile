@@ -28,6 +28,9 @@ YANSLIB =
 # kneg library files, installed to $(DATAROOTDIR)/kneg
 KNEGLIB =
 
+# kneg MANIFEST, installed to $(DATAROOTDIR)/kneg as non-exec
+KNEGMANIFEST =
+
 # Yans web front-end, installed to $(DATAROOTDIR)/yans-fe
 YANS_FE =
 
@@ -66,7 +69,7 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 include files.mk
 
 all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
-	$(YANS_FE)
+	$(KNEGMANIFEST) $(YANS_FE)
 
 # driver building, installing, cleaning is done explicitly, with no
 # dependencies in targets like "all", "clean", "install" since most
@@ -118,6 +121,9 @@ manifest:
 	@for K in $(KNEGLIB); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
 	done
+	@for K in $(KNEGMANIFEST); do \
+		echo $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
+	done
 	@for K in $(YANS_FE); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
 	done
@@ -128,23 +134,27 @@ manifest-rcfiles:
 		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
-install: $(nodist_BINS) $(BINS) $(YANSLIB) $(KNEGLIB) $(YANS_FE)
+install: $(nodist_BINS) $(BINS) $(YANSLIB) $(KNEGLIB) $(KNEGMANIFEST) \
+		$(YANS_FE)
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans-fe
 	for B in $(BINS) $(script_BINS); do \
-		$(INSTALL) $$B $(DESTDIR)$(BINDIR); \
-    done
+		$(INSTALL) -m 755 $$B $(DESTDIR)$(BINDIR); \
+	done
 	for Y in $(YANSLIB); do \
 		mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans/$$(dirname $${Y#data/yans/}); \
-		$(INSTALL) $$Y $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
+		$(INSTALL) -m 644 $$Y $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
 	done
 	for K in $(KNEGLIB); do \
-		$(INSTALL) $$K $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
+		$(INSTALL) -m 755 $$K $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
+	done
+	for K in $(KNEGMANIFEST); do \
+		$(INSTALL) -m 644 $$K $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
 	done
 	for K in $(YANS_FE); do \
-		$(INSTALL) $$K $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
+		$(INSTALL) -m 644 $$K $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
 	done
 
 install-strip: install

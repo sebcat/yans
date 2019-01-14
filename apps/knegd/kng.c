@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #include <fts.h>
 
 #include <lib/util/io.h>
@@ -19,6 +20,8 @@
 #include <lib/util/ylog.h>
 #include <lib/ycl/ycl_msg.h>
 #include <apps/knegd/kng.h>
+
+#define MANIFEST_FILENAME "MANIFEST"
 
 /* valid characters for job types - must not contain path chars &c */
 #define VALID_TYPECH(ch__) \
@@ -275,7 +278,7 @@ static int kngq_put(struct kng_queue *kngq,
     return -1;
   }
 
-  /* create the entry path and create the file */ 
+  /* create the entry path and create the file */
   snprintf(path, sizeof(path), "%s/%c%c/%s-%lu", kngq->basepath,
       timestr[timelen-4], timestr[timelen-3], timestr, kngq->seq);
   kngq->seq++;
@@ -681,7 +684,7 @@ static struct kng_job *job_new(
     *err = "fork failure";
     goto cleanup_logfd;
   } else if (pid == 0) {
-    char path[256];
+    char path[PATH_MAX];
     char *argv[2] = {path, NULL};
 
     snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, type);
@@ -692,7 +695,7 @@ static struct kng_job *job_new(
     /* client sockets should be CLOEXEC, but cmdfd and potentially others
      * are not. A bit hacky, but... */
     for (ret = 3; ret < 10; ret++) {
-      close(ret); 
+      close(ret);
     }
     ret = execve(path, argv, envp);
     if (ret < 0) {
@@ -956,6 +959,42 @@ static struct kng_job *start_knegd_job(struct ycl_msg_knegd_req *req,
   return job;
 }
 
+static void load_manifest(buf_t *buf) {
+  char path[PATH_MAX];
+  char line[128];
+  FILE *fp;
+  char *cptr;
+  char *token;
+
+  snprintf(path, sizeof(path), "%s/%s", opts_.knegdir, MANIFEST_FILENAME);
+  fp = fopen(path, "rb");
+  if (fp == NULL) {
+    return;
+  }
+
+  while ((cptr = fgets(line, sizeof(line), fp)) != NULL) {
+    /* remove comment, if any */
+    if ((token = strchr(cptr, '#')) != NULL) {
+      *token = '\0';
+    }
+
+    /* scan line for token(s) */
+    while ((token = strsep(&cptr, "\r\n\t ")) != NULL) {
+      if (*token != '\0') {
+        buf_adata(buf, token, strlen(token));
+        buf_achar(buf, '\n');
+      }
+    }
+  }
+
+  fclose(fp);
+
+  /* remove trailing newline, if any (not possible to shrink past 0), and
+   * '\0'-terminate the string */
+  buf_shrink(buf, 1);
+  buf_achar(buf, '\0');
+}
+
 static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   const char *okmsg = "OK";
@@ -983,6 +1022,13 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
+  /* The MANIFEST should not be chmodded +x, but if it is: don't try to
+   * execute it */
+  if (req.type.len > 0 && strcmp(req.type.data, MANIFEST_FILENAME) == 0) {
+    errmsg = "unable to execute " MANIFEST_FILENAME;
+    goto fail;
+  }
+
   /* check if the client wants a job to start */
   if (strcmp(req.action.data, "start") == 0) {
     /* start the job, if possible */
@@ -990,11 +1036,18 @@ static void on_readreq(struct eds_client *cli, int fd) {
     if (job == NULL) {
       goto fail;
     }
-    
+
     /* log the job start and respond with the job ID */
     LOGINFO("started job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
         req.type.data, job->pid, job->id);
     buf_adata(&ecli->respbuf, job->id, strlen(job->id) + 1);
+    write_ok_response(cli, fd, ecli->respbuf.data);
+    return;
+  }
+
+  /* check if the client wants the manifest */
+  if (strcmp(req.action.data, "manifest") == 0) {
+    load_manifest(&ecli->respbuf);
     write_ok_response(cli, fd, ecli->respbuf.data);
     return;
   }
@@ -1034,7 +1087,7 @@ static void on_readreq(struct eds_client *cli, int fd) {
       if (job == NULL) {
         goto fail;
       }
-    
+
       /* log the job start and respond with the job ID */
       LOGINFO("started queue job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
           req.type.data, job->pid, job->id);

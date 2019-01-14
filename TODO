@@ -1,7 +1,12 @@
 ## grab-banners,reaplan,tcpsrc
 
+kng_mod_fini, eds:stop_service_listeners - make sure it works the way it
+  is intended (kng_mod_fini has no SIGCHLD handler, so no EINTR in
+  nanosleep?) and don't wait more in stop_service_listeners than needed.
+
 reaplan: handle_tls_handshake - if the handshake fails we should still
-  write an empty banner in grab-banners
+  write an empty banner in grab-banners. Implement, verify with test case
+  of a server sending a TLS Alert.
 
 lua: use as little Lua as possible. Long-term goal: remove it completly.
 

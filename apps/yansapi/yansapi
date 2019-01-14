@@ -4,8 +4,8 @@ local JAPI        = require "japi"
 local Store       = require "svcs.store"
 local Kneg        = require "svcs.kneg"
 
-local DAEMON_NAME = "yansapi"
-local SCANTYPE    = "scanny"
+local DAEMON_NAME       = "yansapi"
+local DEFAULT_KNEG_TYPE = "scanny"
 
 local function atoi(s, def)
   return math.floor(tonumber(s) or def)
@@ -336,6 +336,8 @@ local function post_scan(ctx)
     return
   end
 
+  local knegtype = req.type or DEFAULT_KNEG_TYPE
+
   -- set the name of the store to an appropriate length of the subject
   -- string
   local store_name = string.sub(subject, 1, 40)
@@ -354,7 +356,7 @@ local function post_scan(ctx)
 
   -- Start kneg scan with same ID
   kneg:queue{
-    type = SCANTYPE,
+    type = knegtype,
     id   = id,
     name = store_name,
   }

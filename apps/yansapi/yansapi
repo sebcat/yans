@@ -24,6 +24,40 @@ local function clean_id(str)
   end
 end
 
+local function get_manifest(ctx)
+  --[[
+  GET /a1/manifest
+
+  Response object on success:
+  {
+    "success": true,
+    "data": {
+      "entries": [
+        "entry0",
+        "entry1",
+        ...
+        "entryN"
+      ]
+    }
+  }
+  ]]--
+
+  local manifest = ctx.data.kneg:manifest()
+  local entries = json.from_str"[]"
+  for e in string.gmatch(manifest, "[^ \r\n\t]+") do
+    entries = entries << e
+  end
+  local data = json.from_str"{}"
+  data.entries = entries
+  local resp = json.from_str"{}"
+  resp.success = true
+  resp.data = data
+
+  -- send the response
+  ctx:status"200 OK"
+  ctx:write(tostring(resp))
+end
+
 local function get_reports(ctx)
   --[[
   GET /a1/reports
@@ -362,6 +396,7 @@ local function handle_fail(fn)
 end
 
 JAPI:routes{
+  ["GET /a1/manifest"]         = handle_fail(get_manifest),
   ["GET /a1/reports"]          = handle_fail(get_reports),
   ["GET /a1/report-sections"]  = handle_fail(get_report_sections),
   ["GET /a1/report-section"]   = handle_fail(get_report_section),

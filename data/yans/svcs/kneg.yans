@@ -10,17 +10,20 @@ function _M:new(o)
   return o
 end
 
--- returns: whitespace delimited string of elements
-function _M:_listreq(o)
-  if type(o.id) == "table" then
-    o.id = table.concat(o.id, "\0")
-  end
+function _M:_rr(o)
   self.msgbuf:create_knegd_req(o)
   self.sock:sendmsg(self.msgbuf)
   self.sock:recvmsg(self.msgbuf)
   local resp = self.msgbuf:parse_status_resp()
   assert(not resp.errmsg, resp.errmsg)
   return resp.okmsg
+end
+
+function _M:_listreq(o)
+  if type(o.id) == "table" then
+    o.id = table.concat(o.id, "\0")
+  end
+  return self:_rr(o)
 end
 
 function _M:status(ids)
@@ -31,23 +34,18 @@ function _M:pids(ids)
   return self:_listreq{action = "pids", id = ids}
 end
 
-function _M:_rr(o)
-  self.msgbuf:create_knegd_req(o)
-  self.sock:sendmsg(self.msgbuf)
-  self.sock:recvmsg(self.msgbuf)
-  local resp = self.msgbuf:parse_status_resp()
-  assert(not resp.errmsg, resp.errmsg)
-  return resp.okmsg
-end
-
 function _M:start(o)
   o.action = "start"
-  self:_rr(o)
+  return self:_rr(o)
 end
 
 function _M:queue(o)
   o.action = "queue"
-  self:_rr(o)
+  return self:_rr(o)
+end
+
+function _M:manifest()
+  return self:_rr{action="manifest"}
 end
 
 return _M

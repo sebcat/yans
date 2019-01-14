@@ -392,7 +392,7 @@ local function handle_fail(fn)
     if not ok then
       yans.ylog.error("request failure: %s", err)
       ctx:status"200 OK" -- all well that ends well, is it not?
-      ctx:write'{"success":false,"errmsg":"An internal error occurred, sorry for the inconvenience"}'
+      ctx:write'{"success":false,"errmsg":"An anomaly occurred and was logged. Sorry for any inconvenience this may have caused."}'
     end
   end
 end

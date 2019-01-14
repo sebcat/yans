@@ -167,6 +167,47 @@ usage:
   return EXIT_FAILURE;
 }
 
+static int manifest(int argc, char **argv) {
+  int ret;
+  int ch;
+  struct ycl_msg_knegd_req req = {0};
+  const char *optstr = "hs:";
+  const char *argv0 = argv[0];
+  const char *sock = DFL_KNEGDSOCK;
+  static struct option longopts[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"socket", required_argument, NULL, 's'},
+    {NULL, 0, NULL, 0},
+  };
+
+  while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
+    switch(ch) {
+    case 's':
+      sock = optarg;
+      break;
+    case 'h':
+    case '?':
+      goto usage;
+    }
+  }
+
+  req.action.data = "manifest";
+  req.action.len = sizeof("manifest")-1;
+  ret = reqresp(sock, &req);
+  if (ret < 0) {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+
+usage:
+  fprintf(stderr, "usage: %s pids [opts] <id0> [id1] ... [idN]\n"
+      "opts:\n"
+      "  -h|--help           - this text\n"
+      "  -s|--socket <path>  - path to knegd socket (%s)\n"
+      , argv0, DFL_KNEGDSOCK);
+  return EXIT_FAILURE;
+}
+
 static int pids(int argc, char **argv) {
   int ret;
   int ch;
@@ -432,6 +473,7 @@ int main(int argc, char *argv[]) {
   int i;
   static const struct subcmd subcmds[] = {
     {"start", start},
+    {"manifest", manifest},
     {"pids", pids},
     {"status", status},
     {"queue", queue},

@@ -350,6 +350,7 @@ local function post_scan(ctx)
   local started = os.time()
   local id = store:enter()
   req.name = store_name
+  req.subject = subject -- the same, but string.lower-ed
   req.started = started
   store:open("job.json", file.O_WRONLY | file.O_CREAT |
       file.O_TRUNC):to_stream("wb"):write(tostring(req)):close()

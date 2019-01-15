@@ -222,6 +222,28 @@ table tr:nth-child(1) td {
 <script>
 "use strict";
 
+/* called whenever something breaks */
+function appErrFunc(text) {
+  let txt = document.getElementById("alert-text");
+  txt.innerText = text;
+  txt.parentElement.style.opacity = 1;
+  txt.parentElement.style.display = "unset";
+}
+
+window.onerror = function(message, source, lineno, colno, error) {
+  appErrFunc("line " + lineno + " at " + source + " - " + message);
+  return true;
+}
+
+/* functionality for closing the alert thingy */
+document.getElementById("alert-close").onclick = function() {
+  let p = this.parentElement;
+  p.style.opacity = 0;
+  setTimeout(function() {
+    p.style.display = "none";
+  }, 200);
+};
+
 function _diffString(n, str) {
   n = Math.floor(n);
   if (n == 1) {
@@ -651,23 +673,6 @@ function YansView(pname) {
   };
 
 };
-
-/* functionality for closing the alert thingy */
-document.getElementById("alert-close").onclick = function() {
-  let p = this.parentElement;
-  p.style.opacity = 0;
-  setTimeout(function() {
-    p.style.display = "none";
-  }, 200);
-};
-
-/* called whenever something breaks */
-function appErrFunc(text) {
-  let txt = document.getElementById("alert-text");
-  txt.innerText = text;
-  txt.parentElement.style.opacity = 1;
-  txt.parentElement.style.display = "unset";
-}
 
 document.getElementById("scan-btn").onclick = function() {
   let subject = document.getElementById("scan-subject").value;

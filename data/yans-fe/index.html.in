@@ -764,7 +764,7 @@ function xxx() {
 window.setInterval(xxx, 2000);
 
 /* Update stats once per page load. */
-JReq("GET", "/a1/stats")
+JReq("GET", "/a1/sysinfo")
   .done(function(data) {
     data = JSON.parse(data);
     document.getElementById("fcap").value = data.fcap;

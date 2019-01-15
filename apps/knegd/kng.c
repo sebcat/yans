@@ -75,6 +75,7 @@ struct kng_queue {
   char type[KNGQ_TYPESIZE];    /* saved type, valid for one iteration */
   unsigned long seq;           /* sequence number for this session */
   struct ycl_msg msgbuf;       /* message buffer used to store next msg */
+  time_t last_queued_for;      /* # of seconds last q'd job spent in q */
 };
 
 static struct kng_job *jobs_;       /* list of running jobs */
@@ -96,6 +97,11 @@ static inline int kngq_navailable(struct kng_queue *kngq) {
 
 static inline void kngq_update_running(struct kng_queue *kngq, int diff) {
   kngq->nrunning += diff;
+}
+
+static inline void kngq_update_last_queued_for(struct kng_queue *kngq,
+    time_t t) {
+  kngq->last_queued_for = t;
 }
 
 static int kngq_init(struct kng_queue *kngq, char *basepath, int nslots) {
@@ -794,7 +800,6 @@ static void jobs_check_times(struct kng_job *jobs) {
   }
 }
 
-
 static pid_t jobs_pid(struct kng_job *jobs, const char *id) {
   struct kng_job *s;
   assert(id != NULL);
@@ -995,6 +1000,14 @@ static void load_manifest(buf_t *buf) {
   buf_achar(buf, '\0');
 }
 
+static void load_queueinfo(buf_t *buf) {
+  char info[128];
+
+  snprintf(info, sizeof(info), "%d %d %ld", kngq_.nrunning, kngq_.nslots,
+      (long)kngq_.last_queued_for);
+  buf_adata(buf, info, strlen(info)+1);
+}
+
 static void on_readreq(struct eds_client *cli, int fd) {
   const char *errmsg = "an internal error occurred";
   const char *okmsg = "OK";
@@ -1052,6 +1065,13 @@ static void on_readreq(struct eds_client *cli, int fd) {
     return;
   }
 
+  /* check if the client wants the queueinfo */
+  if (strcmp(req.action.data, "queueinfo") == 0) {
+    load_queueinfo(&ecli->respbuf);
+    write_ok_response(cli, fd, ecli->respbuf.data);
+    return;
+  }
+
   /* anything past this point requires ID, so check it */
   if (req.id.data == NULL || *req.id.data == '\0') {
     errmsg = "missing id";
@@ -1087,6 +1107,9 @@ static void on_readreq(struct eds_client *cli, int fd) {
       if (job == NULL) {
         goto fail;
       }
+
+      /* time spent in queue: zero seconds */
+      kngq_update_last_queued_for(&kngq_, 0);
 
       /* log the job start and respond with the job ID */
       LOGINFO("started queue job fd:%d type:\"%s\" pid:%d id:\"%s\"", fd,
@@ -1159,6 +1182,7 @@ static void dispatch_n_jobs(int n) {
   struct kng_job *job;
   const char *errmsg = NULL;
   time_t ctime = 0;
+  time_t queued_for = 0;
 
   while (n > 0) {
     ret = kngq_next(&kngq_, &req, &ctime);
@@ -1178,11 +1202,11 @@ static void dispatch_n_jobs(int n) {
     if (!job) {
       LOGERR("dispatch_n_jobs: failed to start: %s", errmsg);
     } else {
-      /* we should update nrunning for each dispatched job, and update it
-       * again when we reap the queued job */
+      queued_for = time(NULL) - ctime;
+      kngq_update_last_queued_for(&kngq_, queued_for);
       LOGINFO("started queued job type:\"%s\" pid:%d id:\"%s\" "
           "queued-for:%ds",
-          req.type.data, job->pid, job->id, (int)(time(NULL) - ctime));
+          req.type.data, job->pid, job->id, (int)queued_for);
       n--;
     }
   }

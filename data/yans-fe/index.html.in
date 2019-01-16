@@ -781,7 +781,6 @@ JReq("GET", "/a1/sysinfo")
 JReq("GET", "/a1/queueinfo")
   .done(function(data) {
     data = JSON.parse(data).data;
-    console.log(data);
     let queueinfo = document.getElementById("queueinfo");
     queueinfo.innerHTML = "";
     queueinfo.appendChild(document.createTextNode(

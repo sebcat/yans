@@ -48,4 +48,12 @@ function _M:manifest()
   return self:_rr{action="manifest"}
 end
 
+function _M:queueinfo()
+  local s = self:_rr{action="queueinfo"}
+  local fmt = "([0-9]+) ([0-9]+) ([0-9]+)"
+  local nrunning, nslots, last_waited_for = s:match(fmt)
+  return math.tointeger(nrunning), math.tointeger(nslots),
+      math.tointeger(last_waited_for)
+end
+
 return _M

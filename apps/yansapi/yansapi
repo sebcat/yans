@@ -24,6 +24,35 @@ local function clean_id(str)
   end
 end
 
+local function get_queueinfo(ctx)
+  --[[
+  GET /a1/queueinfo
+
+  Response object on success:
+  {
+    "success": true,
+    "data": {
+      "nrunning": 0,
+      "nslots": 0,
+      "last-waited-for": 0
+    }
+  }
+  ]]--
+
+  local nrunning, nslots, last_waited_for = ctx.data.kneg:queueinfo()
+  local data = json.from_str"{}"
+  data["nrunning"] = nrunning
+  data["nslots"] = nslots
+  data["last-waited-for"] = last_waited_for
+  local resp = json.from_str"{}"
+  resp.success = true
+  resp.data = data
+
+  -- send the response
+  ctx:status"200 OK"
+  ctx:write(tostring(resp))
+end
+
 local function get_manifest(ctx)
   --[[
   GET /a1/manifest
@@ -399,6 +428,7 @@ local function handle_fail(fn)
 end
 
 JAPI:routes{
+  ["GET /a1/queueinfo"]        = handle_fail(get_queueinfo),
   ["GET /a1/manifest"]         = handle_fail(get_manifest),
   ["GET /a1/reports"]          = handle_fail(get_reports),
   ["GET /a1/report-sections"]  = handle_fail(get_report_sections),

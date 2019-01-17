@@ -525,21 +525,24 @@ static char *consk(const char *name, const char *value) {
     }
 
 /* build the environment from the knegd request */
-static char **mkenvp(const char *id, const char *type) {
+static char **mkenvp(const char *id, const char *type, time_t timeout) {
   size_t off = 0;
   char **envp;
+  char tostr[24];
 
   /* must be: number of ENVP_VARs + NULL sentinel */
-  envp = calloc(4, sizeof(char*));
+  envp = calloc(5, sizeof(char*));
   if (envp == NULL) {
     return NULL;
   }
 
+  snprintf(tostr, sizeof(tostr), "%ld", timeout);
   ENVP_VAR("PATH", "/usr/local/bin:/bin:/usr/bin");
   ENVP_VAR("YANS_ID", id);
   ENVP_VAR("YANS_TYPE", type);
+  ENVP_VAR("YANS_TIMEOUT", tostr);
 
-  assert(off <= 3);
+  assert(off <= 4);
   return envp;
 
 fail:
@@ -636,9 +639,21 @@ static struct kng_job *job_new(
     goto cleanup_ycl_msg;
   }
 
+  ret = clock_gettime(CLOCK_MONOTONIC, &s->started);
+  if (ret < 0) {
+    *err = "clock_gettime failure";
+    goto cleanup_ycl_msg;
+  }
+
+  if (timeout_sec > 0) {
+    s->timeout = timeout_sec;
+  } else {
+    s->timeout = opts_.timeout;
+  }
+
   strncpy(s->id, resp.okmsg.data, sizeof(s->id));
   s->id[sizeof(s->id)-1] = '\0';
-  envp = mkenvp(s->id, type);
+  envp = mkenvp(s->id, type, s->timeout);
   if (envp == NULL) {
     *err = "insufficient memory";
     goto cleanup_ycl_msg;
@@ -666,18 +681,6 @@ static struct kng_job *job_new(
     LOGERR("store open: %s\n", ycl_strerror(&ctx));
     *err = "failed to open log file";
     goto cleanup_envp;
-  }
-
-  ret = clock_gettime(CLOCK_MONOTONIC, &s->started);
-  if (ret < 0) {
-    *err = "clock_gettime failure";
-    goto cleanup_logfd;
-  }
-
-  if (timeout_sec > 0) {
-    s->timeout = timeout_sec;
-  } else {
-    s->timeout = opts_.timeout;
   }
 
   /* NB: cleanup before fork in order to close the ycl fd */

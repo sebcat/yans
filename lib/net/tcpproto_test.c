@@ -90,6 +90,8 @@ static int test_match() {
         TCPPROTO_SMTP, TCPPROTO_SMTPS},
     {"220 Please use http://ftp.acc.umu.se/ whenever possible.",
         TCPPROTO_FTP, TCPPROTO_FTPS},
+    {"220---------- Welcome to Pure-FTPd [privsep] [TLS] ----------",
+        TCPPROTO_FTP, TCPPROTO_FTPS},
     {"+OK mail.example.com POP3 ready <foo@mail.example.com>",
         TCPPROTO_POP3, TCPPROTO_POP3S},
     {"* OK mail.example.com IMAP4rev1 ready",

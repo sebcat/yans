@@ -20,12 +20,12 @@ static const struct tcpproto_patterns patterns_[] = {
   {
     .type_plain = TCPPROTO_SMTP,
     .type_tls   = TCPPROTO_SMTPS,
-    .pattern    = "^[0-9]{3} [^\n]*[Ss][Mm][Tt][Pp]"
+    .pattern    = "^[0-9]{3}[ -][^\n]*[Ss][Mm][Tt][Pp]"
   },
   {
     .type_plain = TCPPROTO_FTP,
     .type_tls   = TCPPROTO_FTPS,
-    .pattern    = "^[0-9]{3} [^\n]*[Ff][Tt][Pp]"
+    .pattern    = "^[0-9]{3}[ -][^\n]*[Ff][Tt][Pp]"
   },
   {
     .type_plain = TCPPROTO_HTTP,

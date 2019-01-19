@@ -47,8 +47,10 @@ lib_net_dsts_test_DEPSOBJS = ${lib_net_dsts_test_DEPS:.c=.o}
 lib_net_dsts_test_SOURCES = lib/net/dsts_test.c
 lib_net_dsts_test_OBJS = ${lib_net_dsts_test_SOURCES:.c=.o}
 
-lib_net_tcpproto_test_DEPS = lib/net/tcpproto.c lib/util/reset.cc
-lib_net_tcpproto_test_DEPSOBJS = lib/net/tcpproto.o lib/util/reset.o
+lib_net_tcpproto_test_DEPS = lib/net/tcpproto.c lib/net/tcpproto_types.c \
+    lib/util/reset.cc
+lib_net_tcpproto_test_DEPSOBJS = lib/net/tcpproto.o \
+    lib/net/tcpproto_types.c lib/util/reset.o
 lib_net_tcpproto_test_SOURCES = lib/net/tcpproto_test.c
 lib_net_tcpproto_test_OBJS = ${lib_net_tcpproto_test_SOURCES:.c=.o}
 

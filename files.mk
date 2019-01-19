@@ -26,3 +26,4 @@ include data/yans-fe/files.mk
 include apps/scanny/files.mk
 include drivers/files.mk
 include apps/sysinfoapi/files.mk
+include apps/mkreport/files.mk

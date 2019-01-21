@@ -8,6 +8,7 @@ lib_util_SOURCES = \
     lib/util/lines.c \
     lib/util/netstring.c \
     lib/util/nullfd.c \
+    lib/util/objtbl.c \
     lib/util/os.c \
     lib/util/prng.c \
     lib/util/reorder.c \
@@ -34,6 +35,11 @@ lib_util_idtbl_test_DEPS = lib/util/idtbl.c
 lib_util_idtbl_test_DEPSOBJS = ${lib_util_idtbl_test_DEPS:.c=.o}
 lib_util_idtbl_test_SOURCES = lib/util/idtbl_test.c
 lib_util_idtbl_test_OBJS = ${lib_util_idtbl_test_SOURCES:.c=.o}
+
+lib_util_objtbl_test_DEPS = lib/util/objtbl.c
+lib_util_objtbl_test_DEPSOBJS = ${lib_util_objtbl_test_DEPS:.c=.o}
+lib_util_objtbl_test_SOURCES = lib/util/objtbl_test.c
+lib_util_objtbl_test_OBJS = ${lib_util_objtbl_test_SOURCES:.c=.o}
 
 lib_util_netstring_test_DEPS = lib/util/buf.c lib/util/netstring.c
 lib_util_netstring_test_DEPSOBJS = ${lib_util_netstring_test_DEPS:.c=.o}
@@ -64,6 +70,7 @@ lib_util_idset_test_OBJS = ${lib_util_idset_test_SOURCES:.c=.o}
 lib_util_CTESTSRCS = \
     $(lib_util_flagset_test_SOURCES) \
     $(lib_util_idtbl_test_SOURCES) \
+    $(lib_util_objtbl_test_SOURCES) \
     $(lib_util_netstring_test_SOURCES) \
     $(lib_util_os_test_SOURCES) \
     $(lib_util_u8_test_SOURCES) \

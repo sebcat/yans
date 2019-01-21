@@ -3,6 +3,7 @@ lib/util/eds.o: lib/util/eds.c lib/util/eds.h lib/util/io.h
 lib/util/flagset.o: lib/util/flagset.c lib/util/flagset.h
 lib/util/idset.o: lib/util/idset.c lib/util/idset.h
 lib/util/idtbl.o: lib/util/idtbl.c lib/util/idtbl.h
+lib/util/objtbl.o: lib/util/objtbl.c lib/util/objtbl.h
 lib/util/io.o: lib/util/io.c lib/util/io.h lib/util/buf.h
 lib/util/netstring.o: lib/util/netstring.c lib/util/netstring.h lib/util/buf.h
 lib/util/nullfd.o: lib/util/nullfd.c lib/util/nullfd.h
@@ -28,6 +29,11 @@ lib/util/idtbl_test: $(lib_util_idtbl_test_DEPSOBJS) \
 		$(lib_util_idtbl_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_idtbl_test_DEPSOBJS) \
 		$(lib_util_idtbl_test_OBJS) $(LDFLAGS)
+
+lib/util/objtbl_test: $(lib_util_objtbl_test_DEPSOBJS) \
+		$(lib_util_objtbl_test_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(lib_util_objtbl_test_DEPSOBJS) \
+		$(lib_util_objtbl_test_OBJS) $(LDFLAGS)
 
 lib/util/netstring_test: $(lib_util_netstring_test_DEPSOBJS) \
 		$(lib_util_netstring_test_OBJS)

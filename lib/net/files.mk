@@ -13,6 +13,7 @@ lib_net_SOURCES = \
     lib/net/route.c \
     lib/net/sconn.c \
     lib/net/tcpproto.c \
+    lib/net/tcpproto_types.c \
     lib/net/tcpsrc.c \
     lib/net/url.c
 
@@ -31,6 +32,7 @@ lib_net_HEADERS = \
     lib/net/route.h \
     lib/net/sconn.h \
     lib/net/tcpproto.h \
+    lib/net/tcpproto_types.h \
     lib/net/tcpsrc.h \
     lib/net/url.h
 

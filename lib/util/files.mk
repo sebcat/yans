@@ -8,6 +8,7 @@ lib_util_SOURCES = \
     lib/util/lines.c \
     lib/util/netstring.c \
     lib/util/nullfd.c \
+    lib/util/objalloc.c \
     lib/util/objtbl.c \
     lib/util/os.c \
     lib/util/prng.c \

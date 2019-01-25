@@ -31,7 +31,7 @@ static inline void objalloc_init(struct objalloc_ctx *ctx,
   ctx->blks = NULL;
 }
 
-void objalloc_free(struct objalloc_ctx *ctx);
+void objalloc_cleanup(struct objalloc_ctx *ctx);
 void *objalloc_alloc(struct objalloc_ctx *ctx);
 
 #endif

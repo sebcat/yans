@@ -3,7 +3,7 @@
 
 #include <lib/util/objalloc.h>
 
-void objalloc_free(struct objalloc_ctx *ctx) {
+void objalloc_cleanup(struct objalloc_ctx *ctx) {
   struct objalloc_block *curr;
   struct objalloc_block *next;
 

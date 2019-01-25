@@ -578,9 +578,11 @@ static int test_stats(struct opts *opts) {
 
   result = EXIT_SUCCESS;
 end:
+  objalloc_cleanup(&objmem);
   return result;
 end_objtbl_cleanup:
   objtbl_cleanup(&objtbl);
+  objalloc_cleanup(&objmem);
   return result;
 }
 

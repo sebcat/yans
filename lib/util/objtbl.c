@@ -100,7 +100,7 @@ void objtbl_cleanup(struct objtbl_ctx *tbl) {
   }
 }
 
-static objtbl_hash_t calchash(struct objtbl_ctx *tbl, uintptr_t keyobj) {
+static objtbl_hash_t calchash(struct objtbl_ctx *tbl, void * keyobj) {
   objtbl_hash_t h;
 
   h = tbl->header.opts.hashfunc(keyobj, tbl->header.opts.hashseed);
@@ -112,12 +112,17 @@ static objtbl_hash_t calchash(struct objtbl_ctx *tbl, uintptr_t keyobj) {
 }
 
 static struct objtbl_entry *find_table_entry(struct objtbl_ctx *tbl,
-    uintptr_t keyobj) {
+    void * keyobj) {
   uint32_t current_pos;
   uint32_t start_pos;
   uint32_t distance = 0;
   struct objtbl_entry *elem;
   objtbl_hash_t keyhash;
+
+  /* can't find things that does not exist */
+  if (keyobj == NULL) {
+    return NULL;
+  }
 
   /* Probe linearly for at most the entire table (theoretical upper bound).
    * If the current element has a key associated with the element we want,
@@ -141,7 +146,7 @@ static struct objtbl_entry *find_table_entry(struct objtbl_ctx *tbl,
   return NULL;
 }
 
-int objtbl_get(struct objtbl_ctx *tbl, uintptr_t keyobj, uintptr_t *value) {
+int objtbl_get(struct objtbl_ctx *tbl, void * keyobj, void **value) {
   struct objtbl_entry *ent;
 
   ent = find_table_entry(tbl, keyobj);
@@ -156,14 +161,14 @@ int objtbl_get(struct objtbl_ctx *tbl, uintptr_t keyobj, uintptr_t *value) {
   return OBJTBL_OK;
 }
 
-int objtbl_contains(struct objtbl_ctx *tbl, uintptr_t keyobj) {
+int objtbl_contains(struct objtbl_ctx *tbl, void *keyobj) {
   struct objtbl_entry *ent;
 
   ent = find_table_entry(tbl, keyobj);
   return ent == NULL ? 0 : 1;
 }
 
-int objtbl_remove(struct objtbl_ctx *tbl, uintptr_t keyobj) {
+int objtbl_remove(struct objtbl_ctx *tbl, void * keyobj) {
   struct objtbl_entry *ent;
   uint32_t curr;
   uint32_t next;
@@ -190,14 +195,17 @@ int objtbl_remove(struct objtbl_ctx *tbl, uintptr_t keyobj) {
   return OBJTBL_OK;
 }
 
-/* -1 on failed insertion (e.g., because table is full), 0 on success */
-static int set_table_value(struct objtbl_ctx *tbl, uintptr_t obj) {
+static int set_table_value(struct objtbl_ctx *tbl, void *obj) {
   uint32_t start_pos;
   uint32_t current_pos;
   struct objtbl_entry *curr;
   struct objtbl_entry elem;
   struct objtbl_entry tmp;
   objtbl_hash_t hash;
+
+  if (obj == NULL) {
+    return OBJTBL_EINVAL;
+  }
 
   if (tbl->header.size >= tbl->header.cap) {
     return OBJTBL_EFULL; /* full table */
@@ -299,7 +307,7 @@ int objtbl_init(struct objtbl_ctx *tbl, struct objtbl_opts *opts,
   return OBJTBL_OK;
 }
 
-int objtbl_insert(struct objtbl_ctx *tbl, uintptr_t obj) {
+int objtbl_insert(struct objtbl_ctx *tbl, void * obj) {
   int ret;
 
   if (tbl->header.size >= tbl->header.rehash_limit) {
@@ -329,7 +337,15 @@ static int keycmp(void *table, const void *a, const void *b) {
   const struct objtbl_entry *ent1 = b;
   struct objtbl_ctx *tbl = table;
 
-  return tbl->header.opts.cmpfunc(ent0->value, ent1->value);
+  if (ENTRY_IS_EMPTY(ent0) && ENTRY_IS_EMPTY(ent1)) {
+    return 0;
+  } else if (ENTRY_IS_EMPTY(ent0) && !ENTRY_IS_EMPTY(ent1)) {
+    return 1;
+  } else if (!ENTRY_IS_EMPTY(ent0) && ENTRY_IS_EMPTY(ent1)) {
+    return -1;
+  } else {
+    return -tbl->header.opts.cmpfunc(ent0->value, ent1->value);
+  }
 }
 
 int distcmp(void *tbl, const void *a, const void *b) {
@@ -392,7 +408,7 @@ void objtbl_dump(struct objtbl_ctx *ctx, FILE *fp) {
 
   for (i = 0; i < ctx->header.cap; i++) {
     ent = ctx->entries + i;
-    fprintf(fp, "%.8u      %s distance:%u hash:%x value:%lx\n",
+    fprintf(fp, "%.8u      %s distance:%u hash:%x value:%p\n",
         i, ENTRY_IS_EMPTY(ent) ? "____" : "XXXX",
         ent->distance, ent->hash, ent->value);
   }

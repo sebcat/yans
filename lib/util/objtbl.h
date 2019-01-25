@@ -17,13 +17,13 @@ struct objtbl_entry {
   /* internal */
   objtbl_hash_t hash; /* cached hash of the value */
   int32_t distance;   /* # of elements from wanted slot to actual slot */
-  uintptr_t value;
+  void * value;
 };
 
 struct objtbl_opts {
   objtbl_hash_t hashseed; /* seed value for hash */
-  objtbl_hash_t (*hashfunc)(uintptr_t /* obj */, objtbl_hash_t /* seed */);
-  int (*cmpfunc)(uintptr_t /* a */, uintptr_t /* b */);
+  objtbl_hash_t (*hashfunc)(void * /* obj */, objtbl_hash_t /* seed */);
+  int (*cmpfunc)(void * /* a */, void * /* b */);
 };
 
 struct objtbl_header {
@@ -55,10 +55,10 @@ struct objtbl_stats {
 int objtbl_init(struct objtbl_ctx *tbl, struct objtbl_opts *opts,
     uint32_t nslots);
 void objtbl_cleanup(struct objtbl_ctx *tbl);
-int objtbl_get(struct objtbl_ctx *tbl, uintptr_t keyobj, uintptr_t *value);
-int objtbl_contains(struct objtbl_ctx *tbl, uintptr_t keyobj);
-int objtbl_remove(struct objtbl_ctx *tbl, uintptr_t keyobj);
-int objtbl_insert(struct objtbl_ctx *tbl, uintptr_t obj);
+int objtbl_get(struct objtbl_ctx *tbl, void * keyobj, void * *value);
+int objtbl_contains(struct objtbl_ctx *tbl, void * keyobj);
+int objtbl_remove(struct objtbl_ctx *tbl, void * keyobj);
+int objtbl_insert(struct objtbl_ctx *tbl, void * obj);
 int objtbl_copy(struct objtbl_ctx *dst, struct objtbl_ctx *src);
 int objtbl_calc_stats(struct objtbl_ctx *tbl, struct objtbl_stats *result);
 void objtbl_dump(struct objtbl_ctx *ctx, FILE *fp);

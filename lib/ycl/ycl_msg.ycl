@@ -95,8 +95,7 @@ knegd_req {
 ## result types
 ##
 banner {
-  data host;
-  long port;
+  data addr;
   data name;
   long mpid; # matched protocol ID
   long fpid; # fallback protocol ID

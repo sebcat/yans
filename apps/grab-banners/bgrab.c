@@ -158,7 +158,6 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
     const char *banner, size_t bannerlen) {
   struct ycl_msg_banner bannermsg = {{0}};
   struct bgrab_dst *dst;
-  char addrstr[128];
   int ret;
   size_t sz;
   unsigned short portnr;
@@ -173,13 +172,6 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
     portnr = ntohs(dst->addr.sin.sin_port);
   }
 
-  ret = getnameinfo(&dst->addr.sa, dst->addrlen, addrstr, sizeof(addrstr),
-      NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
-  if (ret != 0) {
-    handle_errorf(ctx, "write_banner: getnameinfo: %s", gai_strerror(ret));
-    return;
-  }
-
   ycl_msg_reset(&ctx->msgbuf);
   buf_clear(&ctx->certbuf);
   reaplan_conn_append_cert_chain(conn, &ctx->certbuf);
@@ -187,9 +179,8 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
   bannermsg.name.len = dst->name ? strlen(dst->name) : 0;
   bannermsg.certs.data = ctx->certbuf.data;
   bannermsg.certs.len = ctx->certbuf.len;
-  bannermsg.host.data = addrstr;
-  bannermsg.host.len = strlen(addrstr);
-  bannermsg.port = (long)portnr;
+  bannermsg.addr.data = (const char *)&dst->addr.sa;
+  bannermsg.addr.len = dst->addrlen;
   bannermsg.banner.data = banner;
   bannermsg.banner.len = bannerlen;
   mflags = ctx->opts.ssl_ctx ? TCPPROTO_MATCHF_TLS : 0;
@@ -198,8 +189,7 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
   ret = ycl_msg_create_banner(&ctx->msgbuf, &bannermsg);
   if (ret != YCL_OK) {
     handle_errorf(ctx,
-        "write_banner: failed fo serialize %zu bytes banner for %s:%hu",
-        bannerlen, addrstr, portnr);
+        "write_banner: failed to serialize %zu bytes banner", bannerlen);
     goto ycl_msg_cleanup;
   }
 
@@ -207,8 +197,7 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
       ctx->opts.outfile);
   if (sz != 1) {
     handle_errorf(ctx,
-        "write_banner: failed to write %zu butes banner for %s:%hu",
-        bannerlen, addrstr, portnr);
+        "write_banner: failed to write %zu bytes banner", bannerlen);
     goto ycl_msg_cleanup;
   }
 

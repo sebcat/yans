@@ -1,6 +1,6 @@
 mkreport_DEPS     = lib/ycl/ycl.c lib/ycl/ycl_msg.c \
                     lib/net/tcpproto_types.c lib/util/netstring.c \
-                    lib/util/buf.c lib/util/io.c
+                    lib/util/buf.c lib/util/csv.c lib/util/io.c
 mkreport_DEPSOBJS = ${mkreport_DEPS:.c=.o}
 mkreport_SOURCES  = apps/mkreport/services.c apps/mkreport/main.c
 mkreport_HEADERS  =

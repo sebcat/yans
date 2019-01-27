@@ -4,6 +4,8 @@
 #include <sys/socket.h>
 
 #include <lib/net/tcpproto.h>
+#include <lib/util/buf.h>
+#include <lib/util/csv.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 #include <apps/mkreport/services.h>
@@ -16,6 +18,13 @@ static void convert(struct ycl_ctx *ycl, struct ycl_msg *msg, FILE *out,
   char portbuf[8];
   struct sockaddr *sa;
   socklen_t salen;
+  const char *fields[5];
+  buf_t buf;
+
+  if (!buf_init(&buf, 1024)) {
+    fprintf(stderr, "buf_init failure\n");
+    return;
+  }
 
   while (ycl_readmsg(ycl, msg, in) == YCL_OK) {
     ret = ycl_msg_parse_banner(msg, &banner);
@@ -33,11 +42,22 @@ static void convert(struct ycl_ctx *ycl, struct ycl_msg *msg, FILE *out,
       continue;
     }
 
-    /* FIXME: Encode CSV */
-    fprintf(out, "%s,%s,%s,%s,%zu\n", addrbuf, portbuf, banner.name.data,
-        tcpproto_type_to_string((enum tcpproto_type)banner.mpid),
-        banner.banner.len);
+    buf_clear(&buf);
+    fields[0] = banner.name.data;
+    fields[1] = addrbuf;
+    fields[2] = "tcp";
+    fields[3] = portbuf;
+    fields[4] = tcpproto_type_to_string((enum tcpproto_type)banner.mpid);
+    ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
+    if (ret != 0) {
+      fprintf(stderr, "csv_encode failure\n");
+      break; /* memory error - don't bother continuing */
+    }
+
+    fwrite(buf.data, buf.len, 1, out);
   }
+
+  buf_cleanup(&buf);
 }
 
 int services_report(struct report_opts *opts) {

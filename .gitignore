@@ -14,6 +14,7 @@ apps/sc2/sc2
 apps/scgi_demo/scgi_demo
 apps/store/store
 apps/stored/stored
+apps/sysinfoapi/sysinfoapi
 apps/yans/yans
 data/yans-fe/index.html
 data/yans/ycfg.yans
@@ -45,4 +46,3 @@ tools/yclgen/parser.c
 tools/yclgen/parser.h
 tools/yclgen/tokens.c
 tools/yclgen/tokens.h
-apps/sysinfoapi/sysinfoapi

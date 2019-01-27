@@ -1,4 +1,5 @@
 lib/util/buf.o: lib/util/buf.c lib/util/buf.h
+lib/util/csv.o: lib/util/csv.c lib/util/csv.h
 lib/util/eds.o: lib/util/eds.c lib/util/eds.h lib/util/io.h
 lib/util/flagset.o: lib/util/flagset.c lib/util/flagset.h
 lib/util/idset.o: lib/util/idset.c lib/util/idset.h
@@ -20,6 +21,11 @@ lib/util/zfile.o: lib/util/zfile.c lib/util/zfile.h
 
 lib/util/reset.o: lib/util/reset.cc
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_lib_util_reset) -c $< -o $@
+
+lib/util/csv_test: $(lib_util_csv_test_DEPSOBJS) \
+		$(lib_util_csv_test_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(lib_util_csv_test_DEPSOBJS) \
+		$(lib_util_csv_test_OBJS) $(LDFLAGS)
 
 lib/util/flagset_test: $(lib_util_flagset_test_DEPSOBJS) \
 		$(lib_util_flagset_test_OBJS)

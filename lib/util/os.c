@@ -54,55 +54,62 @@ const char *os_strerror(os_t *os) {
 
 int os_mkdirp(os_t *os, const char *path, mode_t mode, uid_t owner,
     gid_t group) {
-  size_t pathlen = strlen(path);
+  char buf[2048];
+  char *curr;
+  size_t pathlen;
+
   CLEARERRBUF(os);
-  {
-    char buf[pathlen+1], *curr;
 
-    if (path == NULL || pathlen == 0) {
-      return OS_OK;
-    }
+  if (path == NULL || *path == '\0') {
+    return OS_OK; /* creating nothing successfully */
+  }
 
-    strncpy(buf, path, pathlen+1);
+  pathlen = strlen(path);
+  if (pathlen >= sizeof(buf)) {
+    os_seterr(os, "%s: path too long", __func__);
+    return OS_ERR;
+  }
 
-    /* trim trailing slashes */
-    for(curr = buf+pathlen-1; curr > buf && *curr == '/'; curr--) {
+  strncpy(buf, path, pathlen+1);
+
+  /* trim trailing slashes */
+  for(curr = buf+pathlen-1; curr > buf && *curr == '/'; curr--) {
+    *curr = '\0';
+  }
+
+  if (curr == buf) {
+    return OS_OK;
+  }
+
+  for(curr = buf+1; *curr != '\0'; curr++) {
+    if (*curr == '/') {
       *curr = '\0';
-    }
-
-    if (curr == buf) {
-      return OS_OK;
-    }
-
-    for(curr = buf+1; *curr != '\0'; curr++) {
-      if (*curr == '/') {
-        *curr = '\0';
-        if (mkdir(buf, mode) == 0) {
-          if (chown(buf, owner, group) != 0) {
-            os_setpatherr(os, "chown", buf, "%s", strerror(errno));
-            return OS_ERR;
-          }
-        } else if (errno != EEXIST && errno != EISDIR) {
-          os_setpatherr(os, "mkdir", buf, "%s", strerror(errno));
+      if (mkdir(buf, mode) == 0) {
+        if (chown(buf, owner, group) != 0) {
+          os_setpatherr(os, "chown", buf, "%s", strerror(errno));
           return OS_ERR;
         }
-        *curr = '/';
-        while (curr[1] == '/') {
-          curr++;
-        }
-      }
-    }
-
-    if (mkdir(buf, mode) == 0) {
-      if (chown(buf, owner, group) != 0) {
-        os_setpatherr(os, "chown", buf, "%s", strerror(errno));
+      } else if (errno != EEXIST && errno != EISDIR) {
+        os_setpatherr(os, "mkdir", buf, "%s", strerror(errno));
         return OS_ERR;
       }
-    } else if (errno != EEXIST && errno != EISDIR) {
-      os_setpatherr(os, "mkdir", buf, "%s", strerror(errno));
-      return OS_ERR;
+      *curr = '/';
+      while (curr[1] == '/') {
+        curr++;
+      }
     }
   }
+
+  if (mkdir(buf, mode) == 0) {
+    if (chown(buf, owner, group) != 0) {
+      os_setpatherr(os, "chown", buf, "%s", strerror(errno));
+      return OS_ERR;
+    }
+  } else if (errno != EEXIST && errno != EISDIR) {
+    os_setpatherr(os, "mkdir", buf, "%s", strerror(errno));
+    return OS_ERR;
+  }
+
   return OS_OK;
 }
 

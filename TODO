@@ -1,4 +1,7 @@
 
+When an eds service is forcefully killed, it will not start up again because
+the PID files are left in place. Have rc-files clear old pidfiles?
+
 ## ergonomics
 change:
 printf 'www.google.com www.sydsvenskan.se www.reddit.com www.trololo.com' | dnstres 2 > resolved

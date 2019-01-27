@@ -9,6 +9,7 @@ apps/fc2/fc2
 apps/grab-banners/grab-banners
 apps/kneg/kneg
 apps/knegd/knegd
+apps/mkreport/mkreport
 apps/sc2/sc2
 apps/scgi_demo/scgi_demo
 apps/store/store

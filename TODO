@@ -1,3 +1,22 @@
+
+## ergonomics
+change:
+printf 'www.google.com www.sydsvenskan.se www.reddit.com www.trololo.com' | dnstres 2 > resolved
+grab-banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 < resolved | tee banners.plain
+grab-banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 --tls < resolved | tee banners.tls
+mkreport -t services -o services.result banners.plain banners.tls
+mkreport -t certs -o services.result banners.plain banners.tls
+
+to:
+printf 'www.google.com www.sydsvenskan.se www.reddit.com www.trololo.com' | scan resolve > resolved
+scan banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 < resolved | tee banners.plain
+scan banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 --tls < resolved | tee banners.tls
+scan aggregate -t banner-data --in-banners banners.plain \
+    --in-banners banners.tls --out-certs certs --out-services services
+scan report --in-services services --out-services services.csv
+
+support: stores, i/o-compression
+
 ## grab-banners,reaplan,tcpsrc
 
 kng_mod_fini, eds:stop_service_listeners - make sure it works the way it
@@ -13,7 +32,7 @@ lua: use as little Lua as possible. Long-term goal: remove it completly.
 tcpsrc: Implement TCPSRC_ALLOW, TCPSRC_DISALLOW. Make ioctl device-/system
   wide and have rc script setting ranges at boot?
 tcpsrc: have separate device for ALLOW/DISALLOW? Should not be possible
-  to change from sandbox
+  to change from sandbox (e.g., /dev/tcpsrc, /dev/tcpsrc-ctl)
 
 ## unsorted
 

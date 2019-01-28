@@ -1,7 +1,3 @@
-
-When an eds service is forcefully killed, it will not start up again because
-the PID files are left in place. Have rc-files clear old pidfiles?
-
 ## ergonomics
 change:
 printf 'www.google.com www.sydsvenskan.se www.reddit.com www.trololo.com' | dnstres 2 > resolved
@@ -18,7 +14,9 @@ scan aggregate -t banner-data --in-banners banners.plain \
     --in-banners banners.tls --out-certs certs --out-services services
 scan report --in-services services --out-services services.csv
 
-support: stores, i/o-compression
+maybe have report be a case of aggregate
+
+support: stores, i/o w/, w/o compression, from stdio or files (in or outside of stores)
 
 ## grab-banners,reaplan,tcpsrc
 

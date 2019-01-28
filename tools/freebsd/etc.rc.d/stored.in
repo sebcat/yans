@@ -5,16 +5,6 @@
 
 . /etc/rc.subr
 
-# Creating the user:
-#   pw useradd stored -d /nonexistent -g yans -s /usr/sbin/nologin
-#
-# Add the yansgroup if not already present
-#   pw groupadd yans
-#
-#   pw -R <rootdir> ... for images/buildroots/jails
-#
-# The daemon drops user privs itself, which is why stored_user, stored_group
-# is not used
 : ${stored_enable:="no"}
 : ${stored_duser:="stored"}
 : ${stored_dgroup:="yans"}
@@ -38,6 +28,17 @@ stored_precmd()
       -d "${stored_basepath}" || {
     err 1 "Failed to create ${stored_basepath}"
   }
+
+  if [ -f "$pidfile" ]; then
+    local pid=$(check_pidfile "$pidfile" "$command")
+    if [ -z "$pid" ]; then
+      warn "Removing stale pidfile"
+      rm "$pidfile"
+    else
+      # Shouldn't happen due to the way rc works, but check for it anyway
+      err 1 "Already running at $pid"
+    fi
+  fi
 
   return 0
 }

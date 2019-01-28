@@ -1,0 +1,13 @@
+Creating a user:
+  pw useradd <user> -d /nonexistent -g yans -s /usr/sbin/nologin
+
+Add the group if not already present
+  pw groupadd yans
+
+When working with buildroots/jails/images, prefix with:
+  pw -R <rootdir> ...
+
+The daemon drops user privs itself, which is why the rc scripts use
+<name>_duser and <name>_dgroup instead of <name>_user, <name>_group. There
+may be a better way to do this.
+

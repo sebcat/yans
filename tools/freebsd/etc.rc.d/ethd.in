@@ -5,33 +5,11 @@
 
 . /etc/rc.subr
 
-# Creating the user:
-#   pw useradd ethd -d /nonexistent  -g yans -s /usr/sbin/nologin
-#
-# Add the yansgroup if not already present
-#   pw groupadd yans
-#
-#   pw -R <rootdir> ... for images/buildroots/jails
-#
-# The daemon drops user privs itself, which is why ethd_user, ethd_group
-# is not used
 : ${ethd_enable:="no"}
 : ${ethd_duser:="ethd"}
 : ${ethd_dgroup:="yans"}
 : ${ystatedir:="@LOCALSTATEDIR@/yans"}
 : ${ethd_basepath:="${ystatedir}/ethd"}
-
-# devfs needs to be mounted inside the chroot of ethd so that
-# it is possible for ethd to access the bpf device. The ID
-# of this ruleset must be set in /etc/rc.conf.
-#
-# NB: if the ruleset is set but the ID does not exist in /etc/devfs.rules
-#     a new one will be used, with no hidden devices. This is bad.
-#
-# example ruleset:
-#   [ethdrules=67]
-#   add hide
-#   add path bpf user ethd mode 600 unhide
 : ${ethd_devfs_ruleset:=""}
 
 name="ethd"
@@ -84,6 +62,17 @@ ethd_precmd()
     [ -e "${ethd_basepath}/dev/mem" -o -e "${ethd_basepath}/dev/kmem" ] &&
       err 1 "a too permissive devfs is mounted for ethd"
   }
+
+  if [ -f "$pidfile" ]; then
+    local pid=$(check_pidfile "$pidfile" "$command")
+    if [ -z "$pid" ]; then
+      warn "Removing stale pidfile"
+      rm "$pidfile"
+    else
+      # Shouldn't happen due to the way rc works, but check for it anyway
+      err 1 "Already running at $pid"
+    fi
+  fi
 
   return 0
 }

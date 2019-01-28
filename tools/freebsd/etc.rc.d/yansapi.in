@@ -5,16 +5,6 @@
 
 . /etc/rc.subr
 
-# Creating the user:
-#   pw useradd yansapi -d /nonexistent -g yans -s /usr/sbin/nologin
-#
-# Add the yansgroup if not already present
-#   pw groupadd yans
-#
-#   pw -R <rootdir> ... for images/buildroots/jails
-#
-# The daemon drops user privs itself, which is why yansapi_user, yansapi_group
-# is not used
 : ${yansapi_enable:="no"}
 : ${yansapi_duser:="yansapi"}
 : ${yansapi_dgroup:="yans"}
@@ -33,6 +23,17 @@ yansapi_precmd()
   install -m 775 -o root -g yans -d "${yansapi_basepath}" || {
     err 1 "Failed to create ${yansapi_basepath}"
   }
+
+  if [ -f "$pidfile" ]; then
+    local pid=$(check_pidfile "$pidfile" "$command")
+    if [ -z "$pid" ]; then
+      warn "Removing stale pidfile"
+      rm "$pidfile"
+    else
+      # Shouldn't happen due to the way rc works, but check for it anyway
+      err 1 "Already running at $pid"
+    fi
+  fi
 
   return 0
 }

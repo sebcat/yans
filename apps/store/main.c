@@ -8,14 +8,8 @@
 
 #include <lib/util/sandbox.h>
 #include <lib/util/sindex.h>
-#include <lib/ycl/ycl.h>
-#include <lib/ycl/ycl_msg.h>
+#include <lib/ycl/storecli.h>
 
-#ifndef LOCALSTATEDIR
-#define LOCALSTATEDIR "/var"
-#endif
-
-#define DFL_STOREPATH LOCALSTATEDIR "/yans/stored/stored.sock"
 #define DFL_INDEX_NELEMS 25
 
 static char databuf_[32768]; /* get/put buffer */
@@ -49,76 +43,29 @@ fail:
   return -1;
 }
 
-static int run_get(const char *socket, const char *id, const char *filename) {
+static int run_get(const char *socket, const char *id, const char *path) {
   int ret;
   int result = -1;
   int getfd = -1;
-  struct ycl_ctx ctx;
-  struct ycl_msg msg;
-  struct ycl_msg_store_req reqmsg = {{0}};
-  struct ycl_msg_status_resp respmsg = {{0}};
-  struct ycl_msg_store_entered_req openmsg = {{0}};
+  struct ycl_ctx ycl;
+  struct ycl_msg msgbuf;
+  struct storecli_ctx cli;
 
-  ret = setup_ycl_state(&ctx, socket, &msg);
+  ret = setup_ycl_state(&ycl, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  reqmsg.action.data = "enter";
-  reqmsg.action.len = sizeof("enter") - 1;
-  reqmsg.store_id.data = id;
-  reqmsg.store_id.len = strlen(id);
-  ret = ycl_msg_create_store_req(&msg, &reqmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+  storecli_init(&cli, &ycl, &msgbuf);
+  ret = storecli_enter(&cli, id, NULL, 0);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_enter: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
 
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ycl_msg_reset(&msg);
-  ret = ycl_recvmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive enter response: %s\n",
-        ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_msg_parse_status_resp(&msg, &respmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to parse enter response\n");
-    goto ycl_msg_cleanup;
-  }
-
-  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
-    fprintf(stderr, "received failure: %s\n", respmsg.errmsg.data);
-    goto ycl_msg_cleanup;
-  }
-
-  openmsg.action.data = "open";
-  openmsg.action.len = 5;
-  openmsg.open_path.data = filename;
-  openmsg.open_path.len = strlen(filename);
-  openmsg.open_flags = O_RDONLY;
-  ret = ycl_msg_create_store_entered_req(&msg, &openmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to serialize open request\n");
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to send open request: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_recvfd(&ctx, &getfd);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive fd: %s\n", ycl_strerror(&ctx));
+  ret = storecli_open(&cli, path, O_RDONLY, &getfd);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_open: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -166,90 +113,42 @@ write_again:
 getfd_cleanup:
   close(getfd);
 ycl_msg_cleanup:
-  ycl_msg_cleanup(&msg);
-  ycl_close(&ctx);
+  ycl_msg_cleanup(&msgbuf);
+  ycl_close(&ycl);
   return result;
 }
 
 static int run_put(const char *socket, const char *id, const char *name,
-    const char *filename, int flags) {
+    const char *path, int flags) {
   int ret;
   int result = -1;
   int putfd = -1;
-  struct ycl_ctx ctx;
-  struct ycl_msg msg;
-  struct ycl_msg_store_req reqmsg = {{0}};
-  struct ycl_msg_status_resp respmsg = {{0}};
-  struct ycl_msg_store_entered_req openmsg = {{0}};
+  struct ycl_ctx ycl;
+  struct ycl_msg msgbuf;
+  struct storecli_ctx cli;
   static time_t *no_see;
+  const char *set_id;
 
-  ret = setup_ycl_state(&ctx, socket, &msg);
+  ret = setup_ycl_state(&ycl, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  reqmsg.action.data = "enter";
-  reqmsg.action.len = sizeof("enter") - 1;
-  reqmsg.store_id.data = id;
-  reqmsg.store_id.len = id ? strlen(id) : 0;
-  reqmsg.name.data = name;
-  reqmsg.name.len = name ? strlen(name) : 0;
-  reqmsg.indexed = (long)time(no_see);
-  ret = ycl_msg_create_store_req(&msg, &reqmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+  storecli_init(&cli, &ycl, &msgbuf);
+  ret = storecli_enter(&cli, id, name, (long)time(no_see));
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_enter: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
 
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
+  set_id = storecli_entered_id(&cli);
+  if (*set_id != '\0') {
+    printf("%s\n", set_id);
   }
 
-  ycl_msg_reset(&msg);
-  ret = ycl_recvmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive enter response: %s\n",
-        ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_msg_parse_status_resp(&msg, &respmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to parse enter response\n");
-    goto ycl_msg_cleanup;
-  }
-
-  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
-    fprintf(stderr, "received failure: %s\n", respmsg.errmsg.data);
-    goto ycl_msg_cleanup;
-  }
-
-  if (respmsg.okmsg.data != NULL && *respmsg.okmsg.data != '\0') {
-    printf("%s\n", respmsg.okmsg.data);
-  }
-
-  openmsg.action.data = "open";
-  openmsg.action.len = 5;
-  openmsg.open_path.data = filename;
-  openmsg.open_path.len = strlen(filename);
-  openmsg.open_flags = flags;
-  ret = ycl_msg_create_store_entered_req(&msg, &openmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to serialize open request\n");
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to send open request: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_recvfd(&ctx, &putfd);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive fd: %s\n", ycl_strerror(&ctx));
+  ret = storecli_open(&cli, path, flags, &putfd);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_open: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -297,8 +196,8 @@ write_again:
 putfd_cleanup:
   close(putfd);
 ycl_msg_cleanup:
-  ycl_msg_cleanup(&msg);
-  ycl_close(&ctx);
+  ycl_msg_cleanup(&msgbuf);
+  ycl_close(&ycl);
   return result;
 }
 
@@ -422,7 +321,7 @@ static int put_main(int argc, char *argv[], int flags) {
   int ch;
   int ret;
   const char *optstr = "hs:i:n:";
-  const char *socket = DFL_STOREPATH;
+  const char *socket = STORECLI_DFLPATH;
   const char *id = NULL;
   const char *filename = NULL;
   const char *name = NULL;
@@ -469,7 +368,7 @@ usage:
       "  -s|--socket <path>   store socket path (%s)\n"
       "  -i|--id     <id>     store ID\n"
       "  -n|--name   <name>   store name\n",
-      argv[0], argv[1], DFL_STOREPATH);
+      argv[0], argv[1], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 }
 
@@ -477,7 +376,7 @@ static int get_main(int argc, char *argv[]) {
   int ch;
   int ret;
   const char *optstr = "hs:";
-  const char *socket = DFL_STOREPATH;
+  const char *socket = STORECLI_DFLPATH;
   const char *id = NULL;
   const char *filename = NULL;
   struct option longopts[] = {
@@ -519,7 +418,7 @@ usage:
   fprintf(stderr, "usage: %s get [opts] <id> <name>\n"
       "opts:\n"
       "  -s|--socket   store socket path (%s)\n",
-      argv[0], DFL_STOREPATH);
+      argv[0], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 }
 
@@ -607,7 +506,7 @@ static int index_main(int argc, char *argv[]) {
   int ret;
   size_t before = 0;
   size_t nelems = DFL_INDEX_NELEMS;
-  const char *socket = DFL_STOREPATH;
+  const char *socket = STORECLI_DFLPATH;
   const char *optstr = "hs:b:n:";
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
@@ -646,7 +545,7 @@ usage:
       "  -s|--socket   store socket path (%s)\n"
       "  -b|--before   where to page from\n"
       "  -n|--nelems   number of elements to get (%d)\n",
-      argv[0], DFL_STOREPATH, DFL_INDEX_NELEMS);
+      argv[0], STORECLI_DFLPATH, DFL_INDEX_NELEMS);
   return EXIT_FAILURE;
 }
 
@@ -654,7 +553,7 @@ int list_main(int argc, char *argv[]) {
   int ch;
   int ret;
   const char *optstr = "hs:m:";
-  const char *socket = DFL_STOREPATH;
+  const char *socket = STORECLI_DFLPATH;
   const char *must_match = NULL;
   const char *id = NULL;
   struct option longopts[] = {
@@ -693,7 +592,7 @@ usage:
       "opts:\n"
       "  -s|--socket       store socket path (%s)\n"
       "  -m|--must-match   POSIX ERE for filtering the response\n",
-      argv[0], DFL_STOREPATH);
+      argv[0], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 
 }
@@ -798,7 +697,7 @@ int rename_main(int argc, char *argv[]) {
   int ch;
   int ret;
   const char *optstr = "hs:";
-  const char *socket = DFL_STOREPATH;
+  const char *socket = STORECLI_DFLPATH;
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
@@ -833,7 +732,7 @@ usage:
       "opts:\n"
       "  -s|--socket       store socket path (%s)\n"
       "  -h|--help       this text\n",
-      argv[0], DFL_STOREPATH);
+      argv[0], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 }
 

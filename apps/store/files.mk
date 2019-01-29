@@ -4,8 +4,9 @@ store_DEPS = \
     lib/util/netstring.c \
     lib/util/sandbox.c \
     lib/util/sindex.c \
+    lib/ycl/storecli.c \
     lib/ycl/ycl_msg.c \
-    lib/ycl/ycl.c \
+    lib/ycl/ycl.c
 
 store_DEPSOBJS = ${store_DEPS:.c=.o}
 

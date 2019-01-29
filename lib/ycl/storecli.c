@@ -85,3 +85,77 @@ int storecli_open(struct storecli_ctx *ctx, const char *path, int flags,
 
   return STORECLI_OK;
 }
+
+int storecli_index(struct storecli_ctx *ctx, size_t before, size_t nelems,
+    int *outfd) {
+  struct ycl_msg_store_req reqmsg = {{0}};
+  int ret;
+
+  reqmsg.action.data = "index";
+  reqmsg.action.len = sizeof("index") - 1;
+  ret = ycl_msg_create_store_req(ctx->msgbuf, &reqmsg);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, "ycl_msg_create_store_enter failure");
+    return STORECLI_ERR;
+  }
+
+  ret = ycl_sendmsg(ctx->ycl, ctx->msgbuf);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, ycl_strerror(ctx->ycl));
+    return STORECLI_ERR;
+  }
+
+  ycl_msg_reset(ctx->msgbuf);
+  ret = ycl_recvfd(ctx->ycl, outfd);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, ycl_strerror(ctx->ycl));
+    return STORECLI_OK;
+  }
+
+  return STORECLI_OK;
+}
+
+int storecli_rename(struct storecli_ctx *ctx, const char *from,
+    const char *to) {
+  struct ycl_msg_store_entered_req renamemsg = {{0}};
+  struct ycl_msg_status_resp respmsg = {{0}};
+  int ret;
+
+  renamemsg.action.data = "rename";
+  renamemsg.action.len = 7;
+  renamemsg.rename_from.data = from;
+  renamemsg.rename_from.len = from ? strlen(from) : 0;
+  renamemsg.rename_to.data = to;
+  renamemsg.rename_to.len = to ? strlen(to) : 0;
+  ret = ycl_msg_create_store_entered_req(ctx->msgbuf, &renamemsg);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, "failed to serialize rename request");
+    return STORECLI_ERR;
+  }
+
+  ret = ycl_sendmsg(ctx->ycl, ctx->msgbuf);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, ycl_strerror(ctx->ycl));
+    return STORECLI_ERR;
+  }
+
+  ycl_msg_reset(ctx->msgbuf);
+  ret = ycl_recvmsg(ctx->ycl, ctx->msgbuf);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, ycl_strerror(ctx->ycl));
+    return STORECLI_ERR;
+  }
+
+  ret = ycl_msg_parse_status_resp(ctx->msgbuf, &respmsg);
+  if (ret != YCL_OK) {
+    storecli_seterr(ctx, "failed to parse rename response\n");
+    return STORECLI_ERR;
+  }
+
+  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
+    storecli_seterr(ctx, respmsg.errmsg.data);
+    return STORECLI_OK;
+  }
+
+  return STORECLI_OK;
+}

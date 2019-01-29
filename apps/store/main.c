@@ -273,7 +273,7 @@ static int run_list(const char *socket, const char *id,
   reqmsg.list_must_match.len = must_match ? strlen(must_match) : 0;
   ret = ycl_msg_create_store_req(&msg, &reqmsg);
   if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+    fprintf(stderr, "ycl_msg_create_store_req failure\n");
     goto ycl_msg_cleanup;
   }
 
@@ -286,7 +286,7 @@ static int run_list(const char *socket, const char *id,
   ycl_msg_reset(&msg);
   ret = ycl_recvmsg(&ctx, &msg);
   if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive enter response: %s\n",
+    fprintf(stderr, "failed to receive req response: %s\n",
         ycl_strerror(&ctx));
     goto ycl_msg_cleanup;
   }
@@ -423,9 +423,9 @@ usage:
 }
 
 static int run_index(const char *socket, size_t before, size_t nelems) {
-  struct ycl_ctx ctx;
-  struct ycl_msg msg;
-  struct ycl_msg_store_req reqmsg = {{0}};
+  struct ycl_ctx ycl;
+  struct ycl_msg msgbuf;
+  struct storecli_ctx cli;
   int result = -1;
   int ret;
   int indexfd;
@@ -436,30 +436,15 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   size_t last = 0;
   size_t i;
 
-  ret = setup_ycl_state(&ctx, socket, &msg);
+  ret = setup_ycl_state(&ycl, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  reqmsg.action.data = "index";
-  reqmsg.action.len = sizeof("index") - 1;
-  ret = ycl_msg_create_store_req(&msg, &reqmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ycl_msg_reset(&msg);
-
-  ret = ycl_recvfd(&ctx, &indexfd);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_recvfd: %s\n", ycl_strerror(&ctx));
+  storecli_init(&cli, &ycl, &msgbuf);
+  ret = storecli_index(&cli, before, nelems, &indexfd);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_open: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -496,8 +481,8 @@ elems_cleanup:
 fp_cleanup:
   fclose(fp);
 ycl_msg_cleanup:
-  ycl_msg_cleanup(&msg);
-  ycl_close(&ctx);
+  ycl_msg_cleanup(&msgbuf);
+  ycl_close(&ycl);
   return result;
 }
 
@@ -601,95 +586,32 @@ int run_rename(const char *socket, const char *id, const char *from,
     const char *to) {
   int ret;
   int result = -1;
-  struct ycl_ctx ctx;
-  struct ycl_msg msg;
-  struct ycl_msg_store_req reqmsg = {{0}};
-  struct ycl_msg_status_resp respmsg = {{0}};
-  struct ycl_msg_store_entered_req renamemsg = {{0}};
+  struct ycl_ctx ycl;
+  struct ycl_msg msgbuf;
+  struct storecli_ctx cli;
 
-  ret = setup_ycl_state(&ctx, socket, &msg);
+  ret = setup_ycl_state(&ycl, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  reqmsg.action.data = "enter";
-  reqmsg.action.len = sizeof("enter") - 1;
-  reqmsg.store_id.data = id;
-  reqmsg.store_id.len = id ? strlen(id) : 0;
-  ret = ycl_msg_create_store_req(&msg, &reqmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_create_store_enter failure\n");
+  storecli_init(&cli, &ycl, &msgbuf);
+  ret = storecli_enter(&cli, id, NULL, 0);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_enter: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
 
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
+  ret = storecli_rename(&cli, from, to);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_rename: %s\n", storecli_geterr(&cli));
     goto ycl_msg_cleanup;
   }
-
-  ycl_msg_reset(&msg);
-  ret = ycl_recvmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive enter response: %s\n",
-        ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_msg_parse_status_resp(&msg, &respmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to parse enter response\n");
-    goto ycl_msg_cleanup;
-  }
-
-  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
-    fprintf(stderr, "received failure: %s\n", respmsg.errmsg.data);
-    goto ycl_msg_cleanup;
-  }
-
-  renamemsg.action.data = "rename";
-  renamemsg.action.len = 7;
-  renamemsg.rename_from.data = from;
-  renamemsg.rename_from.len = strlen(from);
-  renamemsg.rename_to.data = to;
-  renamemsg.rename_to.len = strlen(to);
-  ret = ycl_msg_create_store_entered_req(&msg, &renamemsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to serialize rename request\n");
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to send rename request: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ycl_msg_reset(&msg);
-  ret = ycl_recvmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive rename response: %s\n",
-        ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  memset(&respmsg, 0, sizeof(respmsg));
-  ret = ycl_msg_parse_status_resp(&msg, &respmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to parse rename response\n");
-    goto ycl_msg_cleanup;
-  }
-
-  if (respmsg.errmsg.data != NULL && *respmsg.errmsg.data != '\0') {
-    fprintf(stderr, "%s\n", respmsg.errmsg.data);
-    goto ycl_msg_cleanup;
-  }
-
 
   result = 0;
 ycl_msg_cleanup:
-  ycl_msg_cleanup(&msg);
-  ycl_close(&ctx);
+  ycl_msg_cleanup(&msgbuf);
+  ycl_close(&ycl);
   return result;
 }
 

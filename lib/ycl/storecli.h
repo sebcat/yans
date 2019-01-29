@@ -42,6 +42,10 @@ int storecli_enter(struct storecli_ctx *ctx, const char *id,
     const char *name, long indexed);
 int storecli_open(struct storecli_ctx *ctx, const char *path, int flags,
     int *outfd);
+int storecli_index(struct storecli_ctx *ctx, size_t before, size_t nelems,
+    int *outfd);
+int storecli_rename(struct storecli_ctx *ctx, const char *from,
+    const char *to);
 
 
 #endif

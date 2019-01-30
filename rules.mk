@@ -23,3 +23,4 @@ include data/yans/rules.mk
 include data/yans-fe/rules.mk
 include apps/sysinfoapi/rules.mk
 include apps/mkreport/rules.mk
+include apps/scan/rules.mk

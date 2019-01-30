@@ -59,13 +59,13 @@ static int run_get(const char *socket, const char *id, const char *path) {
   storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_enter(&cli, id, NULL, 0);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_enter: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_enter: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
   ret = storecli_open(&cli, path, O_RDONLY, &getfd);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_open: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_open: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -137,7 +137,7 @@ static int run_put(const char *socket, const char *id, const char *name,
   storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_enter(&cli, id, name, (long)time(no_see));
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_enter: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_enter: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -148,7 +148,7 @@ static int run_put(const char *socket, const char *id, const char *name,
 
   ret = storecli_open(&cli, path, flags, &putfd);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_open: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_open: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -444,7 +444,7 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_index(&cli, before, nelems, &indexfd);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_open: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_open: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -598,13 +598,13 @@ int run_rename(const char *socket, const char *id, const char *from,
   storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_enter(&cli, id, NULL, 0);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_enter: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_enter: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
   ret = storecli_rename(&cli, from, to);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_rename: %s\n", storecli_geterr(&cli));
+    fprintf(stderr, "storecli_rename: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 

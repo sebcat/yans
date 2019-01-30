@@ -30,7 +30,7 @@ static inline void storecli_init(struct storecli_ctx *ctx,
   ctx->entered_id[0] = '\0';
 }
 
-static inline const char *storecli_geterr(struct storecli_ctx *ctx) {
+static inline const char *storecli_strerror(struct storecli_ctx *ctx) {
   return ctx->err != NULL ? ctx->err : "no/unknown storecli error";
 }
 

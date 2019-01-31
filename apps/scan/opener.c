@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <lib/util/zfile.h>
 #include <lib/ycl/storecli.h>
@@ -11,28 +12,20 @@
 /* opener_ctx flags */
 #define OPENERCTXF_INITEDYCL (1 << 0)
 
-struct opener_ctx {
-  /* internal */
-  struct storecli_ctx cli;
-  struct ycl_ctx ycl;
-  struct ycl_msg msgbuf; /* don't use directly - use opts.msgbuf instead */
-  struct opener_opts opts;
-  const char *err;
-  int flags;
-};
-
-static struct opener_ctx opener_;
-
-static inline int opener_error(const char *err) {
-  opener_.err = err;
+static inline int opener_error(struct opener_ctx *ctx, const char *err) {
+  ctx->err = err;
   return -1;
 }
 
-int opener_init(struct opener_opts *opts) {
-  struct opener_ctx *ctx = &opener_;
+int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
   int ret;
 
   ctx->opts = *opts;
+  if (ctx->opts.store_id != NULL && *ctx->opts.store_id == '\0') {
+    /* if store_id is set, it needs to be a non-empty string */
+    ctx->opts.store_id = NULL;
+  }
+
   /* Check if we have a store ID set. If we do we'll use the store */
   if (ctx->opts.store_id != NULL) {
     /* If no socket path was supplied we'll use the default one */
@@ -45,7 +38,7 @@ int opener_init(struct opener_opts *opts) {
     if (ctx->opts.msgbuf == NULL) {
       ret = ycl_msg_init(&ctx->msgbuf);
       if (ret != YCL_OK) {
-        return opener_error("cl_msg_init failure");
+        return opener_error(ctx, "cl_msg_init failure");
       }
       ctx->opts.msgbuf = &ctx->msgbuf;
     }
@@ -53,7 +46,7 @@ int opener_init(struct opener_opts *opts) {
     /* Connect to the store */
     ret = ycl_connect(&ctx->ycl, ctx->opts.socket);
     if (ret != YCL_OK) {
-      return opener_error(ycl_strerror(&ctx->ycl));
+      return opener_error(ctx, ycl_strerror(&ctx->ycl));
     }
 
     /* Mark YCL as inited for the cleanup function */
@@ -68,17 +61,15 @@ int opener_init(struct opener_opts *opts) {
      * string for now, or copy the string in the future. */
     ret = storecli_enter(&ctx->cli, ctx->opts.store_id, NULL, 0);
     if (ret < 0) {
-      opener_cleanup();
-      return opener_error("store enter error");
+      opener_cleanup(ctx);
+      return opener_error(ctx, "store enter error");
     }
   }
 
   return 0;
 }
 
-void opener_cleanup() {
-  struct opener_ctx *ctx = &opener_;
-
+void opener_cleanup(struct opener_ctx *ctx) {
   if (ctx->opts.msgbuf == &ctx->msgbuf) {
     /* we inited our own msgbuf - clean up*/
     ycl_msg_cleanup(&ctx->msgbuf);
@@ -141,38 +132,56 @@ static int modestr2flags(const char *modestr, int *outflags) {
   return 0;
 }
 
-int opener_fopen(const char *path, const char *mode, int flags,
-    FILE **outfp) {
-  struct opener_ctx *ctx = &opener_;
+int opener_fopen(struct opener_ctx *ctx, const char *path,
+    const char *mode, FILE **outfp) {
   int ret;
   int oflags;
   int fd;
   FILE *fp;
+  int use_zlib = 0;
+
+  assert(path != NULL);
+  assert(mode != NULL);
+  assert(outfp != NULL);
+
+  /* Files starting with zlib: are special - they are opened for compressed
+   * reading/writing. The zlib:prefix is not a part of the actual name. */
+  if (strncmp(path, "zlib:", 5) == 0) {
+    path += 5;
+    use_zlib = 1;
+  }
 
   /* Parse the mode string to open(2) flags*/
   ret = modestr2flags(mode, &oflags);
   if (ret < 0) {
-    return opener_error("invalid mode string");
+    return opener_error(ctx, "invalid mode string");
   }
 
-  /* Open the file descriptor */
-  if (ctx->opts.store_id == NULL) {
-    /* no store - open normally */
-    fd = open(path, oflags);
+  /* Open/set the file descriptor */
+  if (path[0] == '-' && path[1] == '\0') {
+    /* use standard in/out */
+    if (oflags & O_RDONLY) {
+      fd = STDIN_FILENO;
+    } else {
+      fd = STDOUT_FILENO;
+    }
+  } else if (ctx->opts.store_id == NULL) {
+    /* no store - open normally. Default to rwxr-xr-x */
+    fd = open(path, oflags, 0755);
     if (fd < 0) {
-      return opener_error(strerror(errno));
+      return opener_error(ctx, strerror(errno));
     }
   } else {
     /* use store for opening */
     ret = storecli_open(&ctx->cli, path, oflags, &fd);
     if (ret == STORECLI_ERR) {
-      return opener_error(storecli_strerror(&ctx->cli));
+      return opener_error(ctx, storecli_strerror(&ctx->cli));
     }
   }
 
-  /* Open compressed or uncompressed depending on flags */
-  if (((flags & OPENERF_COMPRESS_IN)  && (oflags & (O_RDWR|O_RDONLY))) ||
-      ((flags & OPENERF_COMPRESS_OUT) && (oflags & (O_RDWR|O_WRONLY)))) {
+  /* Open compressed or uncompressed depending on whether the zlib: prefix
+   *  is set or not */
+  if (use_zlib) {
     fp = zfile_fdopen(fd, mode);
   } else {
     fp = fdopen(fd, mode);
@@ -180,14 +189,13 @@ int opener_fopen(const char *path, const char *mode, int flags,
 
   if (fp == NULL) {
     close(fd);
-    return opener_error("fdopen failure"); /* or zfile_fdopen, w/e */
+    return opener_error(ctx, "fdopen failure"); /* or zfile_fdopen, w/e */
   }
 
   *outfp = fp;
   return 0;
 }
 
-const char *opener_strerr() {
-  struct opener_ctx *ctx = &opener_;
+const char *opener_strerr(struct opener_ctx *ctx) {
   return ctx->err;
 }

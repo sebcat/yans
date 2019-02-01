@@ -16,6 +16,7 @@
 #define STORECLI_MAXENTERED 64
 
 struct storecli_ctx {
+  /* internal */
   struct ycl_ctx *ycl;
   struct ycl_msg *msgbuf;
   const char *err;
@@ -31,7 +32,7 @@ static inline void storecli_init(struct storecli_ctx *ctx,
 }
 
 static inline const char *storecli_strerror(struct storecli_ctx *ctx) {
-  return ctx->err != NULL ? ctx->err : "no/unknown storecli error";
+  return ctx->err != NULL ? ctx->err : "no/unknown error";
 }
 
 static inline const char *storecli_entered_id(struct storecli_ctx *ctx) {

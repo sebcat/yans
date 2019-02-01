@@ -63,7 +63,7 @@ usage:
       "%s <command> [options]\n"
       "commands:\n"
       , argv[0]);
-  for (i = 0; ncmds_ ; i++) {
+  for (i = 0; i < ncmds_ ; i++) {
     fprintf(stderr, "  %s - %s\n", cmds_[i].name, cmds_[i].desc);
   }
 

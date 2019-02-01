@@ -22,6 +22,8 @@ struct opener_ctx {
 
 int opener_init(struct opener_ctx *ctx, struct opener_opts *opts);
 void opener_cleanup(struct opener_ctx *ctx);
+int opener_open(struct opener_ctx *ctx, const char *path, int flags,
+    int *use_zlib, int *outfd);
 int opener_fopen(struct opener_ctx *ctx, const char *path,
     const char *mode, FILE **fp);
 const char *opener_strerr(struct opener_ctx *ctx);

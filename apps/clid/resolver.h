@@ -9,6 +9,7 @@ struct resolver_cli {
   int flags;
   struct ycl_ctx ycl;
   struct ycl_msg msgbuf;
+  int resfd;
   FILE *resfile; /* the result will be written here, received from client */
   int closefds[2]; /* socketpair fds to signal complete */
   const char *hosts; /* pointer into parsed msgbuf containing hosts */

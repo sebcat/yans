@@ -209,6 +209,20 @@ static void on_readreq(struct eds_client *cli, int fd) {
     goto fail;
   }
 
+  /* create the FILE* for writing (un-)compressed data to the file
+   * descriptor received earlier */
+  if (req.compress) {
+    ecli->resfile = zfile_fdopen(ecli->resfd, "wb");
+  } else {
+    ecli->resfile = fdopen(ecli->resfd, "wb");
+  }
+  if (ecli->resfile == NULL) {
+    LOGERR("resolvercli%d: unable to open result file", fd);
+    goto fail;
+  }
+  ecli->resfd = -1;
+
+
   /* create the socketpair that will be used to signal when the resolving
    * is done */
   ret = socketpair(AF_UNIX, SOCK_STREAM, 0, ecli->closefds);
@@ -222,35 +236,27 @@ static void on_readreq(struct eds_client *cli, int fd) {
   eds_client_set_on_writable(cli, on_sendclosefd, 0);
   return;
 fail:
+  if (ecli->resfd >= 0) {
+    close(ecli->resfd);
+    ecli->resfd = -1;
+  }
   eds_client_clear_actions(cli);
 }
 
 static void on_readfd(struct eds_client *cli, int fd) {
   struct resolver_cli *ecli = RESOLVER_CLI(cli);
-  int resfd = -1;
   int ret;
 
   /* receive the file descriptor that will receive the resolved hosts */
-  ret = ycl_recvfd(&ecli->ycl, &resfd);
+  ret = ycl_recvfd(&ecli->ycl, &ecli->resfd);
   if (ret == YCL_AGAIN) {
     return;
   } else if (ret != YCL_OK) {
-    goto fail;
-  }
-
-  /* create the FILE* for writing compressed data to fd */
-  ecli->resfile = zfile_fdopen(resfd, "wb");
-  if (ecli->resfile == NULL) {
-    LOGERR("resolvercli%d: unable to open result file", fd);
-    goto cleanup_resfd;
+    eds_client_clear_actions(cli);
+    return;
   }
 
   eds_client_set_on_readable(cli, on_readreq, 0);
-  return;
-cleanup_resfd:
-  close(resfd);
-fail:
-  eds_client_clear_actions(cli);
 }
 
 void resolver_on_readable(struct eds_client *cli, int fd) {
@@ -296,7 +302,6 @@ void resolver_cli_cleanup(struct resolver_cli *ecli) {
 
   ecli->hosts = NULL; /* points into ecli->msgbuf, free handled separately */
 }
-
 
 void resolver_on_done(struct eds_client *cli, int fd) {
   struct resolver_cli *ecli = RESOLVER_CLI(cli);

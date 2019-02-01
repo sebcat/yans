@@ -62,7 +62,7 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
     ret = storecli_enter(&ctx->cli, ctx->opts.store_id, NULL, 0);
     if (ret < 0) {
       opener_cleanup(ctx);
-      return opener_error(ctx, "store enter error");
+      return opener_error(ctx, "unable to enter store");
     }
   }
 
@@ -132,6 +132,51 @@ static int modestr2flags(const char *modestr, int *outflags) {
   return 0;
 }
 
+
+
+int opener_open(struct opener_ctx *ctx, const char *path, int flags,
+    int *use_zlib, int *outfd) {
+  int fd;
+  int ret;
+
+  assert(ctx != NULL);
+  assert(path != NULL);
+
+  /* Files starting with zlib: are special - they are opened for compressed
+   * reading/writing. The zlib:prefix is not a part of the actual name. */
+  if (strncmp(path, "zlib:", 5) == 0) {
+    path += 5;
+    if (use_zlib) {
+      *use_zlib = 1;
+    }
+  }
+
+  /* Open/set the file descriptor */
+  if (path[0] == '-' && path[1] == '\0') {
+    /* use standard in/out */
+    if ((flags & O_ACCMODE) == O_RDONLY) {
+      fd = STDIN_FILENO;
+    } else {
+      fd = STDOUT_FILENO;
+    }
+  } else if (ctx->opts.store_id == NULL) {
+    /* no store - open normally. Default to rwxr-xr-x */
+    fd = open(path, flags, 0755);
+    if (fd < 0) {
+      return opener_error(ctx, strerror(errno));
+    }
+  } else {
+    /* use store for opening */
+    ret = storecli_open(&ctx->cli, path, flags, &fd);
+    if (ret == STORECLI_ERR) {
+      return opener_error(ctx, storecli_strerror(&ctx->cli));
+    }
+  }
+
+  *outfd = fd;
+  return 0;
+}
+
 int opener_fopen(struct opener_ctx *ctx, const char *path,
     const char *mode, FILE **outfp) {
   int ret;
@@ -144,43 +189,20 @@ int opener_fopen(struct opener_ctx *ctx, const char *path,
   assert(mode != NULL);
   assert(outfp != NULL);
 
-  /* Files starting with zlib: are special - they are opened for compressed
-   * reading/writing. The zlib:prefix is not a part of the actual name. */
-  if (strncmp(path, "zlib:", 5) == 0) {
-    path += 5;
-    use_zlib = 1;
-  }
-
   /* Parse the mode string to open(2) flags*/
   ret = modestr2flags(mode, &oflags);
   if (ret < 0) {
     return opener_error(ctx, "invalid mode string");
   }
 
-  /* Open/set the file descriptor */
-  if (path[0] == '-' && path[1] == '\0') {
-    /* use standard in/out */
-    if (oflags & O_RDONLY) {
-      fd = STDIN_FILENO;
-    } else {
-      fd = STDOUT_FILENO;
-    }
-  } else if (ctx->opts.store_id == NULL) {
-    /* no store - open normally. Default to rwxr-xr-x */
-    fd = open(path, oflags, 0755);
-    if (fd < 0) {
-      return opener_error(ctx, strerror(errno));
-    }
-  } else {
-    /* use store for opening */
-    ret = storecli_open(&ctx->cli, path, oflags, &fd);
-    if (ret == STORECLI_ERR) {
-      return opener_error(ctx, storecli_strerror(&ctx->cli));
-    }
+  /* Open a file descriptor. opener_open sets the error, if any. */
+  ret = opener_open(ctx, path, oflags, &use_zlib, &fd);
+  if (ret != 0) {
+    return ret;
   }
 
-  /* Open compressed or uncompressed depending on whether the zlib: prefix
-   *  is set or not */
+  /* Use compression or not, depending on whether the zlib: prefix
+   * is set */
   if (use_zlib) {
     fp = zfile_fdopen(fd, mode);
   } else {

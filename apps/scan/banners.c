@@ -143,6 +143,9 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
     case 'd':
       opts->bgrab.mdelay_per_tick = strtol(optarg, NULL, 10);
       break;
+    case 'i':
+      opts->inpath = optarg;
+      break;
     case 'o':
       opts->outpath = optarg;
       break;

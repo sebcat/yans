@@ -1,12 +1,15 @@
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 #include <apps/scan/resolve.h>
+#include <apps/scan/banners.h>
 #include <apps/scan/scan.h>
 
 static struct scan_ctx scan_;
 static struct scan_cmd cmds_[] = {
   {"resolve", resolve_main, "Resolve any names in a set of host-specs"},
+  {"banners", banners_main, "Grab banners from remote destinations"},
 };
 static size_t ncmds_ = sizeof(cmds_) / sizeof(*cmds_);
 
@@ -38,6 +41,10 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "opener_init failure: %s\n", opener_strerr(opener));
     goto ycl_msg_cleanup;
   }
+
+  /* ignore SIGPIPE, caused by writes on a file descriptor where the peer
+   * has closed the connection */
+  signal(SIGPIPE, SIG_IGN);
 
   /* lookup the command in argv[1] and call its callback, if any. If no
    * callback is found then status will be EXIT_FAILURE */

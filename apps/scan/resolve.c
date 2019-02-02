@@ -69,8 +69,8 @@ end:
 int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *optstr = "i:o:s:X";
   static const struct option lopts[] = {
-    {"input",      required_argument, NULL, 'i'},
-    {"output",     required_argument, NULL, 'o'},
+    {"in",         required_argument, NULL, 'i'},
+    {"out",        required_argument, NULL, 'o'},
     {"socket",     required_argument, NULL, 's'},
     {"no-sandbox", no_argument,       NULL, 'X'},
     {NULL, 0 , NULL, 0},
@@ -159,7 +159,7 @@ end_ycl_close:
 end:
   return status;
 usage:
-  fprintf(stderr, "%s %s [--input <in>] [--output <out>]\n", argv0,
+  fprintf(stderr, "%s %s [--in <in>] [--out <out>]\n", argv0,
       argv[1]);
   return EXIT_FAILURE;
 }

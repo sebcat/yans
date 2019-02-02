@@ -4,16 +4,10 @@
 #include <lib/util/lines.h>
 #include <lib/util/zfile.h>
 
-#define LINES_CHUNKSIZE (1024 * 128) /* number of bytes in a chunk */
+#define LINES_CHUNKSIZE (1024 * 512) /* number of bytes in a chunk */
 
-int lines_init(struct lines_ctx *ctx, int fd, int flags) {
-  FILE *fp;
+int lines_init(struct lines_ctx *ctx, FILE *fp) {
   char *data;
-
-  fp = (flags & LINES_FCOMPR) ? zfile_fdopen(fd, "rb") : fdopen(fd, "rb");
-  if (fp == NULL) {
-    return LINES_EOPEN;
-  }
 
   data = malloc(LINES_CHUNKSIZE + 1); /* + 1 for trailing \0 byte */
   if (data == NULL) {
@@ -125,8 +119,6 @@ const char *lines_strerror(int err) {
     return "continue";
   case LINES_OK:
     return "ok";
-  case LINES_EOPEN:
-    return "open failure";
   case LINES_ENOMEM:
     return "no memory";
   case LINES_EREAD:

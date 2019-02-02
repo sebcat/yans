@@ -11,15 +11,11 @@
  * - Lines are mutable
  */
 
-/* option flags */
-#define LINES_FCOMPR (1 << 0) /* decompress data from 'fd' */
-
 /* status codes */
 #define LINES_CONTINUE     1
 #define LINES_OK           0
-#define LINES_EOPEN       -1
-#define LINES_ENOMEM      -2
-#define LINES_EREAD       -3
+#define LINES_ENOMEM      -1
+#define LINES_EREAD       -2
 
 #define LINES_IS_ERR(x) (x < 0)
 
@@ -33,7 +29,7 @@ struct lines_ctx {
   char *data;     /* chunk of file */
 };
 
-int lines_init(struct lines_ctx *ctx, int fd, int flags);
+int lines_init(struct lines_ctx *ctx, FILE *fp);
 void lines_cleanup(struct lines_ctx *ctx);
 int lines_next_chunk(struct lines_ctx *ctx);
 int lines_next(struct lines_ctx *ctx, char **out, size_t *outlen);

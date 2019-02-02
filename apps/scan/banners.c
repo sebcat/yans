@@ -8,19 +8,19 @@
 
 #include <openssl/ssl.h>
 
-#include <apps/grab-banners/bgrab.h>
 #include <lib/util/lines.h>
 #include <lib/util/sandbox.h>
 #include <lib/util/str.h>
 #include <lib/util/zfile.h>
+#include <apps/scan/bgrab.h>
+#include <apps/scan/banners.h>
 
 #define DFL_NCLIENTS    16 /* maxumum number of concurrent connections */
 #define DFL_TIMEOUT      9 /* maximum connection lifetime, in seconds */
 #define DFL_CONNECTS_PER_TICK 8
 #define DFL_MDELAY_PER_TICK 500
-
-#define COMPRESS_INPUT  (1 << 0)
-#define COMPRESS_OUTPUT (1 << 1)
+#define DFL_INPATH     "-"
+#define DFL_OUTPATH    "-"
 
 struct input_line {
   char *parts[2];
@@ -79,9 +79,9 @@ static void parse_input_line(char *line, char **dst, char **name) {
 struct opts {
   struct bgrab_opts bgrab;
   int no_sandbox;        /* 1 if the sandbox should be disabled */
-  int compress;          /* 1 if the output should be gzipped */
   int tls;               /* 1 if TLS should be used */
   int tls_verify;        /* 1 if only conns with valid certs are OK */
+  const char *inpath;
   const char *outpath;
   const char *ports;
   char *hostname;
@@ -93,7 +93,7 @@ static void print_bgrab_error(const char *err) {
 
 static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   int ch;
-  const char *optstring = "n:t:Xc:d:o:z:sKH:p:";
+  const char *optstring = "n:t:Xc:d:i:o:z:sKH:p:";
   const char *argv0;
   struct option optcfgs[] = {
     {"max-clients",       required_argument, NULL, 'n'},
@@ -101,8 +101,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
     {"no-sandbox",        no_argument,       NULL, 'X'},
     {"connects-per-tick", required_argument, NULL, 'c'},
     {"mdelay-per-tick",   required_argument, NULL, 'd'},
-    {"output-file",       required_argument, NULL, 'o'},
-    {"compress",          required_argument, NULL, 'z'},
+    {"in",                required_argument, NULL, 'i'},
+    {"out",               required_argument, NULL, 'o'},
     {"tls",               no_argument,       NULL, 's'},
     {"tls-verify",        no_argument,       NULL, 'K'},
     {"hostname",          required_argument, NULL, 'H'},
@@ -118,8 +118,8 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
   opts->bgrab.connects_per_tick = DFL_CONNECTS_PER_TICK;
   opts->bgrab.mdelay_per_tick = DFL_MDELAY_PER_TICK;
   opts->bgrab.on_error = print_bgrab_error;
-  opts->outpath = NULL;
-  opts->compress = 0;
+  opts->inpath = DFL_INPATH;
+  opts->outpath = DFL_OUTPATH;
   opts->tls = 0;
   opts->tls_verify = 0;
   opts->hostname = NULL;
@@ -145,18 +145,6 @@ static void opts_or_die(struct opts *opts, int argc, char *argv[]) {
       break;
     case 'o':
       opts->outpath = optarg;
-      break;
-    case 'z':
-      while ((ch = *optarg++) != '\0') {
-        if (ch == 'i') {
-          opts->compress |= COMPRESS_INPUT;
-        } else if (ch == 'o') {
-          opts->compress |= COMPRESS_OUTPUT;
-        } else {
-          fprintf(stderr, "invalid compression flag: %c\n", ch);
-          goto usage;
-        }
-      }
       break;
     case 's':
       opts->tls = 1;
@@ -208,7 +196,7 @@ usage:
   exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[]) {
+int banners_main(struct scan_ctx *scan, int argc, char *argv[]) {
   int ret;
   struct opts opts = {0};
   struct bgrab_ctx grabber;
@@ -216,69 +204,23 @@ int main(int argc, char *argv[]) {
   struct lines_ctx linebuf;
   int status = EXIT_FAILURE;
   FILE *outfile = NULL;
+  FILE *infile = NULL;
   SSL_CTX *ssl_ctx = NULL;
   int chunkret;
 
   /* parse command line arguments to option struct */
   opts_or_die(&opts, argc, argv);
 
-  /* if TLS is to be used, initiate the library and allocate the TLS
-   * context */
+  /* if TLS is to be used, initiate the library */
   if (opts.tls) {
     SSL_library_init();
-    ssl_ctx = SSL_CTX_new(SSLv23_client_method());
-    if (ssl_ctx == NULL) {
-      fprintf(stderr, "failed to initialize the TLS context\n");
-      return EXIT_FAILURE;
-    }
-
-    if (opts.tls_verify) {
-      SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL); 
-    } else {
-      SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL); 
-    }
   }
 
-  /* ignore SIGPIPE, caused by writes on a file descriptor where the peer
-   * has closed the connection */
-  signal(SIGPIPE, SIG_IGN);
-
-  /* initialice the TCP client connection source */
+  /* initialize the TCP client connection source */
   ret = tcpsrc_init(&tcpsrc);
   if (ret != 0) {
     perror("tcpsrc_init");
     goto done;
-  }
-
-  /* set-up the output file */
-  if (opts.outpath != NULL &&
-      opts.outpath[0] != '-' &&
-      opts.outpath[1] != '\0') {
-    if (opts.compress & COMPRESS_OUTPUT) {
-      outfile = zfile_open(opts.outpath, "wb");
-    } else {
-      outfile = fopen(opts.outpath, "wb");
-    }
-  } else if (opts.compress & COMPRESS_OUTPUT) {
-    outfile = zfile_fdopen(STDOUT_FILENO, "wb");
-  } else {
-    outfile = stdout;
-  }
-  if (outfile == NULL) {
-    if (errno == 0) {
-      fprintf(stderr, "failed to open output file\n");
-    } else {
-      fprintf(stderr, "failed to open output file: %s\n", strerror(errno));
-    }
-    goto done_tcpsrc_cleanup;
-  }
-
-  /* set-up the input file and the input line buffering */
-  ret = lines_init(&linebuf, STDIN_FILENO,
-      (opts.compress & COMPRESS_INPUT) ? LINES_FCOMPR : 0);
-  if (ret != LINES_OK) {
-    fprintf(stderr, "failed to set up input\n");
-    goto done_fclose_outfile;
   }
 
   /* enter sandbox mode unless sandbox is disabled */
@@ -288,8 +230,45 @@ int main(int argc, char *argv[]) {
     ret = sandbox_enter();
     if (ret != 0) {
       fprintf(stderr, "failed to enter sandbox mode\n");
-      goto done_lines_cleanup;
+      goto done_tcpsrc_cleanup;
     }
+  }
+
+  /* if TLS is to be used, initialize the TLS context. Done after
+   * sandbox_enter. */
+  if (opts.tls) {
+    ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+    if (ssl_ctx == NULL) {
+      fprintf(stderr, "failed to initialize the TLS context\n");
+      goto done_tcpsrc_cleanup;
+    }
+
+    if (opts.tls_verify) {
+      SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL); 
+    } else {
+      SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, NULL); 
+    }
+  }
+
+  ret = opener_fopen(&scan->opener, opts.outpath, "wb", &outfile);
+  if (ret < 0) {
+    fprintf(stderr, "opener_fopen output: %s\n",
+        opener_strerr(&scan->opener));
+    goto done_ssl_ctx_free;
+  }
+
+  ret = opener_fopen(&scan->opener, opts.inpath, "rb", &infile);
+  if (ret < 0) {
+    fprintf(stderr, "opener_fopen input: %s\n",
+        opener_strerr(&scan->opener));
+    goto done_fclose_outfile;
+  }
+
+  /* set-up the input line buffering */
+  ret = lines_init(&linebuf, infile);
+  if (ret != LINES_OK) {
+    fprintf(stderr, "failed to set up input line buffer\n");
+    goto done_fclose_infile;
   }
 
   /* initialize the banner grabber */
@@ -342,16 +321,16 @@ done_bgrab_cleanup:
   bgrab_cleanup(&grabber);
 done_lines_cleanup:
   lines_cleanup(&linebuf);
+done_fclose_infile:
+  fclose(infile);
 done_fclose_outfile:
-  if (outfile != stdout) {
-    fclose(outfile);
+  fclose(outfile);
+done_ssl_ctx_free:
+  if (ssl_ctx != NULL) {
+    SSL_CTX_free(ssl_ctx);
   }
 done_tcpsrc_cleanup:
   tcpsrc_cleanup(&tcpsrc);
 done:
-  if (ssl_ctx != NULL) {
-    SSL_CTX_free(ssl_ctx);
-  }
-
   return status;
 }

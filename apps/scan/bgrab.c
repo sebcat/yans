@@ -9,7 +9,7 @@
 #include <lib/net/reaplan.h>
 #include <lib/ycl/ycl_msg.h>
 
-#include <apps/grab-banners/bgrab.h>
+#include <apps/scan/bgrab.h>
 
 #define RECVBUF_SIZE         8192
 #define INITIAL_CERTBUF_SIZE 8192

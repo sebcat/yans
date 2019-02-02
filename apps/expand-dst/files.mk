@@ -17,4 +17,4 @@ expand_dst_OBJS = ${expand_dst_SOURCES:.c=.o}
 expand_dst_BIN = apps/expand-dst/expand-dst
 
 OBJS += $(expand_dst_OBJS)
-BINS += $(expand_dst_BIN)
+nodist_BINS += $(expand_dst_BIN)

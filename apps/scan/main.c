@@ -4,12 +4,13 @@
 
 #include <apps/scan/resolve.h>
 #include <apps/scan/banners.h>
-#include <apps/scan/scan.h>
+#include <apps/scan/collate.h>
 
 static struct scan_ctx scan_;
 static struct scan_cmd cmds_[] = {
   {"resolve", resolve_main, "Resolve any names in a set of host-specs"},
   {"banners", banners_main, "Grab banners from remote destinations"},
+  {"collate", collate_main, "Assemble, sort, deduplicate information"},
 };
 static size_t ncmds_ = sizeof(cmds_) / sizeof(*cmds_);
 

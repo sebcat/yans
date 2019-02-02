@@ -8,9 +8,9 @@ scan_DEPS     = lib/net/dsts.c lib/net/ip.c lib/net/ports.c \
 scan_DEPS_CC  = lib/util/reset.cc
 scan_DEPSOBJS = ${scan_DEPS:.c=.o} ${scan_DEPS_CC:.cc=.o}
 scan_SOURCES  = apps/scan/main.c apps/scan/opener.c apps/scan/resolve.c \
-                apps/scan/banners.c apps/scan/bgrab.c
+                apps/scan/banners.c apps/scan/bgrab.c apps/scan/collate.c
 scan_HEADERS  = apps/scan/opener.h apps/scan/resolve.h apps/scan/banners.h \
-                apps/scan/bgrab.h
+                apps/scan/bgrab.h apps/scan/collate.h
 scan_OBJS     = ${scan_SOURCES:.c=.o}
 scan_BIN      = apps/scan/scan
 scan_LDADD   != pkg-config --libs re2

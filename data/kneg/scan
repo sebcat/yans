@@ -1,0 +1,58 @@
+#!/bin/sh
+
+# PID of current child, if any
+CHILD=
+
+# Exit status of last child, if any
+STATUS=
+
+# TCP ports to check
+TCP_PORTS="21,22,25,53,80,110,143,443,465,990,993,995,6667-6669,6697,7000"
+
+byebye() {
+  if [ -n "$CHILD" ]; then
+    kill -TERM "$CHILD" 2>/dev/null
+    wait "$CHILD"
+  fi
+  printf "Caught HUP/INT/TERM - exiting\n"
+  exit 1
+}
+
+trap byebye HUP INT TERM
+
+run() {
+  printf "[%s] Starting %s\n" "$(date '+%Y-%m-%d %H:%M:%S %z')" "$*"
+  ( exec "$@" ) &
+  CHILD=$!
+  wait "$CHILD"
+  STATUS=$?
+  CHILD=
+  printf "[%s] Done, status: %s\n" "$(date '+%Y-%m-%d %H:%M:%S %z')" "$STATUS"
+}
+
+run scan resolve           \
+    --in  subject.txt      \
+    --out zlib:resolved.gz
+
+run scan banners                           \
+    --timeout         5                    \
+    --ports           "$TCP_PORTS"         \
+    --mdelay-per-tick 100                  \
+    --max-clients     256                  \
+    --in              zlib:resolved.gz     \
+    --out             zlib:banners.plain.gz
+
+run scan banners                          \
+    --tls                                 \
+    --timeout         5                   \
+    --ports           "$TCP_PORTS"        \
+    --mdelay-per-tick 100                 \
+    --max-clients     256                 \
+    --in              zlib:resolved.gz    \
+    --out             zlib:banners.tls.gz
+
+run scan collate                                  \
+    --type banners                                \
+    --in-banners   zlib:banners.plain.gz          \
+    --in-banners   zlib:banners.tls.gz            \
+    --out-services zlib:report-10-services.csv.gz

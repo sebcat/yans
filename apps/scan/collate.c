@@ -11,7 +11,7 @@
 #include <lib/net/tcpproto_types.h>
 #include <apps/scan/collate.h>
 
-#define MAX_INOUTS 16
+#define MAX_INOUTS 8
 #define MAX_FOPENS 128
 
 enum collate_type {
@@ -26,8 +26,8 @@ struct collate_opts {
   FILE *in_banners[MAX_INOUTS];
   size_t nin_banners;
 
-  FILE *out_services[MAX_INOUTS];
-  size_t nout_services;
+  FILE *out_services_csv[MAX_INOUTS];
+  size_t nout_services_csv;
 
   /* TODO: out_certs... */
 
@@ -85,9 +85,9 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
       }
 
       for (osvcsindex = 0;
-          osvcsindex < opts->nout_services;
+          osvcsindex < opts->nout_services_csv;
           osvcsindex++) {
-        fwrite(buf.data, buf.len, 1, opts->out_services[osvcsindex]);
+        fwrite(buf.data, buf.len, 1, opts->out_services_csv[osvcsindex]);
       }
     }
   }
@@ -146,11 +146,11 @@ static void usage(const char *argv0) {
   fprintf(stderr, "usage: %s collate <opts>\n"
       "opts:\n"
       "  -t|--type <name>\n"
-      "      collation type\n"
+      "      Collation type\n"
       "  -B|--in-banners <path>\n"
-      "      banner input\n"
-      "  -s|--out-services <path>\n"
-      "      services output\n"
+      "      Banner input\n"
+      "  -s|--out-services-csv <path>\n"
+      "      Services CSV output\n"
       ,argv0);
 }
 
@@ -167,7 +167,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   static const struct option lopts[] = {
     {"type",         required_argument, NULL, 't'},
     {"in-banners",   required_argument, NULL, 'B'},
-    {"out-services", required_argument, NULL, 's'},
+    {"out-services-csv", required_argument, NULL, 's'},
     {NULL, 0, NULL, 0}};
   int ch;
   int status = EXIT_FAILURE;
@@ -190,16 +190,16 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
       break;
-    case 's': /* out-services */
+    case 's': /* out-services-csv */
       ret = open_io(&opts, &scan->opener, optarg, "wb",
-          opts.out_services, &opts.nout_services);
+          opts.out_services_csv, &opts.nout_services_csv);
       if (ret < 0) {
         goto end;
       }
 
       tmpstr = "Name,Address,Transport,Port,Service\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
-          opts.out_services[opts.nout_services-1]);
+          opts.out_services_csv[opts.nout_services_csv-1]);
       break;
     default:
       usage(argv0);

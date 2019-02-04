@@ -7,7 +7,8 @@ CHILD=
 STATUS=
 
 # TCP ports to check
-TCP_PORTS="21,22,25,53,80,110,143,443,465,990,993,995,6667-6669,6697,7000"
+TCP_PORTS_PLAIN="21,22,25,53,80,110,143,443,6667-6669,7000"
+TCP_PORTS_TLS="80,443,465,990,993,995,6697"
 
 byebye() {
   if [ -n "$CHILD" ]; then
@@ -27,32 +28,40 @@ run() {
   wait "$CHILD"
   STATUS=$?
   CHILD=
-  printf "[%s] Done, status: %s\n" "$(date '+%Y-%m-%d %H:%M:%S %z')" "$STATUS"
+  if [ "$STATUS" -eq 0 ]; then
+    printf "[%s] Done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"
+  else
+    printf "[%s] Failed with status code: %s\n" \
+        "$(date '+%Y-%m-%d %H:%M:%S %z')" "$STATUS"
+  fi
 }
 
 run scan resolve           \
     --in  subject.txt      \
     --out zlib:resolved.gz
 
-run scan banners                           \
-    --timeout         5                    \
-    --ports           "$TCP_PORTS"         \
-    --mdelay-per-tick 100                  \
-    --max-clients     256                  \
-    --in              zlib:resolved.gz     \
+run scan banners                            \
+    --timeout         5                     \
+    --ports           "$TCP_PORTS_PLAIN"    \
+    --mdelay-per-tick 100                   \
+    --max-clients     256                   \
+    --in              zlib:resolved.gz      \
     --out             zlib:banners.plain.gz
 
 run scan banners                          \
     --tls                                 \
     --timeout         5                   \
-    --ports           "$TCP_PORTS"        \
+    --ports           "$TCP_PORTS_TLS"    \
     --mdelay-per-tick 100                 \
     --max-clients     256                 \
     --in              zlib:resolved.gz    \
     --out             zlib:banners.tls.gz
 
-run scan collate                                  \
-    --type banners                                \
-    --in-banners   zlib:banners.plain.gz          \
-    --in-banners   zlib:banners.tls.gz            \
-    --out-services zlib:report-10-services.csv.gz
+run scan collate                                      \
+    --type banners                                    \
+    --in-banners       zlib:banners.plain.gz          \
+    --in-banners       zlib:banners.tls.gz            \
+    --out-services-csv zlib:report-10-services.csv.gz
+
+
+printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

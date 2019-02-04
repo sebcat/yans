@@ -156,6 +156,7 @@ static void usage(const char *argv0) {
 
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   /* short opts: uppercase letters for inputs, if sane to do so */
+  const char *tmpstr;
   const char *argv0;
   const char *optstr = "t:B:s:";
   static struct collate_opts opts;
@@ -195,6 +196,10 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
       if (ret < 0) {
         goto end;
       }
+
+      tmpstr = "Name,Address,Transport,Port,Service\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_services[opts.nout_services-1]);
       break;
     default:
       usage(argv0);

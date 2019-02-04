@@ -13,3 +13,6 @@ add path fd unhide
 add path 'fd/*' unhide
 add path bpf user ethd mode 600 unhide
 
+[localrules=666]
+add path tcpsrc mode 0660 group yans
+

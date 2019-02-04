@@ -5,7 +5,7 @@ local Store       = require "svcs.store"
 local Kneg        = require "svcs.kneg"
 
 local DAEMON_NAME       = "yansapi"
-local DEFAULT_KNEG_TYPE = "scanny"
+local DEFAULT_KNEG_TYPE = "scan"
 
 local function atoi(s, def)
   return math.floor(tonumber(s) or def)
@@ -384,7 +384,11 @@ local function post_scan(ctx)
   store:open("job.json", file.O_WRONLY | file.O_CREAT |
       file.O_TRUNC):to_stream("wb"):write(tostring(req)):close()
 
-  -- Start kneg scan with same ID
+  -- store subject as a separate file too
+  store:open("subject.txt", file.O_WRONLY | file.O_CREAT |
+      file.O_TRUNC):to_stream("wb"):write(subject):close()
+
+  -- queue kneg with same ID
   kneg:queue{
     type = knegtype,
     id   = id,

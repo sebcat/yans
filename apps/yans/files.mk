@@ -1,7 +1,6 @@
 yans_DEPS = \
     3rd_party/lua.c \
     3rd_party/linenoise.c \
-    3rd_party/jansson.c \
     lib/util/ylog.c \
     lib/util/buf.c \
     lib/util/io.c \
@@ -54,8 +53,9 @@ yans_YANSTESTS = \
 
 yans_OBJS = ${yans_SOURCES:.c=.o}
 
+yans_LDADD != pkg-config --libs jansson
 yans_LDADD_Linux = -lseccomp
-yans_LDADD := -lz -lm ${yans_LDADD_${UNAME_S}}
+yans_LDADD += -lz -lm ${yans_LDADD_${UNAME_S}}
 
 yans_BIN = apps/yans/yans
 

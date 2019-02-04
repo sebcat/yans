@@ -4,6 +4,7 @@ lib/lua/eds.o: lib/lua/eds.c lib/lua/eds.h
 lib/lua/file.o: lib/lua/file.c lib/lua/file.h
 lib/lua/http.o: lib/lua/http.c lib/lua/http.h
 lib/lua/json.o: lib/lua/json.c lib/lua/json.h
+	$(CC) $(CFLAGS) $(lib_lua_json_CFLAGS) -c lib/lua/json.c -o $@
 lib/lua/net.o: lib/lua/net.c lib/lua/net.h
 lib/lua/opts.o: lib/lua/opts.c lib/lua/opts.h
 lib/lua/util.o: lib/lua/util.c lib/lua/util.h

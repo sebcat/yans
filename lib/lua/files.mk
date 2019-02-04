@@ -36,5 +36,7 @@ lib_lua_GENSRCS = \
 
 lib_lua_OBJS = ${lib_lua_SOURCES:.c=.o} ${lib_lua_CODEGEN:.c=.o}
 
+lib_lua_json_CFLAGS != pkg-config --cflags jansson
+
 OBJS += $(lib_lua_OBJS)
 CODEGEN += $(lib_lua_CODEGEN)

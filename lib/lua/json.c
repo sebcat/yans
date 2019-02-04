@@ -1,4 +1,4 @@
-#include <3rd_party/jansson.h>
+#include <jansson.h>
 #include <lib/lua/json.h>
 
 #define MTNAME_JSONT "json.T"

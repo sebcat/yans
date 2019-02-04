@@ -14,7 +14,7 @@ RM_F_PATHS="/usr/sbin/cxgbetool /etc/defaults/periodic.conf"
 : ${WORLDDIR:=/usr/src}
 : ${KERNCONF:=MYKERNEL}
 : ${SRCCONF:=$(pwd)/src.conf.installworld}
-: ${PKGS:=nginx}
+: ${PKGS:=nginx-lite jansson re2}
 
 [ -e "$MOUNTPOINT" ] && die "MOUNTPOINT exists"
 [ -z "$IMG" -o -e "$IMG" ] && die "missing IMG name or existing IMG"

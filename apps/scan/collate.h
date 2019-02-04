@@ -3,6 +3,6 @@
 
 #include <apps/scan/scan.h>
 
-int collate_main(struct scan_ctx *ctx, int argc, char **argv);
+int collate_main(struct scan_ctx *scan, int argc, char **argv);
 
 #endif

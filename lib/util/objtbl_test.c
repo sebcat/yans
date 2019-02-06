@@ -500,13 +500,12 @@ static int test_stats(struct opts *opts) {
   int ret;
   size_t i;
   size_t nelems;
-  struct testobj *val;
   struct objalloc_ctx objmem;
-  static const struct objalloc_opts objmemopts = { .nobjs = 1024,
-      .objsize = sizeof(struct testobj)};
+  struct objalloc_chunk *chk;
+  struct testobj *val;
 
   srand((unsigned int)opts->tblopts.hashseed);
-  objalloc_init(&objmem, &objmemopts);
+  objalloc_init(&objmem, 4096);
 
   for (nelems = 100;  nelems <= 100000; nelems *= 10) {
     ret = objtbl_init(&objtbl, &opts->tblopts, 8);
@@ -516,7 +515,8 @@ static int test_stats(struct opts *opts) {
     }
 
     for (i = 0; i < nelems; i++) {
-      val = objalloc_alloc(&objmem);
+      chk = objalloc_alloc(&objmem, sizeof(struct testobj));
+      val = (struct testobj *)chk->data;
       val->value = rand();
       snprintf(val->key, sizeof(val->key), "%x", val->value);
       ret = objtbl_insert(&objtbl, val);
@@ -549,7 +549,8 @@ static int test_stats(struct opts *opts) {
     }
 
     for (i = 0; i < nelems; i++) {
-      val = objalloc_alloc(&objmem);
+      chk = objalloc_alloc(&objmem, sizeof(struct testobj));
+      val = (struct testobj *)chk->data;
       val->value = rand();
       snprintf(val->key, sizeof(val->key), "%x", val->value);
       ret = objtbl_insert(&objtbl, val);

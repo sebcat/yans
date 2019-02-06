@@ -15,19 +15,16 @@ struct linfix_block {
   unsigned char data[];
 };
 
-struct linfix_opts {
-  unsigned int nobjs;   /* # of elements per block */
-  unsigned int objsize; /* # of bytes occupied by one element */
-};
-
 struct linfix_ctx {
-  struct linfix_opts opts;
+  unsigned int size;   /* # of bytes occupied by one element */
+  unsigned int nmemb;  /* # of elements per block */
   struct linfix_block *blks;
 };
 
-static inline void linfix_init(struct linfix_ctx *ctx,
-    const struct linfix_opts *opts) {
-  ctx->opts = *opts;
+static inline void linfix_init(struct linfix_ctx *ctx, unsigned int size,
+    unsigned int nmemb) {
+  ctx->size = size;
+  ctx->nmemb = nmemb;
   ctx->blks = NULL;
 }
 

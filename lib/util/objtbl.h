@@ -23,7 +23,7 @@ struct objtbl_entry {
 struct objtbl_opts {
   objtbl_hash_t hashseed; /* seed value for hash */
   objtbl_hash_t (*hashfunc)(void * /* obj */, objtbl_hash_t /* seed */);
-  int (*cmpfunc)(void * /* a */, void * /* b */);
+  int (*cmpfunc)(void * /* key */, void * /* entry */);
 };
 
 struct objtbl_header {

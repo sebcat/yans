@@ -502,11 +502,9 @@ static int test_stats(struct opts *opts) {
   size_t nelems;
   struct testobj *val;
   struct linfix_ctx objmem;
-  static const struct linfix_opts objmemopts = { .nobjs = 1024,
-      .objsize = sizeof(struct testobj)};
 
   srand((unsigned int)opts->tblopts.hashseed);
-  linfix_init(&objmem, &objmemopts);
+  linfix_init(&objmem, sizeof(struct testobj), 1024);
 
   for (nelems = 100;  nelems <= 100000; nelems *= 10) {
     ret = objtbl_init(&objtbl, &opts->tblopts, 8);

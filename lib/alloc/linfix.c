@@ -18,14 +18,12 @@ void linfix_cleanup(struct linfix_ctx *ctx) {
 }
 
 void *linfix_alloc(struct linfix_ctx *ctx) {
-  struct linfix_opts *opts;
   struct linfix_block *blk;
   unsigned char *dataptr;
   size_t size;
 
-  opts = &ctx->opts;
-  if (ctx->blks == NULL || ctx->blks->used == opts->nobjs) {
-    size = sizeof(struct linfix_block) + opts->nobjs * opts->objsize;
+  if (ctx->blks == NULL || ctx->blks->used == ctx->nmemb) {
+    size = sizeof(struct linfix_block) + ctx->nmemb * ctx->size;
     blk = calloc(1, size);
     if (blk == NULL) {
       return NULL;
@@ -36,7 +34,7 @@ void *linfix_alloc(struct linfix_ctx *ctx) {
   }
 
   blk = ctx->blks;
-  dataptr = blk->data + blk->used * ctx->opts.objsize;
+  dataptr = blk->data + blk->used * ctx->size;
   blk->used++;
   return dataptr;
 }

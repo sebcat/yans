@@ -4,14 +4,14 @@
 #include <sys/mman.h>
 #include <limits.h>
 
-#include <lib/util/objalloc.h>
+#include <lib/alloc/linvar.h>
 #include <lib/util/macros.h>
 
 /* Alignment must be powers of two */
 #define CHUNK_ALIGNMENT   (1 << 2)
 #define DFL_BLK_ALIGNMENT (1 << 12)
 
-void objalloc_init(struct objalloc_ctx *ctx, size_t blksize) {
+void linvar_init(struct linvar_ctx *ctx, size_t blksize) {
   long pagesz;
   size_t blkmask;
 
@@ -27,26 +27,26 @@ void objalloc_init(struct objalloc_ctx *ctx, size_t blksize) {
   ctx->blks = NULL;
 }
 
-void objalloc_cleanup(struct objalloc_ctx *ctx) {
-  struct objalloc_block *curr;
-  struct objalloc_block *next;
+void linvar_cleanup(struct linvar_ctx *ctx) {
+  struct linvar_block *curr;
+  struct linvar_block *next;
 
   if (ctx) {
     curr = ctx->blks;
     while (curr != NULL) {
       next = curr->next;
-      munmap(curr, curr->cap + sizeof(struct objalloc_block));
+      munmap(curr, curr->cap + sizeof(struct linvar_block));
       curr = next;
     }
   }
 }
 
-struct objalloc_chunk *objalloc_alloc(struct objalloc_ctx *ctx,
+struct linvar_chunk *linvar_alloc(struct linvar_ctx *ctx,
     size_t len) {
   size_t chunk_needed;
   size_t blk_needed;
-  struct objalloc_block *blk;
-  struct objalloc_chunk *chunk;
+  struct linvar_block *blk;
+  struct linvar_chunk *chunk;
 
   /* Make sure len is valid. The chunk header uses unsigned ints which may
    * be the same size as size_t. On such platforms, this check may
@@ -56,7 +56,7 @@ struct objalloc_chunk *objalloc_alloc(struct objalloc_ctx *ctx,
   }
 
   /* Calculate the number of bytes needed for this chunk. */
-  chunk_needed = (sizeof(struct objalloc_chunk) + len + CHUNK_ALIGNMENT - 1)
+  chunk_needed = (sizeof(struct linvar_chunk) + len + CHUNK_ALIGNMENT - 1)
       & ~(CHUNK_ALIGNMENT-1);
 
   /* Allocate a new block for this chunk if:
@@ -69,7 +69,7 @@ struct objalloc_chunk *objalloc_alloc(struct objalloc_ctx *ctx,
      *   1) The memory needed to contain an allocation, or
      *   2) The blocksize set up on init
      * whichever is higher */
-    blk_needed = (sizeof(struct objalloc_block) + chunk_needed +
+    blk_needed = (sizeof(struct linvar_block) + chunk_needed +
         ctx->blkmask) & ~(ctx->blkmask);
     if (ctx->blksize > blk_needed) {
       blk_needed = ctx->blksize;
@@ -85,13 +85,13 @@ struct objalloc_chunk *objalloc_alloc(struct objalloc_ctx *ctx,
     /* Initialize the fields of the newly allocated block and set it as
      * the current one */
     blk->next = ctx->blks;
-    blk->cap = blk_needed - sizeof(struct objalloc_block);
+    blk->cap = blk_needed - sizeof(struct linvar_block);
     blk->offset = 0;
     ctx->blks = blk;
   }
 
   blk = ctx->blks;
-  chunk = (struct objalloc_chunk *)(blk->chunks + blk->offset);
+  chunk = (struct linvar_chunk *)(blk->chunks + blk->offset);
   blk->offset += chunk_needed;
   return chunk;
 }

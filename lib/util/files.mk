@@ -43,7 +43,7 @@ lib_util_idtbl_test_DEPSOBJS = ${lib_util_idtbl_test_DEPS:.c=.o}
 lib_util_idtbl_test_SOURCES = lib/util/idtbl_test.c
 lib_util_idtbl_test_OBJS = ${lib_util_idtbl_test_SOURCES:.c=.o}
 
-lib_util_objtbl_test_DEPS = lib/util/objtbl.c lib/util/objalloc.c
+lib_util_objtbl_test_DEPS = lib/util/objtbl.c lib/alloc/linfix.c
 lib_util_objtbl_test_DEPSOBJS = ${lib_util_objtbl_test_DEPS:.c=.o}
 lib_util_objtbl_test_SOURCES = lib/util/objtbl_test.c
 lib_util_objtbl_test_OBJS = ${lib_util_objtbl_test_SOURCES:.c=.o}

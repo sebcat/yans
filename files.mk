@@ -3,6 +3,7 @@ include tools/freebsd/etc.rc.d/files.mk
 include tools/linux/systemd/files.mk
 include tools/yclgen/files.mk
 include apps/yans/files.mk
+include lib/alloc/files.mk
 include lib/util/files.mk
 include lib/lua/files.mk
 include lib/net/files.mk

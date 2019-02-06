@@ -7,7 +7,7 @@
 #include <string.h>
 #include <limits.h>
 
-#include <lib/util/objalloc.h>
+#include <lib/alloc/linfix.h>
 #include <lib/util/objtbl.h>
 
 #define LOG_FAILURE() \
@@ -500,12 +500,13 @@ static int test_stats(struct opts *opts) {
   int ret;
   size_t i;
   size_t nelems;
-  struct objalloc_ctx objmem;
-  struct objalloc_chunk *chk;
   struct testobj *val;
+  struct linfix_ctx objmem;
+  static const struct linfix_opts objmemopts = { .nobjs = 1024,
+      .objsize = sizeof(struct testobj)};
 
   srand((unsigned int)opts->tblopts.hashseed);
-  objalloc_init(&objmem, 4096);
+  linfix_init(&objmem, &objmemopts);
 
   for (nelems = 100;  nelems <= 100000; nelems *= 10) {
     ret = objtbl_init(&objtbl, &opts->tblopts, 8);
@@ -515,8 +516,7 @@ static int test_stats(struct opts *opts) {
     }
 
     for (i = 0; i < nelems; i++) {
-      chk = objalloc_alloc(&objmem, sizeof(struct testobj));
-      val = (struct testobj *)chk->data;
+      val = linfix_alloc(&objmem);
       val->value = rand();
       snprintf(val->key, sizeof(val->key), "%x", val->value);
       ret = objtbl_insert(&objtbl, val);
@@ -549,8 +549,7 @@ static int test_stats(struct opts *opts) {
     }
 
     for (i = 0; i < nelems; i++) {
-      chk = objalloc_alloc(&objmem, sizeof(struct testobj));
-      val = (struct testobj *)chk->data;
+      val = linfix_alloc(&objmem);
       val->value = rand();
       snprintf(val->key, sizeof(val->key), "%x", val->value);
       ret = objtbl_insert(&objtbl, val);
@@ -579,11 +578,11 @@ static int test_stats(struct opts *opts) {
 
   result = EXIT_SUCCESS;
 end:
-  objalloc_cleanup(&objmem);
+  linfix_cleanup(&objmem);
   return result;
 end_objtbl_cleanup:
   objtbl_cleanup(&objtbl);
-  objalloc_cleanup(&objmem);
+  linfix_cleanup(&objmem);
   return result;
 }
 

@@ -24,8 +24,7 @@ static int read_names(struct opener_ctx *opener, buf_t *buf,
 
   ret = opener_fopen(opener, infile, "rb", &fp);
   if (ret < 0) {
-    fprintf(stderr, "opener_fopen input: %s\n",
-        opener_strerr(opener));
+    fprintf(stderr, "%s: %s\n", infile, opener_strerr(opener));
     return -1;
   }
 
@@ -135,8 +134,7 @@ int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
   ret = opener_open(&scan->opener, outfile, O_WRONLY | O_CREAT,
     &use_zlib, &outfd);
   if (ret < 0) {
-    fprintf(stderr, "opener_fopen input: %s\n",
-        opener_strerr(&scan->opener));
+    fprintf(stderr, "%s: %s\n", outfile, opener_strerr(&scan->opener));
     goto end_buf_cleanup;
   }
 

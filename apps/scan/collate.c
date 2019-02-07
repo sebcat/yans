@@ -151,28 +151,32 @@ static void usage(const char *argv0) {
       "      Banner input\n"
       "  -s|--out-services-csv <path>\n"
       "      Services CSV output\n"
+      "  -X|--no-sandbox\n"
+      "      Disable sandbox\n"
       ,argv0);
 }
 
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
-  /* short opts: uppercase letters for inputs, if sane to do so */
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:s:";
+  const char *optstr = "t:B:s:X";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
     [COLLATE_BANNERS]  = banners,
   };
+  /* short opts: uppercase letters for inputs, if sane to do so */
   static const struct option lopts[] = {
-    {"type",         required_argument, NULL, 't'},
-    {"in-banners",   required_argument, NULL, 'B'},
+    {"type",             required_argument, NULL, 't'},
+    {"in-banners",       required_argument, NULL, 'B'},
     {"out-services-csv", required_argument, NULL, 's'},
+    {"no-sandbox",       no_argument,       NULL, 'X'},
     {NULL, 0, NULL, 0}};
   int ch;
   int status = EXIT_FAILURE;
   int ret;
   int i;
+  int sandbox = 1;
 
   argv0 = argv[0];
   argc--;
@@ -201,6 +205,9 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_services_csv[opts.nout_services_csv-1]);
       break;
+    case 'X':
+      sandbox = 0;
+      break;
     default:
       usage(argv0);
       goto end;
@@ -217,6 +224,16 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   if (func == NULL) {
     fprintf(stderr, "collation %d has no callback\n", opts.type);
     goto end;
+  }
+
+  if (sandbox) {
+    ret = sandbox_enter();
+    if (ret != 0) {
+      fprintf(stderr, "failed to enter sandbox mode\n");
+      goto end;
+    }
+  } else {
+    fprintf(stderr, "warning: sandbox disabled\n");
   }
 
   status = func(scan, &opts);

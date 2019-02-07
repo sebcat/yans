@@ -2,17 +2,27 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <netdb.h>
 
+#include <lib/alloc/linfix.h>
+#include <lib/alloc/linvar.h>
+
+#include <lib/util/objtbl.h>
+#include <lib/util/sandbox.h>
 #include <lib/util/csv.h>
 #include <lib/net/tcpproto_types.h>
 #include <apps/scan/collate.h>
 
 #define MAX_INOUTS 8
 #define MAX_FOPENS 128
+
+#define NMEMB_ADDR 4096 /* # address elements per allocation */
+#define LINVAR_BLKSIZE 1024 * 256 /* # bytes per allocation */
 
 enum collate_type {
   COLLATE_UNKNOWN = 0,
@@ -35,6 +45,97 @@ struct collate_opts {
   size_t nclosefps;
 };
 
+union saddr_t {
+  struct sockaddr sa;
+  struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
+};
+
+struct collate_addr {
+  union saddr_t saddr;
+  socklen_t len;
+};
+
+struct collate_service_flags {
+  unsigned int transport : 2;
+  unsigned int mpid : 14;
+  unsigned int fpid : 14;
+};
+
+struct collate_service {
+  struct collate_addr *addr;
+  const char *name;
+  struct collate_service_flags eflags;
+};
+
+/* linear allocators */
+struct linfix_ctx addrmem_;
+struct linvar_ctx varmem_;
+
+/* collation tables */
+struct objtbl_ctx addrtbl_;
+
+/* 32-bit FNV1a constants */
+#define FNV1A_OFFSET 0x811c9dc5
+#define FNV1A_PRIME   0x1000193
+
+objtbl_hash_t addrhash(void *obj, objtbl_hash_t seed) {
+  struct collate_addr *addr = obj;
+  const unsigned char *data = (const unsigned char *)&addr->saddr;
+  objtbl_hash_t hash = FNV1A_OFFSET;
+  size_t i;
+
+  for (i = 0; i < sizeof(objtbl_hash_t); i++) {
+    hash = (hash ^ (seed & 0xff)) * FNV1A_PRIME;
+    seed >>= 8;
+  }
+
+  for (i = 0; i < addr->len; i++) {
+    hash = (hash ^ data[i]) * FNV1A_PRIME;
+  }
+
+  return hash;
+}
+
+int addrcmp(void *k, void *e) {
+  struct collate_addr *key = k;
+  struct collate_addr *elem = e;
+
+  if (elem == NULL || key->len < elem->len) {
+    return 1;
+  } else if (key->len > elem->len) {
+    return -1;
+  }
+
+  return memcmp(&key->saddr, &elem->saddr, key->len);
+}
+
+struct collate_addr *upsert_addr(struct sockaddr *saddr,
+    socklen_t len) {
+  int ret;
+  struct collate_addr key;
+  void *val = NULL;
+  struct collate_addr *caddr;
+
+  if (saddr == NULL || len <= 0 || len > sizeof(union saddr_t)) {
+    return NULL;
+  }
+
+  memcpy(&key.saddr, saddr, len);
+  key.len = len;
+  ret = objtbl_get(&addrtbl_, &key, &val);
+  if (ret == OBJTBL_ENOTFOUND) {
+    caddr = linfix_alloc(&addrmem_);
+    memcpy(&caddr->saddr, saddr, len);
+    caddr->len = len;
+    objtbl_insert(&addrtbl_, caddr);
+  } else {
+    caddr = val;
+  }
+
+  return caddr;
+}
+
 static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
   size_t ibindex = 0;
   size_t osvcsindex = 0;
@@ -44,12 +145,22 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
   int ret;
   struct ycl_msg_banner banner;
   buf_t buf;
-  struct sockaddr *sa;
-  socklen_t salen;
   const char *fields[5];
   char addrbuf[128];
   char portbuf[8];
+  struct collate_addr *addr;
+  static struct objtbl_opts addrtblopts = {
+    .hashfunc = addrhash,
+    .cmpfunc = addrcmp,
+  };
 
+  /* TODO: do better */
+  srand(time(NULL));
+  addrtblopts.hashseed = rand();
+
+  linfix_init(&addrmem_, sizeof(struct collate_addr), NMEMB_ADDR);
+  linvar_init(&varmem_, LINVAR_BLKSIZE);
+  objtbl_init(&addrtbl_, &addrtblopts, NMEMB_ADDR);
   ycl_init(&ycl, YCL_NOFD);
   ycl_msg_init(&msg);
   if (!buf_init(&buf, 128 * 1024)) {
@@ -63,9 +174,13 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
         goto end;
       }
 
-      sa = (struct sockaddr *)banner.addr.data;
-      salen = (socklen_t)banner.addr.len;
-      ret = getnameinfo(sa, salen, addrbuf, sizeof(addrbuf),
+      addr = upsert_addr((struct sockaddr *)banner.addr.data,
+          (socklen_t)banner.addr.len);
+      if (addr == NULL) {
+        continue;
+      }
+
+      ret = getnameinfo(&addr->saddr.sa, addr->len, addrbuf, sizeof(addrbuf),
           portbuf, sizeof(portbuf), NI_NUMERICHOST | NI_NUMERICSERV);
       if (ret != 0) {
         fprintf(stderr, "getnameinfo: %s\n", gai_strerror(ret));
@@ -94,8 +209,12 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
 
   status = EXIT_SUCCESS;
 end:
+  buf_cleanup(&buf);
   ycl_msg_cleanup(&msg);
   ycl_close(&ycl);
+  objtbl_cleanup(&addrtbl_);
+  linvar_cleanup(&varmem_);
+  linfix_cleanup(&addrmem_);
   return status;
 }
 

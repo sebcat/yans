@@ -148,7 +148,7 @@ struct testobj test_values[] = {
 
 static objtbl_hash_t hashfunc(void *obj, objtbl_hash_t seed) {
   struct testobj *to = obj;
-  objtbl_hash_t hash = seed;
+  objtbl_hash_t hash = FNV1A_OFFSET;
   int i;
   size_t len;
 
@@ -161,6 +161,11 @@ static objtbl_hash_t hashfunc(void *obj, objtbl_hash_t seed) {
     return (objtbl_hash_t)INT_MAX;
   } else if (to->key[0] == 'd' && to->key[1] == '\0') {
     return (objtbl_hash_t)INT_MAX+1;
+  }
+
+  for (i = 0; i < sizeof(objtbl_hash_t); i++) {
+    hash = (hash ^ (seed & 0xff)) * FNV1A_PRIME;
+    seed >>= 8;
   }
 
   /* FNV1a hash the key! */

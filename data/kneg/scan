@@ -14,7 +14,7 @@ STATUS=
 : ${SCAN:=scan}
 
 # flags to use for all invocations of $SCAN
-: ${SCANFLAGS:=}
+: ${SCANOPTS:=}
 
 # initial input file
 : ${INPUT:=subject.txt}
@@ -46,12 +46,12 @@ run() {
 }
 
 run $SCAN resolve                   \
-    $SCANFLAGS                      \
+    $SCANOPTS                       \
     --in          "$INPUT"          \
     --out         zlib:resolved.gz
 
 run $SCAN banners                           \
-    $SCANFLAGS                              \
+    $SCANOPTS                               \
     --timeout         5                     \
     --ports           "$TCP_PORTS_PLAIN"    \
     --mdelay-per-tick 100                   \
@@ -60,7 +60,7 @@ run $SCAN banners                           \
     --out             zlib:banners.plain.gz
 
 run $SCAN banners                         \
-    $SCANFLAGS                            \
+    $SCANOPTS                             \
     --tls                                 \
     --timeout         5                   \
     --ports           "$TCP_PORTS_TLS"    \
@@ -70,7 +70,7 @@ run $SCAN banners                         \
     --out             zlib:banners.tls.gz
 
 run $SCAN collate                                     \
-    $SCANFLAGS                                        \
+    $SCANOPTS                                         \
     --type banners                                    \
     --in-banners       zlib:banners.plain.gz          \
     --in-banners       zlib:banners.tls.gz            \

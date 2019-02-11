@@ -100,7 +100,7 @@ void objtbl_cleanup(struct objtbl_ctx *tbl) {
   }
 }
 
-static objtbl_hash_t calchash(struct objtbl_ctx *tbl, void * keyobj) {
+static objtbl_hash_t calchash(struct objtbl_ctx *tbl, const void * keyobj) {
   objtbl_hash_t h;
 
   h = tbl->header.opts.hashfunc(keyobj, tbl->header.opts.hashseed);
@@ -112,7 +112,7 @@ static objtbl_hash_t calchash(struct objtbl_ctx *tbl, void * keyobj) {
 }
 
 static struct objtbl_entry *find_table_entry(struct objtbl_ctx *tbl,
-    void * keyobj) {
+    const void *keyobj) {
   uint32_t current_pos;
   uint32_t start_pos;
   uint32_t distance = 0;
@@ -146,7 +146,7 @@ static struct objtbl_entry *find_table_entry(struct objtbl_ctx *tbl,
   return NULL;
 }
 
-int objtbl_get(struct objtbl_ctx *tbl, void * keyobj, void **value) {
+int objtbl_get(struct objtbl_ctx *tbl, const void * keyobj, void **value) {
   struct objtbl_entry *ent;
 
   ent = find_table_entry(tbl, keyobj);
@@ -357,6 +357,10 @@ int distcmp(void *tbl, const void *a, const void *b) {
 #error "Missing qsort_r comparators (arg order varies between platforms)"
 #endif
 
+void objtbl_sort(struct objtbl_ctx *tbl) {
+  qsort_r(tbl->entries, tbl->header.cap, sizeof(struct objtbl_entry), tbl,
+      &keycmp);
+}
 
 int objtbl_calc_stats(struct objtbl_ctx *tbl, struct objtbl_stats *result) {
   struct objtbl_ctx dst;

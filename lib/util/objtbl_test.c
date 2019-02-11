@@ -146,8 +146,8 @@ struct testobj test_values[] = {
 #define FNV1A_OFFSET 0x811c9dc5
 #define FNV1A_PRIME   0x1000193
 
-static objtbl_hash_t hashfunc(void *obj, objtbl_hash_t seed) {
-  struct testobj *to = obj;
+static objtbl_hash_t hashfunc(const void *obj, objtbl_hash_t seed) {
+  const struct testobj *to = obj;
   objtbl_hash_t hash = FNV1A_OFFSET;
   int i;
   size_t len;
@@ -177,9 +177,9 @@ static objtbl_hash_t hashfunc(void *obj, objtbl_hash_t seed) {
   return hash;
 }
 
-static int cmpfunc(void *left, void *right) {
-  struct testobj *a = left;
-  struct testobj *b = right;
+static int cmpfunc(const void *left, const void *right) {
+  const struct testobj *a = left;
+  const struct testobj *b = right;
 
   return strcmp(a->key, b->key);
 }

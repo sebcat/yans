@@ -41,12 +41,11 @@ void linvar_cleanup(struct linvar_ctx *ctx) {
   }
 }
 
-struct linvar_chunk *linvar_alloc(struct linvar_ctx *ctx,
-    size_t len) {
+void *linvar_alloc(struct linvar_ctx *ctx, size_t len) {
   size_t chunk_needed;
   size_t blk_needed;
   struct linvar_block *blk;
-  struct linvar_chunk *chunk;
+  void *chunk;
 
   /* Make sure len is valid. The chunk header uses unsigned ints which may
    * be the same size as size_t. On such platforms, this check may
@@ -56,8 +55,7 @@ struct linvar_chunk *linvar_alloc(struct linvar_ctx *ctx,
   }
 
   /* Calculate the number of bytes needed for this chunk. */
-  chunk_needed = (sizeof(struct linvar_chunk) + len + CHUNK_ALIGNMENT - 1)
-      & ~(CHUNK_ALIGNMENT-1);
+  chunk_needed = (len + CHUNK_ALIGNMENT - 1) & ~(CHUNK_ALIGNMENT-1);
 
   /* Allocate a new block for this chunk if:
    *   1) No blocks are allocated, or
@@ -91,7 +89,8 @@ struct linvar_chunk *linvar_alloc(struct linvar_ctx *ctx,
   }
 
   blk = ctx->blks;
-  chunk = (struct linvar_chunk *)(blk->chunks + blk->offset);
+  chunk = blk->chunks + blk->offset;
   blk->offset += chunk_needed;
+  blk->cap -= chunk_needed;
   return chunk;
 }

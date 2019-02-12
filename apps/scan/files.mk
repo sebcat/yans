@@ -1,4 +1,4 @@
-scan_DEPS     = lib/alloc/linfix.c lib/alloc/linvar.c lib/net/dsts.c \
+scan_DEPS     = lib/alloc/linvar.c lib/net/dsts.c \
                 lib/net/ip.c lib/net/ports.c lib/net/reaplan.c \
                 lib/net/tcpproto_types.c lib/net/tcpproto.c \
                 lib/net/tcpsrc.c lib/util/buf.c lib/util/csv.c \

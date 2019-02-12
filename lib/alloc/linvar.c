@@ -3,9 +3,54 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <limits.h>
+#include <string.h>
 
 #include <lib/alloc/linvar.h>
 #include <lib/util/macros.h>
+
+#ifdef LINVAR_DBG
+/* malloc(3) backed implementation for debugging using valgrind or ASAN */
+
+void linvar_init(struct linvar_ctx *ctx, size_t blksize) {
+  memset(ctx, 0, sizeof(*ctx));
+}
+
+void linvar_cleanup(struct linvar_ctx *ctx) {
+  struct linvar_block *curr;
+  struct linvar_block *next;
+
+  if (ctx) {
+    curr = ctx->blks;
+    while (curr != NULL) {
+      next = curr->next;
+      free(curr);
+      curr = next;
+    }
+  }
+}
+
+void *linvar_alloc(struct linvar_ctx *ctx, size_t len) {
+  struct linvar_block *blk;
+  size_t newlen;
+
+  newlen = len + sizeof(struct linvar_block);
+  if (newlen < len) {
+    /* Overflow */
+    return NULL;
+  }
+
+  blk = malloc(newlen);
+  if (blk == NULL) {
+    return NULL;
+  }
+
+  memset(blk, 0, newlen);
+  blk->next = ctx->blks;
+  ctx->blks  = blk;
+  return blk->chunks;
+}
+
+#else /* LINVAR_DBG */
 
 /* Alignment must be powers of two */
 #define CHUNK_ALIGNMENT   (1 << 2)
@@ -94,3 +139,5 @@ void *linvar_alloc(struct linvar_ctx *ctx, size_t len) {
   blk->cap -= chunk_needed;
   return chunk;
 }
+
+#endif /* LINVAR_DBG */

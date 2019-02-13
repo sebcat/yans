@@ -1,11 +1,19 @@
 #include <time.h>
-#include <sys/param.h>
-#include <sys/mount.h>
 #include <string.h>
 #include <stdlib.h>
 
+#if defined(__FreeBSD__)
+#include <sys/param.h>
+#include <sys/mount.h>
+#elif defined(__linux__)
+#include <sys/statvfs.h>
+#include <sys/sysinfo.h>
+#endif
+
 #include <lib/util/macros.h>
 #include <lib/util/sysinfo.h>
+
+#if defined(__FreeBSD__)
 
 void sysinfo_get(struct sysinfo_data *data, const char *root) {
   struct timespec tv;
@@ -47,3 +55,48 @@ void sysinfo_get(struct sysinfo_data *data, const char *root) {
   /* get the load avg */
   getloadavg(data->loadavg, sizeof(data->loadavg)/sizeof(*data->loadavg));
 }
+
+#elif defined(__linux__)
+void sysinfo_get(struct sysinfo_data *data, const char *root) {
+  int ret;
+  int i;
+  struct statvfs f;
+  struct sysinfo si;
+  int64_t used;
+  int64_t availblks;
+  int64_t inodes;
+
+  memset(data, 0, sizeof(*data));
+  if (root == NULL || data == NULL) {
+    return;
+  }
+
+  /* get blocksize and inode info of data mount */
+  ret = statvfs(root, &f);
+  if (ret == 0) {
+    /* blocksize capacity */
+    used = f.f_blocks - f.f_bfree;
+    availblks = f.f_bavail + used;
+    data->fcap = availblks <= 0 ?
+        100.0 : (double)used / (double)availblks * 100.0;
+    data->fcap = CLAMP(data->fcap, 0.0, 100.0);
+
+    /* inode capacity */
+    inodes = f.f_files;
+    used = inodes - f.f_ffree;
+    data->icap = inodes <= 0 ?
+        100.0 : (double)used / (double)inodes * 100.0;
+    data->icap = CLAMP(data->icap, 0.0, 100.0);
+  }
+
+  /* get the uptime and load avg */
+  ret = sysinfo(&si);
+  if (ret == 0) {
+    data->uptime = si.uptime;
+    for (i = 0; i < 3; i++) {
+      data->loadavg[i] = si.loads[i] / (double)(1 << SI_LOAD_SHIFT);
+    }
+  }
+}
+
+#endif

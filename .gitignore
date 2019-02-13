@@ -48,3 +48,4 @@ tools/yclgen/parser.h
 tools/yclgen/tokens.c
 tools/yclgen/tokens.h
 apps/scan/scan
+tools/linux/systemd/stored.service

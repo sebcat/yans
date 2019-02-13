@@ -328,8 +328,12 @@ cleanup_unlink:
   return -1;
 }
 
+#if defined(__FreeBSD__)
 static int fts_oldest_first(const FTSENT * const *a,
     const FTSENT * const *b) {
+#elif defined(__linux__)
+static int fts_oldest_first(const FTSENT **a, const FTSENT **b) {
+#endif
   if ((*a)->fts_info == FTS_NS || (*a)->fts_info == FTS_NSOK ||
       (*b)->fts_info == FTS_NS || (*b)->fts_info == FTS_NSOK) {
     /* fallback on string comparison of name */

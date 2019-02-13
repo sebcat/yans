@@ -68,6 +68,9 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
 include files.mk
 
+OBJS += ${${UNAME_S}_OBJS}
+BINS += ${${UNAME_S}_BINS}
+
 all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
 	$(KNEGMANIFEST) $(YANS_FE)
 

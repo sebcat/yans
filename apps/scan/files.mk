@@ -18,5 +18,5 @@ scan_BIN      = apps/scan/scan
 scan_LDADD   != pkg-config --libs re2
 scan_LDADD   += -lz -lssl -lcrypto -lstdc++
 
-OBJS += $(scan_OBJS)
-BINS += $(scan_BIN)
+FreeBSD_OBJS += $(scan_OBJS)
+FreeBSD_BINS += $(scan_BIN)

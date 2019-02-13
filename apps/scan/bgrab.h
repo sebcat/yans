@@ -38,7 +38,7 @@ struct bgrab_ctx {
   struct tcpsrc_ctx tcpsrc;
   struct ycl_msg msgbuf;
   struct dsts_ctx dsts;
-  char *recvbuf; /* TODO: Maybe VLA at end and alloc bgrab on heap? */
+  char *recvbuf;
   enum bgrab_err err;
   buf_t certbuf;
   struct tcpproto_ctx proto;

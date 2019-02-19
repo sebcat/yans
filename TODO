@@ -1,22 +1,37 @@
-## ergonomics
-change:
-printf 'www.google.com www.sydsvenskan.se www.reddit.com www.trololo.com' | dnstres 2 > resolved
-grab-banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 < resolved | tee banners.plain
-grab-banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 --tls < resolved | tee banners.tls
-mkreport -t services -o services.result banners.plain banners.tls
-mkreport -t certs -o services.result banners.plain banners.tls
+# TODO
 
-to:
-printf 'www.google.com www.sydsvenskan.se www.reddit.com www.trololo.com' | scan resolve > resolved
-scan banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 < resolved | tee banners.plain
-scan banners -p21,22,80,443,8000,8080 -n 256 -t 5 -d 100 --tls < resolved | tee banners.tls
-scan aggregate -t banner-data --in-banners banners.plain \
-    --in-banners banners.tls --out-certs certs --out-services services
-scan report --in-services services --out-services services.csv
+- Write wrapper for qsort_r which deals with various arg orders
+- Continue to work on Linux version
 
-maybe have report be a case of aggregate
+Stop using store list, start using store get MANIFEST
 
-support: stores, i/o w/, w/o compression, from stdio or files (in or outside of stores)
+UI issues:
+  - reload report entries when done (or per poll?) (also use store get MANIFEST)
+  - alternating between entries duplicate content
+
+IDN: Where do we punyencode? Should be done in resolve
+
+scan collate -t banners --out-certs ... --out-cert-alt-names ...
+
+Collations:
+
+Services
+  ID, Name, Address, Transport, Port, Service, Certificate Chain, Certificate Status
+
+Certificates
+  Chain, Depth, Serial, Common Name, Organization, Valid From, Valid To
+
+Certificate Subject Alternative Names
+  Chain, Depth, Name
+
+Identified Software Components
+  ID, Name, Version
+
+Software Mappings
+  Service ID, Software ID
+
+CVE Search
+  Software ID, CVE, Title, Reference
 
 ## grab-banners,reaplan,tcpsrc
 
@@ -33,11 +48,9 @@ lua: use as little Lua as possible. Long-term goal: remove it completly.
 tcpsrc: Implement TCPSRC_ALLOW, TCPSRC_DISALLOW. Make ioctl device-/system
   wide and have rc script setting ranges at boot?
 tcpsrc: have separate device for ALLOW/DISALLOW? Should not be possible
-  to change from sandbox (e.g., /dev/tcpsrc, /dev/tcpsrc-ctl)
+  to change from sandbox (e.g., /dev/tcpsrc, /dev/tcpctl)
 
 ## unsorted
-
-- store list <store-id> - pass dir-fd from stored and have client list store?
 
 - yans-fe: If 1) is selected, then 2) then 1) again: report entries are
   appended. Make them replace instead of append

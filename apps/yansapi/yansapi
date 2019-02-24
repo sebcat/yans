@@ -278,29 +278,34 @@ local function get_report_sections(ctx)
   local params = ctx:parse_query_string(ctx.query_string)
   local id     = clean_id(params.id)
 
-  -- Listed entries must conform to this regex. Everything in the store can
-  -- still be fetched by name, but only the entries matched by this regex are
-  -- listed.
-  local must_match = "^report-[0-9]+-[^.]+.(csv|txt)(.gz)?$"
-
   -- build response
   local datastr
   local status = "n/a"
   local entries = json.from_str"[]"
   if id then
+    -- obtain the kneg status
     status = ctx.data.kneg:status(id)
-    local etable = store:list(id, must_match)
-    for i = 1, #etable, 2 do
-      local entry = json.from_str"{}"
-      entry.name   = etable[i]
-      entry.nbytes = atoi(etable[i + 1], -1)
-      entries = entries << entry
+
+    -- read the MANIFEST file (if any) and parse the entries
+    store:enter{id=id}
+    local ok, ret = pcall(store.open, store, "MANIFEST",
+        yans.file.O_RDONLY)
+    if ok then
+      local stream = ret:to_stream("rb")
+      for line in stream:lines() do
+        local filename, displayname = string.match(line, "(%S+) (.*)")
+        if filename then
+          local entry = json.from_str"{}"
+          entry.fname = filename
+          entry.dname = displayname
+          entries = entries << entry
+        end
+      end
     end
 
-    -- enter store and fetch job data. If the job data is missing, due
+    -- Read the job.json file. If job.json is missing, due
     -- to the job being started manually, we should not fail and the
     -- UI should be able to handle the missing time &c
-    store:enter{id=id}
     local ok, ret = pcall(store.open, store, "job.json",
         yans.file.O_RDONLY)
     if ok then

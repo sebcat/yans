@@ -598,27 +598,18 @@ function YansView(pname) {
 
     let sectiondiv = document.createElement("div");
     sectiondiv.className = "report-sections";
-    report.entries.sort(function(a,b) {
-      let aorder = /^report-([0-9]+)-/g.exec(a.name)[1];
-      let border = /^report-([0-9]+)-/g.exec(b.name)[1];
-      return aorder - border;
-
-    })
     for (let i = 0; i < report.entries.length; i++) {
-      const entry_name = report.entries[i].name;
-
+      let filename = report.entries[i].fname;
+      let displayname = report.entries[i].dname;
       const adiv = document.createElement("div");
       const anchor = document.createElement("a");
-      let txt = /^report-[0-9]+-([^.]+)\./g.exec(entry_name)[1];
-      txt = txt.charAt(0).toUpperCase() + txt.substr(1);
-      txt += " (" + sizeString(report.entries[i].nbytes) + ")";
-      anchor.text = txt;
-      const url = "/a1/report-section?id=" + report_id + "&name=" + entry_name;
+      anchor.text = displayname;
+      const url = "/a1/report-section?id=" + report_id + "&name=" + filename;
       anchor.href = "#" + url;
 
       anchor.addEventListener("click", function(e) {
         e.preventDefault();
-        let section_id = "report-section-" + report_id + "-" + entry_name;
+        let section_id = "report-section-" + report_id + "-" + filename;
         let se = document.getElementById(section_id);
         if (se) {
           se.parentElement.removeChild(se);

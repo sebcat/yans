@@ -100,15 +100,23 @@ static int l_punycode_encode(lua_State *L) {
   const char *s;
   size_t len;
   char *out;
+  struct punycode_ctx punycode;
+  int ret;
+
+  ret = punycode_init(&punycode);
+  if (ret < 0) {
+    return luaL_error(L, "punycode_init failure");
+  }
 
   s = luaL_checklstring(L, 1, &len);
-  out = punycode_encode(s, len);
+  out = punycode_encode(&punycode, s, len);
   if (out == NULL) {
+    punycode_cleanup(&punycode);
     return luaL_error(L, "punycode_encode failure");
   }
 
   lua_pushstring(L, out);
-  free(out);
+  punycode_cleanup(&punycode);
   return 1;
 }
 

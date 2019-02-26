@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include <lib/util/u8.h>
-#include <lib/util/buf.h>
+#include <lib/net/punycode.h>
 
 #define ACE_PREFIX     "xn--"
 #define ACE_PREFIX_LEN (sizeof(ACE_PREFIX)-1)
@@ -115,39 +115,49 @@ static int encode_label(buf_t *buf, const uint8_t *s, size_t len) {
   return 0;
 }
 
-char *punycode_encode(const char *in, size_t len) {
+int punycode_init(struct punycode_ctx *ctx) {
+  memset(ctx, 0, sizeof(*ctx));
+  if (buf_init(&ctx->outbuf, 512) == NULL) {
+    return -1;
+  }
+
+  if (buf_init(&ctx->lblbuf, 256) == NULL) {
+    buf_cleanup(&ctx->outbuf);
+    return -1;
+  }
+
+  return 0;
+}
+
+void punycode_cleanup(struct punycode_ctx *ctx) {
+  buf_cleanup(&ctx->outbuf);
+  buf_cleanup(&ctx->lblbuf);
+}
+
+char *punycode_encode(struct punycode_ctx *ctx, const char *in, size_t len) {
   const uint8_t *curr;
   const uint8_t *prev;
-  buf_t outbuf;
-  buf_t lblbuf;
   int is_ascii = 1;
 
   curr = (const uint8_t*)in;
   prev = (const uint8_t*)in;
-  memset(&outbuf, 0, sizeof(outbuf));
-  memset(&lblbuf, 0, sizeof(lblbuf));
-  if (buf_init(&outbuf, 512) == NULL) {
-    goto fail;
-  }
-
-  if (buf_init(&lblbuf, 256) == NULL) {
-    goto fail;
-  }
+  buf_clear(&ctx->outbuf);
+  buf_clear(&ctx->lblbuf);
 
   while (len > 0) {
     if (*curr == '\0') {
-      goto fail;
+      return NULL;
     } else if (*curr == '.' && prev < curr) {
       if (is_ascii) {
-        buf_adata(&outbuf, prev, curr-prev);
+        buf_adata(&ctx->outbuf, prev, curr-prev);
       } else {
-        if (encode_label(&lblbuf, prev, curr-prev) < 0) {
-          goto fail;
+        if (encode_label(&ctx->lblbuf, prev, curr-prev) < 0) {
+          return NULL;
         }
-        buf_adata(&outbuf, lblbuf.data, lblbuf.len);
-        buf_clear(&lblbuf);
+        buf_adata(&ctx->outbuf, ctx->lblbuf.data, ctx->lblbuf.len);
+        buf_clear(&ctx->lblbuf);
       }
-      buf_achar(&outbuf, '.');
+      buf_achar(&ctx->outbuf, '.');
       is_ascii = 1;
       prev = curr+1;
     } else if (*curr > 0x7f) {
@@ -160,23 +170,18 @@ char *punycode_encode(const char *in, size_t len) {
   /* last label */
   if (prev < curr) {
     if (is_ascii) {
-      buf_adata(&outbuf, prev, curr-prev);
+      buf_adata(&ctx->outbuf, prev, curr-prev);
     } else {
-      if (encode_label(&lblbuf, prev, curr-prev) < 0) {
-        goto fail;
+      if (encode_label(&ctx->lblbuf, prev, curr-prev) < 0) {
+        return NULL;
       }
-      buf_adata(&outbuf, lblbuf.data, lblbuf.len);
-      buf_clear(&lblbuf);
+      buf_adata(&ctx->outbuf, ctx->lblbuf.data, ctx->lblbuf.len);
+      buf_clear(&ctx->lblbuf);
     }
   }
 
-  buf_achar(&outbuf, '\0');
-  buf_cleanup(&lblbuf);
-  return outbuf.data;
-
-fail:
-  buf_cleanup(&outbuf);
-  buf_cleanup(&lblbuf);
-  return NULL;
+  buf_achar(&ctx->outbuf, '\0');
+  buf_cleanup(&ctx->lblbuf);
+  return ctx->outbuf.data;
 }
 

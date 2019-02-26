@@ -21,9 +21,17 @@ static int test_encode() {
     {NULL, NULL},
   };
   size_t i;
+  int ret;
+  struct punycode_ctx enc;
+
+  ret = punycode_init(&enc);
+  if (ret < 0) {
+    perror("punycode_init");
+    return EXIT_FAILURE;
+  }
 
   for(i=0; vals[i].in != NULL; i++) {
-    char *actual = punycode_encode(vals[i].in, strlen(vals[i].in));
+    char *actual = punycode_encode(&enc, vals[i].in, strlen(vals[i].in));
     if (actual == NULL && vals[i].expected != NULL) {
       fprintf(stderr, "expected \"%s\", was NULL\n", vals[i].expected);
       res = EXIT_FAILURE;
@@ -37,10 +45,9 @@ static int test_encode() {
         res = EXIT_FAILURE;
       }
     }
-    if (actual != NULL) {
-      free(actual);
-    }
   }
+
+  punycode_cleanup(&enc);
   return res;
 }
 

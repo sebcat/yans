@@ -33,6 +33,7 @@
 
 struct url_ctx_t {
   struct url_opts opts;
+  struct punycode_ctx punycode;
   regex_t re_parse;
 };
 
@@ -52,14 +53,20 @@ struct url_ctx_t {
 
 url_ctx_t *url_ctx_new(struct url_opts *opts) {
   url_ctx_t *ctx;
+  int ret;
 
   if ((ctx = calloc(1, sizeof(url_ctx_t))) == NULL) {
-    return NULL;
+    goto fail;
   }
 
-  if (regcomp(&ctx->re_parse, URLRE, REG_NEWLINE|REG_EXTENDED) != 0) {
-    free(ctx);
-    return NULL;
+  ret = regcomp(&ctx->re_parse, URLRE, REG_NEWLINE|REG_EXTENDED);
+  if (ret != 0) {
+    goto fail_free;
+  }
+
+  ret = punycode_init(&ctx->punycode);
+  if (ret < 0) {
+    goto fail_regfree;
   }
 
   if (opts != NULL) {
@@ -67,10 +74,17 @@ url_ctx_t *url_ctx_new(struct url_opts *opts) {
   }
 
   return ctx;
+fail_regfree:
+  regfree(&ctx->re_parse);
+fail_free:
+  free(ctx);
+fail:
+  return NULL;
 }
 
 void url_ctx_free(url_ctx_t *ctx) {
   if (ctx != NULL) {
+    punycode_cleanup(&ctx->punycode);
     regfree(&ctx->re_parse);
     free(ctx);
   }
@@ -216,7 +230,7 @@ size_t url_remove_dot_segments(char *s, size_t len) {
    *   by Rob Pike. The UNIX way was better even before the URL RFC was
    *   written. e.g., /foo//bar != /foo/bar in RFC3986, trailing slashes are
    *   significant, &c */
-  while(r < len) {
+  while (r < len) {
     if (r+1 < len && s[r] == '.' && s[r+1] == '/') {
       r+=2;
     } else if (r+2 < len && s[r] == '.' && s[r+1] == '.' &&
@@ -270,8 +284,8 @@ int url_supported_scheme(const char *s) {
   return EURL_OK;
 }
 
-static int normalize_host(const char *host, size_t hostlen, char *dst,
-    size_t dstlen) {
+static int normalize_host(struct punycode_ctx *punycode, const char *host,
+    size_t hostlen, char *dst, size_t dstlen) {
   char tmp[URL_MAXHOSTLEN];
   char *oname;
   ip_addr_t addr;
@@ -300,16 +314,16 @@ static int normalize_host(const char *host, size_t hostlen, char *dst,
     }
   }
   if (i == hostlen) {
+    /* No need to punycode encode the host, just copy it */
     snprintf(dst, dstlen, "%s", tmp);
     return EURL_OK;
   }
 
-  if ((oname = punycode_encode(host, hostlen)) == NULL) {
+  if ((oname = punycode_encode(punycode, host, hostlen)) == NULL) {
     return EURL_HOST;
   }
 
   snprintf(dst, dstlen, "%s", oname);
-  free(oname);
   return EURL_OK;
 }
 
@@ -354,8 +368,8 @@ int url_normalize(url_ctx_t *ctx, const char *s, buf_t *out) {
   if (parts.hostlen > 255) { /* RFC1035 */
     return EURL_HOST;
   } else if (parts.hostlen > 0) {
-    ret = normalize_host(s+parts.host, parts.hostlen, hostbuf,
-        sizeof(hostbuf));
+    ret = normalize_host(&ctx->punycode, s+parts.host, parts.hostlen,
+        hostbuf, sizeof(hostbuf));
     if (ret != EURL_OK) {
       return ret;
     }

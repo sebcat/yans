@@ -5,6 +5,7 @@ clid_DEPS = \
     lib/util/netstring.c \
     lib/util/nullfd.c \
     lib/util/os.c \
+    lib/util/u8.c \
     lib/util/ylog.c \
     lib/util/zfile.c \
     lib/ycl/ycl.c \
@@ -12,6 +13,7 @@ clid_DEPS = \
     lib/net/iface.c \
     lib/net/neigh.c \
     lib/net/dnstres.c \
+    lib/net/punycode.c \
     lib/net/route.c
 
 clid_DEPSOBJS = ${clid_DEPS:.c=.o}

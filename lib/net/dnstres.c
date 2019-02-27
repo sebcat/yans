@@ -9,6 +9,7 @@
 #include <netdb.h>
 #include <limits.h>
 
+#include <lib/net/punycode.h>
 #include <lib/net/dnstres.h>
 
 struct dnstres_hosts {
@@ -304,18 +305,26 @@ empty:
   return NULL;
 }
 
-static void resolve(struct dnstres_hosts *h, const char *host,
-    size_t hostlen) {
+static void resolve(struct punycode_ctx *punycode, struct dnstres_hosts *h,
+    const char *host, size_t hostlen) {
   struct addrinfo hints = {0};
   struct addrinfo *addrs;
   struct addrinfo *curr;
   char addrbuf[128];
   int ret;
   int nresolved = 0;
+  const char *encoded_host;
+
+  /* Punycode encode the host name, and pass the encoded version to
+   * the result callbacks as well */
+  encoded_host = punycode_encode(punycode, host, hostlen);
+  if (encoded_host == NULL) {
+    goto done;
+  }
 
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM; /* to avoid duplicate entries */
-  ret = getaddrinfo(host, NULL, &hints, &addrs);
+  ret = getaddrinfo(encoded_host, NULL, &hints, &addrs);
   if (ret != 0) {
     goto done;
   }
@@ -330,7 +339,7 @@ static void resolve(struct dnstres_hosts *h, const char *host,
     if (ret == 0) {
       nresolved++;
       if (h->req.on_resolved) {
-        h->req.on_resolved(h->req.data, host, addrbuf);
+        h->req.on_resolved(h->req.data, encoded_host, addrbuf);
       }
     }
   }
@@ -338,7 +347,7 @@ static void resolve(struct dnstres_hosts *h, const char *host,
   freeaddrinfo(addrs);
 done:
   if (nresolved == 0 && h->req.on_unresolved) {
-    h->req.on_unresolved(h->req.data, host);
+    h->req.on_unresolved(h->req.data, encoded_host ? encoded_host : host);
   }
 }
 
@@ -348,21 +357,34 @@ static void *resolver(void *data) {
   size_t hostlen;
   struct dnstres_pool *p = data;
   struct dnstres_hosts *h;
+  int ret;
+  struct punycode_ctx punycode;
+
+  ret = punycode_init(&punycode);
+  if (ret < 0) {
+    return NULL;
+  }
 
   while (1) {
     pthread_mutex_lock(&p->mutex);
 again:
-    if (p->done) {
-      pthread_mutex_unlock(&p->mutex);
-      return NULL;
+    if (p->done) { /* should be checked when p->mutex is held */
+      break;
     }
     if ((host = dnstres_pool_get_host(p, &hostlen, &h)) == NULL) {
+      /* Currently no host to resolve, wait until the nonempty-condition
+       * occurs (there is a host, or the pool is being destroyed) */
       pthread_cond_wait(&p->nonempty, &p->mutex);
       goto again;
     }
     pthread_mutex_unlock(&p->mutex);
-    resolve(h, host, hostlen);
+
+    resolve(&punycode, h, host, hostlen);
     dnstres_hosts_put(h);
   }
+
+  pthread_mutex_unlock(&p->mutex);
+  punycode_cleanup(&punycode);
+  return NULL;
 }
 

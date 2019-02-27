@@ -3,13 +3,9 @@
 - Write wrapper for qsort_r which deals with various arg orders
 - Continue to work on Linux version
 
-Stop using store list, start using store get MANIFEST
-
 UI issues:
   - reload report entries when done (or per poll?) (also use store get MANIFEST)
   - alternating between entries duplicate content
-
-IDN: Where do we punyencode? Should be done in resolve
 
 scan collate -t banners --out-certs ... --out-cert-alt-names ...
 

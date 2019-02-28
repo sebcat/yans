@@ -7,8 +7,8 @@ CHILD=
 STATUS=
 
 # TCP ports to check
-: ${TCP_PORTS_PLAIN:=21,22,25,53,80,110,143,443,6667-6669,7000,8000,8008,8080,8081}
-: ${TCP_PORTS_TLS:=80,443,465,990,993,995,6697,8443}
+: ${TCP_PORTS_PLAIN=21,22,25,53,80,110,143,443,6667-6669,7000,8000,8008,8080,8081}
+: ${TCP_PORTS_TLS=80,443,465,990,993,995,6697,8443}
 
 # scan(1) binary to use
 : ${SCAN:=scan}
@@ -70,24 +70,28 @@ run $SCAN resolve                   \
     --in          "$INPUT"          \
     --out         zlib:resolved.gz
 
-run $SCAN banners                           \
-    $SCANOPTS                               \
-    --timeout         5                     \
-    --ports           "$TCP_PORTS_PLAIN"    \
-    --mdelay-per-tick 100                   \
-    --max-clients     256                   \
-    --in              zlib:resolved.gz      \
-    --out             zlib:banners.plain.gz
+if [ -n "$TCP_PORTS_PLAIN" ]; then
+  run $SCAN banners                           \
+      $SCANOPTS                               \
+      --timeout         5                     \
+      --ports           "$TCP_PORTS_PLAIN"    \
+      --mdelay-per-tick 100                   \
+      --max-clients     256                   \
+      --in              zlib:resolved.gz      \
+      --out             zlib:banners.plain.gz
+fi
 
-run $SCAN banners                         \
-    $SCANOPTS                             \
-    --tls                                 \
-    --timeout         5                   \
-    --ports           "$TCP_PORTS_TLS"    \
-    --mdelay-per-tick 100                 \
-    --max-clients     256                 \
-    --in              zlib:resolved.gz    \
-    --out             zlib:banners.tls.gz
+if [ -n "$TCP_PORTS_TLS" ]; then
+  run $SCAN banners                         \
+      $SCANOPTS                             \
+      --tls                                 \
+      --timeout         5                   \
+      --ports           "$TCP_PORTS_TLS"    \
+      --mdelay-per-tick 100                 \
+      --max-clients     256                 \
+      --in              zlib:resolved.gz    \
+      --out             zlib:banners.tls.gz
+fi
 
 run $SCAN collate                                     \
     $SCANOPTS                                         \

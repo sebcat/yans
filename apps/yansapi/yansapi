@@ -311,10 +311,13 @@ local function get_report_sections(ctx)
     if ok then
       datastr = ret:to_stream("rb"):read("a")
     end
-    if not datastr or #datastr < 2 then
-      datastr = "{}"
-    end
   end
+
+  -- if we failed to read the datastr, fake an empty one
+  if not datastr or #datastr < 2 then
+    datastr = "{}"
+  end
+
   local data   = json.from_str(datastr)
   data.id      = id
   data.now_ts  = os.time()

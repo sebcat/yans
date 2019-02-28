@@ -133,6 +133,7 @@ table tr:nth-child(1) td {
 
 .report-section {
   font-family: monospace;
+  white-space: pre;
   margin: .5rem;
 }
 

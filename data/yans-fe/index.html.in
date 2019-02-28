@@ -629,7 +629,7 @@ function YansView(pname) {
               }
               adiv.appendChild(secdiv);
             }).error(function(msg) {
-              adiv.appendChild(document.createTextNode(data));
+              throw msg;
             }).send();
         }
       })

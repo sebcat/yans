@@ -559,16 +559,17 @@ function YansView(pname) {
     return r;
   };
 
-  self.updateReport = function(id, status, entries) {
-    let entry = document.getElementById("entry-" + id);
-    /* FIXME: if was running, but no longer is running */
+  self.updateReport = function(res, renderEntries) {
+    let status = res.status;
+    let entry = document.getElementById("entry-" + res.id);
     if (status !== "running") {
       /* not running: replace the running symbol */
       let ehr = entry.querySelector(".entry-header-right");
       ehr.replaceChild(self.getStatusSymbol(status), ehr.firstChild);
-
-      /* TODO: Maybe merge the old entries with the new, keeping any
-       *       expanded entries expanded &c */
+      /* render the report entries, if wanted */
+      if (renderEntries) {
+        self.renderReportEntries(res);
+      }
     }
   };
 
@@ -746,8 +747,9 @@ function xxx() {
           appErrFunc(data.errmsg);
           return;
         }
-        let res = data.data;
-        ui.updateReport(res.id, res.status, res.entries);
+        /* If we only have one report, render its entries as well */
+        let renderEntries = to_refresh.length == 1 ? true : false;
+        ui.updateReport(data.data, renderEntries);
       }).error(function(msg) {
         appErrFunc(msg);
       }).send();

@@ -102,4 +102,5 @@ banner {
   long fpid; # fallback protocol ID
   data banner;
   data certs;
+  data chash;
 }

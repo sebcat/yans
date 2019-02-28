@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <lib/util/sha1.h>
 #include <lib/net/reaplan.h>
 #include <lib/ycl/ycl_msg.h>
 
@@ -282,6 +283,16 @@ static int bgrab_next_dst(struct bgrab_ctx *ctx, struct bgrab_dst **out) {
   return 1;
 }
 
+static int hashcerts(void *dst, size_t dstlen, void *src, size_t srclen) {
+  struct sha1_ctx ctx;
+  int ret = 0;
+
+  ret = sha1_init(&ctx);
+  ret |= sha1_update(&ctx, src, srclen);
+  ret |= sha1_final(&ctx, dst, dstlen);
+  return ret == 0 ? 0 : -1;
+}
+
 static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
     const char *banner, size_t bannerlen) {
   struct ycl_msg_banner bannermsg = {{0}};
@@ -290,6 +301,7 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
   size_t sz;
   unsigned short portnr;
   int mflags;
+  unsigned char sha1hash[SHA1_DSTLEN];
 
   dst = reaplan_conn_get_udata(conn);
 
@@ -300,13 +312,24 @@ static void write_banner(struct bgrab_ctx *ctx, struct reaplan_conn *conn,
     portnr = ntohs(dst->addr.sin.sin_port);
   }
 
-  ycl_msg_reset(&ctx->msgbuf);
+  /* Setup the certificate chain info part of the message, if any */
   buf_clear(&ctx->certbuf);
   reaplan_conn_append_cert_chain(conn, &ctx->certbuf);
+  if (ctx->certbuf.len > 0) {
+    bannermsg.certs.data = ctx->certbuf.data;
+    bannermsg.certs.len = ctx->certbuf.len;
+
+    /* hash the chain, for later deduplication */
+    ret = hashcerts(sha1hash, sizeof(sha1hash),
+        ctx->certbuf.data, ctx->certbuf.len);
+    if (ret == 0) {
+      bannermsg.chash.data = (const char*)sha1hash;
+      bannermsg.chash.len = sizeof(sha1hash);
+    }
+  }
+
   bannermsg.name.data = dst->name;
   bannermsg.name.len = dst->name ? strlen(dst->name) : 0;
-  bannermsg.certs.data = ctx->certbuf.data;
-  bannermsg.certs.len = ctx->certbuf.len;
   bannermsg.addr.data = (const char *)&dst->addr.sa;
   bannermsg.addr.len = dst->addrlen;
   bannermsg.banner.data = banner;

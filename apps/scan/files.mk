@@ -6,7 +6,7 @@ scan_DEPS     = lib/alloc/linvar.c lib/net/dsts.c \
                 lib/util/netstring.c lib/util/reorder.c lib/util/sandbox.c \
                 lib/util/str.c lib/util/zfile.c lib/ycl/resolvercli.c \
                 lib/ycl/storecli.c lib/ycl/ycl_msg.c lib/ycl/ycl.c \
-                lib/util/objtbl.c
+                lib/util/objtbl.c lib/util/sha1.c
 scan_DEPS_CC  = lib/util/reset.cc
 scan_DEPSOBJS = ${scan_DEPS:.c=.o} ${scan_DEPS_CC:.cc=.o}
 scan_SOURCES  = apps/scan/main.c apps/scan/opener.c apps/scan/resolve.c \

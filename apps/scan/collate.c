@@ -15,6 +15,8 @@
 #include <lib/util/objtbl.h>
 #include <lib/util/sandbox.h>
 #include <lib/util/csv.h>
+#include <lib/util/sha1.h>
+#include <lib/util/x509.h>
 #include <lib/net/tcpproto_types.h>
 #include <apps/scan/collate.h>
 
@@ -22,9 +24,10 @@
 #define MAX_FOPENS 128
 #define MAX_MPIDS  4
 
-#define NMEMB_NAME 1024
-#define NMEMB_ADDR 4096 /* # address elements per allocation */
-#define NMEMB_SVCS 4096
+#define NMEMB_NAME       1024
+#define NMEMB_ADDR       4096 /* # address elements per allocation */
+#define NMEMB_SVCS       4096
+#define NMEMB_CERTCHAINS 4
 
 #define LINVAR_BLKSIZE 1024 * 256 /* # bytes per allocation */
 
@@ -43,7 +46,8 @@ struct collate_opts {
   FILE *out_services_csv[MAX_INOUTS];
   size_t nout_services_csv;
 
-  /* TODO: out_certs... */
+  FILE *out_certs_csv[MAX_INOUTS];
+  size_t nout_certs_csv;
 
   FILE *closefps[MAX_FOPENS];
   size_t nclosefps;
@@ -65,11 +69,19 @@ struct collate_service_flags {
   unsigned int fpid : 14;
 };
 
+struct collate_certchain {
+  char sha1hash[SHA1_DSTLEN];
+  struct x509_certchain chain;
+  unsigned int id;
+};
+
 struct collate_service {
   union saddr_t *addr;
   const char *name;
   unsigned short mpids[MAX_MPIDS];
   struct collate_service_flags eflags;
+  struct collate_certchain *fpchain;
+  struct collate_certchain *mpchains[MAX_MPIDS];
 };
 
 /* allocator used */
@@ -79,6 +91,8 @@ struct linvar_ctx varmem_;
 struct objtbl_ctx nametbl_;
 struct objtbl_ctx addrtbl_;
 struct objtbl_ctx svctbl_;
+struct objtbl_ctx chaintbl_;
+unsigned int chainid_ = 1; /* 0 indicates no chain */
 
 /* 32-bit FNV1a constants */
 #define FNV1A_OFFSET 0x811c9dc5
@@ -203,6 +217,74 @@ static int svccmp(const void *a, const void *b) {
   return res;
 }
 
+static objtbl_hash_t chainhash(const void *obj, objtbl_hash_t seed) {
+  const struct collate_certchain *chain = obj;
+  objtbl_hash_t hash = FNV1A_OFFSET;
+  size_t i;
+
+  if (obj == NULL) {
+    return hash;
+  }
+
+  for (i = 0; i < sizeof(objtbl_hash_t); i++) {
+    hash = (hash ^ (seed & 0xff)) * FNV1A_PRIME;
+    seed >>= 8;
+  }
+
+  for (i = 0; i < sizeof(chain->sha1hash); i++) {
+    hash = (hash ^ chain->sha1hash[i]) * FNV1A_PRIME;
+  }
+
+  return hash;
+}
+
+static int chaincmp(const void *a, const void *b) {
+  const struct collate_certchain *left = a;
+  const struct collate_certchain *right = b;
+
+  NULLCMP(a,b);
+  return memcmp(left->sha1hash, right->sha1hash, sizeof(right->sha1hash));
+}
+
+static struct collate_certchain *upsert_chain(const char *hash,
+    size_t hashlen, const char *pems, size_t pemslen) {
+
+  int ret;
+  void *val = NULL;
+  struct collate_certchain *newchain;
+  struct collate_certchain key;
+  struct x509_certchain chain;
+
+  if (hash == NULL || hashlen != SHA1_DSTLEN || pems == NULL ||
+      pemslen == 0) {
+    return NULL;
+  }
+
+  memcpy(key.sha1hash, hash, sizeof(key.sha1hash));
+  ret = objtbl_get(&chaintbl_, &key, &val);
+  if (ret == OBJTBL_ENOTFOUND) {
+    ret = x509_certchain_from_mem(&chain, pems, pemslen);
+    if (ret != X509_OK) {
+      return NULL;
+    }
+
+    newchain = linvar_alloc(&varmem_, sizeof(struct collate_certchain));
+    if (newchain == NULL) {
+      x509_certchain_cleanup(&chain);
+      return NULL;
+    }
+
+    memcpy(newchain->sha1hash, hash, sizeof(newchain->sha1hash));
+    newchain->chain = chain;
+    newchain->id = chainid_++;
+    objtbl_insert(&chaintbl_, newchain);
+  } else {
+    newchain = val;
+  }
+
+  return newchain;
+}
+
 static const char *upsert_name(const char *name, size_t len) {
   int ret;
   void *val = NULL;
@@ -215,6 +297,9 @@ static const char *upsert_name(const char *name, size_t len) {
   ret = objtbl_get(&nametbl_, name, &val);
   if (ret == OBJTBL_ENOTFOUND) {
     res = linvar_alloc(&varmem_, len + 1);
+    if (res == NULL) {
+      return NULL;
+    }
     memcpy(res, name, len + 1);
     objtbl_insert(&nametbl_, res);
   } else {
@@ -256,21 +341,28 @@ static union saddr_t *upsert_addr(struct sockaddr *saddr,
   return res;
 }
 
-static struct collate_service *upsert_service(
+static struct collate_service *process_banner(
     struct ycl_msg_banner *banner) {
   int ret;
   unsigned int i;
   struct collate_service key;
   void *val = NULL;
   struct collate_service *res;
+  struct collate_certchain *chain = NULL;
 
+  key.name = upsert_name(banner->name.data, banner->name.len);
   key.addr = upsert_addr((struct sockaddr *)banner->addr.data,
       (socklen_t)banner->addr.len);
   if (key.addr == NULL) {
     return NULL;
   }
 
-  key.name = upsert_name(banner->name.data, banner->name.len);
+  if (banner->chash.len == SHA1_DSTLEN && banner->certs.len > 0) {
+    chain = upsert_chain(banner->chash.data, SHA1_DSTLEN,
+        banner->certs.data, banner->certs.len);
+    /* TODO: Validate name for chain? */
+  }
+
   ret = objtbl_get(&svctbl_, &key, &val);
   if (ret == OBJTBL_ENOTFOUND) {
     res = linvar_alloc(&varmem_, sizeof(struct collate_service));
@@ -284,6 +376,7 @@ static struct collate_service *upsert_service(
   }
 
   /* update mpid, unless mpid already exists or too many mpids are set  */
+  /* TODO: Associate the chain with the fpid, or mpid if set */
   if (banner->mpid != TCPPROTO_UNKNOWN) {
     for (i = 0; i < MAX_MPIDS &&
         res->mpids[i] != TCPPROTO_UNKNOWN &&
@@ -291,7 +384,13 @@ static struct collate_service *upsert_service(
         i++);
     if (i < MAX_MPIDS) {
       res->mpids[i] = banner->mpid;
+      if (chain) {
+        res->mpchains[i] = chain;
+      }
     }
+  } else if (chain != NULL && res->fpchain == NULL) {
+    /* banner->mpid is unknown and we have a chain to set as fpid*/
+    res->fpchain = chain;
   }
 
   return res;
@@ -304,13 +403,15 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
   size_t k;
   size_t tbllen;
   buf_t buf;
-  const char *fields[5];
+  const char *fields[6];
   char addrbuf[128];
   char portbuf[8];
   struct collate_service *svc;
   socklen_t salen;
   int ret;
   int status = -1;
+  char certid[24];
+  struct collate_certchain *chain;
 
   if (!buf_init(&buf, 2048)) {
     return -1;
@@ -330,18 +431,29 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
         continue;
       }
 
-      /* If no mpid exists, set the fpid as the mpid */
+      /* If no mpid exists, set the fpid as the mpid. FIXME:
+       * There could be a cert in mpids[0] though, should step up index if
+       * so*/
       if (svc->mpids[0] == TCPPROTO_UNKNOWN) {
         svc->mpids[0] = svc->eflags.fpid;
+        svc->mpchains[0] = svc->fpchain;
       }
 
       for (k = 0; k < MAX_MPIDS && svc->mpids[k] != TCPPROTO_UNKNOWN; k++) {
+        chain = svc->mpchains[k];
+        if (chain != NULL && chain->id > 0) {
+          snprintf(certid, sizeof(certid), "%u", chain->id);
+        } else {
+          certid[0] = '\0';
+        }
+
         buf_clear(&buf);
         fields[0] = svc->name;
         fields[1] = addrbuf;
         fields[2] = "tcp";
         fields[3] = portbuf;
         fields[4] = tcpproto_type_to_string(svc->mpids[k]);
+        fields[5] = certid;
         ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
         if (ret != 0) {
           goto end;
@@ -358,6 +470,99 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
 end:
   buf_cleanup(&buf);
   return status;
+}
+
+static int print_chain_csv(struct collate_certchain *certchain,
+    struct collate_opts *opts) {
+  size_t ncerts;
+  size_t i;
+  char chain_id[24];
+  char depth[24];
+  const char *fields[3];
+  int ret;
+  struct x509_certchain *chain;
+  char *subject_name;
+  int result = -1;
+  buf_t buf;
+  size_t nouts;
+  size_t j;
+
+  nouts = opts->nout_certs_csv;
+  if (nouts == 0) {
+    return 0;
+  }
+
+  if (buf_init(&buf, 2048) == NULL) {
+    return -1;
+  }
+
+  snprintf(chain_id, sizeof(chain_id), "%u", certchain->id);
+  chain = &certchain->chain;
+  ncerts = x509_certchain_get_ncerts(chain);
+  for (i = 0; i < ncerts; i++) {
+    snprintf(depth, sizeof(depth), "%zu", i);
+    subject_name = NULL;
+    x509_certchain_get_subject_name(chain, i, &subject_name);
+
+    fields[0] = chain_id;
+    fields[1] = depth;
+    fields[2] = subject_name;
+    buf_clear(&buf);
+    ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
+
+    /* free per-iteration allocations before checking return status of
+     * csv_encode */
+    x509_certchain_free_data(chain, subject_name);
+
+    if (ret != 0) {
+      goto end;
+    }
+
+    for (j = 0; j < nouts; j++) {
+      if (fwrite(buf.data, buf.len, 1, opts->out_certs_csv[j]) != 1) {
+        goto end;
+      }
+    }
+  }
+
+  result = 0;
+end:
+  buf_cleanup(&buf);
+  return result;
+
+}
+
+static int print_chains_csv(struct objtbl_ctx *chains,
+    struct collate_opts *opts) {
+  size_t tbllen;
+  size_t i;
+  size_t j;
+  struct collate_certchain *chain;
+  int result = 0;
+  int ret;
+
+  tbllen = objtbl_size(chains);
+  for (i = 0; i < opts->nout_services_csv; i++) {
+    for (j = 0; j < tbllen; j++) {
+      chain = objtbl_val(chains, j);
+      assert(chain != NULL);
+
+      /* If printing the element(s) of one chain fails, we must still
+       * iterate over the rest in order to free the memory associated with
+       * them. Therefore, we only call print_chain_csv if we still have 
+       * a zero (OK) result */
+      if (result == 0) {
+        ret = print_chain_csv(chain, opts);
+        if (ret < 0) {
+          result = -1;
+        }
+      }
+
+      x509_certchain_cleanup(&chain->chain);
+    }
+  }
+
+  return result;
 }
 
 static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
@@ -379,6 +584,10 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
     .hashfunc = svchash,
     .cmpfunc = svccmp,
   };
+  static struct objtbl_opts chaintblopts = {
+    .hashfunc = chainhash,
+    .cmpfunc = chaincmp,
+  };
 
   /* TODO: do better w/ regards to randomness */
   srand(time(NULL));
@@ -389,6 +598,7 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
   objtbl_init(&addrtbl_, &addrtblopts, NMEMB_ADDR);
   objtbl_init(&nametbl_, &nametblopts, NMEMB_NAME);
   objtbl_init(&svctbl_, &svctblopts, NMEMB_SVCS);
+  objtbl_init(&chaintbl_, &chaintblopts, NMEMB_CERTCHAINS);
   ycl_init(&ycl, YCL_NOFD);
   ycl_msg_init(&msg);
 
@@ -399,12 +609,19 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
         goto end;
       }
 
-      upsert_service(&banner);
+      process_banner(&banner);
     }
   }
 
   objtbl_sort(&svctbl_); /* XXX: Destructive operation */
   ret = print_services_csv(&svctbl_, opts);
+  if (ret < 0) {
+    goto end;
+  }
+
+  objtbl_sort(&chaintbl_); /* FIXME: Currently, this sorts by sha1hash
+                            *        which is always set, if unused  too */
+  ret = print_chains_csv(&chaintbl_, opts);
   if (ret < 0) {
     goto end;
   }
@@ -480,7 +697,7 @@ static void usage(const char *argv0) {
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:s:X";
+  const char *optstr = "t:B:s:c:X";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
@@ -491,6 +708,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     {"type",             required_argument, NULL, 't'},
     {"in-banners",       required_argument, NULL, 'B'},
     {"out-services-csv", required_argument, NULL, 's'},
+    {"out-certs-csv",    required_argument, NULL, 'c'},
     {"no-sandbox",       no_argument,       NULL, 'X'},
     {NULL, 0, NULL, 0}};
   int ch;
@@ -522,9 +740,20 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Name,Address,Transport,Port,Service\r\n";
+      tmpstr = "Name,Address,Transport,Port,Service,Certificate Chain\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_services_csv[opts.nout_services_csv-1]);
+      break;
+    case 'c': /* out-certs-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_certs_csv, &opts.nout_certs_csv);
+      if (ret < 0) {
+        goto end;
+      }
+
+      tmpstr = "Chain,Depth,Subject Name\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_certs_csv[opts.nout_certs_csv-1]);
       break;
     case 'X':
       sandbox = 0;

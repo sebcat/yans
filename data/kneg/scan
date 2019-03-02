@@ -98,9 +98,11 @@ run $SCAN collate                                     \
     --type banners                                    \
     --in-banners       zlib:banners.plain.gz          \
     --in-banners       zlib:banners.tls.gz            \
-    --out-services-csv zlib:services.csv.gz
+    --out-services-csv zlib:services.csv.gz           \
+    --out-certs-csv    zlib:certs.csv.gz
 
 manifest "services.csv.gz" "Services"
+manifest "certs.csv.gz" "Certificates"
 
 
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

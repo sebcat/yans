@@ -27,3 +27,52 @@ void x509_certchain_cleanup(struct x509_certchain *chain) {
     chain->certs = NULL;
   }
 }
+
+size_t x509_certchain_get_ncerts(struct x509_certchain *chain) {
+  int ret = 0;
+
+  if (chain && chain->certs) {
+    ret = sk_X509_INFO_num(chain->certs);
+    if (ret < 0) {
+      ret = 0;
+    }
+  }
+
+  return (size_t)ret;
+}
+
+int x509_certchain_get_subject_name(struct x509_certchain *chain, size_t cert,
+    char **strname) {
+  size_t ncerts;
+  X509_INFO *info;
+  X509_NAME *name;
+
+  ncerts = x509_certchain_get_ncerts(chain);
+  if (cert >= ncerts) {
+    return X509_ERR;
+  }
+
+  info = sk_X509_INFO_value(chain->certs, cert);
+  if (info == NULL || info->x509 == NULL) {
+    return X509_ERR;
+  }
+
+  name = X509_get_subject_name(info->x509);
+  if (name == NULL) {
+    return X509_ERR;
+  }
+
+  if (strname) {
+    *strname = X509_NAME_oneline(name, NULL, 0);
+  }
+
+  return 0;
+}
+
+void x509_certchain_free_data(struct x509_certchain *chain, void *data) {
+  (void)chain;
+
+  if (data) {
+    OPENSSL_free(data);
+  }
+}

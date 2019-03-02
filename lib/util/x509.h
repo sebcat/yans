@@ -17,4 +17,25 @@ int x509_certchain_from_mem(struct x509_certchain *chain, const void *data,
 
 void x509_certchain_cleanup(struct x509_certchain *chain);
 
+size_t x509_certchain_get_ncerts(struct x509_certchain *chain);
+
+int x509_certchain_get_subject_name(struct x509_certchain *chain, size_t cert,
+    char **strname);
+
+/* TODO: Implement */
+#if 0
+
+int x509_certchain_get_serial(struct x509_certchain *chain, size_t cert,
+    char **serial);
+
+int x509_certchain_get_valid_from(struct x509_certchain *chain, size_t cert,
+    char **from);
+
+int x509_certchain_get_valid_to(struct x509_certchain *chain, size_t cert,
+    char **to);
+
+#endif
+
+void x509_certchain_free_data(struct x509_certchain *chain, void *data);
+
 #endif

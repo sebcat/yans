@@ -69,6 +69,34 @@ int x509_certchain_get_subject_name(struct x509_certchain *chain, size_t cert,
   return 0;
 }
 
+int x509_certchain_get_issuer_name(struct x509_certchain *chain, size_t cert,
+    char **strname) {
+  size_t ncerts;
+  X509_INFO *info;
+  X509_NAME *name;
+
+  ncerts = x509_certchain_get_ncerts(chain);
+  if (cert >= ncerts) {
+    return X509_ERR;
+  }
+
+  info = sk_X509_INFO_value(chain->certs, cert);
+  if (info == NULL || info->x509 == NULL) {
+    return X509_ERR;
+  }
+
+  name = X509_get_issuer_name(info->x509);
+  if (name == NULL) {
+    return X509_ERR;
+  }
+
+  if (strname) {
+    *strname = X509_NAME_oneline(name, NULL, 0);
+  }
+
+  return 0;
+}
+
 void x509_certchain_free_data(struct x509_certchain *chain, void *data) {
   (void)chain;
 

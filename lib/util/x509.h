@@ -22,6 +22,9 @@ size_t x509_certchain_get_ncerts(struct x509_certchain *chain);
 int x509_certchain_get_subject_name(struct x509_certchain *chain, size_t cert,
     char **strname);
 
+int x509_certchain_get_issuer_name(struct x509_certchain *chain, size_t cert,
+    char **strname);
+
 /* TODO: Implement */
 #if 0
 

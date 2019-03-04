@@ -305,7 +305,9 @@ function CSV(separator_) {
         pos_++;
       }
     }
-    return data.substring(start, pos_).replace(/""/g, "\"");
+    let eos = pos_;
+    pos_++;
+    return data.substring(start, eos).replace(/""/g, "\"");
   };
 
   self.parseUnescaped = function(data) {

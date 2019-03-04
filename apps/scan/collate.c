@@ -478,10 +478,11 @@ static int print_chain_csv(struct collate_certchain *certchain,
   size_t i;
   char chain_id[24];
   char depth[24];
-  const char *fields[3];
+  const char *fields[4];
   int ret;
   struct x509_certchain *chain;
   char *subject_name;
+  char *issuer_name;
   int result = -1;
   buf_t buf;
   size_t nouts;
@@ -503,16 +504,20 @@ static int print_chain_csv(struct collate_certchain *certchain,
     snprintf(depth, sizeof(depth), "%zu", i);
     subject_name = NULL;
     x509_certchain_get_subject_name(chain, i, &subject_name);
+    issuer_name = NULL;
+    x509_certchain_get_issuer_name(chain, i, &issuer_name);
 
     fields[0] = chain_id;
     fields[1] = depth;
     fields[2] = subject_name;
+    fields[3] = issuer_name;
     buf_clear(&buf);
     ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
 
     /* free per-iteration allocations before checking return status of
      * csv_encode */
     x509_certchain_free_data(chain, subject_name);
+    x509_certchain_free_data(chain, issuer_name);
 
     if (ret != 0) {
       goto end;
@@ -751,7 +756,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Chain,Depth,Subject Name\r\n";
+      tmpstr = "Chain,Depth,Subject,Issuer\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_certs_csv[opts.nout_certs_csv-1]);
       break;

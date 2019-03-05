@@ -65,7 +65,7 @@ static int run_get(const char *socket, const char *id, const char *path) {
 
   ret = storecli_open(&cli, path, O_RDONLY, &getfd);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_open: %s\n", storecli_strerror(&cli));
+    fprintf(stderr, "%s: %s\n", path, storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -148,7 +148,7 @@ static int run_put(const char *socket, const char *id, const char *name,
 
   ret = storecli_open(&cli, path, flags, &putfd);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_open: %s\n", storecli_strerror(&cli));
+    fprintf(stderr, "%s: %s\n", path, storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
@@ -444,7 +444,7 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_index(&cli, before, nelems, &indexfd);
   if (ret != STORECLI_OK) {
-    fprintf(stderr, "storecli_open: %s\n", storecli_strerror(&cli));
+    fprintf(stderr, "storecli_index: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 

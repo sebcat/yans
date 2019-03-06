@@ -1,13 +1,21 @@
 # TODO
 
+- BUG: ::1 successful connection to :53, however it is not listed in
+       collation
+
+- x509: Have types for
+  x509_cert
+  x509_general_names
+
 - Write wrapper for qsort_r which deals with various arg orders
 - Continue to work on Linux version
 
 UI issues:
-  - reload report entries when done (or per poll?) (also use store get MANIFEST)
   - alternating between entries duplicate content
 
-scan collate -t banners --out-certs ... --out-cert-alt-names ...
+- add sha1sum->cert-chain table in scan collate
+
+- scan collate -t banners --out-certs ... --out-cert-alt-names ...
 
 Collations:
 

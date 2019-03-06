@@ -15,10 +15,12 @@ lib_util_SOURCES = \
     lib/util/prng.c \
     lib/util/reorder.c \
     lib/util/sandbox.c \
+    lib/util/sha1.c \
     lib/util/sindex.c \
     lib/util/str.c \
     lib/util/sysinfo.c \
     lib/util/u8.c \
+    lib/util/x509.c \
     lib/util/ylog.c \
     lib/util/zfile.c
 

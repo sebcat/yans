@@ -30,6 +30,8 @@ clear_manifest() {
 # manifest <file> <descr>
 manifest() {
   # TODO: Only manifest file if > N bytes (compressed? decompr?)
+  # TODO: store append will print the store id.
+  #       have a store append --silent?
   if [ -z "$YANS_ID" ]; then
     printf '%s %s\n' "$1" "$2" >> MANIFEST
   else

@@ -49,6 +49,9 @@ struct collate_opts {
   FILE *out_certs_csv[MAX_INOUTS];
   size_t nout_certs_csv;
 
+  FILE *out_cert_sans_csv[MAX_INOUTS];
+  size_t nout_cert_sans_csv;
+
   FILE *closefps[MAX_FOPENS];
   size_t nclosefps;
 };
@@ -478,15 +481,19 @@ static int print_chain_csv(struct collate_certchain *certchain,
   size_t i;
   char chain_id[24];
   char depth[24];
-  const char *fields[4];
+  const char *fields[5];
+  char nsanstr[24];
   int ret;
   struct x509_certchain *chain;
+  struct x509_cert cert;
+  struct x509_sans sans;
   char *subject_name;
   char *issuer_name;
   int result = -1;
   buf_t buf;
   size_t nouts;
   size_t j;
+  size_t nsans;
 
   nouts = opts->nout_certs_csv;
   if (nouts == 0) {
@@ -501,23 +508,38 @@ static int print_chain_csv(struct collate_certchain *certchain,
   chain = &certchain->chain;
   ncerts = x509_certchain_get_ncerts(chain);
   for (i = 0; i < ncerts; i++) {
+    ret = x509_certchain_get_cert(chain, i, &cert);
+    if (ret != X509_OK) {
+      continue;
+    }
+
     snprintf(depth, sizeof(depth), "%zu", i);
     subject_name = NULL;
-    x509_certchain_get_subject_name(chain, i, &subject_name);
+    x509_cert_get_subject_name(&cert, &subject_name);
     issuer_name = NULL;
-    x509_certchain_get_issuer_name(chain, i, &issuer_name);
+    x509_cert_get_issuer_name(&cert, &issuer_name);
+
+    /* TODO: Move this to its own thing later */
+    nsanstr[0] = '\0';
+    ret = x509_cert_get_sans(&cert, &sans);
+    if (ret == X509_OK) {
+      nsans = x509_sans_get_nelems(&sans);
+      snprintf(nsanstr, sizeof(nsanstr), "%zu", nsans);
+      x509_sans_cleanup(&sans);
+    }
 
     fields[0] = chain_id;
     fields[1] = depth;
     fields[2] = subject_name;
     fields[3] = issuer_name;
+    fields[4] = nsanstr;
     buf_clear(&buf);
     ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
 
     /* free per-iteration allocations before checking return status of
      * csv_encode */
-    x509_certchain_free_data(chain, subject_name);
-    x509_certchain_free_data(chain, issuer_name);
+    x509_free_data(subject_name);
+    x509_free_data(issuer_name);
 
     if (ret != 0) {
       goto end;
@@ -541,30 +563,27 @@ static int print_chains_csv(struct objtbl_ctx *chains,
     struct collate_opts *opts) {
   size_t tbllen;
   size_t i;
-  size_t j;
   struct collate_certchain *chain;
   int result = 0;
   int ret;
 
   tbllen = objtbl_size(chains);
-  for (i = 0; i < opts->nout_services_csv; i++) {
-    for (j = 0; j < tbllen; j++) {
-      chain = objtbl_val(chains, j);
-      assert(chain != NULL);
+  for (i = 0; i < tbllen; i++) {
+    chain = objtbl_val(chains, i);
+    assert(chain != NULL);
 
-      /* If printing the element(s) of one chain fails, we must still
-       * iterate over the rest in order to free the memory associated with
-       * them. Therefore, we only call print_chain_csv if we still have 
-       * a zero (OK) result */
-      if (result == 0) {
-        ret = print_chain_csv(chain, opts);
-        if (ret < 0) {
-          result = -1;
-        }
+    /* If printing the element(s) of one chain fails, we must still
+     * iterate over the rest in order to free the memory associated with
+     * them. Therefore, we only call print_chain_csv if we still have
+     * a zero (OK) result */
+    if (result == 0) {
+      ret = print_chain_csv(chain, opts);
+      if (ret < 0) {
+        result = -1;
       }
-
-      x509_certchain_cleanup(&chain->chain);
     }
+
+    x509_certchain_cleanup(&chain->chain);
   }
 
   return result;
@@ -702,7 +721,7 @@ static void usage(const char *argv0) {
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:s:c:X";
+  const char *optstr = "t:B:s:c:a:X";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
@@ -710,11 +729,12 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   };
   /* short opts: uppercase letters for inputs, if sane to do so */
   static const struct option lopts[] = {
-    {"type",             required_argument, NULL, 't'},
-    {"in-banners",       required_argument, NULL, 'B'},
-    {"out-services-csv", required_argument, NULL, 's'},
-    {"out-certs-csv",    required_argument, NULL, 'c'},
-    {"no-sandbox",       no_argument,       NULL, 'X'},
+    {"type",              required_argument, NULL, 't'},
+    {"in-banners",        required_argument, NULL, 'B'},
+    {"out-services-csv",  required_argument, NULL, 's'},
+    {"out-certs-csv",     required_argument, NULL, 'c'},
+    {"out-cert-sans-csv", required_argument, NULL, 'a'},
+    {"no-sandbox",        no_argument,       NULL, 'X'},
     {NULL, 0, NULL, 0}};
   int ch;
   int status = EXIT_FAILURE;
@@ -756,9 +776,20 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Chain,Depth,Subject,Issuer\r\n";
+      tmpstr = "Chain,Depth,Subject,Issuer,# of SANs\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_certs_csv[opts.nout_certs_csv-1]);
+      break;
+    case 'a': /* out-cert-sans-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_cert_sans_csv, &opts.nout_cert_sans_csv);
+      if (ret < 0) {
+        goto end;
+      }
+
+      tmpstr = "Chain,Depth,Type,Name\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_cert_sans_csv[opts.nout_cert_sans_csv-1]);
       break;
     case 'X':
       sandbox = 0;

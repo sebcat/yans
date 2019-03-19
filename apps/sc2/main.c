@@ -85,7 +85,6 @@ struct sc2_ctx {
   struct sc2_opts opts;
   void *so;             /* SCGI module */
   int (*handler)(void); /* SCGI module handler */
-  int listenfd;
   int used;
   struct sc2_child *children;
   char errbuf[128];
@@ -122,7 +121,7 @@ static const char *sc2_strerror(struct sc2_ctx *ctx, int code) {
   }
 }
 
-static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts, int listenfd) {
+static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts) {
   void *so;
   int (*handler)(void);
 
@@ -159,7 +158,6 @@ static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts, int listenfd) {
 
   ctx->opts = *opts;
   ctx->used = 0;
-  ctx->listenfd = listenfd;
   ctx->so = so;
   ctx->handler = handler;
   return SC2_OK;
@@ -176,7 +174,7 @@ static void sc2_cleanup(struct sc2_ctx *ctx) {
   }
 }
 
-static int sc2_serve_incoming(struct sc2_ctx *ctx) {
+static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   int cli;
   int i;
   int ret;
@@ -184,7 +182,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx) {
   struct timespec started = {0};
 
   do {
-    cli = accept(ctx->listenfd, NULL, NULL);
+    cli = accept(listenfd, NULL, NULL);
   } while (cli < 0 && errno == EINTR);
   if (cli < 0) {
     return SC2_EACCEPT;
@@ -211,7 +209,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx) {
     dup2(cli, STDOUT_FILENO);
     dup2(cli, STDERR_FILENO);
     close(cli);
-    close(ctx->listenfd);
+    close(listenfd);
 
     if (ctx->opts.sandbox) {
       ret = sandbox_enter();
@@ -322,11 +320,11 @@ static void sc2_reap_children(struct sc2_ctx *ctx) {
   }
 }
 
-static int sc2_serve(struct sc2_ctx *ctx) {
+static int sc2_serve(struct sc2_ctx *ctx, int listenfd) {
   struct pollfd pfd;
   int ret;
 
-  pfd.fd = ctx->listenfd;
+  pfd.fd = listenfd;
   pfd.events = POLLIN;
   while (1) {
     sc2_check_procs(ctx);
@@ -363,7 +361,7 @@ static int sc2_serve(struct sc2_ctx *ctx) {
     }
 
     if (pfd.revents & POLLIN) {
-      ret = sc2_serve_incoming(ctx);
+      ret = sc2_serve_incoming(ctx, listenfd);
       if (ret != SC2_OK) {
         return ret;
       }
@@ -440,7 +438,6 @@ static long long_or_die(const char *str, int opt) {
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  char *scgi_module;
   static const char *optstr = "u:g:b:nl:m:0t:v:Xh";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
@@ -553,26 +550,8 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     usage();
   }
 
-  /* cleanup and validate the SCGI module path */
-  scgi_module = os_cleanpath(argv[0]);
-  if (!scgi_module || *scgi_module != '/') {
-    fprintf(stderr, "The path to the SCGI module must be absolute\n");
-    usage();
-  }
-  opts->sc2.scgi_module = scgi_module;
-}
-
-static int open_listenfd(const char *path) {
-  io_t io;
-  int ret;
-
-  ret = io_listen_unix(&io, path);
-  if (ret != IO_OK) {
-    ylog_error("%s: %s", path, io_strerror(&io));
-    return -1;
-  }
-
-  return IO_FILENO(&io);
+  /* cleanup the SCGI module path */
+  opts->sc2.scgi_module = os_cleanpath(argv[0]);
 }
 
 static void on_sigchld(int signal) {
@@ -589,7 +568,7 @@ static void on_term(int signal) {
   term_ = 1;
 }
 
-static int serve(struct sc2_ctx *ctx) {
+static int serve(struct sc2_ctx *ctx, int listenfd) {
   int ret;
   struct sigaction sa;
 
@@ -604,7 +583,7 @@ static int serve(struct sc2_ctx *ctx) {
   sigaction(SIGHUP, &sa, 0);
   sigaction(SIGINT, &sa, 0);
   signal(SIGPIPE, SIG_IGN);
-  ret = sc2_serve(ctx);
+  ret = sc2_serve(ctx, listenfd);
   set_default_signals();
   ctx_ = NULL;
 
@@ -612,25 +591,22 @@ static int serve(struct sc2_ctx *ctx) {
 }
 
 int main(int argc, char *argv[]) {
+  io_t io;
   os_t os;
   struct sc2_ctx ctx = {{0}};
   struct opts opts = {{0}};
   struct os_daemon_opts daemon_opts = {0};
   int status = EXIT_FAILURE;
   int ret;
-  int fd;
 
   parse_args_or_die(&opts, argc, argv);
 
-  fd = open_listenfd(DAEMON_NAME ".sock");
-  if (fd < 0) {
-    goto end;
-  }
-
-  ret = sc2_init(&ctx, &opts.sc2, fd);
+  /* init sc2 before chroot and daemonization so that the .so can live
+   * outside of the chroot */
+  ret = sc2_init(&ctx, &opts.sc2);
   if (ret != SC2_OK) {
-    ylog_error("sc2_init: %s", sc2_strerror(&ctx, ret));
-    goto close_listenfd;
+    fprintf(stderr, "sc2_init: %s", sc2_strerror(&ctx, ret));
+    goto end;
   }
 
   if (opts.no_daemon) {
@@ -653,8 +629,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  ret = io_listen_unix(&io, DAEMON_NAME ".sock");
+  if (ret != IO_OK) {
+    ylog_error("%s: %s", DAEMON_NAME ".sock", io_strerror(&io));
+    goto sc2_cleanup;
+  }
+
   ylog_info("Starting " DAEMON_NAME);
-  ret = serve(&ctx);
+  ret = serve(&ctx, IO_FILENO(&io));
   if (ret != SC2_OK) {
     ylog_error("sc2_serve: %s", sc2_strerror(&ctx, ret));
     ylog_error("failed to serve " DAEMON_NAME);
@@ -670,10 +652,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  io_close(&io);
 sc2_cleanup:
   sc2_cleanup(&ctx);
-close_listenfd:
-  close(fd);
 end:
   return status;
 }

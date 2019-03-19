@@ -3,7 +3,8 @@ sc2_DEPS = \
     lib/util/os.c \
     lib/util/buf.c \
     lib/util/eds.c \
-    lib/util/ylog.c
+    lib/util/ylog.c \
+    lib/util/sandbox.c
 
 sc2_DEPSOBJS = ${sc2_DEPS:.c=.o}
 

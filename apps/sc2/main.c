@@ -13,12 +13,12 @@
 #include <string.h>
 #include <assert.h>
 #include <getopt.h>
+#include <dlfcn.h>
 
 #include <lib/util/io.h>
+#include <lib/util/sandbox.h>
 #include <lib/util/ylog.h>
 #include <lib/util/os.h>
-
-extern char **environ;
 
 static struct sc2_ctx *ctx_; /* used for child reaping from signal handler */
 static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
@@ -31,13 +31,14 @@ static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
 #define DEFAULT_RLIMIT_VMEM RLIM_INFINITY
 #define DEFAULT_RLIMIT_CPU  RLIM_INFINITY
 
-#define SC2_OK 0
+#define SC2_OK        0
 #define SC2_EINVAL   -1 /* invalid parameter */
 #define SC2_EMEM     -2 /* memory allocation error */
 #define SC2_EPOLL    -3 /* poll failure */
 #define SC2_EACCEPT  -4 /* accept failure */
 #define SC2_EFORK    -5 /* fork failure */
 #define SC2_EGETTIME -6 /* clock_gettime failure */
+#define SC2_ERRBUF   -7 /* actual error set in errbuf buffer */
 
 /** struct sc2_child flags */
 /* indicates that the child has been waited for, and its exit status and
@@ -47,11 +48,14 @@ static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
 /* options specific to sc2 */
 struct sc2_opts {
   int maxreqs;     /* Maximum number of concurrent requests */
-  char *cgipath;   /* Path to binary getting execve'd*/
   time_t lifetime; /* Maximum number of seconds for a request */
+
+  const char *scgi_module; /* path to SCGI module */
 
   struct rlimit rlim_vmem; /* RLIMIT_VMEM/RLIMIT_AS, in kilobytes */
   struct rlimit rlim_cpu;  /* RLIMIT_CPU, in seconds */
+
+  int sandbox;             /* if non-zero, the child is run in sandbox */
 
   /* status callbacks */
   void (*on_started)(pid_t);
@@ -79,12 +83,23 @@ struct sc2_child {
 
 struct sc2_ctx {
   struct sc2_opts opts;
+  void *so;             /* SCGI module */
+  int (*handler)(void); /* SCGI module handler */
   int listenfd;
   int used;
   struct sc2_child *children;
+  char errbuf[128];
 };
 
-static const char *sc2_strerror(int code) {
+static void set_default_signals() {
+  signal(SIGPIPE, SIG_DFL);
+  signal(SIGINT, SIG_DFL);
+  signal(SIGHUP, SIG_DFL);
+  signal(SIGTERM, SIG_DFL);
+  signal(SIGCHLD, SIG_DFL);
+}
+
+static const char *sc2_strerror(struct sc2_ctx *ctx, int code) {
   switch (code) {
   case SC2_OK:
     return "success";
@@ -100,32 +115,62 @@ static const char *sc2_strerror(int code) {
     return "fork failure";
   case SC2_EGETTIME:
     return "clock_gettime failure";
+  case SC2_ERRBUF:
+    return ctx->errbuf;
   default:
     return "unknown error";
   }
 }
 
 static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts, int listenfd) {
+  void *so;
+  int (*handler)(void);
+
   assert(ctx != NULL);
+
+  ctx->errbuf[0] = '\0';
 
   if (opts->maxreqs <= 0) {
     return SC2_EINVAL;
   }
 
+  /* load the SCGI module */
+  so = dlopen(opts->scgi_module, RTLD_NOW);
+  if (so == NULL) {
+    snprintf(ctx->errbuf, sizeof(ctx->errbuf), "%s: %s", opts->scgi_module,
+        dlerror());
+    return SC2_ERRBUF;
+  }
+
+  /* load the SCGI module handler symbol */
+  handler = dlsym(so, "sc2_handler");
+  if (handler == NULL) {
+    snprintf(ctx->errbuf, sizeof(ctx->errbuf), "%s: %s", opts->scgi_module,
+        dlerror());
+    dlclose(so);
+    return SC2_ERRBUF;
+  }
+
   ctx->children = calloc((size_t)opts->maxreqs, sizeof(struct sc2_child));
   if (ctx->children == NULL) {
+    dlclose(so);
     return SC2_EMEM;
   }
 
   ctx->opts = *opts;
   ctx->used = 0;
   ctx->listenfd = listenfd;
+  ctx->so = so;
+  ctx->handler = handler;
   return SC2_OK;
 }
 
 static void sc2_cleanup(struct sc2_ctx *ctx) {
   if (ctx != NULL) {
     /* TODO: kill children, if any */
+    if (ctx->so) {
+      dlclose(ctx->so);
+    }
     free(ctx->children);
     memset(ctx, 0, sizeof(*ctx));
   }
@@ -155,16 +200,27 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx) {
   if (pid < 0) {
     return SC2_EFORK;
   } else if (pid == 0) {
-    char *argv[] = {ctx->opts.cgipath, NULL};
-    setrlimit(RLIMIT_CPU, &ctx->opts.rlim_cpu);
-    setrlimit(RLIMIT_AS, &ctx->opts.rlim_vmem);
+    set_default_signals();
+    if (ctx->opts.rlim_cpu.rlim_cur != RLIM_INFINITY) {
+      setrlimit(RLIMIT_CPU, &ctx->opts.rlim_cpu);
+    }
+    if (ctx->opts.rlim_vmem.rlim_cur != RLIM_INFINITY) {
+      setrlimit(RLIMIT_AS, &ctx->opts.rlim_vmem);
+    }
     dup2(cli, STDIN_FILENO);
     dup2(cli, STDOUT_FILENO);
     dup2(cli, STDERR_FILENO);
     close(cli);
     close(ctx->listenfd);
-    execve(ctx->opts.cgipath, argv, environ);
-    exit(1);
+
+    if (ctx->opts.sandbox) {
+      ret = sandbox_enter();
+      if (ret != 0) {
+        exit(42);
+      }
+    }
+
+    exit(ctx->handler());
   }
 
   close(cli);
@@ -289,8 +345,8 @@ static int sc2_serve(struct sc2_ctx *ctx) {
       continue;
     }
 
-    /* timeout 1000 because we need to check for process timeouts, but only if
-     * we have waiting processes */
+    /* timeout 1000 because we need to check for process timeouts, but only
+     * if we have waiting processes */
     ret = poll(&pfd, 1, ctx->used > 0 ? 1000 : -1);
     if (ret < 0) {
       if (errno == EINTR) {
@@ -321,8 +377,8 @@ static int sc2_serve(struct sc2_ctx *ctx) {
 static void usage() {
   fprintf(stderr,
       "usage:\n"
-      "  " DAEMON_NAME " -u <user> -g <group> -b <basepath> <scgi-binary>\n"
-      "  " DAEMON_NAME " -n -b <basepath> <cgi-root>\n"
+      "  " DAEMON_NAME " -u <user> -g <group> -b <basepath> <scgi-module>\n"
+      "  " DAEMON_NAME " -n -b <basepath> <scgi-module>\n"
       "  " DAEMON_NAME " -h\n"
       "\n"
       "options:\n"
@@ -384,7 +440,8 @@ static long long_or_die(const char *str, int opt) {
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nl:m:0t:v:h";
+  char *scgi_module;
+  static const char *optstr = "u:g:b:nl:m:0t:v:Xh";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -395,6 +452,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"no-chroot", no_argument, NULL, '0'},
     {"cpu-rlim", required_argument, NULL, 't'},
     {"vmem-rlim", required_argument, NULL, 'v'},
+    {"no-sandbox", no_argument, NULL, 'X'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -405,6 +463,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->gid = 0;
   opts->no_daemon = 0;
   opts->daemon_flags = 0;
+  opts->sc2.sandbox = 1;
   opts->sc2.maxreqs = DEFAULT_MAXREQS;
   opts->sc2.lifetime = DEFAULT_LIFETIME;
   opts->sc2.rlim_vmem.rlim_cur = DEFAULT_RLIMIT_VMEM;
@@ -452,6 +511,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         opts->sc2.rlim_vmem.rlim_cur = long_or_die(optarg, 'v');
         opts->sc2.rlim_vmem.rlim_max = opts->sc2.rlim_vmem.rlim_cur;
         break;
+      case 'X':
+        opts->sc2.sandbox = 0;
+        break;
       case 'h':
       default:
         usage();
@@ -487,19 +549,17 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   argc -= optind;
   argv += optind;
   if (argc <= 0) {
-    fprintf(stderr, "missing SCGI binary\n");
+    fprintf(stderr, "missing path to SCGI module\n");
     usage();
   }
 
-  /* setup and validate cgipath */
-  opts->sc2.cgipath = os_cleanpath(argv[0]);
-  if (*opts->sc2.cgipath != '/') {
-    fprintf(stderr, "SCGI binary must be an absolute path\n");
-    usage();
-  } else if (!os_isexec(opts->sc2.cgipath)) {
-    fprintf(stderr, "SCGI binary is not executable\n");
+  /* cleanup and validate the SCGI module path */
+  scgi_module = os_cleanpath(argv[0]);
+  if (!scgi_module || *scgi_module != '/') {
+    fprintf(stderr, "The path to the SCGI module must be absolute\n");
     usage();
   }
+  opts->sc2.scgi_module = scgi_module;
 }
 
 static int open_listenfd(const char *path) {
@@ -529,18 +589,12 @@ static void on_term(int signal) {
   term_ = 1;
 }
 
-static int serve(struct opts *opts) {
-  struct sigaction sa;
-  struct sc2_ctx ctx = {{0}};
+static int serve(struct sc2_ctx *ctx) {
   int ret;
-  int fd;
+  struct sigaction sa;
 
-  fd = open_listenfd(DAEMON_NAME ".sock");
-  if (fd < 0) {
-    return -1;
-  }
-
-  ctx_ = &ctx  /* This is a bit ugly, but so are signals... */;
+  /* This is a bit ugly, but so are signals... */
+  ctx_ = ctx;
   sa.sa_handler = &on_sigchld;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
@@ -550,39 +604,40 @@ static int serve(struct opts *opts) {
   sigaction(SIGHUP, &sa, 0);
   sigaction(SIGINT, &sa, 0);
   signal(SIGPIPE, SIG_IGN);
-
-  ret = sc2_init(&ctx, &opts->sc2, fd);
-  if (ret != SC2_OK) {
-    ylog_error("sc2_init: %s", sc2_strerror(ret));
-    return -1;
-  }
-
-  ret = sc2_serve(&ctx);
-  if (ret != SC2_OK) {
-    ylog_error("sc2_serve: %s", sc2_strerror(ret));
-    sc2_cleanup(&ctx);
-    return -1;
-  }
-
-  signal(SIGCHLD, SIG_DFL); /* restore SIGCHLD handler to default */
+  ret = sc2_serve(ctx);
+  set_default_signals();
   ctx_ = NULL;
-  sc2_cleanup(&ctx);
-  return 0;
+
+  return ret;
 }
 
 int main(int argc, char *argv[]) {
   os_t os;
+  struct sc2_ctx ctx = {{0}};
   struct opts opts = {{0}};
   struct os_daemon_opts daemon_opts = {0};
-  int status = EXIT_SUCCESS;
+  int status = EXIT_FAILURE;
   int ret;
+  int fd;
 
   parse_args_or_die(&opts, argc, argv);
+
+  fd = open_listenfd(DAEMON_NAME ".sock");
+  if (fd < 0) {
+    goto end;
+  }
+
+  ret = sc2_init(&ctx, &opts.sc2, fd);
+  if (ret != SC2_OK) {
+    ylog_error("sc2_init: %s", sc2_strerror(&ctx, ret));
+    goto close_listenfd;
+  }
+
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {
       ylog_error("chdir %s: %s", opts.basepath, strerror(errno));
-      return EXIT_FAILURE;
+      goto sc2_cleanup;
     }
   } else {
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
@@ -594,16 +649,17 @@ int main(int argc, char *argv[]) {
     daemon_opts.nagroups = 0;
     if (os_daemonize(&os, &daemon_opts) != OS_OK) {
       ylog_error("%s", os_strerror(&os));
-      return EXIT_FAILURE;
+      goto sc2_cleanup;
     }
   }
 
   ylog_info("Starting " DAEMON_NAME);
-
-  ret = serve(&opts);
-  if (ret < 0) {
+  ret = serve(&ctx);
+  if (ret != SC2_OK) {
+    ylog_error("sc2_serve: %s", sc2_strerror(&ctx, ret));
     ylog_error("failed to serve " DAEMON_NAME);
-    status = EXIT_FAILURE;
+  } else {
+    status = EXIT_SUCCESS;
   }
 
   if (!opts.no_daemon) {
@@ -614,5 +670,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+sc2_cleanup:
+  sc2_cleanup(&ctx);
+close_listenfd:
+  close(fd);
+end:
   return status;
 }

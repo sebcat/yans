@@ -7,6 +7,12 @@ script_BINS =
 # executables that gets built and installed
 BINS =
 
+# built shared objects that does not get installed
+nodist_SHLIBS =
+
+#shared objects that gets built and installed
+SHLIBS =
+
 # intermediate build files, does not get installed and are removed on clean
 OBJS =
 
@@ -49,13 +55,15 @@ DESTDIR ?=
 RCFILESDIR ?= /usr/local/etc/rc.d
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
+LIBDIR ?= $(PREFIX)/lib
 DATAROOTDIR ?= $(PREFIX)/share
 LOCALSTATEDIR ?= /var
 
 CFLAGS ?= -Os -pipe
-CFLAGS += -Wall -Werror -Wformat -Wformat-security -I.
+CFLAGS += -Wall -Werror -Wformat -Wformat-security -I. -fPIC
 CFLAGS += -DBINDIR=\"$(BINDIR)\" -DDATAROOTDIR=\"$(DATAROOTDIR)\"
 CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
+CFLAGS += -DLIBDIR=\"$(LIBDIR)\"
 
 # set MAYBE_VALGRIND to the valgrind command if USE_VALGRIND is set to 1
 # used for make check
@@ -68,10 +76,12 @@ MAYBE_VALGRIND := ${MAYBE_VALGRIND_${USE_VALGRIND}}
 
 include files.mk
 
-OBJS += ${${UNAME_S}_OBJS}
-BINS += ${${UNAME_S}_BINS}
+OBJS   += ${${UNAME_S}_OBJS}
+BINS   += ${${UNAME_S}_BINS}
+SHLIBS += ${${UNAME_S}_SHLIBS}
 
-all: $(nodist_BINS) $(BINS) $(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
+all: $(nodist_BINS) $(BINS) $(nodist_SHLIBS) $(SHLIBS) \
+	$(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
 	$(KNEGMANIFEST) $(YANS_FE)
 
 # driver building, installing, cleaning is done explicitly, with no
@@ -95,7 +105,7 @@ install-drivers:
 	done
 
 clean:
-	rm -f $(nodist_BINS) $(BINS)
+	rm -f $(nodist_BINS) $(BINS) $(nodist_SHLIBS) $(SHLIBS)
 	rm -f $(CTESTS)
 	rm -f $(OBJS)
 	rm -f $(GENERATED_RCFILES)
@@ -118,6 +128,10 @@ manifest:
 		B=$$(basename $$B); \
 		echo $(DESTDIR)$(BINDIR)/$$B; \
 	done
+	@for B in $(SHLIBS); do \
+		B=$$(basename $$B); \
+		echo $(DESTDIR)$(LIBDIR)/$$B; \
+	done
 	@for Y in $(YANSLIB); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
 	done
@@ -137,14 +151,18 @@ manifest-rcfiles:
 		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
-install: $(nodist_BINS) $(BINS) $(YANSLIB) $(KNEGLIB) $(KNEGMANIFEST) \
-		$(YANS_FE)
+install: $(script_BINS) $(BINS) $(SHLIBS) $(YANSLIB) $(KNEGLIB) \
+		$(KNEGMANIFEST) $(YANS_FE)
 	mkdir -p $(DESTDIR)$(BINDIR)
+	mkdir -p $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans-fe
 	for B in $(BINS) $(script_BINS); do \
 		$(INSTALL) -m 755 $$B $(DESTDIR)$(BINDIR); \
+	done
+	for B in $(SHLIBS); do \
+		$(INSTALL) -m 755 $$B $(DESTDIR)$(LIBDIR); \
 	done
 	for Y in $(YANSLIB); do \
 		mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans/$$(dirname $${Y#data/yans/}); \
@@ -164,6 +182,10 @@ install-strip: install
 	for B in $(BINS); do \
 		B=$$(basename $$B); \
 		$(STRIP) $(DESTDIR)$(BINDIR)/$$B; \
+	done
+	for B in $(SHLIBS); do \
+		B=$$(basename $$B); \
+		$(STRIP) $(DESTDIR)$(LIBDIR)/$$B; \
 	done
 
 install-rcfiles: $(RCFILES) $(GENERATED_RCFILES)

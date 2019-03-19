@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <lib/net/scgi.h>
 
-int main(int argc, char *argv[]) {
+__attribute__((visibility("default"))) int sc2_handler(void) {
   struct scgi_ctx ctx = {0};
   struct scgi_header hdr = {0};
   int ret;

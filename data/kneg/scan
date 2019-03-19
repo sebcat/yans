@@ -95,16 +95,18 @@ if [ -n "$TCP_PORTS_TLS" ]; then
       --out             zlib:banners.tls.gz
 fi
 
-run $SCAN collate                                     \
-    $SCANOPTS                                         \
-    --type banners                                    \
-    --in-banners       zlib:banners.plain.gz          \
-    --in-banners       zlib:banners.tls.gz            \
-    --out-services-csv zlib:services.csv.gz           \
-    --out-certs-csv    zlib:certs.csv.gz
+run $SCAN collate                                      \
+    $SCANOPTS                                          \
+    --type banners                                     \
+    --in-banners        zlib:banners.plain.gz          \
+    --in-banners        zlib:banners.tls.gz            \
+    --out-services-csv  zlib:services.csv.gz           \
+    --out-certs-csv     zlib:certs.csv.gz              \
+    --out-cert-sans-csv zlib:sans.csv.gz
 
 manifest "services.csv.gz" "Services"
 manifest "certs.csv.gz" "Certificates"
+manifest "sans.csv.gz" "Certificate Subject Alternative Names"
 
 
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

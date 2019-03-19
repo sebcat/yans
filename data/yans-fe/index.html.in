@@ -134,6 +134,7 @@ table tr:nth-child(1) td {
   font-family: monospace;
   white-space: pre;
   margin: .5rem;
+  overflow: auto;
 }
 
 .running {

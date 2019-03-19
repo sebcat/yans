@@ -127,7 +127,7 @@ size_t x509_sans_get_nelems(struct x509_sans *sans) {
   return nelems;
 }
 
-int x509_cert_get_san(struct x509_sans *sans, size_t index,
+int x509_sans_get_san(struct x509_sans *sans, size_t index,
     struct x509_san *san) {
   BIO *b;
   size_t nsans;

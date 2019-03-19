@@ -475,6 +475,62 @@ end:
   return status;
 }
 
+static int print_sans_csv(struct x509_sans *sans,
+    struct collate_opts *opts, const char *id, const char *depth) {
+  const char *fields[4];
+  size_t nsans;
+  size_t i;
+  size_t j;
+  struct x509_san san;
+  char *sanstr;
+  char *sep;
+  int ret;
+  buf_t buf;
+  int result = -1;
+
+  buf_init(&buf, 1024);
+  fields[0] = id;
+  fields[1] = depth;
+  nsans = x509_sans_get_nelems(sans);
+  for (i = 0; i < nsans; i++) {
+    ret = x509_sans_get_san(sans, i, &san);
+    if (ret != X509_OK) {
+      continue;
+    }
+
+    sanstr = x509_san_get_data(&san);
+    sep = strchr(sanstr, ':');
+    if (sep == NULL) {
+      fields[2] = NULL;
+      fields[3] = sanstr;
+    } else {
+      *sep = '\0';
+      sep++;
+      fields[2] = sanstr;
+      fields[3] = sep;
+    }
+
+
+    buf_clear(&buf);
+    ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
+    x509_free_san(&san);
+    if (ret < 0) {
+      goto end;
+    }
+
+    for (j = 0; j < opts->nout_cert_sans_csv; j++) {
+      if (fwrite(buf.data, buf.len, 1, opts->out_cert_sans_csv[j]) != 1) {
+        goto end;
+      }
+    }
+  }
+
+  result = 0;
+end:
+  buf_cleanup(&buf);
+  return result;
+}
+
 static int print_chain_csv(struct collate_certchain *certchain,
     struct collate_opts *opts) {
   size_t ncerts;
@@ -525,6 +581,7 @@ static int print_chain_csv(struct collate_certchain *certchain,
     if (ret == X509_OK) {
       nsans = x509_sans_get_nelems(&sans);
       snprintf(nsanstr, sizeof(nsanstr), "%zu", nsans);
+      print_sans_csv(&sans, opts, chain_id, depth);
       x509_sans_cleanup(&sans);
     }
 

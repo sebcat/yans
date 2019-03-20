@@ -3,7 +3,13 @@
 #include <unistd.h>
 #include <lib/net/scgi.h>
 
-__attribute__((visibility("default"))) int sc2_handler(void) {
+#define SC2APIFUNC __attribute__((visibility("default")))
+
+SC2APIFUNC void *sc2_setup(void) {
+  return "icanhasdata";
+}
+
+SC2APIFUNC int sc2_handler(void *data) {
   struct scgi_ctx ctx = {0};
   struct scgi_header hdr = {0};
   int ret;
@@ -37,6 +43,7 @@ __attribute__((visibility("default"))) int sc2_handler(void) {
     goto cleanup_ctx;
   }
 
+  printf("data: %s\n", data);
   status = EXIT_SUCCESS;
 cleanup_ctx:
   scgi_cleanup(&ctx);

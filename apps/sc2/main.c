@@ -83,11 +83,14 @@ struct sc2_child {
 
 struct sc2_ctx {
   struct sc2_opts opts;
-  void *so;             /* SCGI module */
-  int (*handler)(void); /* SCGI module handler */
-  int used;
+  int used;               /* number of currently used request slots */
   struct sc2_child *children;
   char errbuf[128];
+
+  void *so;               /* SCGI module */
+  void *(*setup)(void);   /* SCGI module setup function */
+  int (*handler)(void *); /* SCGI module request handler */
+  void *data;             /* whatever 'setup' returns, passed to handler */
 };
 
 static void set_default_signals() {
@@ -123,7 +126,8 @@ static const char *sc2_strerror(struct sc2_ctx *ctx, int code) {
 
 static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts) {
   void *so;
-  int (*handler)(void);
+  void *(*setup)(void);
+  int (*handler)(void *);
 
   assert(ctx != NULL);
 
@@ -150,6 +154,9 @@ static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts) {
     return SC2_ERRBUF;
   }
 
+  /* load the SCGI module setup symbol, if any (OK to be NULL) */
+  setup = dlsym(so, "sc2_setup");
+
   ctx->children = calloc((size_t)opts->maxreqs, sizeof(struct sc2_child));
   if (ctx->children == NULL) {
     dlclose(so);
@@ -159,6 +166,7 @@ static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts) {
   ctx->opts = *opts;
   ctx->used = 0;
   ctx->so = so;
+  ctx->setup = setup;
   ctx->handler = handler;
   return SC2_OK;
 }
@@ -180,6 +188,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   int ret;
   pid_t pid;
   struct timespec started = {0};
+  void *data = NULL;
 
   do {
     cli = accept(listenfd, NULL, NULL);
@@ -211,6 +220,10 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
     close(cli);
     close(listenfd);
 
+    if (ctx->setup) {
+      data = ctx->setup();
+    }
+
     if (ctx->opts.sandbox) {
       ret = sandbox_enter();
       if (ret != 0) {
@@ -218,7 +231,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
       }
     }
 
-    exit(ctx->handler());
+    exit(ctx->handler(data));
   }
 
   close(cli);

@@ -17,4 +17,6 @@
 #define CLAMP(val__, low__, high__) \
     ((val__) < (low__) ? (low__) : ( (val__) > (high__) ? (high__) : (val__)))
 
+#define ARRAY_SIZE(x__) (sizeof((x__))/sizeof((x__)[0]))
+
 #endif

@@ -73,6 +73,18 @@ int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
     enum yapi_ctype ctype);
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len);
 
+#define yapi_errorf(ctx__, status__, fmt__, ...) \
+  _yapi_errorf((ctx__), (status__), "[%s:%d] " fmt__ "\n", __func__, \
+      __LINE__, __VA_ARGS__)
+
+#define yapi_error(ctx__, status__, str__) \
+  _yapi_errorf((ctx__), (status__), "[%s:%d] %s\n", __func__, __LINE__, \
+      (str__))
+
+int _yapi_errorf(struct yapi_ctx *ctx, enum yapi_status status,
+    const char *fmt, ...);
+
+
 int yapi_serve(struct yapi_ctx *ctx, const char *prefix,
     struct yapi_route *routes, size_t nroutes);
 

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include <lib/net/scgi.h>
 #include <apps/a2/yapi.h>
@@ -156,17 +157,12 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
 
   ret = setjmp(ctx->jmpbuf);
   if (ret) {
-    goto handle_err;
+    /* _yapi_errorf was called from within the route func, bail with the
+     * return code supplied from _yapi_errorf */
+    return ret;
   }
 
   return route->func(ctx);
-
-handle_err:
-  /* TODO: have yapi_error set status and content type, and respond
-   *       accordingly */
-  yapi_header(ctx, YAPI_STATUS_BAD_REQUEST, YAPI_CTYPE_TEXT);
-  yapi_write(ctx, "err\n", sizeof("err\n")-1);
-  return ret;
 }
 
 int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
@@ -180,6 +176,18 @@ int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
 
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len) {
   return fwrite(data, 1, len, ctx->output);
+}
+
+int _yapi_errorf(struct yapi_ctx *ctx, enum yapi_status status,
+    const char *fmt, ...) {
+  va_list ap;
+
+  va_start(ap, fmt);
+  yapi_header(ctx, status, YAPI_CTYPE_TEXT);
+  vfprintf(ctx->output, fmt, ap);
+  va_end(ap);
+  longjmp(ctx->jmpbuf, 1);
+  return 1; /* not reached */
 }
 
 void yapi_init(struct yapi_ctx *ctx) {
@@ -211,8 +219,6 @@ int yapi_serve(struct yapi_ctx *ctx, const char *prefix,
 
   /* TODO:
    *  - scgi_get_rest must be used when reading request bodies
-   *  - should scgi, stdio should be wrapped by rutt?
-   *  - return yapi_error(...), similar to Lua, using longjmp.
    **/
 
   status = route_request(ctx, prefix, routes, nroutes);

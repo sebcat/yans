@@ -26,6 +26,7 @@ const char *yapi_method2str(enum yapi_method method) {
     case YAPI_METHOD_POST:
       return "POST";
     case YAPI_METHOD_UNKNOWN:
+    default:
       return "DUNNO";
   }
 }
@@ -115,7 +116,7 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
   const char *path;
   size_t len;
   size_t i;
-  struct yapi_route *route;
+  struct yapi_route *route = NULL;
   int ret;
 
   path = ctx->req.document_uri;

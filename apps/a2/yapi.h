@@ -2,6 +2,7 @@
 #define YANS_YAPI_H__
 
 #include <setjmp.h>
+#include <stdio.h>
 
 enum yapi_status {
   YAPI_STATUS_NONE = 0,
@@ -42,8 +43,8 @@ struct yapi_ctx {
   struct yapi_request req;
   struct yapi_response resp;
   jmp_buf jmpbuf;
-  int input;
-  int output;
+  FILE *input;
+  FILE *output;
 };
 
 struct yapi_route {
@@ -59,13 +60,17 @@ enum yapi_method yapi_str2method(const char *str);
 
 void yapi_init(struct yapi_ctx *rutt);
 
-static inline void yapi_set_input(struct yapi_ctx *rutt, int fd) {
-  rutt->input = fd;
+static inline void yapi_set_input(struct yapi_ctx *rutt, FILE *fp) {
+  rutt->input = fp;
 }
 
-static inline void yapi_set_output(struct yapi_ctx *rutt, int fd) {
-  rutt->output = fd;
+static inline void yapi_set_output(struct yapi_ctx *rutt, FILE *fp) {
+  rutt->output = fp;
 }
+
+int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
+    enum yapi_ctype ctype);
+int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len);
 
 int yapi_serve(struct yapi_ctx *rutt, const char *prefix,
     struct yapi_route *routes, size_t nroutes);

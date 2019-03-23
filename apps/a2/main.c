@@ -1,19 +1,23 @@
-#include <unistd.h>
-
 #include <lib/util/macros.h>
 #include <apps/a2/yapi.h>
 
 #define SC2APIFUNC __attribute__((visibility("default")))
 
 static int get_a(struct yapi_ctx *ctx) {
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_TEXT);
+  yapi_write(ctx, "get a\n", sizeof("get a\n")-1);
   return 10;
 }
 
 static int post_b(struct yapi_ctx *ctx) {
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_CSV);
+  yapi_write(ctx, "foo,bar\n", sizeof("foo,bar\n")-1);
   return 11;
 }
 
 static int get_b(struct yapi_ctx *ctx) {
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_TEXT);
+  yapi_write(ctx, "get b\n", sizeof("get b\n")-1);
   return 12;
 }
 
@@ -42,8 +46,8 @@ SC2APIFUNC int sc2_handler(void *data) {
   };
 
   yapi_init(&rutt);
-  yapi_set_input(&rutt, STDIN_FILENO);
-  yapi_set_output(&rutt, STDOUT_FILENO);
+  yapi_set_input(&rutt, stdin);
+  yapi_set_output(&rutt, stdout);
   return yapi_serve(&rutt, "/trololo/", routes, ARRAY_SIZE(routes));
 }
 

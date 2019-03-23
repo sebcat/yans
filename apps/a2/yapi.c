@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 #include <lib/net/scgi.h>
@@ -147,8 +146,10 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
     }
   }
 
-  /* Check if a matching route was found. If not, return. */
+  /* Check if a matching route was found. If not, respond with 404. */
   if (i == nroutes) {
+    yapi_header(ctx, YAPI_STATUS_NOT_FOUND, YAPI_CTYPE_TEXT);
+    yapi_write(ctx, "404 not found\n", sizeof("404 not found\n")-1);
     return 0;
   }
 
@@ -160,26 +161,37 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
   return route->func(ctx);
 
 handle_err:
-  /* TODO: Implement */
-  printf(
-      "Status: %s\r\n"
-      "Content-Type: %s\r\n\r\n"
-      "%s"
-      , "666", "some/type", "lol");
+  /* TODO: have yapi_error set status and content type, and respond
+   *       accordingly */
+  yapi_header(ctx, YAPI_STATUS_BAD_REQUEST, YAPI_CTYPE_TEXT);
+  yapi_write(ctx, "err\n", sizeof("err\n")-1);
   return ret;
 }
 
-void yapi_init(struct yapi_ctx *rutt) {
-  memset(rutt, 0, sizeof(*rutt));
+int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
+    enum yapi_ctype ctype) {
+  return fprintf(ctx->output,
+      "Status: %s\r\n"
+      "Content-Type: %s\r\n\r\n",
+      yapi_status2str(status),
+      yapi_ctype2str(ctype));
 }
 
-int yapi_serve(struct yapi_ctx *rutt, const char *prefix,
+int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len) {
+  return fwrite(data, 1, len, ctx->output);
+}
+
+void yapi_init(struct yapi_ctx *yapi) {
+  memset(yapi, 0, sizeof(*yapi));
+}
+
+int yapi_serve(struct yapi_ctx *ctx, const char *prefix,
     struct yapi_route *routes, size_t nroutes) {
   struct scgi_ctx cgi = {0};
   int status = EXIT_FAILURE;
   int ret;
 
-  ret = scgi_init(&cgi, rutt->input, SCGI_DEFAULT_MAXHDRSZ);
+  ret = scgi_init(&cgi, fileno(ctx->input), SCGI_DEFAULT_MAXHDRSZ);
   if (ret != SCGI_OK) {
     goto end;
   }
@@ -189,7 +201,7 @@ int yapi_serve(struct yapi_ctx *rutt, const char *prefix,
     goto scgi_cleanup;
   }
 
-  ret = parse_request_header(&cgi, &rutt->req);
+  ret = parse_request_header(&cgi, &ctx->req);
   if (ret != SCGI_OK) {
     goto scgi_cleanup;
   }
@@ -200,7 +212,7 @@ int yapi_serve(struct yapi_ctx *rutt, const char *prefix,
    *  - return yapi_error(...), similar to Lua, using longjmp.
    **/
 
-  status = route_request(rutt, prefix, routes, nroutes);
+  status = route_request(ctx, prefix, routes, nroutes);
 scgi_cleanup:
   scgi_cleanup(&cgi);
 end:

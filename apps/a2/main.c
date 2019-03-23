@@ -1,17 +1,15 @@
 #include <lib/util/macros.h>
 #include <apps/a2/yapi.h>
 
-#define SC2APIFUNC __attribute__((visibility("default")))
-
 static int get_fail(struct yapi_ctx *ctx) {
   return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR, "got fail");
 }
 
-SC2APIFUNC void *sc2_setup(void) {
+APIFUNC void *sc2_setup(void) {
   return "icanhasdata";
 }
 
-SC2APIFUNC int sc2_handler(void *data) {
+APIFUNC int sc2_handler(void *data) {
   struct yapi_ctx ctx;
   struct yapi_route routes[] = {
     {YAPI_METHOD_GET, "fail", get_fail}

@@ -3,61 +3,61 @@
 #include <string.h>
 
 #include <lib/net/scgi.h>
-#include <apps/a2/rutt.h>
+#include <apps/a2/yapi.h>
 
-const char *rutt_ctype2str(enum rutt_ctype t) {
+const char *yapi_ctype2str(enum yapi_ctype t) {
   switch(t) {
-  case RUTT_CTYPE_JSON:
+  case YAPI_CTYPE_JSON:
     return "application/json";
-  case RUTT_CTYPE_CSV:
+  case YAPI_CTYPE_CSV:
     return "application/vnd.ms-excel";
-  case RUTT_CTYPE_TEXT:
+  case YAPI_CTYPE_TEXT:
     return "text/plain";
-  case RUTT_CTYPE_BINARY:
+  case YAPI_CTYPE_BINARY:
   default:
     return "application/octet-stream";
     break;
   }
 }
 
-const char *rutt_method2str(enum rutt_method method) {
+const char *yapi_method2str(enum yapi_method method) {
   switch (method) {
-    case RUTT_METHOD_GET:
+    case YAPI_METHOD_GET:
       return "GET";
-    case RUTT_METHOD_POST:
+    case YAPI_METHOD_POST:
       return "POST";
-    case RUTT_METHOD_UNKNOWN:
+    case YAPI_METHOD_UNKNOWN:
       return "DUNNO";
   }
 }
 
-const char *rutt_status2str(enum rutt_status status) {
+const char *yapi_status2str(enum yapi_status status) {
   switch (status) {
-  case RUTT_STATUS_OK:
+  case YAPI_STATUS_OK:
     return "200 OK";
-  case RUTT_STATUS_BAD_REQUEST:
+  case YAPI_STATUS_BAD_REQUEST:
     return "400 Bad Request";
-  case RUTT_STATUS_NOT_FOUND:
+  case YAPI_STATUS_NOT_FOUND:
     return "404 Not Found";
-  case RUTT_STATUS_INTERNAL_SERVER_ERROR:
+  case YAPI_STATUS_INTERNAL_SERVER_ERROR:
     return "500 Internal Server Error";
   default:
     return "666 The Number Of The Beast";  
   }
 }
 
-enum rutt_method rutt_str2method(const char *str) {
+enum yapi_method yapi_str2method(const char *str) {
   if (strcmp(str, "GET") == 0) {
-    return RUTT_METHOD_GET;
+    return YAPI_METHOD_GET;
   } else if (strcmp(str, "POST") == 0) {
-    return RUTT_METHOD_POST;
+    return YAPI_METHOD_POST;
   } else {
-    return RUTT_METHOD_UNKNOWN;  
+    return YAPI_METHOD_UNKNOWN;  
   }
 }
 
 static int parse_request_header(struct scgi_ctx *cgi,
-    struct rutt_request *req) {
+    struct yapi_request *req) {
   struct scgi_header hdr = {0};
   int ret;
   long l;
@@ -69,7 +69,7 @@ static int parse_request_header(struct scgi_ctx *cgi,
   }
 
   /* Iterate over the request header fields and store appropriate fields in
-   * rutt_request. We should only check for the things we care about. */
+   * yapi_request. We should only check for the things we care about. */
   while ((ret = scgi_get_next_header(cgi, &hdr)) == SCGI_AGAIN) {
 
     /* Skip headers with empty values for now */
@@ -92,7 +92,7 @@ static int parse_request_header(struct scgi_ctx *cgi,
       break;
     case 'R':
       if (strcmp(hdr.key, "REQUEST_METHOD") == 0) {
-        req->request_method = rutt_str2method(hdr.value);
+        req->request_method = yapi_str2method(hdr.value);
       }
       break;
     case 'D':
@@ -111,12 +111,12 @@ static int parse_request_header(struct scgi_ctx *cgi,
   return ret;
 }
 
-static int route_request(struct rutt_ctx *ctx, const char *prefix,
-    struct rutt_route *routes, size_t nroutes) {
+static int route_request(struct yapi_ctx *ctx, const char *prefix,
+    struct yapi_route *routes, size_t nroutes) {
   const char *path;
   size_t len;
   size_t i;
-  struct rutt_route *route;
+  struct yapi_route *route;
   int ret;
 
   path = ctx->req.document_uri;
@@ -169,12 +169,12 @@ handle_err:
   return ret;
 }
 
-void rutt_init(struct rutt_ctx *rutt) {
+void yapi_init(struct yapi_ctx *rutt) {
   memset(rutt, 0, sizeof(*rutt));
 }
 
-int rutt_serve(struct rutt_ctx *rutt, const char *prefix,
-    struct rutt_route *routes, size_t nroutes) {
+int yapi_serve(struct yapi_ctx *rutt, const char *prefix,
+    struct yapi_route *routes, size_t nroutes) {
   struct scgi_ctx cgi = {0};
   int status = EXIT_FAILURE;
   int ret;
@@ -197,7 +197,7 @@ int rutt_serve(struct rutt_ctx *rutt, const char *prefix,
   /* TODO:
    *  - scgi_get_rest must be used when reading request bodies
    *  - should scgi, stdio should be wrapped by rutt?
-   *  - return rutt_error(...), similar to Lua, using longjmp.
+   *  - return yapi_error(...), similar to Lua, using longjmp.
    **/
 
   status = route_request(rutt, prefix, routes, nroutes);

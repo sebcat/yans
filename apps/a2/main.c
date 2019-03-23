@@ -26,7 +26,7 @@ SC2APIFUNC void *sc2_setup(void) {
 }
 
 SC2APIFUNC int sc2_handler(void *data) {
-  struct yapi_ctx rutt;
+  struct yapi_ctx ctx;
   struct yapi_route routes[] = {
     {
       .method = YAPI_METHOD_GET,
@@ -45,9 +45,8 @@ SC2APIFUNC int sc2_handler(void *data) {
     }
   };
 
-  yapi_init(&rutt);
-  yapi_set_input(&rutt, stdin);
-  yapi_set_output(&rutt, stdout);
-  return yapi_serve(&rutt, "/trololo/", routes, ARRAY_SIZE(routes));
+  yapi_init(&ctx);
+  yapi_set_data(&ctx, data);
+  return yapi_serve(&ctx, "/trololo/", routes, ARRAY_SIZE(routes));
 }
 

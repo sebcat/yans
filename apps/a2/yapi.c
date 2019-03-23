@@ -182,8 +182,10 @@ int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len) {
   return fwrite(data, 1, len, ctx->output);
 }
 
-void yapi_init(struct yapi_ctx *yapi) {
-  memset(yapi, 0, sizeof(*yapi));
+void yapi_init(struct yapi_ctx *ctx) {
+  memset(ctx, 0, sizeof(*ctx));
+  ctx->input  = stdin;
+  ctx->output = stdout;
 }
 
 int yapi_serve(struct yapi_ctx *ctx, const char *prefix,

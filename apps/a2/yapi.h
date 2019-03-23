@@ -45,6 +45,7 @@ struct yapi_ctx {
   jmp_buf jmpbuf;
   FILE *input;
   FILE *output;
+  void *data;
 };
 
 struct yapi_route {
@@ -58,21 +59,21 @@ const char *yapi_method2str(enum yapi_method method);
 const char *yapi_status2str(enum yapi_status status);
 enum yapi_method yapi_str2method(const char *str);
 
-void yapi_init(struct yapi_ctx *rutt);
+void yapi_init(struct yapi_ctx *ctx);
 
-static inline void yapi_set_input(struct yapi_ctx *rutt, FILE *fp) {
-  rutt->input = fp;
+static inline void yapi_set_data(struct yapi_ctx *ctx, void *data) {
+  ctx->data = data;
 }
 
-static inline void yapi_set_output(struct yapi_ctx *rutt, FILE *fp) {
-  rutt->output = fp;
+static inline void *yapi_data(struct yapi_ctx *ctx) {
+  return ctx->data;
 }
 
 int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
     enum yapi_ctype ctype);
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len);
 
-int yapi_serve(struct yapi_ctx *rutt, const char *prefix,
+int yapi_serve(struct yapi_ctx *ctx, const char *prefix,
     struct yapi_route *routes, size_t nroutes);
 
 #endif

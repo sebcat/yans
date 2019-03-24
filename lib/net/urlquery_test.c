@@ -5,7 +5,7 @@
 #include <lib/net/urlquery.h>
 
 static int test_decode() {
-  struct {
+  static const struct {
     const char *input;
     const char *expected;
   } tests[] = {
@@ -38,6 +38,119 @@ static int test_decode() {
   return result;
 }
 
+#define MAX_PAIRS 32
+
+static int test_next_pair() {
+  size_t i;
+  size_t pair;
+  char *str;
+  char *curr;
+  char *key;
+  char *val;
+  int result = TEST_OK;
+  static const struct {
+    const char *input;
+    struct {
+      size_t npairs;
+      const char *keys[MAX_PAIRS];
+      const char *vals[MAX_PAIRS];
+    } expected;
+  } tests[] = {
+    {
+      .input="",
+      .expected = {
+        .npairs = 0,
+        .keys   = {0},
+        .vals   = {0},
+      }
+    },
+    {
+      .input="foo",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {""},
+      }
+    },
+    {
+      .input="foo=",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {""},
+      }
+    },
+    {
+      .input="&foo=",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {""},
+      }
+    },
+    {
+      .input="foo=bar",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {"bar"},
+      }
+    },
+    {
+      .input="%C3%A5%C3%A4%C3%B6=xyz",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"åäö"},
+        .vals   = {"xyz"},
+      }
+    }
+  };
+
+  for (i = 0; i < ARRAY_SIZE(tests); i++) {
+    str = curr = strdup(tests[i].input);
+    for (pair = 0; pair < tests[i].expected.npairs; pair++) {
+      urlquery_next_pair(&curr, &key, &val);
+      if (key == NULL || strcmp(key, tests[i].expected.keys[pair]) != 0) {
+        TEST_LOG_ERRF("expected key:\"%s\" actual:\"%s\" "
+             "test:%zu pair:%zu",
+            tests[i].expected.keys[pair], key ? key : "(null)", i, pair);
+        result = TEST_FAIL;
+      } else if (val == NULL && tests[i].expected.vals[pair] != NULL) {
+        TEST_LOG_ERRF("expected value:\"%s\" was:(null) test:%zu pair:%zu",
+            tests[i].expected.vals[pair], i, pair);
+        result = TEST_FAIL;
+      } else if (val != NULL && tests[i].expected.vals[pair] == NULL) {
+        TEST_LOG_ERRF("expected NULL value, was:\"%s\" test:%zu pair:%zu",
+            val, i, pair);
+        result = TEST_FAIL;
+      } else if (val != NULL && tests[i].expected.vals[pair] != NULL &&
+          strcmp(val, tests[i].expected.vals[pair]) != 0) {
+        TEST_LOG_ERRF("expected value:\"%s\", actual:\"%s\" "
+            "test:%zu pair:%zu",tests[i].expected.vals[pair], val, i,
+            pair);
+        result = TEST_FAIL;
+      }
+    }
+
+    if (*curr != '\0') {
+      result = TEST_FAIL;
+      TEST_LOG_ERR("expected to end up at end of string");
+    }
+
+    /* do one moar, expect NULL key */
+    urlquery_next_pair(&curr, &key, &val);
+    if (key != NULL) {
+      result = TEST_FAIL;
+      TEST_LOG_ERR("expected NULL key at end");
+    }
+
+    free(str);
+  }
+
+  return result;
+}
+
 TEST_ENTRY(
   {"decode", test_decode},
+  {"next_pair", test_next_pair},
 );

@@ -41,11 +41,12 @@ char *urlquery_decode(char *str) {
   }
 
   *dst = '\0';
-  return start;
+  return dst; /* allows us to calculate length of decoded string */
 }
 
 static void parse_pair(char *pair, char **key, char **val) {
   char *valptr;
+  char *tmp;
 
   valptr = strchr(pair, '=');
   if (valptr) {
@@ -53,13 +54,22 @@ static void parse_pair(char *pair, char **key, char **val) {
     valptr++;
   }
 
-  *key = urlquery_decode(pair);
-  *val = urlquery_decode(valptr);
+  tmp = urlquery_decode(pair);
+  if (valptr) {
+    urlquery_decode(valptr);
+    tmp = valptr;
+  }
+
+  *key = pair;
+  *val = tmp;
 }
 
 void urlquery_next_pair(char **str, char **key, char **val) {
   char *curr = *str;
   char *pair;
+
+  *key = NULL;
+  *val = NULL;
 
   /* skip leading pair separators, if any */
   curr += strspn(curr, "&");

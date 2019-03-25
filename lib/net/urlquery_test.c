@@ -97,13 +97,45 @@ static int test_next_pair() {
       }
     },
     {
+      .input="&foo=bar",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {"bar"},
+      }
+    },
+    {
+      .input="&foo=bar&",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {"bar"},
+      }
+    },
+    {
+      .input="&foo=bar=baz",
+      .expected = {
+        .npairs = 1,
+        .keys   = {"foo"},
+        .vals   = {"bar=baz"},
+      }
+    },
+    {
       .input="%C3%A5%C3%A4%C3%B6=xyz",
       .expected = {
         .npairs = 1,
         .keys   = {"åäö"},
         .vals   = {"xyz"},
       }
-    }
+    },
+    {
+      .input="foo=bar&baz=foobar",
+      .expected = {
+        .npairs = 2,
+        .keys   = {"foo", "baz"},
+        .vals   = {"bar", "foobar"},
+      }
+    },
   };
 
   for (i = 0; i < ARRAY_SIZE(tests); i++) {

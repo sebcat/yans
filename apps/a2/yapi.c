@@ -178,6 +178,16 @@ int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len) {
   return fwrite(data, 1, len, ctx->output);
 }
 
+int yapi_writef(struct yapi_ctx *ctx, const char *fmt, ...) {
+  va_list ap;
+  int ret;
+
+  va_start(ap, fmt);
+  ret = vfprintf(ctx->output, fmt, ap);
+  va_end(ap);
+  return ret;
+}
+
 int _yapi_errorf(struct yapi_ctx *ctx, enum yapi_status status,
     const char *fmt, ...) {
   va_list ap;

@@ -1,5 +1,5 @@
 a2_DEPS     = lib/util/buf.c lib/util/netstring.c lib/util/io.c \
-              lib/net/scgi.c
+              lib/net/scgi.c lib/net/urlquery.c
 a2_DEPSOBJS = ${a2_DEPS:.c=.o}
 a2_SOURCES  = apps/a2/yapi.c apps/a2/main.c
 a2_HEADERS  = apps/a2/yapi.h

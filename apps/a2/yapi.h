@@ -72,6 +72,7 @@ static inline void *yapi_data(struct yapi_ctx *ctx) {
 int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
     enum yapi_ctype ctype);
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len);
+int yapi_writef(struct yapi_ctx *ctx, const char *fmt, ...);
 
 #define yapi_errorf(ctx__, status__, fmt__, ...) \
   _yapi_errorf((ctx__), (status__), "[%s:%d] " fmt__ "\n", __func__, \

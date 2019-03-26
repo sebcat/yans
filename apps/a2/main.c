@@ -1,8 +1,23 @@
+#include <string.h>
+
 #include <lib/util/macros.h>
+#include <lib/net/urlquery.h>
 #include <apps/a2/yapi.h>
 
 static int get_fail(struct yapi_ctx *ctx) {
   return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR, "got fail");
+}
+
+static int get_params(struct yapi_ctx *ctx) {
+  char *key;
+  char *val;
+
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_TEXT);
+  while (urlquery_next_pair(&ctx->req.query_string, &key, &val)) {
+    yapi_writef(ctx, "key:%s val:%s\n", key, val);
+  }
+
+  return 0;
 }
 
 APIFUNC void *sc2_setup(void) {
@@ -12,7 +27,8 @@ APIFUNC void *sc2_setup(void) {
 APIFUNC int sc2_handler(void *data) {
   struct yapi_ctx ctx;
   struct yapi_route routes[] = {
-    {YAPI_METHOD_GET, "fail", get_fail}
+    {YAPI_METHOD_GET, "fail", get_fail},
+    {YAPI_METHOD_GET, "params", get_params}
   };
 
   yapi_init(&ctx);

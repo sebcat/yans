@@ -43,17 +43,15 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
       ctx->opts.msgbuf = &ctx->msgbuf;
     }
 
-    /* Connect to the store */
-    ret = ycl_connect(&ctx->ycl, ctx->opts.socket);
+    /* Initialize the store client and connect to stored */
+    storecli_init(&ctx->cli, ctx->opts.msgbuf);
+    ret = storecli_connect(&ctx->cli, ctx->opts.socket);
     if (ret != YCL_OK) {
       return opener_error(ctx, ycl_strerror(&ctx->ycl));
     }
 
     /* Mark YCL as inited for the cleanup function */
     ctx->flags |= OPENERCTXF_INITEDYCL;
-
-    /* Initialize the store client with the previously inited structs */
-    storecli_init(&ctx->cli, &ctx->ycl, ctx->opts.msgbuf);
 
     /* Enter store - this is problematic because we want to clean up the
      * ycl context which means we cannot use the error from the context

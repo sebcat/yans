@@ -14,31 +14,34 @@
 
 static char databuf_[32768]; /* get/put buffer */
 
-static int setup_ycl_state(struct ycl_ctx *ctx, const char *socket,
+static int setup_cli_state(struct storecli_ctx *ctx, const char *socket,
     struct ycl_msg *msg) {
   int ret;
 
-  ret = ycl_connect(ctx, socket);
+  ret = ycl_msg_init(msg);
   if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(ctx));
+    fprintf(stderr, "ycl_msg_init failure\n");
     goto fail;
+  }
+
+  storecli_init(ctx, msg);
+  ret = storecli_connect(ctx, socket);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_connect: %s\n", storecli_strerror(ctx));
+    goto ycl_msg_cleanup;
   }
 
   ret = sandbox_enter();
   if (ret < 0) {
     fprintf(stderr, "sandbox_enter failure\n");
-    goto ycl_cleanup;
-  }
-
-  ret = ycl_msg_init(msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_init failure\n");
-    goto ycl_cleanup;
+    goto storecli_cleanup;
   }
 
   return 0;
-ycl_cleanup:
-  ycl_close(ctx);
+storecli_cleanup:
+  storecli_close(ctx);
+ycl_msg_cleanup:
+  ycl_msg_cleanup(msg);
 fail:
   return -1;
 }
@@ -47,16 +50,14 @@ static int run_get(const char *socket, const char *id, const char *path) {
   int ret;
   int result = -1;
   int getfd = -1;
-  struct ycl_ctx ycl;
   struct ycl_msg msgbuf;
   struct storecli_ctx cli;
 
-  ret = setup_ycl_state(&ycl, socket, &msgbuf);
+  ret = setup_cli_state(&cli, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_enter(&cli, id, NULL, 0);
   if (ret != STORECLI_OK) {
     fprintf(stderr, "storecli_enter: %s\n", storecli_strerror(&cli));
@@ -113,8 +114,8 @@ write_again:
 getfd_cleanup:
   close(getfd);
 ycl_msg_cleanup:
+  storecli_close(&cli);
   ycl_msg_cleanup(&msgbuf);
-  ycl_close(&ycl);
   return result;
 }
 
@@ -123,18 +124,16 @@ static int run_put(const char *socket, const char *id, const char *name,
   int ret;
   int result = -1;
   int putfd = -1;
-  struct ycl_ctx ycl;
   struct ycl_msg msgbuf;
   struct storecli_ctx cli;
   static time_t *no_see;
   const char *set_id;
 
-  ret = setup_ycl_state(&ycl, socket, &msgbuf);
+  ret = setup_cli_state(&cli, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_enter(&cli, id, name, (long)time(no_see));
   if (ret != STORECLI_OK) {
     fprintf(stderr, "storecli_enter: %s\n", storecli_strerror(&cli));
@@ -196,8 +195,8 @@ write_again:
 putfd_cleanup:
   close(putfd);
 ycl_msg_cleanup:
+  storecli_close(&cli);
   ycl_msg_cleanup(&msgbuf);
-  ycl_close(&ycl);
   return result;
 }
 
@@ -255,65 +254,34 @@ static int run_list(const char *socket, const char *id,
       const char *must_match) {
   int result = -1;
   int ret;
-  struct ycl_ctx ctx;
   struct ycl_msg msg;
-  struct ycl_msg_store_req reqmsg = {{0}};
-  struct ycl_msg_store_list respmsg = {{0}};
+  struct storecli_ctx cli;
+  const char *resp = NULL;
+  size_t resplen = 0;
 
-  ret = setup_ycl_state(&ctx, socket, &msg);
+  ret = setup_cli_state(&cli, socket, &msg);
   if (ret < 0) {
     return -1;
   }
 
-  reqmsg.action.data = "list";
-  reqmsg.action.len = sizeof("list") - 1;
-  reqmsg.store_id.data = id;
-  reqmsg.store_id.len = id ? strlen(id) : 0;
-  reqmsg.list_must_match.data = must_match;
-  reqmsg.list_must_match.len = must_match ? strlen(must_match) : 0;
-  ret = ycl_msg_create_store_req(&msg, &reqmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_msg_create_store_req failure\n");
+  ret = storecli_list(&cli, id, must_match, &resp, &resplen);
+  if (ret != STORECLI_OK) {
+    fprintf(stderr, "storecli_ĺist: %s\n", storecli_strerror(&cli));
     goto ycl_msg_cleanup;
   }
 
-  ret = ycl_sendmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_sendmsg: %s\n", ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ycl_msg_reset(&msg);
-  ret = ycl_recvmsg(&ctx, &msg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to receive req response: %s\n",
-        ycl_strerror(&ctx));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = ycl_msg_parse_store_list(&msg, &respmsg);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "failed to parse store list response\n");
-    goto ycl_msg_cleanup;
-  }
-
-  if (respmsg.errmsg.len > 0) {
-    fprintf(stderr, "%s\n", respmsg.errmsg.data);
-    goto ycl_msg_cleanup;
-  }
-
-  if (reqmsg.store_id.len) {
+  if (id && *id) {
     /* if we have a store ID, we're expecting name\0size\0 pairs */
-    print_list_pairs(stdout, respmsg.entries.data, respmsg.entries.len);
+    print_list_pairs(stdout, resp, resplen);
   } else {
     /* without a store ID, we're just expecting name\0 entries */
-    print_list_entries(stdout, respmsg.entries.data, respmsg.entries.len);
+    print_list_entries(stdout, resp, resplen);
   }
 
   result = 0;
 ycl_msg_cleanup:
+  storecli_close(&cli);
   ycl_msg_cleanup(&msg);
-  ycl_close(&ctx);
   return result;
 }
 
@@ -423,7 +391,6 @@ usage:
 }
 
 static int run_index(const char *socket, size_t before, size_t nelems) {
-  struct ycl_ctx ycl;
   struct ycl_msg msgbuf;
   struct storecli_ctx cli;
   int result = -1;
@@ -436,12 +403,11 @@ static int run_index(const char *socket, size_t before, size_t nelems) {
   size_t last = 0;
   size_t i;
 
-  ret = setup_ycl_state(&ycl, socket, &msgbuf);
+  ret = setup_cli_state(&cli, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_index(&cli, before, nelems, &indexfd);
   if (ret != STORECLI_OK) {
     fprintf(stderr, "storecli_index: %s\n", storecli_strerror(&cli));
@@ -481,8 +447,8 @@ elems_cleanup:
 fp_cleanup:
   fclose(fp);
 ycl_msg_cleanup:
+  storecli_close(&cli);
   ycl_msg_cleanup(&msgbuf);
-  ycl_close(&ycl);
   return result;
 }
 
@@ -586,16 +552,14 @@ int run_rename(const char *socket, const char *id, const char *from,
     const char *to) {
   int ret;
   int result = -1;
-  struct ycl_ctx ycl;
   struct ycl_msg msgbuf;
   struct storecli_ctx cli;
 
-  ret = setup_ycl_state(&ycl, socket, &msgbuf);
+  ret = setup_cli_state(&cli, socket, &msgbuf);
   if (ret < 0) {
     return -1;
   }
 
-  storecli_init(&cli, &ycl, &msgbuf);
   ret = storecli_enter(&cli, id, NULL, 0);
   if (ret != STORECLI_OK) {
     fprintf(stderr, "storecli_enter: %s\n", storecli_strerror(&cli));
@@ -610,8 +574,8 @@ int run_rename(const char *socket, const char *id, const char *from,
 
   result = 0;
 ycl_msg_cleanup:
+  storecli_close(&cli);
   ycl_msg_cleanup(&msgbuf);
-  ycl_close(&ycl);
   return result;
 }
 

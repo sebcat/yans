@@ -28,9 +28,9 @@ enum yapi_method {
 
 struct yapi_request {
   size_t      content_length;
-  const char *content_type;
-  const char *document_uri;
-  const char *query_string;
+  char *content_type;
+  char *document_uri;
+  char *query_string;
   enum yapi_method request_method;
 };
 

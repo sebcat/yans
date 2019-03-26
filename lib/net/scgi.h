@@ -33,9 +33,9 @@ struct scgi_ctx {
 };
 
 struct scgi_header {
-  const char *key;
+  char *key;
   size_t keylen;
-  const char *value;
+  char *value;
   size_t valuelen;
 };
 

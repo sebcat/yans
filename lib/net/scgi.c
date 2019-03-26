@@ -115,7 +115,7 @@ int scgi_parse_header(struct scgi_ctx *ctx) {
 }
 
 int scgi_get_next_header(struct scgi_ctx *ctx, struct scgi_header *hdr) {
-  const char *start;
+  char *start;
   size_t len;
 
   if (ctx->hdr == NULL) {

@@ -36,14 +36,9 @@ struct ycl_msg {
   int flags;      /* flags used internally */
 };
 
-/* internal ycl_ctx flags */
-#define YCL_EXTERNALFD (1 << 0)
-
 /* accessor macros for individual fields */
 #define ycl_fd(ycl) \
     (ycl)->fd
-#define ycl_set_externalfd(ycl) \
-    (ycl)->flags |= YCL_EXTERNALFD;
 #define ycl_msg_bytes(msg) \
     (msg)->buf.data
 #define ycl_msg_nbytes(msg) \

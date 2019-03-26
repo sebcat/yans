@@ -15,6 +15,10 @@
 
 #define BUFINITSZ 8192 /* initial buffer size for one buffer */
 
+/* YCL state flags */
+#define YCLF_INTERNALFD (1 << 0) /* The file-descriptor was opened by the
+                                  * ycl library and should be closed */
+
 void ycl_init(struct ycl_ctx *ycl, int fd) {
   ycl->fd = fd;
   ycl->flags = 0;
@@ -33,23 +37,26 @@ int ycl_connect(struct ycl_ctx *ycl, const char *dst) {
   }
 
   ycl_init(ycl, IO_FILENO(&io));
+  ycl->flags |= YCLF_INTERNALFD; /* fd is managed by ycl */
   return YCL_OK;
 }
 
 int ycl_close(struct ycl_ctx *ycl) {
   int ret;
 
-  if (!(ycl->flags & YCL_EXTERNALFD) && ycl->fd >= 0) {
+  if ((ycl->flags & YCLF_INTERNALFD) && ycl->fd >= 0) {
     ret = close(ycl->fd);
     if (ret < 0) {
       SETERR(ycl, "close: %s", strerror(errno));
+      ycl->flags = 0;
+      ycl->fd = 0;
       return YCL_ERR;
     }
   }
 
   ycl->flags = 0;
-  ycl->errbuf[0] = '\0';
   ycl->fd = -1;
+  ycl->errbuf[0] = '\0';
   return YCL_OK;
 }
 

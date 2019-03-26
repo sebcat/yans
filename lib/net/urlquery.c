@@ -64,19 +64,24 @@ static void parse_pair(char *pair, char **key, char **val) {
   *val = tmp;
 }
 
-void urlquery_next_pair(char **str, char **key, char **val) {
-  char *curr = *str;
+int urlquery_next_pair(char **str, char **key, char **val) {
+  char *curr;
   char *pair;
 
   *key = NULL;
   *val = NULL;
+  if (!str || !*str) {
+    return 0;
+  }
+
+  curr = *str;
 
   /* skip leading pair separators, if any */
   curr += strspn(curr, "&");
   if (!*curr) {
     /* end of string reached: update str and return */
     *str = curr;
-    return;
+    return 0;
   }
 
   /* at this point, we have a non-empty string pointed to by pair. We find
@@ -91,4 +96,5 @@ void urlquery_next_pair(char **str, char **key, char **val) {
 
   parse_pair(pair, key, val);
   *str = curr;
+  return 1;
 }

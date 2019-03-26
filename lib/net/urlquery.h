@@ -7,9 +7,10 @@
 char *urlquery_decode(char *str);
 
 /* splits a query string pair pointed at by *str into its key and value
- * part and urldecodes both, in-place. Updates *str to point to the end of
- * the beginning of the next pair, or the terminating '\0'-byte if done. */
-void urlquery_next_pair(char **str, char **key, char **val);
+ * part and urldecodes both, in-place. Updates *str to point to the
+ * beginning of the next pair, if any. Returns 1 if a pair is parsed or
+ * 0 when done */
+int urlquery_next_pair(char **str, char **key, char **val);
 
 #endif
 

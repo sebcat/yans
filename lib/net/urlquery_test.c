@@ -48,6 +48,7 @@ static int test_next_pair() {
   char *key;
   char *val;
   int result = TEST_OK;
+  int ret;
   static const struct {
     const char *input;
     struct {
@@ -141,8 +142,13 @@ static int test_next_pair() {
   for (i = 0; i < ARRAY_SIZE(tests); i++) {
     str = curr = strdup(tests[i].input);
     for (pair = 0; pair < tests[i].expected.npairs; pair++) {
-      urlquery_next_pair(&curr, &key, &val);
-      if (key == NULL || strcmp(key, tests[i].expected.keys[pair]) != 0) {
+      ret = urlquery_next_pair(&curr, &key, &val);
+      if (ret != 1) {
+        TEST_LOG_ERRF("expected ret:1 actual:%d test:%zu pair:%zu",
+            ret, i, pair);
+        result = TEST_FAIL;
+      } else if (key == NULL ||
+          strcmp(key, tests[i].expected.keys[pair]) != 0) {
         TEST_LOG_ERRF("expected key:\"%s\" actual:\"%s\" "
              "test:%zu pair:%zu",
             tests[i].expected.keys[pair], key ? key : "(null)", i, pair);
@@ -169,9 +175,12 @@ static int test_next_pair() {
       TEST_LOG_ERR("expected to end up at end of string");
     }
 
-    /* do one moar, expect NULL key */
-    urlquery_next_pair(&curr, &key, &val);
-    if (key != NULL) {
+    /* do one moar, expect zero return and NULL key */
+    ret = urlquery_next_pair(&curr, &key, &val);
+    if (ret != 0) {
+      result = TEST_FAIL;
+      TEST_LOG_ERRF("expected 0 return at end, was:%d", ret);
+    } else if (key != NULL) {
       result = TEST_FAIL;
       TEST_LOG_ERR("expected NULL key at end");
     }

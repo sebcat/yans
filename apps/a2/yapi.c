@@ -12,7 +12,7 @@ const char *yapi_ctype2str(enum yapi_ctype t) {
   case YAPI_CTYPE_CSV:
     return "application/vnd.ms-excel";
   case YAPI_CTYPE_TEXT:
-    return "text/plain";
+    return "text/plain;charset=utf-8";
   case YAPI_CTYPE_BINARY:
   default:
     return "application/octet-stream";

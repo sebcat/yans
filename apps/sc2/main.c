@@ -618,7 +618,7 @@ int main(int argc, char *argv[]) {
    * outside of the chroot */
   ret = sc2_init(&ctx, &opts.sc2);
   if (ret != SC2_OK) {
-    fprintf(stderr, "sc2_init: %s", sc2_strerror(&ctx, ret));
+    fprintf(stderr, "sc2_init: %s\n", sc2_strerror(&ctx, ret));
     goto end;
   }
 

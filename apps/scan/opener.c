@@ -166,7 +166,7 @@ int opener_open(struct opener_ctx *ctx, const char *path, int flags,
   } else {
     /* use store for opening */
     ret = storecli_open(&ctx->cli, path, flags, &fd);
-    if (ret == STORECLI_ERR) {
+    if (ret == YCL_ERR) {
       return opener_error(ctx, storecli_strerror(&ctx->cli));
     }
   }

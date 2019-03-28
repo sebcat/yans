@@ -9,9 +9,6 @@
 
 #define STORECLI_DFLPATH LOCALSTATEDIR "/yans/stored/stored.sock"
 
-#define STORECLI_OK         0
-#define STORECLI_ERR       -1
-
 #define STORECLI_MAXENTERED 64
 
 struct storecli_ctx {

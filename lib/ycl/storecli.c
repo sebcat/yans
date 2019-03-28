@@ -5,7 +5,7 @@
 
 static inline int storecli_seterr(struct storecli_ctx *ctx, const char *err) {
   ctx->err = err;
-  return STORECLI_ERR;
+  return YCL_ERR;
 }
 
 void storecli_init(struct storecli_ctx *ctx, struct ycl_msg *msgbuf) {
@@ -21,7 +21,7 @@ int storecli_connect(struct storecli_ctx *ctx, const char *path) {
     return storecli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
-  return STORECLI_OK;
+  return YCL_OK;
 }
 
 int storecli_close(struct storecli_ctx *ctx) {
@@ -32,7 +32,7 @@ int storecli_close(struct storecli_ctx *ctx) {
     return storecli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
-  return STORECLI_OK;
+  return YCL_OK;
 }
 
 int storecli_enter(struct storecli_ctx *ctx, const char *id,
@@ -78,7 +78,7 @@ int storecli_enter(struct storecli_ctx *ctx, const char *id,
     ctx->entered_id[sizeof(ctx->entered_id)-1] = '\0';
   }
 
-  return STORECLI_OK;
+  return YCL_OK;
 }
 
 int storecli_open(struct storecli_ctx *ctx, const char *path, int flags,
@@ -106,7 +106,7 @@ int storecli_open(struct storecli_ctx *ctx, const char *path, int flags,
     return storecli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
-  return STORECLI_OK;
+  return YCL_OK;
 }
 
 int storecli_index(struct storecli_ctx *ctx, size_t before, size_t nelems,
@@ -132,7 +132,7 @@ int storecli_index(struct storecli_ctx *ctx, size_t before, size_t nelems,
     return storecli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
-  return STORECLI_OK;
+  return YCL_OK;
 }
 
 int storecli_list(struct storecli_ctx *ctx, const char *id,
@@ -174,7 +174,7 @@ int storecli_list(struct storecli_ctx *ctx, const char *id,
 
   *result = respmsg.entries.data;
   *resultlen = respmsg.entries.len;
-  return STORECLI_OK;
+  return YCL_OK;
 }
 
 int storecli_rename(struct storecli_ctx *ctx, const char *from,
@@ -214,5 +214,5 @@ int storecli_rename(struct storecli_ctx *ctx, const char *from,
     return storecli_seterr(ctx, respmsg.errmsg.data);
   }
 
-  return STORECLI_OK;
+  return YCL_OK;
 }

@@ -5,7 +5,7 @@
 
 #include <lib/util/buf.h>
 #include <lib/util/sandbox.h>
-#include <lib/ycl/resolvercli.h>
+#include <lib/ycl/yclcli_resolve.h>
 #include <apps/scan/opener.h>
 #include <apps/scan/resolve.h>
 
@@ -85,8 +85,7 @@ int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
   int use_zlib = 0;
   int outfd = -1;
   int sandbox = 1;
-  struct ycl_ctx ycl;
-  struct resolvercli_ctx resolvercli;
+  struct yclcli_ctx cli;
 
   argv++;
   argc--;
@@ -109,9 +108,10 @@ int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
     }
   }
 
-  ret = ycl_connect(&ycl, socket);
+  yclcli_init(&cli, &scan->msgbuf);
+  ret = yclcli_connect(&cli, socket);
   if (ret != YCL_OK) {
-    fprintf(stderr, "ycl_connect: %s\n", ycl_strerror(&ycl));
+    fprintf(stderr, "yclcli_connect: %s\n", yclcli_strerror(&cli));
     goto end;
   }
 
@@ -123,7 +123,7 @@ int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
   }
 
   if (!buf_init(&buf, 16 * 1024)) {
-    goto end_ycl_close;
+    goto end_yclcli_close;
   }
 
   ret = read_names(&scan->opener, &buf, infile);
@@ -138,12 +138,11 @@ int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
     goto end_buf_cleanup;
   }
 
-  resolvercli_init(&resolvercli, &ycl, &scan->msgbuf);
-  ret = resolvercli_resolve(&resolvercli, outfd, buf.data, buf.len,
+  ret = yclcli_resolve(&cli, outfd, buf.data, buf.len,
     use_zlib);
-  if (ret != RESOLVERCLI_OK) {
-    fprintf(stderr, "resolvercli_resolve: %s\n",
-        resolvercli_strerror(&resolvercli));
+  if (ret != YCL_OK) {
+    fprintf(stderr, "yclcli_resolve: %s\n",
+        yclcli_strerror(&cli));
     close(outfd);
     goto end_buf_cleanup;
   }
@@ -152,8 +151,8 @@ int resolve_main(struct scan_ctx *scan, int argc, char **argv) {
   status = EXIT_SUCCESS;
 end_buf_cleanup:
   buf_cleanup(&buf);
-end_ycl_close:
-  ycl_close(&ycl);
+end_yclcli_close:
+  yclcli_close(&cli);
 end:
   return status;
 usage:

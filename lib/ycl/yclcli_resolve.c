@@ -3,14 +3,10 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include <lib/ycl/resolvercli.h>
+#include <lib/ycl/ycl_msg.h>
+#include <lib/ycl/yclcli_resolve.h>
 
-static int resolvercli_error(struct resolvercli_ctx *ctx, const char *err) {
-  ctx->err = err;
-  return RESOLVERCLI_ERR;
-}
-
-int resolvercli_resolve(struct resolvercli_ctx *ctx, int dstfd,
+int yclcli_resolve(struct yclcli_ctx *ctx, int dstfd,
     const char *spec, size_t speclen, int compress) {
   struct ycl_msg_resolver_req req = {{0}};
   int ret;
@@ -22,22 +18,22 @@ int resolvercli_resolve(struct resolvercli_ctx *ctx, int dstfd,
   req.compress = compress;
   ret = ycl_msg_create_resolver_req(ctx->msgbuf, &req);
   if (ret != YCL_OK) {
-    return resolvercli_error(ctx, "failed to serialize resolver request");
+    return yclcli_seterr(ctx, "failed to serialize resolver request");
   }
 
-  ret = ycl_sendfd(ctx->ycl, dstfd, 0);
+  ret = ycl_sendfd(&ctx->ycl, dstfd, 0);
   if (ret != YCL_OK) {
-    return resolvercli_error(ctx, ycl_strerror(ctx->ycl));
+    return yclcli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
-  ret = ycl_sendmsg(ctx->ycl, ctx->msgbuf);
+  ret = ycl_sendmsg(&ctx->ycl, ctx->msgbuf);
   if (ret != YCL_OK) {
-    return resolvercli_error(ctx, ycl_strerror(ctx->ycl));
+    return yclcli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
-  ret = ycl_recvfd(ctx->ycl, &closefd);
+  ret = ycl_recvfd(&ctx->ycl, &closefd);
   if (ret != YCL_OK) {
-    return resolvercli_error(ctx, ycl_strerror(ctx->ycl));
+    return yclcli_seterr(ctx, ycl_strerror(&ctx->ycl));
   }
 
   /* wait syncronously for completion */
@@ -49,9 +45,9 @@ int resolvercli_resolve(struct resolvercli_ctx *ctx, int dstfd,
   } while (ret < 0 && errno == EINTR);
   if (ret < 0) {
     close(closefd);
-    return resolvercli_error(ctx, strerror(errno));
+    return yclcli_seterr(ctx, strerror(errno));
   }
 
   close(closefd);
-  return RESOLVERCLI_OK;
+  return YCL_OK;
 }

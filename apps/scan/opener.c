@@ -6,7 +6,6 @@
 #include <assert.h>
 
 #include <lib/util/zfile.h>
-#include <lib/ycl/storecli.h>
 #include <apps/scan/opener.h>
 
 /* opener_ctx flags */
@@ -44,8 +43,8 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
     }
 
     /* Initialize the store client and connect to stored */
-    storecli_init(&ctx->cli, ctx->opts.msgbuf);
-    ret = storecli_connect(&ctx->cli, ctx->opts.socket);
+    yclcli_init(&ctx->cli, ctx->opts.msgbuf);
+    ret = yclcli_connect(&ctx->cli, ctx->opts.socket);
     if (ret != YCL_OK) {
       return opener_error(ctx, ycl_strerror(&ctx->ycl));
     }
@@ -57,7 +56,7 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
      * ycl context which means we cannot use the error from the context
      * as an opener_error unless we copy the string. Set a generic error
      * string for now, or copy the string in the future. */
-    ret = storecli_enter(&ctx->cli, ctx->opts.store_id, NULL, 0);
+    ret = yclcli_store_enter(&ctx->cli, ctx->opts.store_id, NULL, 0, NULL);
     if (ret < 0) {
       opener_cleanup(ctx);
       return opener_error(ctx, "unable to enter store");
@@ -165,9 +164,9 @@ int opener_open(struct opener_ctx *ctx, const char *path, int flags,
     }
   } else {
     /* use store for opening */
-    ret = storecli_open(&ctx->cli, path, flags, &fd);
+    ret = yclcli_store_open(&ctx->cli, path, flags, &fd);
     if (ret == YCL_ERR) {
-      return opener_error(ctx, storecli_strerror(&ctx->cli));
+      return opener_error(ctx, yclcli_strerror(&ctx->cli));
     }
   }
 

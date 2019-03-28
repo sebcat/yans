@@ -1,7 +1,7 @@
 #ifndef SCAN_OPENER_H__
 #define SCAN_OPENER_H__
 
-#include <lib/ycl/storecli.h>
+#include <lib/ycl/yclcli_store.h>
 #include <lib/ycl/ycl.h>
 
 struct opener_opts {
@@ -12,7 +12,7 @@ struct opener_opts {
 
 struct opener_ctx {
   /* internal */
-  struct storecli_ctx cli;
+  struct yclcli_ctx cli;
   struct ycl_ctx ycl;
   struct ycl_msg msgbuf; /* don't use directly - use opts.msgbuf instead */
   struct opener_opts opts;

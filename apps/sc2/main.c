@@ -15,6 +15,7 @@
 #include <getopt.h>
 #include <dlfcn.h>
 
+#include <lib/util/sc2mod.h>
 #include <lib/util/io.h>
 #include <lib/util/sandbox.h>
 #include <lib/util/ylog.h>
@@ -87,10 +88,9 @@ struct sc2_ctx {
   struct sc2_child *children;
   char errbuf[128];
 
-  void *so;               /* SCGI module */
-  void *(*setup)(void);   /* SCGI module setup function */
-  int (*handler)(void *); /* SCGI module request handler */
-  void *data;             /* whatever 'setup' returns, passed to handler */
+  void *so;                            /* SCGI module */
+  int (*setup)(struct sc2mod_ctx *);   /* SCGI module setup function */
+  int (*handler)(struct sc2mod_ctx *); /* SCGI module request handler */
 };
 
 static void set_default_signals() {
@@ -126,8 +126,8 @@ static const char *sc2_strerror(struct sc2_ctx *ctx, int code) {
 
 static int sc2_init(struct sc2_ctx *ctx, struct sc2_opts *opts) {
   void *so;
-  void *(*setup)(void);
-  int (*handler)(void *);
+  int (*setup)(struct sc2mod_ctx *);
+  int (*handler)(struct sc2mod_ctx *);
 
   assert(ctx != NULL);
 
@@ -188,7 +188,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   int ret;
   pid_t pid;
   struct timespec started = {0};
-  void *data = NULL;
+  struct sc2mod_ctx mod = {0};
 
   do {
     cli = accept(listenfd, NULL, NULL);
@@ -221,7 +221,11 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
     close(listenfd);
 
     if (ctx->setup) {
-      data = ctx->setup();
+      ret = ctx->setup(&mod);
+      if (ret != 0) {
+        ylog_error("sc2_setup: %s", sc2mod_strerror(&mod));
+        exit(abs(ret));
+      }
     }
 
     if (ctx->opts.sandbox) {
@@ -231,7 +235,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
       }
     }
 
-    exit(ctx->handler(data));
+    exit(ctx->handler(&mod));
   }
 
   close(cli);

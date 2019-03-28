@@ -1,15 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include <lib/util/sc2mod.h>
 #include <lib/net/scgi.h>
 
-#define SC2APIFUNC __attribute__((visibility("default")))
-
-SC2APIFUNC void *sc2_setup(void) {
-  return "icanhasdata";
+SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {
+  sc2mod_set_data(mod, "icanhasdata");
+  return 0;
 }
 
-SC2APIFUNC int sc2_handler(void *data) {
+SC2MOD_API int sc2_handler(struct sc2mod_ctx *mod) {
   struct scgi_ctx ctx = {0};
   struct scgi_header hdr = {0};
   int ret;
@@ -43,7 +44,7 @@ SC2APIFUNC int sc2_handler(void *data) {
     goto cleanup_ctx;
   }
 
-  printf("data: %s\n", data);
+  printf("data: %s\n", sc2mod_data(mod));
   status = EXIT_SUCCESS;
 cleanup_ctx:
   scgi_cleanup(&ctx);

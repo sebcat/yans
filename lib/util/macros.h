@@ -19,6 +19,4 @@
 
 #define ARRAY_SIZE(x__) (sizeof((x__))/sizeof((x__)[0]))
 
-#define APIFUNC __attribute__((visibility("default")))
-
 #endif

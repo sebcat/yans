@@ -10,6 +10,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include <lib/ycl/ycl_msg.h>
+
 #include <lib/alloc/linvar.h>
 
 #include <lib/util/objtbl.h>

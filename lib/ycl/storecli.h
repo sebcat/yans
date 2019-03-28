@@ -2,7 +2,6 @@
 #define YANS_STORECLI_H__
 
 #include <lib/ycl/ycl.h>
-#include <lib/ycl/ycl_msg.h>
 
 #ifndef LOCALSTATEDIR
 #define LOCALSTATEDIR "/var"

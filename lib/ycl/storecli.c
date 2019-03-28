@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include <lib/ycl/ycl_msg.h>
 #include <lib/ycl/storecli.h>
 
 static inline int storecli_seterr(struct storecli_ctx *ctx, const char *err) {

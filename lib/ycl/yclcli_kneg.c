@@ -47,3 +47,11 @@ int yclcli_kneg_manifest(struct yclcli_ctx *ctx, char **out) {
   req.action.len = sizeof("manifest")-1;
   return reqresp(ctx, &req, out);
 }
+
+int yclcli_kneg_queueinfo(struct yclcli_ctx *ctx, char **out) {
+  struct ycl_msg_knegd_req req = {0};
+
+  req.action.data = "queueinfo";
+  req.action.len = sizeof("queueinfo")-1;
+  return reqresp(ctx, &req, out);
+}

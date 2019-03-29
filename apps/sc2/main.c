@@ -411,13 +411,9 @@ static void usage() {
   exit(EXIT_FAILURE);
 }
 
-static void log_on_started(pid_t pid) {
-  ylog_info("incoming request: PID:%ld", (long)pid);
-}
-
 static void log_on_timedout(pid_t pid, struct timespec *t) {
-  ylog_error("lifetime exceeded: PID:%ld duration:%ld.%.9lds", (long)pid,
-      (long)t->tv_sec, (long)t->tv_nsec);
+  ylog_error("timeout duration:%ld.%.9lds pid:%ld",
+      (long)t->tv_sec, (long)t->tv_nsec, (long)pid);
 }
 
 static void log_on_reaped(pid_t pid, int status, struct timespec *t) {
@@ -426,15 +422,15 @@ static void log_on_reaped(pid_t pid, int status, struct timespec *t) {
   if (WIFEXITED(status)) {
     exitcode = WEXITSTATUS(status);
     if (exitcode == 0) {
-      ylog_info("request exited: PID:%ld duration:%ld.%.9lds exit:0",
-          (long)pid, (long)t->tv_sec, (long)t->tv_nsec);
+      ylog_info("served duration:%ld.%.9lds pid:%ld exit:0",
+          (long)t->tv_sec, (long)t->tv_nsec, (long)pid);
     } else {
-      ylog_error("request exited: PID:%ld duration:%ld.%.9lds exit:%d",
-          (long)pid,(long)t->tv_sec, (long)t->tv_nsec, exitcode);
+      ylog_error("served duration:%ld.%.9lds pid:%ld exit:%d",
+          (long)t->tv_sec, (long)t->tv_nsec, (long)pid, exitcode);
     }
   } else if (WIFSIGNALED(status)) {
-    ylog_error("request exited: PID:%ld duration:%ld.%.9lds signal:%d%s",
-        (long)pid, (long)t->tv_sec, (long)t->tv_nsec, WTERMSIG(status),
+    ylog_error("served duration:%ld.%.9lds pid:%ld signal:%d%s",
+        (long)t->tv_sec, (long)t->tv_nsec, (long)pid, WTERMSIG(status),
         WCOREDUMP(status) ? " (core dumped)" : "");
   }
 }
@@ -486,7 +482,6 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->sc2.rlim_cpu.rlim_max = DEFAULT_RLIMIT_CPU;
   opts->sc2.on_reaped = log_on_reaped;
   opts->sc2.on_timedout = log_on_timedout;
-  opts->sc2.on_started = log_on_started;
 
   while ((ch = getopt_long(argc, argv, optstr, longopts, NULL)) != -1) {
     switch (ch) {

@@ -21,18 +21,72 @@ static int get_fail(struct yapi_ctx *ctx) {
   return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR, "got fail");
 }
 
-static int get_params(struct yapi_ctx *ctx) {
-  char *key;
-  char *val;
+/*
+ * GET /trololo/queueinfo
+ *
+ * Response object on success:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "nrunning": 0,
+ *     "nslots": 0,
+ *     "last-waited-for": 0
+ *   }
+ * }
+ */
+static int get_queueinfo(struct yapi_ctx *ctx) {
+  struct a2_ctx *a2data;
+  int ret;
+  json_t *data;
+  json_t *top;
+  char *queueinfo = NULL;
+  json_int_t nrunning        = 0;
+  json_int_t nslots          = 0;
+  json_int_t last_waited_for = 0;
 
-  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_TEXT);
-  while (urlquery_next_pair(&ctx->req.query_string, &key, &val)) {
-    yapi_writef(ctx, "key:%s val:%s\n", key, val);
+  a2data = yapi_data(ctx);
+  ret = yclcli_kneg_queueinfo(&a2data->kneg, &queueinfo);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        yclcli_strerror(&a2data->kneg));
   }
 
+  if (queueinfo) {
+    sscanf(queueinfo, "%" JSON_INTEGER_FORMAT " %" JSON_INTEGER_FORMAT
+        " %" JSON_INTEGER_FORMAT, &nrunning, &nslots, &last_waited_for);
+  }
+
+  data = json_object();
+  json_object_set_new(data, "nrunning", json_integer(nrunning));
+  json_object_set_new(data, "nslots", json_integer(nslots));
+  json_object_set_new(data, "last-waited-for",
+      json_integer(last_waited_for));
+  top = json_object();
+  json_object_set_new(top, "success", json_true());
+  json_object_set_new(top, "data", data);
+
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_JSON);
+  json_dumpf(top, ctx->output, JSON_ENSURE_ASCII|JSON_COMPACT);
+  json_decref(top);
   return 0;
 }
 
+/*
+ * GET /trololo/work-types
+ *
+ * Response object on success:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "entries": [
+ *       "entry0",
+ *       "entry1",
+ *       ...
+ *       "entryN"
+ *     ]
+ *   }
+ * }
+ */
 static int get_work_types(struct yapi_ctx *ctx) {
   struct a2_ctx *a2data;
   int ret;
@@ -41,9 +95,6 @@ static int get_work_types(struct yapi_ctx *ctx) {
   json_t *data;
   json_t *top;
   char *entry;
-
-  /* should emit something similar to:
-   * {"success":true,"data":{"entries":["scanny","ll-disco","scan"]}} */
 
   a2data = yapi_data(ctx);
   ret = yclcli_kneg_manifest(&a2data->kneg, &manifest);
@@ -67,7 +118,6 @@ static int get_work_types(struct yapi_ctx *ctx) {
   top = json_object();
   json_object_set_new(top, "success", json_true());
   json_object_set_new(top, "data", data);
-
 
   yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_JSON);
   json_dumpf(top, ctx->output, JSON_ENSURE_ASCII|JSON_COMPACT);
@@ -108,7 +158,7 @@ SC2MOD_API int sc2_handler(struct sc2mod_ctx *mod) {
   struct yapi_ctx ctx;
   struct yapi_route routes[] = {
     {YAPI_METHOD_GET, "fail",       get_fail},
-    {YAPI_METHOD_GET, "params",     get_params},
+    {YAPI_METHOD_GET, "queueinfo",  get_queueinfo},
     {YAPI_METHOD_GET, "work-types", get_work_types},
   };
 

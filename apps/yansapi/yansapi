@@ -103,9 +103,10 @@ local function get_reports(ctx)
       "now_ts": 666,
       "entries": [
         {
-          "row": 0,
-          "ts": 1530356368,
           "id": "70a7a85d0004f8b9c2be",
+          "name": "bubbelibubb",
+          "ts": 1530356368,
+          "row": 0,
           "status": "str"
         },
         ...

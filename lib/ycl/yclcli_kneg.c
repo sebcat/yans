@@ -55,3 +55,14 @@ int yclcli_kneg_queueinfo(struct yclcli_ctx *ctx, char **out) {
   req.action.len = sizeof("queueinfo")-1;
   return reqresp(ctx, &req, out);
 }
+
+int yclcli_kneg_status(struct yclcli_ctx *ctx, const char *id,
+    size_t idlen, char **out) {
+  struct ycl_msg_knegd_req req = {0};
+
+  req.action.data = "status";
+  req.action.len = sizeof("status")-1;
+  req.id.data = id;
+  req.id.len = idlen;
+  return reqresp(ctx, &req, out);
+}

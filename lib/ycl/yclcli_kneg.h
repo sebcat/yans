@@ -11,5 +11,7 @@
 
 int yclcli_kneg_manifest(struct yclcli_ctx *ctx, char **out);
 int yclcli_kneg_queueinfo(struct yclcli_ctx *ctx, char **out);
+int yclcli_kneg_status(struct yclcli_ctx *ctx, const char *id,
+    size_t idlen, char **out);
 
 #endif

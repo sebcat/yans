@@ -91,6 +91,11 @@ static int parse_request_header(struct scgi_ctx *cgi,
         }
       }
       break;
+    case 'H':
+      if (strcmp(hdr.key, "HTTP_ACCEPT_ENCODING") == 0) {
+        req->accept_encoding = hdr.value;
+      }
+      break;
     case 'R':
       if (strcmp(hdr.key, "REQUEST_METHOD") == 0) {
         req->request_method = yapi_str2method(hdr.value);
@@ -171,7 +176,31 @@ int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
       "Status: %s\r\n"
       "Content-Type: %s\r\n\r\n",
       yapi_status2str(status),
-      yapi_ctype2str(ctype));
+      yapi_ctype2str(ctype)) < 0 ? -1 : 0;
+}
+
+int yapi_headers(struct yapi_ctx *ctx, enum yapi_status status,
+    enum yapi_ctype ctype, ...) {
+  int ret;
+  va_list ap;
+  char *hdr;
+
+  ret = fprintf(ctx->output, "Status: %s\r\n", yapi_status2str(status));
+  if (ret < 0) {
+    return -1;
+  }
+
+  va_start(ap, ctype);
+  while ((hdr = va_arg(ap, char *)) != NULL) {
+    ret = fprintf(ctx->output, "%s\r\n", hdr);
+    if (ret < 0) {
+      return -1;
+    }
+  }
+
+  va_end(ap);
+  return fprintf(ctx->output, "Content-Type: %s\r\n\r\n",
+      yapi_ctype2str(ctype)) < 0 ? -1 : 0;
 }
 
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len) {

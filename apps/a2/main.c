@@ -1,5 +1,7 @@
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <jansson.h>
 
@@ -7,6 +9,7 @@
 #include <lib/ycl/yclcli_store.h>
 
 #include <lib/util/sindex.h>
+#include <lib/util/zfile.h>
 #include <lib/util/macros.h>
 #include <lib/util/sc2mod.h>
 #include <lib/net/urlquery.h>
@@ -20,6 +23,26 @@ struct a2_ctx {
 
 struct a2_ctx ctx_; /* should only be accessed by sc2_setup if we want to
                      * allocate it dynamically in the future */
+
+static int is_valid_id(const char *id) {
+  size_t i;
+
+  if (id == NULL) {
+    return 0;
+  }
+
+  for (i = 0; i < 20; i++) {
+    if (!strchr("0123456789abcdef", id[i])) {
+      return 0;
+    }
+  }
+
+  if (id[i] != '\0') {
+    return 0;
+  }
+
+  return 1;
+}
 
 static int get_fail(struct yapi_ctx *ctx) {
   return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR, "got fail");
@@ -97,15 +120,14 @@ static int get_queueinfo(struct yapi_ctx *ctx) {
  * }
  */
 static int get_work_types(struct yapi_ctx *ctx) {
-  struct a2_ctx *a2data;
+  struct a2_ctx *a2data = yapi_data(ctx);
+  char *manifest        = NULL;
   int ret;
-  char *manifest = NULL;
   json_t *entries;
   json_t *data;
   json_t *top;
   char *entry;
 
-  a2data = yapi_data(ctx);
 
   /* get the kneg manifest from the knegd service */
   ret = yclcli_kneg_manifest(&a2data->kneg, &manifest);
@@ -280,6 +302,113 @@ static int get_reports(struct yapi_ctx *ctx) {
   return 0;
 }
 
+static int get_report_section(struct yapi_ctx *ctx) {
+  struct a2_ctx *a2data   = yapi_data(ctx);
+  int client_accepts_gzip = 0;
+  int content_is_gzip     = 0;
+  const char *id          = NULL;
+  const char *name        = NULL;
+  int sectionfd           = -1;
+  int ctype               = YAPI_CTYPE_BINARY;
+  FILE *fp;
+  char buf[4096];
+  ssize_t nread;
+  char *key;
+  char *val;
+  char *cptr;
+  int ret;
+
+  /* parse URL query parameters */
+  while (urlquery_next_pair(&ctx->req.query_string, &key, &val)) {
+    if (strcmp(key, "id") == 0) {
+      id = val;
+    } else if (strcmp(key, "name") == 0) {
+      name = val;
+    }
+  }
+
+  /* validate query parameters */
+  if (!name || !*name || !is_valid_id(id)) {
+    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+        "missing/invalid request parameters");
+  }
+
+  /* enter store */
+  ret = yclcli_store_enter(&a2data->store, id, NULL, 0, NULL);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "store enter failure");
+  }
+
+  /* open the file referenced by name */
+  ret = yclcli_store_open(&a2data->store, name, O_RDONLY, &sectionfd);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+        "failed to open the resource with the specified name");
+  }
+
+  /* check name suffix for .gz, to determine if the content is gzipped.
+   * if the name ends with .gz, strip it for later suffix checking */
+  cptr = strrchr(name, '.');
+  if (cptr && strcmp(cptr, ".gz") == 0) {
+    content_is_gzip = 1;
+    *cptr = '\0';
+  }
+
+  /* determine the content type (default: binary/octet-stream) */
+  cptr = strrchr(name, '.');
+  if (!cptr) {
+    if (strcmp(name, "MANIFEST") == 0) {
+      ctype = YAPI_CTYPE_TEXT;
+    }
+  } else if (strcmp(cptr, ".json") == 0) {
+    ctype = YAPI_CTYPE_JSON;
+  } else if (strcmp(cptr, ".csv") == 0) {
+    ctype = YAPI_CTYPE_CSV;
+  } else if (strcmp(cptr, ".txt") == 0 ||
+             strcmp(cptr, ".log") == 0) {
+    ctype = YAPI_CTYPE_TEXT;
+  }
+
+  /* determine if the client supports gzipped transfers by looking at the
+   * HTTP_ACCEPT_ENCODING/Accept-Encoding header value */
+  if (ctx->req.accept_encoding &&
+      strstr(ctx->req.accept_encoding, "gzip")) {
+    /* XXX: doesn't take qvalues into account, e.g., q=0 */
+    client_accepts_gzip = 1;
+  }
+
+  /* We decompress the file on-the-fly if the client does not accept
+   * gzip-encoded transfers */
+  if (content_is_gzip && !client_accepts_gzip) {
+    fp = zfile_fdopen(sectionfd, "rb");
+  } else {
+    fp = fdopen(sectionfd, "rb");
+  }
+
+  if (fp == NULL) {
+    close(sectionfd);
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "failed to open a handle of the underlying file descriptor");
+  }
+
+  /* send the appropriate headers */
+  if (content_is_gzip && client_accepts_gzip) {
+    yapi_headers(ctx, YAPI_STATUS_OK, ctype, "Content-Encoding: gzip",
+        NULL);
+  } else {
+    yapi_header(ctx, YAPI_STATUS_OK, ctype);
+  }
+
+  /* send the content */
+  while ((nread = fread(buf, 1, sizeof(buf), fp)) > 0) {
+    yapi_write(ctx, buf, nread);
+  }
+
+  fclose(fp);
+  return 0;
+}
+
 SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {
   struct a2_ctx *a2data;
   int ret;
@@ -324,10 +453,11 @@ SC2MOD_API int sc2_handler(struct sc2mod_ctx *mod) {
   int ret;
   struct yapi_ctx ctx;
   struct yapi_route routes[] = {
-    {YAPI_METHOD_GET, "fail",       get_fail},
-    {YAPI_METHOD_GET, "queueinfo",  get_queueinfo},
-    {YAPI_METHOD_GET, "work-types", get_work_types},
-    {YAPI_METHOD_GET, "reports",    get_reports},
+    {YAPI_METHOD_GET, "fail",           get_fail},
+    {YAPI_METHOD_GET, "queueinfo",      get_queueinfo},
+    {YAPI_METHOD_GET, "work-types",     get_work_types},
+    {YAPI_METHOD_GET, "reports",        get_reports},
+    {YAPI_METHOD_GET, "report-section", get_report_section},
   };
 
   yapi_init(&ctx);

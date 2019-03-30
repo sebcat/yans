@@ -27,10 +27,11 @@ enum yapi_method {
 };
 
 struct yapi_request {
-  size_t      content_length;
+  size_t content_length;
   char *content_type;
   char *document_uri;
   char *query_string;
+  char *accept_encoding;
   enum yapi_method request_method;
 };
 
@@ -71,6 +72,8 @@ static inline void *yapi_data(struct yapi_ctx *ctx) {
 
 int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
     enum yapi_ctype ctype);
+int yapi_headers(struct yapi_ctx *ctx, enum yapi_status status,
+    enum yapi_ctype ctype, ...);
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len);
 int yapi_writef(struct yapi_ctx *ctx, const char *fmt, ...);
 

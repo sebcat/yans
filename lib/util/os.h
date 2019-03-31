@@ -67,5 +67,9 @@ int os_isfile(const char *path);
 int os_isexec(const char *path);
 int os_fdisfile(int fd);
 
+/* Covert fopen(3) style modes to open(2) flags. Returns -1 on invalid
+ * modestr, 0 on success. */
+int os_mode2flags(const char *modestr, int *outflags);
+
 #endif
 

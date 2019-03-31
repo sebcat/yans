@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <lib/util/os.h>
 #include <lib/util/zfile.h>
 #include <apps/scan/opener.h>
 
@@ -80,57 +81,6 @@ void opener_cleanup(struct opener_ctx *ctx) {
   memset(ctx, 0, sizeof(*ctx)); /* paranoia */
 }
 
-/* Covert fopen(3) style modes to open(2) flags */
-static int modestr2flags(const char *modestr, int *outflags) {
-  char ch;
-  int oflags;
-  int mods;
-
-  switch (*modestr++) {
-  case 'a':
-    oflags = O_WRONLY;
-    mods = O_CREAT | O_APPEND;
-    break;
-  case 'r':
-    oflags = O_RDONLY;
-    mods = 0;
-    break;
-  case 'w':
-    oflags = O_WRONLY;
-    mods = O_CREAT | O_TRUNC;
-    break;
-  default:
-    return -1;
-  }
-
-  while ((ch = *modestr++) != '\0') {
-    switch(ch) {
-    case '+':
-      oflags = O_RDWR;
-      break;
-    case 'b':
-      break;
-    case 'e':
-      mods |= O_CLOEXEC;
-      break;
-    case 'x':
-      mods |= O_EXCL;
-      break;
-    default:
-      return -1;
-    }
-  }
-
-  if (oflags == O_RDONLY && (mods & O_EXCL)) {
-    return -1;
-  }
-
-  *outflags = oflags | mods;
-  return 0;
-}
-
-
-
 int opener_open(struct opener_ctx *ctx, const char *path, int flags,
     int *use_zlib, int *outfd) {
   int fd;
@@ -187,7 +137,7 @@ int opener_fopen(struct opener_ctx *ctx, const char *path,
   assert(outfp != NULL);
 
   /* Parse the mode string to open(2) flags*/
-  ret = modestr2flags(mode, &oflags);
+  ret = os_mode2flags(mode, &oflags);
   if (ret < 0) {
     return opener_error(ctx, "invalid mode string");
   }

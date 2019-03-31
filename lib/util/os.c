@@ -448,3 +448,53 @@ int os_fdisfile(int fd) {
     return 0;
   }
 }
+
+/* Covert fopen(3) style modes to open(2) flags. Returns -1 on invalid
+ * modestr, 0 on success. */
+int os_mode2flags(const char *modestr, int *outflags) {
+  char ch;
+  int oflags;
+  int mods;
+
+  switch (*modestr++) {
+  case 'a':
+    oflags = O_WRONLY;
+    mods = O_CREAT | O_APPEND;
+    break;
+  case 'r':
+    oflags = O_RDONLY;
+    mods = 0;
+    break;
+  case 'w':
+    oflags = O_WRONLY;
+    mods = O_CREAT | O_TRUNC;
+    break;
+  default:
+    return -1;
+  }
+
+  while ((ch = *modestr++) != '\0') {
+    switch(ch) {
+    case '+':
+      oflags = O_RDWR;
+      break;
+    case 'b':
+      break;
+    case 'e':
+      mods |= O_CLOEXEC;
+      break;
+    case 'x':
+      mods |= O_EXCL;
+      break;
+    default:
+      return -1;
+    }
+  }
+
+  if (oflags == O_RDONLY && (mods & O_EXCL)) {
+    return -1;
+  }
+
+  *outflags = oflags | mods;
+  return 0;
+}

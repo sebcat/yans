@@ -158,7 +158,7 @@ static int get_work_types(struct yapi_ctx *ctx) {
 }
 
 /*
- * GET /a1/reports
+ * GET /trololo/reports
  *
  * URL Parameters:
  *   - nelems (opt): Number of elements to fetch. Range: 0 <= nelems <= 100
@@ -302,6 +302,17 @@ static int get_reports(struct yapi_ctx *ctx) {
   return 0;
 }
 
+/*
+ * GET /trololo/report-section
+ *
+ * URL Parameters:
+ *   - id:    ID of the given report.
+ *   - name: Name of section
+ *
+ * If id or entry is missing or invalid, a 400 response is returned.
+ *
+ * Response on success: The report section.
+ */
 static int get_report_section(struct yapi_ctx *ctx) {
   struct a2_ctx *a2data   = yapi_data(ctx);
   int client_accepts_gzip = 0;
@@ -409,6 +420,131 @@ static int get_report_section(struct yapi_ctx *ctx) {
   return 0;
 }
 
+/*
+ * GET /trololo/report-sections
+ *
+ * URL Parameters:
+ *   - id: A (valid) report ID.
+ *
+ * Response object on success:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "id": "str",
+ *     "name": "str",
+ *     "subject": "str",
+ *     "indexed": 666,
+ *     "now_ts": 777,
+ *     "status": "str",
+ *     "entries": [
+ *       {
+ *         "fname": "fname",
+ *         "dname": "dname"
+ *       },
+ *       ...
+ *     ]
+ *   }
+ * }
+ */
+static int get_report_sections(struct yapi_ctx *ctx) {
+  struct a2_ctx *a2data = yapi_data(ctx);
+  char *id              = NULL;
+  json_t *data          = NULL;
+  char linebuf[256];
+  char *key;
+  char *val;
+  int ret;
+  FILE *fp;
+  json_error_t json_err;
+  json_t *entries;
+  json_t *obj;
+  json_t *top;
+
+  /* parse URL query parameters */
+  while (urlquery_next_pair(&ctx->req.query_string, &key, &val)) {
+    if (strcmp(key, "id") == 0) {
+      id = val;
+    }
+  }
+
+  /* validate query parameters */
+  if (!is_valid_id(id)) {
+    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+        "missing/invalid request parameters");
+  }
+
+  /* enter store */
+  ret = yclcli_store_enter(&a2data->store, id, NULL, 0, NULL);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "store enter failure");
+  }
+
+  /* create an 'entries' array, and fill it with entries from the
+   * MANIFEST file, if possible */
+  entries = json_array();
+  ret = yclcli_store_fopen(&a2data->store, "MANIFEST", "rb", &fp);
+  if (ret == YCL_OK) {
+    while (fgets(linebuf, sizeof(linebuf), fp)) {
+      /* remove trailing newline */
+      val = strrchr(linebuf, '\n');
+      if (val) {
+        *val = '\0';
+      }
+
+      /* set 'val' to the display name of the row */
+      val = strchr(linebuf, ' ');
+      if (!val) {
+        continue;
+      } else {
+        *val++ = '\0';
+      }
+
+      obj = json_object();
+      json_object_set_new(obj, "fname", json_string(linebuf));
+      json_object_set_new(obj, "dname", json_string(val));
+      json_array_append_new(entries, obj);
+    }
+    fclose(fp);
+    fp = NULL;
+  }
+
+  /* if possible: build the 'data' object from the job.json file */
+  ret = yclcli_store_fopen(&a2data->store, "job.json", "rb", &fp);
+  if (ret == YCL_OK) {
+    data = json_loadf(fp, 0, &json_err);
+    fclose(fp);
+  }
+
+  /* If we were unable to build the 'data' object from the job.json file,
+   * we initialize it to an empty object */
+  if (!data) {
+    data = json_object();
+  }
+
+  /* get the kneg status. NB: reuses the message buffer. If subsequent
+   * ycl calls are made, 'val' will no longer be valid */
+  ret = yclcli_kneg_status(&a2data->kneg, id, strlen(id), &val);
+  if (ret != YCL_OK) {
+    val = "unknown";
+  }
+
+  /* build the JSON response object */
+  json_object_set_new(data, "id", json_string(id));
+  json_object_set_new(data, "now_ts", json_integer(time(NULL)));
+  json_object_set_new(data, "status", json_string(val));
+  json_object_set_new(data, "entries", entries);
+  top = json_object();
+  json_object_set_new(top, "success", json_true());
+  json_object_set_new(top, "data", data);
+
+  /* write the response */
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_JSON);
+  json_dumpf(top, ctx->output, JSON_ENSURE_ASCII|JSON_COMPACT);
+  json_decref(top);
+  return 0;
+}
+
 SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {
   struct a2_ctx *a2data;
   int ret;
@@ -453,11 +589,12 @@ SC2MOD_API int sc2_handler(struct sc2mod_ctx *mod) {
   int ret;
   struct yapi_ctx ctx;
   struct yapi_route routes[] = {
-    {YAPI_METHOD_GET, "fail",           get_fail},
-    {YAPI_METHOD_GET, "queueinfo",      get_queueinfo},
-    {YAPI_METHOD_GET, "work-types",     get_work_types},
-    {YAPI_METHOD_GET, "reports",        get_reports},
-    {YAPI_METHOD_GET, "report-section", get_report_section},
+    {YAPI_METHOD_GET, "fail",            get_fail},
+    {YAPI_METHOD_GET, "queueinfo",       get_queueinfo},
+    {YAPI_METHOD_GET, "work-types",      get_work_types},
+    {YAPI_METHOD_GET, "reports",         get_reports},
+    {YAPI_METHOD_GET, "report-section",  get_report_section},
+    {YAPI_METHOD_GET, "report-sections", get_report_sections},
   };
 
   yapi_init(&ctx);

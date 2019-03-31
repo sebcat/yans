@@ -50,13 +50,15 @@ static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
 struct sc2_opts {
   int maxreqs;     /* Maximum number of concurrent requests */
   time_t lifetime; /* Maximum number of seconds for a request */
-
   const char *scgi_module; /* path to SCGI module */
-
   struct rlimit rlim_vmem; /* RLIMIT_VMEM/RLIMIT_AS, in kilobytes */
   struct rlimit rlim_cpu;  /* RLIMIT_CPU, in seconds */
-
   int sandbox;             /* if non-zero, the child is run in sandbox */
+
+  /* if non-zero, serve the request in the parent process. The process
+   * will be exit when the request is served. This is useful for debugging
+   * sc2 handlers. */
+  int once;
 
   /* status callbacks */
   void (*on_started)(pid_t);
@@ -203,7 +205,12 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
     return SC2_EGETTIME;
   }
 
-  pid = fork();
+  if (ctx->opts.once == 0) {
+    pid = fork();
+  } else {
+    pid = 0;
+  }
+
   if (pid < 0) {
     return SC2_EFORK;
   } else if (pid == 0) {
@@ -406,6 +413,7 @@ static void usage() {
       "  -0, --no-chroot: do not chroot daemon\n"
       "  -t, --cpu-rlim:  max CPU resource limit, in seconds\n"
       "  -v, --vmem-rlim: max virtual memory, in kbytes\n"
+      "  -1, --once:      serve only once request and serve in parent\n"
       "  -h, --help:      this text\n",
       DEFAULT_MAXREQS, DEFAULT_LIFETIME);
   exit(EXIT_FAILURE);
@@ -451,7 +459,7 @@ static long long_or_die(const char *str, int opt) {
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nl:m:0t:v:Xh";
+  static const char *optstr = "u:g:b:nl:m:0t:v:X1h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -463,6 +471,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"cpu-rlim", required_argument, NULL, 't'},
     {"vmem-rlim", required_argument, NULL, 'v'},
     {"no-sandbox", no_argument, NULL, 'X'},
+    {"once", no_argument, NULL, '1'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -480,6 +489,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->sc2.rlim_vmem.rlim_max = DEFAULT_RLIMIT_VMEM;
   opts->sc2.rlim_cpu.rlim_cur = DEFAULT_RLIMIT_CPU;
   opts->sc2.rlim_cpu.rlim_max = DEFAULT_RLIMIT_CPU;
+  opts->sc2.once = 0;
   opts->sc2.on_reaped = log_on_reaped;
   opts->sc2.on_timedout = log_on_timedout;
 
@@ -522,6 +532,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
         break;
       case 'X':
         opts->sc2.sandbox = 0;
+        break;
+      case '1':
+        opts->sc2.once = 1;
         break;
       case 'h':
       default:

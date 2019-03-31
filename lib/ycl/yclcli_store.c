@@ -1,5 +1,7 @@
 #include <string.h>
+#include <errno.h>
 
+#include <lib/util/os.h>
 #include <lib/ycl/ycl_msg.h>
 #include <lib/ycl/yclcli_store.h>
 
@@ -71,6 +73,38 @@ int yclcli_store_open(struct yclcli_ctx *ctx, const char *path, int flags,
   ret = ycl_recvfd(&ctx->ycl, outfd);
   if (ret != YCL_OK) {
     return yclcli_seterr(ctx, ycl_strerror(&ctx->ycl));
+  }
+
+  return YCL_OK;
+}
+
+int yclcli_store_fopen(struct yclcli_ctx *ctx, const char *path,
+    const char *mode, FILE **outfp) {
+  int ret;
+  int oflags;
+  int fd;
+  FILE *fp;
+
+  ret = os_mode2flags(mode, &oflags);
+  if (ret < 0) {
+    return yclcli_seterr(ctx, "invalid mode string");
+  }
+
+  ret = yclcli_store_open(ctx, path, oflags, &fd);
+  if (ret != YCL_OK) {
+    return ret;
+  }
+
+  fp = fdopen(fd, mode);
+  if (!fp) {
+    close(fd);
+    return yclcli_seterr(ctx, strerror(errno));
+  }
+
+  if (outfp) {
+    *outfp = fp;
+  } else {
+    fclose(fp);
   }
 
   return YCL_OK;

@@ -420,9 +420,11 @@ function JReq(method_, url_, data_) {
       const rtext = this.xhr.responseText;
       if (this.xhr.status == 200) {
         this.on_done(rtext);
-      } else if (this.error) {
+      } else if (this.on_error) {
         const ctype = this.xhr.getResponseHeader("Content-Type")
-        if (ctype === "text/plain" && rtext && rtext.length > 0) {
+        if (ctype.indexOf("text/plain") !== -1 &&
+            rtext &&
+            rtext.length > 0) {
           this.on_error(rtext);
         } else {
           this.on_error(method_ + " request failed for " + url_);

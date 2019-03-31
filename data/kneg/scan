@@ -70,7 +70,7 @@ clear_manifest
 run $SCAN resolve                   \
     $SCANOPTS                       \
     --in          "$INPUT"          \
-    --out         zlib:resolved.gz
+    --out         zlib:resolved.txt.gz
 
 if [ -n "$TCP_PORTS_PLAIN" ]; then
   run $SCAN banners                           \
@@ -79,29 +79,29 @@ if [ -n "$TCP_PORTS_PLAIN" ]; then
       --ports           "$TCP_PORTS_PLAIN"    \
       --mdelay-per-tick 100                   \
       --max-clients     256                   \
-      --in              zlib:resolved.gz      \
+      --in              zlib:resolved.txt.gz  \
       --out             zlib:banners.plain.gz
 fi
 
 if [ -n "$TCP_PORTS_TLS" ]; then
-  run $SCAN banners                         \
-      $SCANOPTS                             \
-      --tls                                 \
-      --timeout         5                   \
-      --ports           "$TCP_PORTS_TLS"    \
-      --mdelay-per-tick 100                 \
-      --max-clients     256                 \
-      --in              zlib:resolved.gz    \
+  run $SCAN banners                           \
+      $SCANOPTS                               \
+      --tls                                   \
+      --timeout         5                     \
+      --ports           "$TCP_PORTS_TLS"      \
+      --mdelay-per-tick 100                   \
+      --max-clients     256                   \
+      --in              zlib:resolved.txt.gz  \
       --out             zlib:banners.tls.gz
 fi
 
-run $SCAN collate                                      \
-    $SCANOPTS                                          \
-    --type banners                                     \
-    --in-banners        zlib:banners.plain.gz          \
-    --in-banners        zlib:banners.tls.gz            \
-    --out-services-csv  zlib:services.csv.gz           \
-    --out-certs-csv     zlib:certs.csv.gz              \
+run $SCAN collate                             \
+    $SCANOPTS                                 \
+    --type banners                            \
+    --in-banners        zlib:banners.plain.gz \
+    --in-banners        zlib:banners.tls.gz   \
+    --out-services-csv  zlib:services.csv.gz  \
+    --out-certs-csv     zlib:certs.csv.gz     \
     --out-cert-sans-csv zlib:sans.csv.gz
 
 manifest "services.csv.gz" "Services"

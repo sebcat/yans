@@ -17,9 +17,10 @@ void buf_cleanup(buf_t *buf) {
   if (buf->data != NULL) {
     free(buf->data);
     buf->data = NULL;
-    buf->cap = 0;
-    buf->len = 0;
   }
+
+  buf->cap = 0;
+  buf->len = 0;
 }
 
 int buf_grow(buf_t *buf, size_t needed) {

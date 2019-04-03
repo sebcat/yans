@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <dlfcn.h>
+#include <locale.h>
 
 #include <lib/util/sc2mod.h>
 #include <lib/util/io.h>
@@ -623,6 +624,9 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   int status = EXIT_FAILURE;
   int ret;
+
+  /* init locale from environment */
+  setlocale(LC_ALL, "");
 
   parse_args_or_die(&opts, argc, argv);
 

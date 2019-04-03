@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <locale.h>
 
 #include <apps/scan/resolve.h>
 #include <apps/scan/banners.h>
@@ -25,6 +26,9 @@ int main(int argc, char *argv[]) {
       strcmp(argv[1], "--help") == 0) {
     goto usage;
   }
+
+  /* init locale from environment */
+  setlocale(LC_ALL, "");
 
   ret = ycl_msg_init(&scan_.msgbuf);
   if (ret < 0) {

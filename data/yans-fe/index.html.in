@@ -680,8 +680,21 @@ document.getElementById("scan-btn").onclick = function() {
     return;
   }
 
-  let datas = JSON.stringify({subject: subject});
-  JReq("POST", "/a1/scan", datas)
+  let urlseeds = [];
+  if (subject.startsWith("http://") || subject.startsWith("https://")) {
+    urlseeds.push(subject);
+    let a = document.createElement("a");
+    a.href = subject;
+    subject = a.hostname;
+  }
+
+  let req = {subject: subject};
+  if (urlseeds.length > 0) {
+    req.urlseeds = urlseeds;
+  }
+
+  let reqdata = JSON.stringify(req);
+  JReq("POST", "/a1/scan", reqdata)
       .done(function(data) {
         data = JSON.parse(data);
         if (!data.success) {

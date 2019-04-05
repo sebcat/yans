@@ -57,29 +57,18 @@ int buf_align(buf_t *buf) {
   return 0;
 }
 
-int buf_achar(buf_t *buf, int ch) {
-  if (buf->cap == buf->len && buf_grow(buf, 1) < 0) {
-    return -1;
-  }
-
-  buf->data[buf->len++] = (char)ch;
-  return 0;
-}
-
 int buf_adata(buf_t *buf, const void *data, size_t len) {
-  size_t nleft;
+  int ret;
 
   if (len == 0) {
     return 0;
   }
 
-  nleft = buf->cap - buf->len;
-  if (nleft < len && buf_grow(buf, len-nleft) < 0) {
-    return -1;
+  if ((ret = buf_reserve(buf, len)) == 0) {
+    memcpy(buf->data + buf->len, data, len);
+    buf->len += len;
   }
 
-  memcpy(buf->data + buf->len, data, len);
-  buf->len += len;
-  return 0;
+  return ret;
 }
 

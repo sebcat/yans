@@ -2,8 +2,11 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include <lib/util/macros.h>
 #include <lib/net/scgi.h>
 #include <apps/a2/yapi.h>
+
+#define DFL_MAXLEN_REQ (10 * 1024 * 1024)
 
 const char *yapi_ctype2str(enum yapi_ctype t) {
   switch(t) {
@@ -127,15 +130,14 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
 
   path = ctx->req.document_uri;
   if (path == NULL || *path == '\0') {
-    return 0;
+    goto e404;
   }
 
   /* Check if the API prefix matches */
   if (prefix) {
     len = strlen(prefix);
     if (strncmp(prefix, path, len) != 0) {
-      /* Not the expected prefix means no match */
-      return 0;
+      goto e404;
     }
 
     /* skip past the path prefix */
@@ -155,9 +157,7 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
 
   /* Check if a matching route was found. If not, respond with 404. */
   if (i == nroutes) {
-    yapi_header(ctx, YAPI_STATUS_NOT_FOUND, YAPI_CTYPE_TEXT);
-    yapi_write(ctx, "404 not found\n", sizeof("404 not found\n")-1);
-    return 0;
+    goto e404;
   }
 
   ret = setjmp(ctx->jmpbuf);
@@ -168,6 +168,10 @@ static int route_request(struct yapi_ctx *ctx, const char *prefix,
   }
 
   return route->func(ctx);
+e404:
+  yapi_header(ctx, YAPI_STATUS_NOT_FOUND, YAPI_CTYPE_TEXT);
+  yapi_write(ctx, "404 not found\n", sizeof("404 not found\n")-1);
+  return 0;
 }
 
 int yapi_header(struct yapi_ctx *ctx, enum yapi_status status,
@@ -217,6 +221,53 @@ int yapi_writef(struct yapi_ctx *ctx, const char *fmt, ...) {
   return ret;
 }
 
+int yapi_read(struct yapi_ctx *ctx, buf_t *dst) {
+  char buf[4096];
+  size_t nread;
+  size_t left;
+
+  if (ctx->restlen > 0) {
+    /* consume the part of the body received when we read the headers */
+    buf_adata(dst, ctx->rest, ctx->restlen);
+    ctx->rest = NULL;
+    ctx->restlen = 0;
+
+    /* adjust the Content-Length based on the data we've already received */
+    if (dst->len > ctx->req.content_length) {
+      ctx->req.content_length = 0;
+    } else {
+      ctx->req.content_length -= dst->len;
+    }
+  }
+
+  left = MIN(ctx->req.content_length, ctx->maxlen);
+  if (left == 0) {
+    goto done;
+  }
+
+  while (left > 0) {
+    nread = fread(buf, 1, MIN(left, sizeof(buf)), ctx->input);
+    if (nread == 0) {
+      break;
+    }
+
+    buf_adata(dst, buf, nread);
+    if (dst->len > ctx->maxlen) {
+      break;
+    }
+
+    if (nread > left) { /* paranoia */
+      left = 0;
+    } else {
+      left -= nread;
+    }
+  }
+
+done:
+  buf_achar(dst, '\0'); /* always '\0'-terminate */
+  return 0;
+}
+
 int _yapi_errorf(struct yapi_ctx *ctx, enum yapi_status status,
     const char *fmt, ...) {
   va_list ap;
@@ -233,6 +284,7 @@ void yapi_init(struct yapi_ctx *ctx) {
   memset(ctx, 0, sizeof(*ctx));
   ctx->input  = stdin;
   ctx->output = stdout;
+  ctx->maxlen = DFL_MAXLEN_REQ;
 }
 
 int yapi_serve(struct yapi_ctx *ctx, const char *prefix,
@@ -256,10 +308,7 @@ int yapi_serve(struct yapi_ctx *ctx, const char *prefix,
     goto scgi_cleanup;
   }
 
-  /* TODO:
-   *  - scgi_get_rest must be used when reading request bodies
-   **/
-
+  ctx->rest = scgi_get_rest(&cgi, &ctx->restlen);
   status = route_request(ctx, prefix, routes, nroutes);
 scgi_cleanup:
   scgi_cleanup(&cgi);

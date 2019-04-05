@@ -12,8 +12,11 @@
 #include <lib/util/zfile.h>
 #include <lib/util/macros.h>
 #include <lib/util/sc2mod.h>
+#include <lib/util/u8.h>
 #include <lib/net/urlquery.h>
 #include <apps/a2/yapi.h>
+
+#define DFL_KNEG_TYPE "scan"
 
 struct a2_ctx {
   struct ycl_msg msgbuf;
@@ -545,6 +548,194 @@ static int get_report_sections(struct yapi_ctx *ctx) {
   return 0;
 }
 
+/*
+ * POST /trololo/scan
+ *
+ * Request object:
+ * {
+ *   "..."
+ * }
+ *
+ * Response object on success:
+ * {
+ *   "success": true,
+ *   "data": {
+ *
+ *   }
+ * }
+ */
+static int post_scan(struct yapi_ctx *ctx) {
+  struct a2_ctx *a2data = yapi_data(ctx);
+  const char *parserr   = "Invalid scan request";
+  buf_t reqbody         = {0};
+  buf_t subjectbuf      = {0};
+  size_t width          = 0;
+  char namebuf[40];
+  char idbuf[64];
+  json_t *req;
+  json_t *jstr;
+  json_error_t jsonerr;
+  const char *subject;
+  const char *type;
+  const char *tmp;
+  size_t len;
+  size_t i;
+  int ch;
+  int ret;
+  FILE *fp;
+  json_t *top;
+  json_t *data;
+
+  /* require a valid content type for security reasons */
+  if (!ctx->req.content_type ||
+      !strstr(ctx->req.content_type, "application/json")) {
+    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+        "missing/invalid content-type");
+  }
+
+  /* initialize the request body receive buffer */
+  if (!buf_init(&reqbody, 8192)) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "failed to allocate receive buffer");
+  }
+
+  /* initialize the subject buffer - clean it up whenever reqbody is
+   * cleaned up */
+  if (!buf_init(&subjectbuf, 8192)) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "failed to allocate subject buffer");
+  }
+
+  /* read and parse the JSON request */
+  yapi_read(ctx, &reqbody);
+  req = json_loads(reqbody.data, 0, &jsonerr);
+  buf_cleanup(&reqbody);
+  if (!req) {
+    goto invalid_req;
+  }
+
+  /* retrieve the subject value, or bail if missing */
+  jstr = json_object_get(req, "subject");
+  if (!jstr) {
+    goto invalid_req;
+  }
+
+  subject = json_string_value(jstr);
+  len = json_string_length(jstr);
+  if (len == 0) {
+    goto invalid_req;
+  }
+
+  /* check for disallowed characters in subject, and make lowercase */
+  for (i = 0; i < len; i += width) {
+    ch = u8_to_cp(subject + i, len - i, &width);
+    if (ch == '\0' || ch == '\r' || ch == '\n' || ch == '\t' ||
+        ch == ' ') {
+      parserr = "Invalid characters in scan subject";
+      goto invalid_req;
+    }
+
+    /* convert code-point to lowercase (locale dependent) and append it
+     * to subjectbuf */
+    ch = u8_tolower(ch);
+    ret = buf_reserve(&subjectbuf, 8);
+    if (ret < 0) {
+      parserr = "Failed to reserve ucp-buffer";
+      goto invalid_req; /* Not actually an invalid request */
+    } else {
+      u8_from_cp(subjectbuf.data + subjectbuf.len, 8, ch, &width);
+      subjectbuf.len += width;
+    }
+  }
+
+  subject = NULL; /* don't use this anymore - use subjectbuf */
+
+  /* get the kneg type, or default to DFL_KNEG_TYPE */
+  jstr = json_object_get(req, "type");
+  if (!jstr || json_string_length(jstr) == 0) {
+    type = DFL_KNEG_TYPE;
+  } else {
+    type = json_string_value(jstr);
+  }
+
+  /* create a suitable name */
+  if (subjectbuf.len < sizeof(namebuf)) {
+    snprintf(namebuf, sizeof(namebuf), "%.*s", (int)subjectbuf.len,
+        subjectbuf.data);
+  } else {
+    snprintf(namebuf, sizeof(namebuf), "%.*s...", (int)sizeof(namebuf) -  4,
+        subjectbuf.data);
+  }
+
+  /* update request fields and free subjectbuf */
+  json_object_set_new(req, "name", json_string(namebuf));
+  json_object_set_new(req, "subject", json_stringn(subjectbuf.data,
+      subjectbuf.len));
+  json_object_set_new(req, "started", json_integer(time(NULL)));
+  buf_cleanup(&subjectbuf);
+
+  /* enter store */
+  ret = yclcli_store_enter(&a2data->store, NULL, NULL, 0, &tmp);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        yclcli_strerror(&a2data->store));
+  } else {
+    strncpy(idbuf, tmp, sizeof(idbuf));
+    idbuf[sizeof(idbuf)-1] = '\0';
+  }
+
+
+  /* write the request to job.json */
+  ret = yclcli_store_fopen(&a2data->store, "job.json", "wb", &fp);
+  if (ret == YCL_OK) {
+    ret = json_dumpf(req, fp, 0);
+    fclose(fp);
+    if (ret < 0) {
+      return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+          "failed to store request to disk");
+    }
+  }
+
+  /* write the subject entry to subject.txt for easier processing */
+  ret = yclcli_store_fopen(&a2data->store, "subject.txt", "wb", &fp);
+  if (ret == YCL_OK) {
+    ret = fprintf(fp, "%s\n",
+        json_string_value(json_object_get(req, "subject")));
+    fclose(fp);
+    if (ret < 0) {
+      return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+          "failed to save subject list");
+    }
+  }
+
+  json_decref(req);
+  req = NULL;
+
+  /* queue the work! */
+  ret = yclcli_kneg_queue(&a2data->kneg, idbuf, type, namebuf, NULL);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "failed to enqueue request");
+  }
+
+  /* build and write the response */
+  data = json_object();
+  json_object_set_new(data, "id", json_string(idbuf));
+  top = json_object();
+  json_object_set_new(top, "success", json_true());
+  json_object_set_new(top, "data", data);
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_JSON);
+  json_dumpf(top, ctx->output, JSON_ENSURE_ASCII|JSON_COMPACT);
+  json_decref(top);
+
+  return 0;
+
+invalid_req:
+  buf_cleanup(&subjectbuf);
+  /* TODO: Error feedback from jsonerr, if relevant? */
+  return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST, parserr);
+}
+
 SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {
   struct a2_ctx *a2data;
   int ret;
@@ -589,12 +780,13 @@ SC2MOD_API int sc2_handler(struct sc2mod_ctx *mod) {
   int ret;
   struct yapi_ctx ctx;
   struct yapi_route routes[] = {
-    {YAPI_METHOD_GET, "fail",            get_fail},
-    {YAPI_METHOD_GET, "queueinfo",       get_queueinfo},
-    {YAPI_METHOD_GET, "work-types",      get_work_types},
-    {YAPI_METHOD_GET, "reports",         get_reports},
-    {YAPI_METHOD_GET, "report-section",  get_report_section},
-    {YAPI_METHOD_GET, "report-sections", get_report_sections},
+    {YAPI_METHOD_GET,  "fail",            get_fail},
+    {YAPI_METHOD_GET,  "queueinfo",       get_queueinfo},
+    {YAPI_METHOD_GET,  "work-types",      get_work_types},
+    {YAPI_METHOD_GET,  "reports",         get_reports},
+    {YAPI_METHOD_GET,  "report-section",  get_report_section},
+    {YAPI_METHOD_GET,  "report-sections", get_report_sections},
+    {YAPI_METHOD_POST, "scan",            post_scan},
   };
 
   yapi_init(&ctx);

@@ -35,18 +35,15 @@ struct yapi_request {
   enum yapi_method request_method;
 };
 
-struct yapi_response {
-  enum yapi_status status;
-  enum yapi_ctype content_type;
-};
-
 struct yapi_ctx {
   struct yapi_request req;
-  struct yapi_response resp;
   jmp_buf jmpbuf;
+  size_t maxlen;
   FILE *input;
   FILE *output;
   void *data;
+  const char *rest;
+  size_t restlen;
 };
 
 struct yapi_route {
@@ -76,6 +73,7 @@ int yapi_headers(struct yapi_ctx *ctx, enum yapi_status status,
     enum yapi_ctype ctype, ...);
 int yapi_write(struct yapi_ctx *ctx, const void *data, size_t len);
 int yapi_writef(struct yapi_ctx *ctx, const char *fmt, ...);
+int yapi_read(struct yapi_ctx *ctx, buf_t *dst);
 
 #define yapi_errorf(ctx__, status__, fmt__, ...) \
   _yapi_errorf((ctx__), (status__), "[%s:%d] " fmt__ "\n", __func__, \

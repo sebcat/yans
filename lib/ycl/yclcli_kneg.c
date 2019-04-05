@@ -66,3 +66,27 @@ int yclcli_kneg_status(struct yclcli_ctx *ctx, const char *id,
   req.id.len = idlen;
   return reqresp(ctx, &req, out);
 }
+
+int yclcli_kneg_queue(struct yclcli_ctx *ctx, const char *id,
+    const char *type, const char *name, char **out) {
+  struct ycl_msg_knegd_req req = {
+    .action = {
+      .data = "queue",
+      .len = sizeof("queue") -1,
+    },
+    .id = {
+      .data = id,
+      .len = strlen(id),
+    },
+    .type = {
+      .data = type,
+      .len = strlen(type),
+    },
+    .name = {
+      .data = name,
+      .len = strlen(name),
+    },
+  };
+
+  return reqresp(ctx, &req, out);
+}

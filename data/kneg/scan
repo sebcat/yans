@@ -104,6 +104,7 @@ run $SCAN collate                             \
     --out-certs-csv     zlib:certs.csv.gz     \
     --out-cert-sans-csv zlib:sans.csv.gz
 
+# XXX: This opens the MANIFEST files multiple consequtive times
 manifest "services.csv.gz" "Services"
 manifest "certs.csv.gz" "Certificates"
 manifest "sans.csv.gz" "Certificate Subject Alternative Names"

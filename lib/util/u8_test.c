@@ -29,7 +29,8 @@ static int test_u8_to_from_cp() {
     {NULL, 0, 0},
   };
   size_t i;
-  size_t nlen = 0xff;
+  size_t tolen = 0xff;
+  size_t fromlen = 0xff;
   int32_t actual;
   int status = TEST_OK;
   int ret;
@@ -37,7 +38,7 @@ static int test_u8_to_from_cp() {
 
   for(i=0; tests[i].s != NULL; i++) {
     /* UTF-8 -> codepoint */
-    actual = u8_to_cp((uint8_t*)tests[i].s, tests[i].len, &nlen);
+    actual = u8_to_cp(tests[i].s, tests[i].len, &tolen);
     if (tests[i].expected != actual) {
       status = TEST_FAIL;
       TEST_LOG_ERRF("index:%zu expected:0x%08x actual:0x%08x", i,
@@ -46,13 +47,16 @@ static int test_u8_to_from_cp() {
 
     /* codepoint -> UTF-8*/
     memset(buf, 0, sizeof(buf));
-    ret = u8_from_cp(buf, sizeof(buf), actual);
+    ret = u8_from_cp(buf, sizeof(buf), actual, &fromlen);
     if (ret < 0) {
       status = TEST_FAIL;
       TEST_LOG_ERRF("index:%zu return:%d\n", i, ret);
     } else if (memcmp(tests[i].s, buf, tests[i].len + 1) != 0) {
       status = TEST_FAIL;
       TEST_LOG_ERRF("index:%zu mismatched", i);
+    } else if (tolen != fromlen) {
+      status = TEST_FAIL;
+      TEST_LOG_ERRF("index:%zu tolen:%zu fromlen:%zu", i, tolen, fromlen);
     }
   }
 

@@ -51,7 +51,7 @@ static int encode_label(buf_t *buf, const uint8_t *s, size_t len) {
   assert(len > 0);
   buf_adata(buf, ACE_PREFIX, ACE_PREFIX_LEN);
   for(pos = 0; pos < len; pos += width) {
-    int32_t r = u8_to_cp(s+pos, len-pos, &width);
+    int32_t r = u8_to_cp((char*)s+pos, len-pos, &width);
     if (r <= 0x7f) {
       b++;
       buf_achar(buf, (int)r);
@@ -66,7 +66,7 @@ static int encode_label(buf_t *buf, const uint8_t *s, size_t len) {
   while(remaining) {
     int32_t m = 0x7fffffff;
     for(pos = 0; pos < len; pos += width) {
-      int32_t r = u8_to_cp(s+pos, len-pos, &width);
+      int32_t r = u8_to_cp((char*)s+pos, len-pos, &width);
       if (m > r && r >= n) {
         m = r;
       }
@@ -77,7 +77,7 @@ static int encode_label(buf_t *buf, const uint8_t *s, size_t len) {
     }
     n = m;
     for(pos = 0; pos < len; pos += width) {
-      int32_t r = u8_to_cp(s+pos, len-pos, &width);
+      int32_t r = u8_to_cp((char*)s+pos, len-pos, &width);
       if (r < n) {
         delta++;
         if (delta < 0) {

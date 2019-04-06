@@ -1,4 +1,6 @@
 #!/bin/sh
-cat <<EOF | store put -i "$YANS_ID" report-10-foobar.txt
+cat <<EOF | store put -i "$YANS_ID" report.txt
 <h1>ohai</h1>
 EOF
+
+printf 'report.txt Report\n' | store put -i "$YANS_ID" MANIFEST

@@ -635,8 +635,7 @@ static int post_scan(struct yapi_ctx *ctx) {
       goto invalid_req;
     }
 
-    /* convert code-point to lowercase (locale dependent) and append it
-     * to subjectbuf */
+    /* convert code-point to lowercase and append it to subjectbuf */
     ch = u8_tolower(ch);
     ret = buf_reserve(&subjectbuf, 8);
     if (ret < 0) {

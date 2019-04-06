@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <wctype.h>
 
 #include <lib/util/u8.h>
 
@@ -105,5 +104,20 @@ again:
 }
 
 int32_t u8_tolower(int32_t cp) {
-  return (int32_t)towlower((wint_t)cp);
+  /* NB: This is 'best effort', and a small superset of the POSIX ctypes */
+
+  if (cp >= 'A' && cp <= 'Z') {
+    return cp | 0x20;
+  }
+
+  switch(cp) {
+    case L'Å':
+      return L'å';
+    case L'Ä':
+      return L'ä';
+    case L'Ö':
+      return L'ö';
+  }
+
+  return cp;
 }

@@ -64,11 +64,6 @@ static int test_u8_to_from_cp() {
 }
 
 static int test_u8_tolower() {
-  /* NB: This test, and the rest of the code depends on the current locale.
-         Not all systems support other locales than the "C"/"POSIX" one.
-         Even if a system supports other locales, we make assumptions that
-         the current locale can handle specific character classification
-         and conversions. */
   int status = TEST_OK;
   size_t i;
   int32_t actual;

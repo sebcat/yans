@@ -13,4 +13,4 @@ a2_CFLAGS != pkg-config --cflags jansson zlib
 a2_LDADD  != pkg-config --libs jansson zlib
 
 OBJS += $(a2_OBJS)
-nodist_SHLIBS += $(a2_SHLIB)
+SHLIBS += $(a2_SHLIB)

@@ -12,9 +12,8 @@
 
 name="yansapi"
 rcvar="yansapi_enable"
-command="@BINDIR@/${name}"
-command_args="-u ${yansapi_duser} -g ${yansapi_dgroup} -b ${yansapi_basepath}"
-command_interpreter="yans"
+command="@BINDIR@/sc2"
+command_args="-u ${yansapi_duser} -g ${yansapi_dgroup} -b ${yansapi_basepath} @LIBDIR@/a2.so --name yansapi"
 start_precmd="yansapi_precmd"
 pidfile="${yansapi_basepath}/yansapi.pid"
 
@@ -38,10 +37,5 @@ yansapi_precmd()
   return 0
 }
 
-load_rc_config $name
-
-# FIXME: yansapi is shebanged with #!/usr/bin/env looking for yans, and
-#        /usr/local/bin is not a part of PATH at this point
-PATH="${PATH}:/usr/local/bin" ; export PATH
-
+load_rc_config "$name"
 run_rc_command "$1"

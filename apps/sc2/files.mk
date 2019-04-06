@@ -12,4 +12,4 @@ sc2_OBJS = ${sc2_SOURCES:.c=.o}
 sc2_BIN = apps/sc2/sc2
 
 OBJS += $(sc2_OBJS)
-nodist_BINS += $(sc2_BIN)
+BINS += $(sc2_BIN)

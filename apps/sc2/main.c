@@ -75,6 +75,7 @@ struct opts {
   gid_t gid;
   int no_daemon;
   int daemon_flags;
+  const char *daemon_name;
 };
 
 struct sc2_child {
@@ -415,6 +416,7 @@ static void usage() {
       "  -t, --cpu-rlim:  max CPU resource limit, in seconds\n"
       "  -v, --vmem-rlim: max virtual memory, in kbytes\n"
       "  -1, --once:      serve only once request and serve in parent\n"
+      "  -N, --name:      set daemon name (" DAEMON_NAME ")\n"
       "  -h, --help:      this text\n",
       DEFAULT_MAXREQS, DEFAULT_LIFETIME);
   exit(EXIT_FAILURE);
@@ -457,10 +459,28 @@ static long long_or_die(const char *str, int opt) {
   return ret;
 }
 
+int is_valid_daemon_name(const char *name) {
+  char ch;
+
+  if (!name || !*name) {
+    return 0;
+  }
+
+  while ((ch = *name++) != '\0') {
+    if ((ch < 'a' || ch > 'z') &&
+        (ch < '0' || ch > '9') &&
+        ch != '-') {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
 static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   int ch;
   os_t os;
-  static const char *optstr = "u:g:b:nl:m:0t:v:X1h";
+  static const char *optstr = "u:g:b:nl:m:0t:v:X1N:h";
   static struct option longopts[] = {
     {"user", required_argument, NULL, 'u'},
     {"group", required_argument, NULL, 'g'},
@@ -473,6 +493,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
     {"vmem-rlim", required_argument, NULL, 'v'},
     {"no-sandbox", no_argument, NULL, 'X'},
     {"once", no_argument, NULL, '1'},
+    {"name", required_argument, NULL, 'N'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -483,6 +504,7 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   opts->gid = 0;
   opts->no_daemon = 0;
   opts->daemon_flags = 0;
+  opts->daemon_name = DAEMON_NAME;
   opts->sc2.sandbox = 1;
   opts->sc2.maxreqs = DEFAULT_MAXREQS;
   opts->sc2.lifetime = DEFAULT_LIFETIME;
@@ -537,6 +559,9 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
       case '1':
         opts->sc2.once = 1;
         break;
+      case 'N':
+        opts->daemon_name = optarg;
+        break;
       case 'h':
       default:
         usage();
@@ -556,10 +581,11 @@ static void parse_args_or_die(struct opts *opts, int argc, char **argv) {
   } else if (opts->sc2.lifetime < 1 || opts->sc2.lifetime > 300) {
     fprintf(stderr, "invalid lifetime\n");
     usage();
-  }
-
-  if (opts->basepath == NULL) {
+  } else if (opts->basepath == NULL) {
     fprintf(stderr, "missing basepath\n");
+    usage();
+  } else if (!is_valid_daemon_name(opts->daemon_name)) {
+    fprintf(stderr, "invalid daemon name\n");
     usage();
   }
 
@@ -623,6 +649,7 @@ int main(int argc, char *argv[]) {
   struct opts opts = {{0}};
   struct os_daemon_opts daemon_opts = {0};
   int status = EXIT_FAILURE;
+  char *sockpath;
   int ret;
 
   /* init locale from environment */
@@ -630,24 +657,32 @@ int main(int argc, char *argv[]) {
 
   parse_args_or_die(&opts, argc, argv);
 
+  /* build sockpath */
+  ret = asprintf(&sockpath, "%s.sock", opts.daemon_name);
+  if (ret < 0) {
+    fprintf(stderr, "%s.sock: failed to allocate string\n",
+        opts.daemon_name);
+    goto end;
+  }
+
   /* init sc2 before chroot and daemonization so that the .so can live
    * outside of the chroot */
   ret = sc2_init(&ctx, &opts.sc2);
   if (ret != SC2_OK) {
     fprintf(stderr, "sc2_init: %s\n", sc2_strerror(&ctx, ret));
-    goto end;
+    goto free_sockpath;
   }
 
   if (opts.no_daemon) {
-    ylog_init(DAEMON_NAME, YLOG_STDERR);
+    ylog_init(opts.daemon_name, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {
       ylog_error("chdir %s: %s", opts.basepath, strerror(errno));
       goto sc2_cleanup;
     }
   } else {
-    ylog_init(DAEMON_NAME, YLOG_SYSLOG);
+    ylog_init(opts.daemon_name, YLOG_SYSLOG);
     daemon_opts.flags = opts.daemon_flags;
-    daemon_opts.name = DAEMON_NAME;
+    daemon_opts.name = opts.daemon_name;
     daemon_opts.path = opts.basepath;
     daemon_opts.uid = opts.uid;
     daemon_opts.gid = opts.gid;
@@ -658,17 +693,17 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ret = io_listen_unix(&io, DAEMON_NAME ".sock");
+  ret = io_listen_unix(&io, sockpath);
   if (ret != IO_OK) {
-    ylog_error("%s: %s", DAEMON_NAME ".sock", io_strerror(&io));
+    ylog_error("%s: %s", sockpath, io_strerror(&io));
     goto sc2_cleanup;
   }
 
-  ylog_info("Starting " DAEMON_NAME);
+  ylog_info("Starting %s", opts.daemon_name);
   ret = serve(&ctx, IO_FILENO(&io));
   if (ret != SC2_OK) {
     ylog_error("sc2_serve: %s", sc2_strerror(&ctx, ret));
-    ylog_error("failed to serve " DAEMON_NAME);
+    ylog_error("failed to serve %s", opts.daemon_name);
   } else {
     status = EXIT_SUCCESS;
   }
@@ -684,6 +719,8 @@ int main(int argc, char *argv[]) {
   io_close(&io);
 sc2_cleanup:
   sc2_cleanup(&ctx);
+free_sockpath:
+  free(sockpath);
 end:
   return status;
 }

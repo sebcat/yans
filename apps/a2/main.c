@@ -52,7 +52,7 @@ static int get_fail(struct yapi_ctx *ctx) {
 }
 
 /*
- * GET /trololo/queueinfo
+ * GET /a1/queueinfo
  *
  * Response object on success:
  * {
@@ -107,7 +107,7 @@ static int get_queueinfo(struct yapi_ctx *ctx) {
 }
 
 /*
- * GET /trololo/work-types
+ * GET /a1/work-types
  *
  * Response object on success:
  * {
@@ -161,7 +161,7 @@ static int get_work_types(struct yapi_ctx *ctx) {
 }
 
 /*
- * GET /trololo/reports
+ * GET /a1/reports
  *
  * URL Parameters:
  *   - nelems (opt): Number of elements to fetch. Range: 0 <= nelems <= 100
@@ -306,7 +306,7 @@ static int get_reports(struct yapi_ctx *ctx) {
 }
 
 /*
- * GET /trololo/report-section
+ * GET /a1/report-section
  *
  * URL Parameters:
  *   - id:    ID of the given report.
@@ -424,7 +424,7 @@ static int get_report_section(struct yapi_ctx *ctx) {
 }
 
 /*
- * GET /trololo/report-sections
+ * GET /a1/report-sections
  *
  * URL Parameters:
  *   - id: A (valid) report ID.
@@ -549,7 +549,7 @@ static int get_report_sections(struct yapi_ctx *ctx) {
 }
 
 /*
- * POST /trololo/scan
+ * POST /a1/scan
  *
  * Request object:
  * {
@@ -751,7 +751,7 @@ SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {
 
   /* Initialize kneg YCL client */
   yclcli_init(&a2data->kneg, &a2data->msgbuf);
-  ret = yclcli_connect(&a2data->kneg, KNEGCLI_DFLPATH);
+  ret = yclcli_connect(&a2data->kneg, "knegd/knegd.sock");
   if (ret != YCL_OK) {
     ycl_msg_cleanup(&a2data->msgbuf);
     return sc2mod_error(mod, yclcli_strerror(&a2data->kneg));
@@ -759,7 +759,7 @@ SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {
 
   /* Initialize store YCL client */
   yclcli_init(&a2data->store, &a2data->msgbuf);
-  ret = yclcli_connect(&a2data->store, STORECLI_DFLPATH);
+  ret = yclcli_connect(&a2data->store, "stored/stored.sock");
   if (ret != YCL_OK) {
     ycl_msg_cleanup(&a2data->msgbuf);
     yclcli_close(&a2data->kneg);
@@ -791,7 +791,7 @@ SC2MOD_API int sc2_handler(struct sc2mod_ctx *mod) {
 
   yapi_init(&ctx);
   yapi_set_data(&ctx, sc2mod_data(mod));
-  ret = yapi_serve(&ctx, "/trololo/", routes, ARRAY_SIZE(routes));
+  ret = yapi_serve(&ctx, "/a1/", routes, ARRAY_SIZE(routes));
   cleanup(sc2mod_data(mod));
   return ret;
 }

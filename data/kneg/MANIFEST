@@ -2,6 +2,6 @@
 # Any action still in the knegdir can still be taken, but
 # only the actions listed here are, well, manifested.
   
- scanny		ll-disco
+ dummy	
 
 scan

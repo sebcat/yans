@@ -1,21 +1,19 @@
 # TODO
 
+- BUG: sc2 'lifetime exceeded' for non-existing child. Have max kill
+  retries and/or check kill return value, as well as fix signal handling
+  code (sigchld when reaping?)
+
 - BUG: ::1 successful connection to :53, however it is not listed in
        collation
 
-- x509: Have types for
-  x509_cert
-  x509_general_names
+- Make HTML tables sortable (sort.js)
 
 - Write wrapper for qsort_r which deals with various arg orders
 - Continue to work on Linux version
 
 UI issues:
   - alternating between entries duplicate content
-
-- add sha1sum->cert-chain table in scan collate
-
-- scan collate -t banners --out-certs ... --out-cert-alt-names ...
 
 Collations:
 
@@ -39,15 +37,13 @@ CVE Search
 
 ## grab-banners,reaplan,tcpsrc
 
-kng_mod_fini, eds:stop_service_listeners - make sure it works the way it
-  is intended (kng_mod_fini has no SIGCHLD handler, so no EINTR in
+kng_mod_fini, - make sure it works the way it is intended
+  (kng_mod_fini has no SIGCHLD handler, so no EINTR in
   nanosleep?) and don't wait more in stop_service_listeners than needed.
 
 reaplan: handle_tls_handshake - if the handshake fails we should still
   write an empty banner in grab-banners. Implement, verify with test case
   of a server sending a TLS Alert.
-
-lua: use as little Lua as possible. Long-term goal: remove it completly.
 
 tcpsrc: Implement TCPSRC_ALLOW, TCPSRC_DISALLOW. Make ioctl device-/system
   wide and have rc script setting ranges at boot?

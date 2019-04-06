@@ -246,28 +246,28 @@ static int get_reports(struct yapi_ctx *ctx) {
     free(elems);
     return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
         "failed to get index entries");
-  }
+  } else if (ss > 0) {
+    /* initialize buffer for status request to knegd */
+    if (buf_init(&buf, 1024) == NULL) {
+      free(elems);
+      return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+          "failed to allocate status request buffer");
+    }
 
-  /* initialize buffer for status request to knegd */
-  if (buf_init(&buf, 1024) == NULL) {
-    free(elems);
-    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
-        "failed to allocate status request buffer");
-  }
+    /* build knegd status request */
+    for (i = 0; i < ss; i++) {
+      buf_adata(&buf, elems[i].id, SINDEX_IDSZ);
+      buf_achar(&buf, '\0');
+    }
 
-  /* build knegd status request */
-  for (i = 0; i < ss; i++) {
-    buf_adata(&buf, elems[i].id, SINDEX_IDSZ);
-    buf_achar(&buf, '\0');
-  }
-
-  /* request the statuses */
-  ret = yclcli_kneg_status(&a2data->kneg, buf.data, buf.len, &statuses);
-  buf_cleanup(&buf);
-  if (ret != YCL_OK) {
-    free(elems);
-    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
-        yclcli_strerror(&a2data->kneg));
+    /* request the statuses */
+    ret = yclcli_kneg_status(&a2data->kneg, buf.data, buf.len, &statuses);
+    buf_cleanup(&buf);
+    if (ret != YCL_OK) {
+      free(elems);
+      return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+          yclcli_strerror(&a2data->kneg));
+    }
   }
 
   /* build the entries array for the response */

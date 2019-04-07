@@ -249,6 +249,10 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   close(cli);
   for (i = 0; i < ctx->opts.maxreqs; i++) {
     if (ctx->children[i].pid <= 0) {
+      ctx->children[i].flags = 0;
+      ctx->children[i].status = 0;
+      ctx->children[i].completed.tv_sec = 0;
+      ctx->children[i].completed.tv_nsec = 0;
       ctx->children[i].pid = pid;
       ctx->children[i].started = started;
       break;

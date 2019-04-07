@@ -5,7 +5,7 @@
 
 CFLAGS_release="-Os -pipe -fvisibility=hidden \
 -ffunction-sections -fdata-sections -fomit-frame-pointer \
--fstack-protector-strong"
+-fstack-protector-strong -march=native"
 # -DNDEBUG
 LDFLAGS_release="-Wl,--gc-sections"
 # -Wl,--build-id=none

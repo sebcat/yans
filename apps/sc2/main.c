@@ -26,7 +26,7 @@ static int term_; /* set to 1 if SIGTERM, SIGINT, SIGHUP is passed */
 
 #define DAEMON_NAME "sc2"
 #define DEFAULT_MAXREQS  64 /* maximum number of concurrent requests */
-#define DEFAULT_LIFETIME 20 /* maximum number of seconds for a request */
+#define DEFAULT_LIFETIME 5  /* maximum number of seconds for a request */
 
 /* default resource limits */
 #define DEFAULT_RLIMIT_VMEM RLIM_INFINITY

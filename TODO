@@ -1,9 +1,5 @@
 # TODO
 
-- BUG: sc2 'lifetime exceeded' for non-existing child. Have max kill
-  retries and/or check kill return value, as well as fix signal handling
-  code (sigchld when reaping?)
-
 - BUG: ::1 successful connection to :53, however it is not listed in
        collation
 

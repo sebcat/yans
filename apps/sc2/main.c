@@ -192,6 +192,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   pid_t pid;
   struct timespec started = {0};
   struct sc2mod_ctx mod = {0};
+  sigset_t mask;
 
   do {
     cli = accept(listenfd, NULL, NULL);
@@ -206,6 +207,13 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
     return SC2_EGETTIME;
   }
 
+  /* mask any SIGCHLD's from being delivered until the now about-to-be
+   * forked process is put in the array of children. Otherwise, it might
+   * get reaped before it's registered */
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGCHLD);
+  sigprocmask(SIG_BLOCK, &mask, NULL);
+
   if (ctx->opts.once == 0) {
     pid = fork();
   } else {
@@ -213,6 +221,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   }
 
   if (pid < 0) {
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
     return SC2_EFORK;
   } else if (pid == 0) {
     set_default_signals();
@@ -246,7 +255,7 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
     exit(ctx->handler(&mod));
   }
 
-  close(cli);
+  /* register the forked child */
   for (i = 0; i < ctx->opts.maxreqs; i++) {
     if (ctx->children[i].pid <= 0) {
       ctx->children[i].flags = 0;
@@ -260,6 +269,8 @@ static int sc2_serve_incoming(struct sc2_ctx *ctx, int listenfd) {
   }
 
   ctx->used++;
+  sigprocmask(SIG_UNBLOCK, &mask, NULL); /* unmask SIGCHLD */
+  close(cli);
   if (ctx->opts.on_started) {
     ctx->opts.on_started(pid);
   }
@@ -346,6 +357,9 @@ static void sc2_reap_children(struct sc2_ctx *ctx) {
         break;
       }
     }
+
+    /* assert that we have reaped a previously registered child */
+    assert(i < ctx->opts.maxreqs);
   }
 }
 

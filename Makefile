@@ -25,12 +25,6 @@ RCFILES =
 # generated startup files that get installed and are removed on clean
 GENERATED_RCFILES =
 
-# .yans test files, executed on check
-YANSTESTS =
-
-# .yans library files, installed to $(DATAROOTDIR)/yans
-YANSLIB =
-
 # kneg library files, installed to $(DATAROOTDIR)/kneg
 KNEGLIB =
 
@@ -81,7 +75,7 @@ BINS   += ${${UNAME_S}_BINS}
 SHLIBS += ${${UNAME_S}_SHLIBS}
 
 all: $(nodist_BINS) $(BINS) $(nodist_SHLIBS) $(SHLIBS) \
-	$(GENERATED_RCFILES) $(YANSLIB) $(KNEGLIB) \
+	$(GENERATED_RCFILES) $(KNEGLIB) \
 	$(KNEGMANIFEST) $(YANS_FE)
 
 # driver building, installing, cleaning is done explicitly, with no
@@ -113,14 +107,10 @@ clean:
 distclean: clean
 	rm -f $(CODEGEN)
 
-check: $(yans_BIN) $(YANSTESTS) $(CTESTS)
+check: $(yans_BIN) $(CTESTS)
 	@for T in $(CTESTS); do \
 		echo $$T; \
 		$(MAYBE_VALGRIND) ./$$T; \
-	done
-	@for T in $(YANSTESTS); do \
-		echo $$T; \
-		$(MAYBE_VALGRIND) $(yans_BIN) ./$$T; \
 	done
 
 manifest:
@@ -131,9 +121,6 @@ manifest:
 	@for B in $(SHLIBS); do \
 		B=$$(basename $$B); \
 		echo $(DESTDIR)$(LIBDIR)/$$B; \
-	done
-	@for Y in $(YANSLIB); do \
-		echo $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
 	done
 	@for K in $(KNEGLIB); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \
@@ -151,11 +138,10 @@ manifest-rcfiles:
 		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
-install: $(script_BINS) $(BINS) $(SHLIBS) $(YANSLIB) $(KNEGLIB) \
+install: $(script_BINS) $(BINS) $(SHLIBS) $(KNEGLIB) \
 		$(KNEGMANIFEST) $(YANS_FE)
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)
-	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans-fe
 	for B in $(BINS) $(script_BINS); do \
@@ -163,10 +149,6 @@ install: $(script_BINS) $(BINS) $(SHLIBS) $(YANSLIB) $(KNEGLIB) \
 	done
 	for B in $(SHLIBS); do \
 		$(INSTALL) -m 755 $$B $(DESTDIR)$(LIBDIR); \
-	done
-	for Y in $(YANSLIB); do \
-		mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans/$$(dirname $${Y#data/yans/}); \
-		$(INSTALL) -m 644 $$Y $(DESTDIR)$(DATAROOTDIR)/yans/$${Y#data/yans/}; \
 	done
 	for K in $(KNEGLIB); do \
 		$(INSTALL) -m 755 $$K $(DESTDIR)$(DATAROOTDIR)/kneg/$${K#data/kneg/}; \

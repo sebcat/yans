@@ -772,6 +772,10 @@ static void usage(const char *argv0) {
       "      Banner input\n"
       "  -s|--out-services-csv <path>\n"
       "      Services CSV output\n"
+      "  -c|--out-certs-csv <path>\n"
+      "      Certificate CSV output\n"
+      "  -a|--out-cert-sans-csv <path>\n"
+      "      Certificate SANs CSV output\n"
       "  -X|--no-sandbox\n"
       "      Disable sandbox\n"
       ,argv0);

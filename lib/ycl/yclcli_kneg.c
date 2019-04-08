@@ -68,7 +68,7 @@ int yclcli_kneg_status(struct yclcli_ctx *ctx, const char *id,
 }
 
 int yclcli_kneg_queue(struct yclcli_ctx *ctx, const char *id,
-    const char *type, const char *name, char **out) {
+    const char *type, const char *name, long timeout, char **out) {
   struct ycl_msg_knegd_req req = {
     .action = {
       .data = "queue",
@@ -87,6 +87,10 @@ int yclcli_kneg_queue(struct yclcli_ctx *ctx, const char *id,
       .len = strlen(name),
     },
   };
+
+  if (timeout > 0) {
+    req.timeout = timeout;
+  }
 
   return reqresp(ctx, &req, out);
 }

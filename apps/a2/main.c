@@ -683,7 +683,6 @@ static int post_scan(struct yapi_ctx *ctx) {
     idbuf[sizeof(idbuf)-1] = '\0';
   }
 
-
   /* write the request to job.json */
   ret = yclcli_store_fopen(&a2data->store, "job.json", "wb", &fp);
   if (ret == YCL_OK) {
@@ -711,7 +710,7 @@ static int post_scan(struct yapi_ctx *ctx) {
   req = NULL;
 
   /* queue the work! */
-  ret = yclcli_kneg_queue(&a2data->kneg, idbuf, type, namebuf, NULL);
+  ret = yclcli_kneg_queue(&a2data->kneg, idbuf, type, namebuf, 0, NULL);
   if (ret != YCL_OK) {
     return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
         "failed to enqueue request");

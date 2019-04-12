@@ -643,6 +643,7 @@ function YansView(pname) {
       sectiondiv.appendChild(adiv);
     }
 
+    elem.innerHTML = '';
     elem.appendChild(sectiondiv);
   };
 

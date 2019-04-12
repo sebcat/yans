@@ -444,7 +444,13 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
         svc->mpchains[0] = svc->fpchain;
       }
 
-      for (k = 0; k < MAX_MPIDS && svc->mpids[k] != TCPPROTO_UNKNOWN; k++) {
+      for (k = 0; k < MAX_MPIDS; k++) {
+        if (k > 0 && svc->mpids[k] == TCPPROTO_UNKNOWN) {
+          /* No more matched IDs. mpids[0] should still have been printed */
+          break;
+        }
+
+        /* create certid field */
         chain = svc->mpchains[k];
         if (chain != NULL && chain->id > 0) {
           snprintf(certid, sizeof(certid), "%u", chain->id);

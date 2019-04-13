@@ -1,6 +1,7 @@
 SKELDIRS=boot etc etc/ssh etc/rc.d usr/local/etc/nginx
 
 CFGFILES=skel/boot/loader.conf \
+    skel/etc/tcpctl.blacklist \
     skel/etc/crontab \
     skel/etc/devd.conf \
     skel/etc/devfs.rules \
@@ -22,7 +23,8 @@ CFGFILES=skel/boot/loader.conf \
 
 
 SCRIPTS=skel/etc/rc.d/xsshd \
-    skel/etc/rc.d/xvar
+    skel/etc/rc.d/xvar \
+    skel/etc/rc.d/tcpctl
 
 .PHONY: install-skel clean
 

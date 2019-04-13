@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# PROVIDE: tcpctl
+# BEFORE: DAEMON
+
+. /etc/rc.subr
+
+name=tcpctl
+desc="Configure the tcpsrc device"
+rcvar=tcpctl_enable
+start_cmd=${name}_start
+stop_cmd=:
+
+: ${tcpctl_enable:=no}
+: ${tcpctl_blacklist:=/etc/tcpctl.blacklist}
+
+tcpctl_start() {
+  if [ -r "${tcpctl_blacklist}" ]; then
+    info "Loading disallowed addresses from ${tcpctl_blacklist}"
+    while read -r ROW; do
+      info "  tcpctl disallow $ROW"
+      /usr/local/bin/tcpctl disallow $ROW
+    done < "${tcpctl_blacklist}"
+  fi
+}
+
+load_rc_config $name
+run_rc_command "$1"

@@ -20,3 +20,4 @@ include apps/sc2/rules.mk
 include data/yans-fe/rules.mk
 include apps/sysinfoapi/rules.mk
 include apps/scan/rules.mk
+include apps/tcpctl/rules.mk

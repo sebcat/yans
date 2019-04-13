@@ -1,15 +1,15 @@
 # TODO
 
-- BUG: ::1 successful connection to :53, however it is not listed in
-       collation
+- find-urls --http-msgs ... --to-url-list ... (gumbo-parser based)
 
-- Make HTML tables sortable (sort.js)
+- scan collate --type httpreqs --from-url-list ... --from-banners ...
+
+- scan http --deduptbl <path> --cookie-jar <path> --httpreqs <path>
+
+- yans-fe: Make HTML tables sortable (sort.js)
 
 - Write wrapper for qsort_r which deals with various arg orders
 - Continue to work on Linux version
-
-UI issues:
-  - alternating between entries duplicate content
 
 Collations:
 
@@ -41,29 +41,16 @@ reaplan: handle_tls_handshake - if the handshake fails we should still
   write an empty banner in grab-banners. Implement, verify with test case
   of a server sending a TLS Alert.
 
-tcpsrc: Implement TCPSRC_ALLOW, TCPSRC_DISALLOW. Make ioctl device-/system
-  wide and have rc script setting ranges at boot?
-tcpsrc: have separate device for ALLOW/DISALLOW? Should not be possible
-  to change from sandbox (e.g., /dev/tcpsrc, /dev/tcpctl)
-
 ## unsorted
-
-- yans-fe: If 1) is selected, then 2) then 1) again: report entries are
-  appended. Make them replace instead of append
 
 - Currently, a hard restart prevents services from starting again due to
   existing PID-files. Clean pidfiles on service start (potential issues
   if service is started two times?)
 - Do not wait while shutting down a service if all children are terminated
-- store index --name-must-match?
-
 - sync index vs job.json times - queued or started? Maybe no duplication?
 
-## ethd
-  - interfaces and stuff are loaded at boot, may change during uptime
-
 ## lib/net/url
-  - url_normalize: if we have a percent-encoding to a valid char, decode it?
+  - url_normalize: if we have a percent-encoding to a valid char, decode it
 
 ## lib/net/ip
   - make it possible to add/remove an address/range to/from a range

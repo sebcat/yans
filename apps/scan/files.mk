@@ -8,12 +8,12 @@ scan_DEPS     = lib/alloc/linvar.c lib/net/dsts.c \
                 lib/ycl/ycl_msg.c lib/ycl/yclcli.c lib/ycl/yclcli_store.c \
                 lib/ycl/yclcli_resolve.c \
                 lib/util/objtbl.c lib/util/sha1.c lib/util/x509.c \
-                lib/util/os.c
+                lib/util/os.c lib/ycl/opener.c
 scan_DEPS_CC  = lib/util/reset.cc
 scan_DEPSOBJS = ${scan_DEPS:.c=.o} ${scan_DEPS_CC:.cc=.o}
-scan_SOURCES  = apps/scan/main.c apps/scan/opener.c apps/scan/resolve.c \
-                apps/scan/banners.c apps/scan/bgrab.c apps/scan/collate.c
-scan_HEADERS  = apps/scan/opener.h apps/scan/resolve.h apps/scan/banners.h \
+scan_SOURCES  = apps/scan/main.c apps/scan/resolve.c apps/scan/banners.c \
+                apps/scan/bgrab.c apps/scan/collate.c
+scan_HEADERS  = apps/scan/resolve.h apps/scan/banners.h \
                 apps/scan/bgrab.h apps/scan/collate.h
 scan_OBJS     = ${scan_SOURCES:.c=.o}
 scan_BIN      = apps/scan/scan

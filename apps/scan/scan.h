@@ -2,7 +2,7 @@
 #define YANS_SCAN_H__
 
 #include <lib/ycl/ycl.h>
-#include <apps/scan/opener.h>
+#include <lib/ycl/opener.h>
 
 struct scan_ctx {
   struct ycl_msg msgbuf;

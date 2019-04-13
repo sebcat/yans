@@ -6,7 +6,7 @@
 #include <lib/util/buf.h>
 #include <lib/util/sandbox.h>
 #include <lib/ycl/yclcli_resolve.h>
-#include <apps/scan/opener.h>
+#include <lib/ycl/opener.h>
 #include <apps/scan/resolve.h>
 
 #define DFL_INPUTFILE  "-"

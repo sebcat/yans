@@ -7,7 +7,7 @@
 
 #include <lib/util/os.h>
 #include <lib/util/zfile.h>
-#include <apps/scan/opener.h>
+#include <lib/ycl/opener.h>
 
 /* opener_ctx flags */
 #define OPENERCTXF_INITEDYCL (1 << 0)

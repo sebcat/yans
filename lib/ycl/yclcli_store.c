@@ -6,7 +6,7 @@
 #include <lib/ycl/yclcli_store.h>
 
 int yclcli_store_enter(struct yclcli_ctx *ctx, const char *id,
-    const char *name, long indexed, const char **out_id) {
+    const char **out_id) {
   struct ycl_msg_store_req reqmsg = {{0}};
   struct ycl_msg_status_resp respmsg = {{0}};
   int ret;
@@ -15,9 +15,6 @@ int yclcli_store_enter(struct yclcli_ctx *ctx, const char *id,
   reqmsg.action.len = sizeof("enter") - 1;
   reqmsg.store_id.data = id;
   reqmsg.store_id.len = id ? strlen(id) : 0;
-  reqmsg.name.data = name;
-  reqmsg.name.len = name ? strlen(name) : 0;
-  reqmsg.indexed = indexed;
   ret = ycl_msg_create_store_req(ctx->msgbuf, &reqmsg);
   if (ret != YCL_OK) {
     return yclcli_seterr(ctx, "ycl_msg_create_store_enter failure");

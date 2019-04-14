@@ -348,7 +348,7 @@ static int get_report_section(struct yapi_ctx *ctx) {
   }
 
   /* enter store */
-  ret = yclcli_store_enter(&a2data->store, id, NULL, 0, NULL);
+  ret = yclcli_store_enter(&a2data->store, id, NULL);
   if (ret != YCL_OK) {
     return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
         "store enter failure");
@@ -477,7 +477,7 @@ static int get_report_sections(struct yapi_ctx *ctx) {
   }
 
   /* enter store */
-  ret = yclcli_store_enter(&a2data->store, id, NULL, 0, NULL);
+  ret = yclcli_store_enter(&a2data->store, id, NULL);
   if (ret != YCL_OK) {
     return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
         "store enter failure");
@@ -674,7 +674,7 @@ static int post_scan(struct yapi_ctx *ctx) {
   buf_cleanup(&subjectbuf);
 
   /* enter store */
-  ret = yclcli_store_enter(&a2data->store, NULL, NULL, 0, &tmp);
+  ret = yclcli_store_enter(&a2data->store, NULL, &tmp);
   if (ret != YCL_OK) {
     return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
         yclcli_strerror(&a2data->store));

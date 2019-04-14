@@ -62,7 +62,7 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
      * ycl context which means we cannot use the error from the context
      * as an opener_error unless we copy the string. Set a generic error
      * string for now, or copy the string in the future. */
-    ret = yclcli_store_enter(&ctx->cli, ctx->opts.store_id, NULL, 0, &id);
+    ret = yclcli_store_enter(&ctx->cli, ctx->opts.store_id, &id);
     if (ret < 0) {
       opener_cleanup(ctx);
       return opener_error(ctx, "unable to enter store");

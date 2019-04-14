@@ -58,7 +58,7 @@ static int run_get(const char *socket, const char *id, const char *path) {
     return -1;
   }
 
-  ret = yclcli_store_enter(&cli, id, NULL, 0, NULL);
+  ret = yclcli_store_enter(&cli, id, NULL);
   if (ret != YCL_OK) {
     fprintf(stderr, "yclcli_store_enter: %s\n", yclcli_strerror(&cli));
     goto ycl_msg_cleanup;
@@ -119,14 +119,13 @@ ycl_msg_cleanup:
   return result;
 }
 
-static int run_put(const char *socket, const char *id, const char *name,
-    const char *path, int flags) {
+static int run_put(const char *socket, const char *id, const char *path,
+    int flags) {
   int ret;
   int result = -1;
   int putfd = -1;
   struct ycl_msg msgbuf;
   struct yclcli_ctx cli;
-  static time_t *no_see;
   const char *set_id;
 
   ret = setup_cli_state(&cli, socket, &msgbuf);
@@ -134,7 +133,7 @@ static int run_put(const char *socket, const char *id, const char *name,
     return -1;
   }
 
-  ret = yclcli_store_enter(&cli, id, name, (long)time(no_see), &set_id);
+  ret = yclcli_store_enter(&cli, id, &set_id);
   if (ret != YCL_OK) {
     fprintf(stderr, "yclcli_store_enter: %s\n", yclcli_strerror(&cli));
     goto ycl_msg_cleanup;
@@ -291,16 +290,14 @@ ycl_msg_cleanup:
 static int put_main(int argc, char *argv[], int flags) {
   int ch;
   int ret;
-  const char *optstr = "hs:i:n:";
+  const char *optstr = "hs:i:";
   const char *socket = STORECLI_DFLPATH;
   const char *id = NULL;
   const char *filename = NULL;
-  const char *name = NULL;
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
     {"id", required_argument, NULL, 'i'},
-    {"name", required_argument, NULL, 'n'},
     {NULL, 0, NULL, 0},
   };
 
@@ -311,9 +308,6 @@ static int put_main(int argc, char *argv[], int flags) {
       break;
     case 'i':
       id = optarg;
-      break;
-    case 'n':
-      name = optarg;
       break;
     case 'h':
     default:
@@ -327,7 +321,7 @@ static int put_main(int argc, char *argv[], int flags) {
   }
 
   filename = argv[optind + 1];
-  ret = run_put(socket, id, name, filename, flags);
+  ret = run_put(socket, id, filename, flags);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
@@ -542,7 +536,7 @@ int list_main(int argc, char *argv[]) {
 
   return EXIT_SUCCESS;
 usage:
-  fprintf(stderr, "usage: %s get [opts] [id]\n"
+  fprintf(stderr, "usage: %s list [opts] [id]\n"
       "opts:\n"
       "  -s|--socket       store socket path (%s)\n"
       "  -m|--must-match   POSIX ERE for filtering the response\n",
@@ -563,7 +557,7 @@ int run_rename(const char *socket, const char *id, const char *from,
     return -1;
   }
 
-  ret = yclcli_store_enter(&cli, id, NULL, 0, NULL);
+  ret = yclcli_store_enter(&cli, id, NULL);
   if (ret != YCL_OK) {
     fprintf(stderr, "yclcli_store_enter: %s\n", yclcli_strerror(&cli));
     goto ycl_msg_cleanup;

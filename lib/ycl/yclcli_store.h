@@ -10,7 +10,7 @@
 #define STORECLI_DFLPATH LOCALSTATEDIR "/yans/stored/stored.sock"
 
 int yclcli_store_enter(struct yclcli_ctx *ctx, const char *id,
-    const char *name, long indexed, const char **out_id);
+    const char **out_id);
 int yclcli_store_open(struct yclcli_ctx *ctx, const char *path, int flags,
     int *outfd);
 int yclcli_store_fopen(struct yclcli_ctx *ctx, const char *path,

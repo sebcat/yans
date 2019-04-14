@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -19,15 +20,19 @@ static inline int opener_error(struct opener_ctx *ctx, const char *err) {
 
 int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
   int ret;
+  const char *id;
 
+  memset(ctx, 0, sizeof(*ctx));
   ctx->opts = *opts;
+
+  /* if store_id is set, it needs to be a non-empty string */
   if (ctx->opts.store_id != NULL && *ctx->opts.store_id == '\0') {
-    /* if store_id is set, it needs to be a non-empty string */
     ctx->opts.store_id = NULL;
   }
 
-  /* Check if we have a store ID set. If we do we'll use the store */
-  if (ctx->opts.store_id != NULL) {
+  /* If we have a store_id, or if the used has requested to create a
+   * store, we set up a store to use. */
+  if (ctx->opts.store_id != NULL || (opts->flags & OPENER_FCREAT) != 0) {
     /* If no socket path was supplied we'll use the default one */
     if (ctx->opts.socket == NULL) {
       ctx->opts.socket = STORECLI_DFLPATH;
@@ -57,10 +62,22 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
      * ycl context which means we cannot use the error from the context
      * as an opener_error unless we copy the string. Set a generic error
      * string for now, or copy the string in the future. */
-    ret = yclcli_store_enter(&ctx->cli, ctx->opts.store_id, NULL, 0, NULL);
+    ret = yclcli_store_enter(&ctx->cli, ctx->opts.store_id, NULL, 0, &id);
     if (ret < 0) {
       opener_cleanup(ctx);
       return opener_error(ctx, "unable to enter store");
+    }
+
+    /* If we didn't have a store ID set (e.g., if OPENER_FCREAT was set),
+     * copy the ID */
+    if (ctx->opts.store_id == NULL) {
+      ctx->allotted_store_id = strdup(id);
+      if (ctx->allotted_store_id == NULL) {
+        opener_cleanup(ctx);
+        return opener_error(ctx, "unable to store allotted store ID");
+      }
+
+      ctx->opts.store_id = ctx->allotted_store_id;
     }
   }
 
@@ -75,10 +92,13 @@ void opener_cleanup(struct opener_ctx *ctx) {
 
   if (ctx->flags &= OPENERCTXF_INITEDYCL) {
     ycl_close(&ctx->ycl);
-    ctx->flags &= ~OPENERCTXF_INITEDYCL;
   }
 
-  memset(ctx, 0, sizeof(*ctx)); /* paranoia */
+  if (ctx->allotted_store_id != NULL) {
+    free(ctx->allotted_store_id);
+  }
+
+  memset(ctx, 0, sizeof(*ctx));
 }
 
 int opener_open(struct opener_ctx *ctx, const char *path, int flags,

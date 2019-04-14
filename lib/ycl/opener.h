@@ -1,10 +1,13 @@
-#ifndef SCAN_OPENER_H__
-#define SCAN_OPENER_H__
+#ifndef YANS_OPENER_H__
+#define YANS_OPENER_H__
 
 #include <lib/ycl/yclcli_store.h>
 #include <lib/ycl/ycl.h>
 
+#define OPENER_FCREAT (1 << 0) /* create store */
+
 struct opener_opts {
+  int flags;
   struct ycl_msg *msgbuf;
   const char *socket;
   const char *store_id;
@@ -17,6 +20,7 @@ struct opener_ctx {
   struct ycl_msg msgbuf; /* don't use directly - use opts.msgbuf instead */
   struct opener_opts opts;
   const char *err;
+  char *allotted_store_id;
   int flags;
 };
 

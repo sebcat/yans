@@ -19,4 +19,6 @@
 
 #define ARRAY_SIZE(x__) (sizeof((x__))/sizeof((x__)[0]))
 
+#define STATIC_ASSERT(expr, msg) _Static_assert((expr), msg)
+
 #endif

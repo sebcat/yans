@@ -137,6 +137,7 @@ static struct idtbl_entry *find_table_entry(struct idtbl_ctx *tbl,
       break;
     }
     current_pos = TABLE_INDEX(tbl, current_pos + 1);
+    distance++;
   } while(current_pos != start_pos);
 
   return NULL;

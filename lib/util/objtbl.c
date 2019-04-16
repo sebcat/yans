@@ -141,6 +141,7 @@ static struct objtbl_entry *find_table_entry(struct objtbl_ctx *tbl,
       return elem;
     }
     current_pos = TABLE_INDEX(tbl, current_pos + 1);
+    distance++;
   } while(current_pos != start_pos);
 
   return NULL;

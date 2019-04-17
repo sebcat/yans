@@ -23,3 +23,4 @@ include drivers/files.mk
 include apps/sysinfoapi/files.mk
 include apps/scan/files.mk
 include apps/tcpctl/files.mk
+include apps/deduptbl/files.mk

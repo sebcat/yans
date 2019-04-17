@@ -1,6 +1,7 @@
 lib_util_SOURCES = \
     lib/util/buf.c \
     lib/util/csv.c \
+    lib/util/deduptbl.c \
     lib/util/eds.c \
     lib/util/flagset.c \
     lib/util/io.c \

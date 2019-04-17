@@ -757,7 +757,7 @@ static int open_io(struct collate_opts *opts, struct opener_ctx *opener,
 
   ret = opener_fopen(opener, path, mode, &fp);
   if (ret < 0) {
-    fprintf(stderr, "%s: %s\n", optarg, opener_strerr(opener));
+    fprintf(stderr, "%s: %s\n", optarg, opener_strerror(opener));
     return -1;
   }
 

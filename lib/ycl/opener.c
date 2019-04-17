@@ -185,6 +185,6 @@ int opener_fopen(struct opener_ctx *ctx, const char *path,
   return 0;
 }
 
-const char *opener_strerr(struct opener_ctx *ctx) {
+const char *opener_strerror(struct opener_ctx *ctx) {
   return ctx->err;
 }

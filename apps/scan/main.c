@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
   opener = &scan_.opener;
   ret = opener_init(opener, &opts_opener);
   if (ret < 0) {
-    fprintf(stderr, "opener_init failure: %s\n", opener_strerr(opener));
+    fprintf(stderr, "opener_init failure: %s\n", opener_strerror(opener));
     goto ycl_msg_cleanup;
   }
 

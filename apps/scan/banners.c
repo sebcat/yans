@@ -258,14 +258,14 @@ int banners_main(struct scan_ctx *scan, int argc, char *argv[]) {
   ret = opener_fopen(&scan->opener, opts.outpath, "wb", &outfile);
   if (ret < 0) {
     fprintf(stderr, "%s: %s\n", opts.outpath,
-        opener_strerr(&scan->opener));
+        opener_strerror(&scan->opener));
     goto done_ssl_ctx_free;
   }
 
   ret = opener_fopen(&scan->opener, opts.inpath, "rb", &infile);
   if (ret < 0) {
     fprintf(stderr, "%s: %s\n", opts.inpath,
-        opener_strerr(&scan->opener));
+        opener_strerror(&scan->opener));
     goto done_fclose_outfile;
   }
 

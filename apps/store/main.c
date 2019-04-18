@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <lib/util/macros.h>
 #include <lib/util/sandbox.h>
 #include <lib/util/sindex.h>
 #include <lib/ycl/yclcli_store.h>
@@ -287,7 +288,7 @@ ycl_msg_cleanup:
   return result;
 }
 
-static int put_main(int argc, char *argv[], int flags) {
+static int _put_main(int argc, char *argv[], int flags) {
   int ch;
   int ret;
   const char *optstr = "hs:i:";
@@ -336,6 +337,15 @@ usage:
       argv[0], argv[1], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 }
+
+static int put_main(int argc, char *argv[]) {
+  return _put_main(argc, argv, O_WRONLY | O_CREAT | O_TRUNC);
+}
+
+static int append_main(int argc, char *argv[]) {
+  return _put_main(argc, argv, O_WRONLY | O_CREAT | O_APPEND);
+}
+
 
 static int get_main(int argc, char *argv[]) {
   int ch;
@@ -620,34 +630,36 @@ usage:
 }
 
 int main(int argc, char *argv[]) {
+  size_t i;
+  static const struct {
+    const char *name;
+    int (*func)(int, char **);
+    const char *desc;
+  } cmds[] = {
+    {"put", put_main, "put a file in the store"},
+    {"append", append_main, "append content to a file in a store"},
+    {"get", get_main, "get file content from a store"},
+    {"index", index_main, "retrieve indexed store entries"},
+    {"list", list_main, "list stores, store content"},
+    {"rename", rename_main, "renames a file in a store"}
+  };
+
   if (argc < 2) {
     goto usage;
   }
 
-  if (strcmp(argv[1], "put") == 0) {
-    return put_main(argc, argv, O_WRONLY | O_CREAT | O_TRUNC);
-  } else if (strcmp(argv[1], "append") == 0) {
-    return put_main(argc, argv, O_WRONLY | O_CREAT | O_APPEND);
-  } else if (strcmp(argv[1], "get") == 0) {
-    return get_main(argc, argv);
-  } else if (strcmp(argv[1], "index") == 0) {
-    return index_main(argc, argv);
-  } else if (strcmp(argv[1], "list") == 0) {
-    return list_main(argc, argv);
-  } else if (strcmp(argv[1], "rename") == 0) {
-    return rename_main(argc, argv);
+  for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+    if (strcmp(argv[1], cmds[i].name) == 0) {
+      return cmds[i].func(argc, argv);
+    }
   }
 
-  fprintf(stderr, "unknown command\n");
 usage:
   fprintf(stderr, "usage: %s <command> [args]\n"
-      "commands:\n"
-      "  put    - put a file in the store\n"
-      "  append - append content to a file in a store\n"
-      "  get    - get file content from a store\n"
-      "  index  - retrieve indexed store entries\n"
-      "  list   - list stores, store content\n"
-      "  rename - renames a file in a store\n",
-      argv[0]);
+      "commands:\n", argv[0]);
+  for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+    fprintf(stderr, "  %s\n    %s\n", cmds[i].name, cmds[i].desc);
+  }
+
   return EXIT_FAILURE;
 }

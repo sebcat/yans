@@ -85,7 +85,7 @@ static int run_get(struct opener_opts *opts, const char *path,
   }
 
   ret = opener_fopen(&opener, path, "rb", &getfp);
-  if (ret != YCL_OK) {
+  if (ret < 0) {
     fprintf(stderr, "%s: %s\n", path, opener_strerror(&opener));
     goto opener_cleanup;
   }
@@ -130,38 +130,28 @@ opener_cleanup:
   return result;
 }
 
-static int run_put(const char *socket, const char *id, const char *path,
-    int flags) {
+static int run_put(struct opener_opts *opts, const char *path,
+    const char *mode, int sandbox) {
   int ret;
   int result = -1;
-  int putfd = -1;
-  struct ycl_msg msgbuf;
-  struct yclcli_ctx cli;
+  FILE *putfp;
+  struct opener_ctx opener;
   const char *set_id;
 
-  ret = setup_cli_state(&cli, socket, &msgbuf);
+  ret = setup_opener_state(&opener, opts, sandbox);
   if (ret < 0) {
     return -1;
   }
 
-  ret = yclcli_store_enter(&cli, id, &set_id);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "yclcli_store_enter: %s\n", yclcli_strerror(&cli));
-    goto ycl_msg_cleanup;
+  ret = opener_fopen(&opener, path, mode, &putfp);
+  if (ret < 0) {
+    fprintf(stderr, "%s: %s\n", path, opener_strerror(&opener));
+    goto opener_cleanup;
   }
 
-  if (set_id && *set_id) {
+  set_id = opener_store_id(&opener);
+  if (set_id) {
     printf("%s\n", set_id);
-  }
-
-  /* set_id becomes invalid at the next call to storecli - don't keep any
-   * dangling pointers */
-  set_id = NULL;
-
-  ret = yclcli_store_open(&cli, path, flags, &putfd);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "%s: %s\n", path, yclcli_strerror(&cli));
-    goto ycl_msg_cleanup;
   }
 
   for (;;) {
@@ -179,25 +169,17 @@ read_again:
         goto read_again;
       } else {
         perror("read");
-        goto putfd_cleanup;
+        goto fclose_putfp;
       }
     }
 
     left = nread;
     curr = databuf_;
     while (left > 0) {
-write_again:
-      nwritten = write(putfd, curr, left);
-      if (nwritten < 0) {
-        if (errno == EINTR) {
-          goto write_again;
-        } else {
-          perror("write");
-          goto putfd_cleanup;
-        }
-      } else if (nwritten == 0) {
+      nwritten = fwrite(curr, 1, left, putfp);
+      if (nwritten == 0) {
         fprintf(stderr, "premature EOF\n");
-        goto putfd_cleanup;
+        goto fclose_putfp;
       }
       left -= nwritten;
       curr += nwritten;
@@ -205,11 +187,10 @@ write_again:
   }
 
   result = 0;
-putfd_cleanup:
-  close(putfd);
-ycl_msg_cleanup:
-  yclcli_close(&cli);
-  ycl_msg_cleanup(&msgbuf);
+fclose_putfp:
+  fclose(putfp);
+opener_cleanup:
+  opener_cleanup(&opener);
   return result;
 }
 
@@ -298,27 +279,33 @@ ycl_msg_cleanup:
   return result;
 }
 
-static int _put_main(int argc, char *argv[], int flags) {
+static int _put_main(int argc, char *argv[], const char *mode) {
   int ch;
+  int sandbox = 1;
   int ret;
-  const char *optstr = "hs:i:";
-  const char *socket = STORECLI_DFLPATH;
-  const char *id = NULL;
+  const char *optstr = "hs:Xc";
+  struct opener_opts opts = {
+    .socket = STORECLI_DFLPATH,
+  };
   const char *filename = NULL;
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
-    {"id", required_argument, NULL, 'i'},
+    {"no-sandbox", no_argument, NULL, 'X'},
+    {"create-store", no_argument, NULL, 'c'},
     {NULL, 0, NULL, 0},
   };
 
   while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
     switch(ch) {
     case 's':
-      socket = optarg;
+      opts.socket = optarg;
       break;
-    case 'i':
-      id = optarg;
+    case 'X':
+      sandbox = 0;
+      break;
+    case 'c':
+      opts.flags |= OPENER_FCREAT;
       break;
     case 'h':
     default:
@@ -330,9 +317,10 @@ static int _put_main(int argc, char *argv[], int flags) {
     fprintf(stderr, "missing file name\n");
     goto usage;
   }
-
   filename = argv[optind + 1];
-  ret = run_put(socket, id, filename, flags);
+  opts.store_id = getenv("YANS_ID");
+
+  ret = run_put(&opts, filename, mode, sandbox);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
@@ -342,18 +330,18 @@ usage:
   fprintf(stderr, "usage: %s %s [opts] <name>\n"
       "opts:\n"
       "  -s|--socket <path>   store socket path (%s)\n"
-      "  -i|--id     <id>     store ID\n"
-      "  -n|--name   <name>   store name\n",
-      argv[0], argv[1], STORECLI_DFLPATH);
+      "  -X|--no-sandbox      disable sandbox\n"
+      "  -c|--create-store\n"
+      ,argv[0], argv[1], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 }
 
 static int put_main(int argc, char *argv[]) {
-  return _put_main(argc, argv, O_WRONLY | O_CREAT | O_TRUNC);
+  return _put_main(argc, argv, "wb");
 }
 
 static int append_main(int argc, char *argv[]) {
-  return _put_main(argc, argv, O_WRONLY | O_CREAT | O_APPEND);
+  return _put_main(argc, argv, "ab");
 }
 
 

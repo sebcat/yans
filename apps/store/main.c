@@ -10,10 +10,35 @@
 #include <lib/util/sandbox.h>
 #include <lib/util/sindex.h>
 #include <lib/ycl/yclcli_store.h>
+#include <lib/ycl/opener.h>
 
 #define DFL_INDEX_NELEMS 25
 
 static char databuf_[32768]; /* get/put buffer */
+
+static int setup_opener_state(struct opener_ctx *opener,
+    struct opener_opts *opts, int sandbox) {
+  int ret;
+
+  ret = opener_init(opener, opts);
+  if (ret < 0) {
+    fprintf(stderr, "opener_init: %s\n", opener_strerror(opener));
+    return -1;
+  }
+
+  if (sandbox) {
+    ret = sandbox_enter();
+    if (ret < 0) {
+      fprintf(stderr, "sandbox_enter failure\n");
+      opener_cleanup(opener);
+      return -1;
+    }
+  } else {
+    fprintf(stderr, "warning: sandbox disabled\n");
+  }
+
+  return 0;
+}
 
 static int setup_cli_state(struct yclcli_ctx *ctx, const char *socket,
     struct ycl_msg *msg) {
@@ -44,50 +69,36 @@ yclcli_close:
 ycl_msg_cleanup:
   ycl_msg_cleanup(msg);
 fail:
-  return -1;
+return -1;
 }
 
-static int run_get(const char *socket, const char *id, const char *path) {
+static int run_get(struct opener_opts *opts, const char *path,
+    int sandbox) {
   int ret;
   int result = -1;
-  int getfd = -1;
-  struct ycl_msg msgbuf;
-  struct yclcli_ctx cli;
+  FILE *getfp;
+  struct opener_ctx opener;
 
-  ret = setup_cli_state(&cli, socket, &msgbuf);
+  ret = setup_opener_state(&opener, opts, sandbox);
   if (ret < 0) {
     return -1;
   }
 
-  ret = yclcli_store_enter(&cli, id, NULL);
+  ret = opener_fopen(&opener, path, "rb", &getfp);
   if (ret != YCL_OK) {
-    fprintf(stderr, "yclcli_store_enter: %s\n", yclcli_strerror(&cli));
-    goto ycl_msg_cleanup;
-  }
-
-  ret = yclcli_store_open(&cli, path, O_RDONLY, &getfd);
-  if (ret != YCL_OK) {
-    fprintf(stderr, "%s: %s\n", path, yclcli_strerror(&cli));
-    goto ycl_msg_cleanup;
+    fprintf(stderr, "%s: %s\n", path, opener_strerror(&opener));
+    goto opener_cleanup;
   }
 
   for (;;) {
-    ssize_t nread;
-    ssize_t nwritten;
+    size_t nread;
+    size_t nwritten;
     char *curr;
     size_t left;
 
-read_again:
-    nread = read(getfd, databuf_, sizeof(databuf_));
+    nread = fread(databuf_, 1, sizeof(databuf_), getfp);
     if (nread == 0) {
       break;
-    } else if (nread < 0) {
-      if (errno == EINTR) {
-        goto read_again;
-      } else {
-        perror("read");
-        goto getfd_cleanup;
-      }
     }
 
     left = nread;
@@ -100,11 +111,11 @@ write_again:
           goto write_again;
         } else {
           perror("write");
-          goto getfd_cleanup;
+          goto fclose_getfp;
         }
       } else if (nwritten == 0) {
         fprintf(stderr, "premature EOF\n");
-        goto getfd_cleanup;
+        goto fclose_getfp;
       }
       left -= nwritten;
       curr += nwritten;
@@ -112,11 +123,10 @@ write_again:
   }
 
   result = 0;
-getfd_cleanup:
-  close(getfd);
-ycl_msg_cleanup:
-  yclcli_close(&cli);
-  ycl_msg_cleanup(&msgbuf);
+fclose_getfp:
+  fclose(getfp);
+opener_cleanup:
+  opener_cleanup(&opener);
   return result;
 }
 
@@ -350,20 +360,26 @@ static int append_main(int argc, char *argv[]) {
 static int get_main(int argc, char *argv[]) {
   int ch;
   int ret;
-  const char *optstr = "hs:";
-  const char *socket = STORECLI_DFLPATH;
-  const char *id = NULL;
+  int sandbox = 1;
+  struct opener_opts opts = {
+    .socket = STORECLI_DFLPATH,
+  };
+  const char *optstr = "hs:X";
   const char *filename = NULL;
   struct option longopts[] = {
     {"help", no_argument, NULL, 'h'},
     {"socket", required_argument, NULL, 's'},
+    {"no-sandbox", no_argument, NULL, 'X'},
     {NULL, 0, NULL, 0},
   };
 
   while ((ch = getopt_long(argc-1, argv+1, optstr, longopts, NULL)) != -1) {
     switch(ch) {
     case 's':
-      socket = optarg;
+      opts.socket = optarg;
+      break;
+    case 'X':
+      sandbox = 0;
       break;
     case 'h':
     default:
@@ -372,28 +388,24 @@ static int get_main(int argc, char *argv[]) {
   }
 
   if (optind + 1 >= argc) {
-    fprintf(stderr, "missing store ID\n");
-    goto usage;
-  }
-  id = argv[optind + 1];
-
-  if (optind + 2 >= argc) {
     fprintf(stderr, "missing file name\n");
     goto usage;
   }
-  filename = argv[optind + 2];
+  filename = argv[optind + 1];
 
-  ret = run_get(socket, id, filename);
+  opts.store_id = getenv("YANS_ID");
+  ret = run_get(&opts, filename, sandbox);
   if (ret < 0) {
     return EXIT_FAILURE;
   }
 
   return EXIT_SUCCESS;
 usage:
-  fprintf(stderr, "usage: %s get [opts] <id> <name>\n"
+  fprintf(stderr, "usage: %s get [opts] <name>\n"
       "opts:\n"
-      "  -s|--socket   store socket path (%s)\n",
-      argv[0], STORECLI_DFLPATH);
+      "  -s|--socket       store socket path (%s)\n"
+      "  -X|--no-sandbox   disable sandbox\n"
+      , argv[0], STORECLI_DFLPATH);
   return EXIT_FAILURE;
 }
 

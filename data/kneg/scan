@@ -20,23 +20,12 @@ STATUS=
 : ${INPUT:=subject.txt}
 
 clear_manifest() {
-  if [ -z "$YANS_ID" ]; then
-    printf '' > MANIFEST
-  else
-    printf '' | store put -i "$YANS_ID" MANIFEST
-  fi
+  printf '' | store put MANIFEST > /dev/null
 }
 
 # manifest <file> <descr>
 manifest() {
-  # TODO: Only manifest file if > N bytes (compressed? decompr?)
-  # TODO: store append will print the store id.
-  #       have a store append --silent?
-  if [ -z "$YANS_ID" ]; then
-    printf '%s %s\n' "$1" "$2" >> MANIFEST
-  else
-    printf '%s %s\n' "$1" "$2" | store append -i "$YANS_ID" MANIFEST
-  fi
+  store append MANIFEST > /dev/null
 }
 
 byebye() {
@@ -104,10 +93,10 @@ run $SCAN collate                             \
     --out-certs-csv     zlib:certs.csv.gz     \
     --out-cert-sans-csv zlib:sans.csv.gz
 
-# XXX: This opens the MANIFEST files multiple consequtive times
-manifest "services.csv.gz" "Services"
-manifest "certs.csv.gz" "Certificates"
-manifest "sans.csv.gz" "Certificate Subject Alternative Names"
-
+cat <<EOF | manifest
+services.csv.gz Services
+certs.csv.gz Certificates
+sans.csv.gz Certificate Subject Alternative Names
+EOF
 
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

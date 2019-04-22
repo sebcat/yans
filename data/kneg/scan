@@ -99,4 +99,10 @@ certs.csv.gz Certificates
 sans.csv.gz Certificate Subject Alternative Names
 EOF
 
+run $SCAN collate                             \
+    --type httpmsgs                           \
+    --in-services-csv zlib:services.csv.gz    \
+    --out-httpmsgs zlib:httpreqs.0
+
+
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

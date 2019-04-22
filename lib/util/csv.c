@@ -150,8 +150,13 @@ static int read_unescaped(struct csv_reader *r, FILE *in) {
   while (1) {
     ch = fgetc(in);
     switch (ch) {
-      case EOF:
       case '\r':
+        ch = fgetc(in);
+        if (ch != '\n' && ch != EOF) {
+          ungetc(ch, in);
+        }
+        /* fallthrough */
+      case EOF:
       case '\n':
         cont = 0;
         goto done;

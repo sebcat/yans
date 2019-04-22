@@ -36,6 +36,7 @@
 enum collate_type {
   COLLATE_UNKNOWN = 0,
   COLLATE_BANNERS,
+  COLLATE_HTTPMSGS,
   COLLATE_MAX,
 };
 
@@ -45,6 +46,9 @@ struct collate_opts {
   FILE *in_banners[MAX_INOUTS];
   size_t nin_banners;
 
+  FILE *in_services_csv[MAX_INOUTS];
+  size_t nin_services_csv;
+
   FILE *out_services_csv[MAX_INOUTS];
   size_t nout_services_csv;
 
@@ -53,6 +57,9 @@ struct collate_opts {
 
   FILE *out_cert_sans_csv[MAX_INOUTS];
   size_t nout_cert_sans_csv;
+
+  FILE *out_httpmsgs[MAX_INOUTS];
+  size_t nout_httpmsgs;
 
   FILE *closefps[MAX_FOPENS];
   size_t nclosefps;
@@ -681,7 +688,7 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
   /* TODO: do better w/ regards to randomness */
   srand(time(NULL));
   addrtblopts.hashseed = nametblopts.hashseed = svctblopts.hashseed =
-      rand();
+      chaintblopts.hashseed = rand();
 
   linvar_init(&varmem_, LINVAR_BLKSIZE);
   objtbl_init(&addrtbl_, &addrtblopts, NMEMB_ADDR);
@@ -726,12 +733,78 @@ end:
   return status;
 }
 
+static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
+  int ret;
+  int status = EXIT_FAILURE;
+  size_t isindex;
+  FILE *in;
+  struct csv_reader r;
+  const char *hostname;
+  const char *addr;
+  const char *port;
+  const char *service;
+  struct ycl_msg_httpmsg msg;
+  struct ycl_msg msgbuf;
+  size_t i;
+
+  csv_reader_init(&r);
+  ycl_msg_init(&msgbuf);
+  for (isindex = 0; isindex < opts->nin_services_csv; isindex++) {
+    in = opts->in_services_csv[isindex];
+    while (!feof(in)) {
+      csv_read_row(&r, in);
+      hostname = csv_reader_elem(&r, 0);
+      addr     = csv_reader_elem(&r, 1);
+      port     = csv_reader_elem(&r, 3);
+      service  = csv_reader_elem(&r, 4);
+      if (service == NULL || strncmp(service, "http", 4) != 0) {
+        continue;
+      }
+
+      if (hostname == NULL) {
+        hostname = addr;
+      }
+
+      memset(&msg, 0, sizeof(msg));
+      msg.scheme.data = service;
+      msg.scheme.len = strlen(service);
+      msg.addr.data = addr;
+      msg.addr.len = strlen(addr);
+      msg.hostname.data = hostname;
+      msg.hostname.len = strlen(hostname);
+      msg.port.data = port;
+      msg.port.len = strlen(port);
+      msg.path.data = "/";
+      msg.path.len = sizeof("/") - 1;
+      msg.method.data = "GET";
+      msg.method.len = sizeof("GET") - 1;
+      ret = ycl_msg_create_httpmsg(&msgbuf, &msg);
+      if (ret != YCL_OK) {
+        fprintf(stderr, "httpmsg serialization failure\n");
+        goto done;
+      }
+
+      for (i = 0; i < opts->nout_httpmsgs; i++) {
+        fwrite(ycl_msg_bytes(&msgbuf), 1, ycl_msg_nbytes(&msgbuf),
+            opts->out_httpmsgs[i]);
+      }
+    }
+  }
+
+  status = EXIT_SUCCESS;
+done:
+  ycl_msg_cleanup(&msgbuf);
+  csv_reader_cleanup(&r);
+  return status;
+}
+
 enum collate_type collate_type_from_str(const char *str) {
   static const struct {
     char *name;
     enum collate_type type;
   } map[] = {
     {"banners", COLLATE_BANNERS},
+    {"httpmsgs", COLLATE_HTTPMSGS},
   };
   size_t i;
 
@@ -776,12 +849,16 @@ static void usage(const char *argv0) {
       "      Collation type\n"
       "  -B|--in-banners <path>\n"
       "      Banner input\n"
+      "  -S|--in-services-csv <path>\n"
+      "      Services CSV input\n"
       "  -s|--out-services-csv <path>\n"
       "      Services CSV output\n"
       "  -c|--out-certs-csv <path>\n"
       "      Certificate CSV output\n"
       "  -a|--out-cert-sans-csv <path>\n"
       "      Certificate SANs CSV output\n"
+      "  -m|--out-httpmsgs <path>\n"
+      "      HTTP message output\n"
       "  -X|--no-sandbox\n"
       "      Disable sandbox\n"
       ,argv0);
@@ -790,19 +867,22 @@ static void usage(const char *argv0) {
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:s:c:a:X";
+  const char *optstr = "t:B:S:s:c:a:m:X";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
     [COLLATE_BANNERS]  = banners,
+    [COLLATE_HTTPMSGS] = httpmsgs,
   };
   /* short opts: uppercase letters for inputs, if sane to do so */
   static const struct option lopts[] = {
     {"type",              required_argument, NULL, 't'},
     {"in-banners",        required_argument, NULL, 'B'},
+    {"in-services-csv",   required_argument, NULL, 'S'},
     {"out-services-csv",  required_argument, NULL, 's'},
     {"out-certs-csv",     required_argument, NULL, 'c'},
     {"out-cert-sans-csv", required_argument, NULL, 'a'},
+    {"out-httpmsgs",      required_argument, NULL, 'm'},
     {"no-sandbox",        no_argument,       NULL, 'X'},
     {NULL, 0, NULL, 0}};
   int ch;
@@ -823,6 +903,13 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     case 'B': /* in-banners */
       ret = open_io(&opts, &scan->opener, optarg, "rb",
           opts.in_banners, &opts.nin_banners);
+      if (ret < 0) {
+        goto end;
+      }
+      break;
+    case 'S': /* in-services-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "rb",
+          opts.in_services_csv, &opts.nin_services_csv);
       if (ret < 0) {
         goto end;
       }
@@ -859,6 +946,13 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
       tmpstr = "Chain,Depth,Type,Name\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_cert_sans_csv[opts.nout_cert_sans_csv-1]);
+      break;
+    case 'm': /* out-httpmsgs */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_httpmsgs, &opts.nout_httpmsgs);
+      if (ret < 0) {
+        goto end;
+      }
       break;
     case 'X':
       sandbox = 0;

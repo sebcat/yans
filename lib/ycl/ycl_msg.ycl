@@ -104,3 +104,25 @@ banner {
   data certs;
   data chash;
 }
+
+httpmsg {
+  # URL parts
+  data scheme;
+  data addr;     # IPv4/IPv6 address
+  data hostname; # domain name or IPv4/IPv6 address
+  data port;
+  data path;
+  data params;
+  # TODO: Currently, we do not use the fragment part of the URL, so we
+  #       do not save it. Add it here when-/ifever fragment-specific
+  #       functionality is added (e.g., JS eval).
+
+  # HTTP request parts
+  data method;
+  data reqtype; # content type of request body
+  data reqbody;
+
+  # HTTP response parts
+  data resphdr;
+  data respbody;
+}

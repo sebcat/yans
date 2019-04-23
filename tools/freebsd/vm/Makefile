@@ -23,8 +23,7 @@ CFGFILES=skel/boot/loader.conf \
 
 
 SCRIPTS=skel/etc/rc.d/xsshd \
-    skel/etc/rc.d/xvar \
-    skel/etc/rc.d/tcpctl
+    skel/etc/rc.d/xvar
 
 .PHONY: install-skel clean
 

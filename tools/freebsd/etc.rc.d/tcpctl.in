@@ -19,7 +19,7 @@ tcpctl_start() {
     info "Loading disallowed addresses from ${tcpctl_blacklist}"
     while read -r ROW; do
       info "  tcpctl disallow $ROW"
-      /usr/local/bin/tcpctl disallow $ROW
+      @BINDIR@/tcpctl disallow $ROW
     done < "${tcpctl_blacklist}"
   fi
 }

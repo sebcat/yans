@@ -21,3 +21,4 @@ include apps/sysinfoapi/rules.mk
 include apps/scan/rules.mk
 include apps/tcpctl/rules.mk
 include apps/deduptbl/rules.mk
+include apps/webfetch/rules.mk

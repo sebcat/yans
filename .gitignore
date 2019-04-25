@@ -53,3 +53,4 @@ apps/scan/scan
 tools/linux/systemd/stored.service
 apps/tcpctl/tcpctl
 apps/deduptbl/deduptbl
+apps/webfetch/webfetch

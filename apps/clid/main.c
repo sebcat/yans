@@ -6,11 +6,9 @@
 #include <getopt.h>
 
 #include <lib/util/eds.h>
-#include <lib/util/nullfd.h>
 #include <lib/util/os.h>
 #include <lib/util/ylog.h>
 
-#include <apps/clid/netconf.h>
 #include <apps/clid/resolver.h>
 
 #define DAEMON_NAME "clid"
@@ -123,18 +121,6 @@ int main(int argc, char *argv[]) {
   struct os_daemon_opts daemon_opts = {0};
   static struct eds_service services[] = {
     {
-      .name = "netconf",
-      .path = "netconf.sock",
-      .udata_size = sizeof(struct netconf_client),
-      .actions = {
-        .on_readable = netconf_on_readable,
-        .on_done = netconf_on_done,
-        .on_finalize = netconf_on_finalize,
-      },
-      .on_svc_error = on_svc_error,
-      .nprocs = 1,
-    },
-    {
       .name = "resolver",
       .path = "resolver.sock",
       .udata_size = sizeof(struct resolver_cli),
@@ -149,7 +135,7 @@ int main(int argc, char *argv[]) {
     },
     {0},
   };
-  int status = EXIT_SUCCESS;
+  int status = EXIT_FAILURE;
   int ret;
 
   parse_args_or_die(&opts, argc, argv);
@@ -157,17 +143,11 @@ int main(int argc, char *argv[]) {
     resolver_set_nresolvers((unsigned short)opts.nresolvers);
   }
 
-  ret = nullfd_init();
-  if (ret < 0) {
-    ylog_error("failed to initialize nullfd: %s", strerror(errno));
-    return EXIT_FAILURE;
-  }
-
   if (opts.no_daemon) {
     ylog_init(DAEMON_NAME, YLOG_STDERR);
     if (chdir(opts.basepath) < 0) {
       ylog_error("chdir %s: %s", opts.basepath, strerror(errno));
-      goto fail;
+      goto done;
     }
   } else {
     ylog_init(DAEMON_NAME, YLOG_SYSLOG);
@@ -178,7 +158,7 @@ int main(int argc, char *argv[]) {
     daemon_opts.nagroups = 0;
     if (os_daemonize(&os, &daemon_opts) != OS_OK) {
       ylog_error("%s", os_strerror(&os));
-      goto fail;
+      goto done;
     }
   }
 
@@ -192,9 +172,11 @@ int main(int argc, char *argv[]) {
 
   if (ret < 0) {
     ylog_error("failed to serve %s", opts.single ? opts.single : DAEMON_NAME);
-    status = EXIT_FAILURE;
+    goto done;
   }
 
+  status = EXIT_SUCCESS;
+done:
   if (!opts.no_daemon) {
     ret = os_daemon_remove_pidfile(&os, &daemon_opts);
     if (ret != OS_OK) {
@@ -203,9 +185,5 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  nullfd_cleanup();
   return status;
-fail:
-  nullfd_cleanup();
-  return EXIT_FAILURE;
 }

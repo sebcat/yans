@@ -6,7 +6,6 @@ include lib/util/files.mk
 include lib/net/files.mk
 include lib/ycl/files.mk
 include apps/stored/files.mk
-include apps/ethd/files.mk
 include apps/expand-dst/files.mk
 include apps/fc2/files.mk
 include apps/clid/files.mk

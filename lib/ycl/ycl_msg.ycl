@@ -8,31 +8,6 @@ status_resp {
 }
 
 ##
-## ethd messages
-##
-
-pcap_req {
-  data iface;
-  data filter;
-}
-
-pcap_close {
-
-}
-
-ethframe_req {
-  long pps;
-  data iface;
-  data categories;
-  data eth_src;
-  data eth_dst;
-  data ip_src;
-  data ip_dsts;
-  data port_dsts;
-  data[] custom_frames;
-}
-
-##
 ## stored messages
 ##
 store_req {
@@ -62,18 +37,6 @@ store_entered_req {
 ##
 ## clid messages
 ##
-route_req {
-
-}
-
-route_resp {
-  data err;
-  data ifaces;
-  data ip_srcs;
-  data ip_neigh;
-  data ip_routes;
-}
-
 resolver_req {
   data hosts;
   long compress;
@@ -106,6 +69,11 @@ banner {
 }
 
 httpmsg {
+  # Message stuff
+  data id;
+  data parent_id;
+  long depth;
+
   # URL parts
   data scheme;
   data addr;     # IPv4/IPv6 address

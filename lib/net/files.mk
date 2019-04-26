@@ -4,13 +4,10 @@ lib_net_SOURCES = \
     lib/net/eth.c \
     lib/net/fcgi.c \
     lib/net/scgi.c \
-    lib/net/iface.c \
     lib/net/ip.c \
-    lib/net/neigh.c \
     lib/net/ports.c \
     lib/net/punycode.c \
     lib/net/reaplan.c \
-    lib/net/route.c \
     lib/net/sconn.c \
     lib/net/tcpproto.c \
     lib/net/tcpproto_types.c \
@@ -24,13 +21,10 @@ lib_net_HEADERS = \
     lib/net/eth.h \
     lib/net/fcgi.h \
     lib/net/scgi.h \
-    lib/net/iface.h \
     lib/net/ip.h \
-    lib/net/neigh.h \
     lib/net/ports.h \
     lib/net/punycode.h \
     lib/net/reaplan.h \
-    lib/net/route.h \
     lib/net/sconn.h \
     lib/net/tcpproto.h \
     lib/net/tcpproto_types.h \

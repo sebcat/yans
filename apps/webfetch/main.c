@@ -4,7 +4,17 @@
 #include <signal.h>
 #include <stdio.h>
 
+#include <lib/util/sandbox.h>
+#include <lib/net/tcpsrc.h>
+#include <lib/ycl/opener.h>
+#include <lib/ycl/ycl_msg.h>
+
+#include <apps/webfetch/fetch.h>
+
 #define MAX_MODULES 8 /* 8 modules should be enough for everybody! */
+
+#define MAX_NFETCHERS     100
+#define DEFAULT_NFETCHERS   8
 
 struct module_data {
   char *name;
@@ -12,14 +22,17 @@ struct module_data {
   char **argv;
 
   int (*mod_init)(int, char **, void **);
-  /* TODO: mod_process */
+  /* TODO: mod_process, mod_cleanup */
 };
 
 struct opts {
+  int sandbox;
+  int nfetchers;
+  const char *opener_socket;
+  const char *input_path; /* TODO: We could have multiple input paths */
   int nmodules;
   struct module_data modules[MAX_MODULES];
 };
-
 
 static void opts_or_die(struct opts *opts, int argc, char **argv) {
   int modoff = 0;
@@ -27,11 +40,15 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
   int pos;
   int ch;
   int i;
-  const char *optstr = "m:ph";
+  const char *optstr = "m:pXs:i:n:h";
   static const struct option options[] = {
-    {"--module",      required_argument, NULL, 'm'},
-    {"--params",      no_argument,       NULL, 'p'},
-    {"--help",        no_argument,       NULL, 'h'},
+    {"module",      required_argument, NULL, 'm'},
+    {"params",      no_argument,       NULL, 'p'},
+    {"no-sandbox",  no_argument,       NULL, 'X'},
+    {"opener-sock", required_argument, NULL, 's'},
+    {"in-httpmsgs", required_argument, NULL, 'i'},
+    {"nfetchers",   required_argument, NULL, 'n'},
+    {"help",        no_argument,       NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
 
@@ -62,13 +79,31 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
       paramoff++;
       optind = pos;
       break;
+    case 'X':
+      opts->sandbox = 0;
+      break;
+    case 's':
+      opts->opener_socket = optarg;
+      break;
+    case 'i':
+      opts->input_path = optarg;
+      break;
+    case 'n':
+      opts->nfetchers = (int)strtol(optarg, NULL, 10);
+      break;
     case 'h':
     default:
       goto usage;
     }
   }
 
-  /* update the module argument vector with module name as argv[0] */
+  if (opts->nfetchers < 0 || opts->nfetchers >= MAX_NFETCHERS) {
+    fprintf(stderr, "invalid number of fetchers\n");
+    goto usage;
+  }
+
+  /* update the module argument vector (if any) with module name as
+   * argv[0] */
   for (i = 0; i < opts->nmodules; i++) {
     if (opts->modules[i].argv) {
       opts->modules[i].argv[0] = opts->modules[i].name;
@@ -83,20 +118,92 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
     printf(" (%d)\n", opts->modules[pos].argc);
   }
 
+
   return;
 usage:
-  fprintf(stderr, "usage: %s [opts]\n", argv[0]);
+  fprintf(stderr, "usage: %s [opts]\nopts:\n", argv[0]);
+  for (i = 0; options[i].name != NULL; i++) {
+    printf("  -%c|--%s\n", options[i].val, options[i].name);
+  }
+
   exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
   int status = EXIT_FAILURE;
-  static struct opts opts;
+  int ret;
+  struct opener_opts opener_opts = {0};
+  struct opener_ctx opener;
+  struct tcpsrc_ctx tcpsrc;
+  struct fetch_ctx fetch;
+  struct fetch_opts fetch_opts = {0};
+  FILE *infp;
+  static struct opts opts = {
+    /* default values, possibly overridden in opts_or_die */
+    .sandbox    = 1,
+    .input_path = "-",
+    .nfetchers  = DEFAULT_NFETCHERS,
+  };
 
   opts_or_die(&opts, argc, argv);
   signal(SIGPIPE, SIG_IGN);
 
+  /* Init the TCP connection source */
+  ret = tcpsrc_init(&tcpsrc);
+  if (ret < 0) {
+    perror("tcpsrc_init");
+    goto done;
+  }
+
+  /* Init the file opener */
+  opener_opts.store_id = getenv("YANS_ID");
+  opener_opts.socket = opts.opener_socket;
+  ret = opener_init(&opener, &opener_opts);
+  if (ret < 0) {
+    fprintf(stderr, "opener_init: %s\n", opener_strerror(&opener));
+    goto tcpsrc_cleanup;
+  }
+
+  /* enter the sandbox, unless told otherwise at the command line */
+  if (opts.sandbox) {
+    ret = sandbox_enter();
+    if (ret < 0) {
+      fprintf(stderr, "sandbox_enter failure\n");
+      goto opener_cleanup;
+    }
+  } else {
+    fprintf(stderr, "warning: sandbox disabled\n");
+  }
+
+  /* open the input file for HTTP messages */
+  ret = opener_fopen(&opener, opts.input_path, "rb", &infp);
+  if (ret < 0) {
+    fprintf(stderr, "opener_init: %s\n", opener_strerror(&opener));
+    goto opener_cleanup;
+  }
+
+  /* initialize the fetcher */
+  fetch_opts.infp      = infp;
+  fetch_opts.tcpsrc    = &tcpsrc;
+  fetch_opts.nfetchers = opts.nfetchers;
+  ret = fetch_init(&fetch, &fetch_opts);
+  if (ret < 0) {
+    fprintf(stderr, "fetch_init failure\n");
+    goto fclose_infp;
+  }
+
+  /* fetch all the requests! */
+  fetch_run(&fetch);
+
   status = EXIT_SUCCESS;
-/* done:*/
+/* fetch_cleanup: */
+  fetch_cleanup(&fetch);
+fclose_infp:
+  fclose(infp);
+opener_cleanup:
+  opener_cleanup(&opener);
+tcpsrc_cleanup:
+  tcpsrc_cleanup(&tcpsrc);
+done:
   return status;
 }

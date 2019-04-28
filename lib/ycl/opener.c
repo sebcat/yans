@@ -52,7 +52,7 @@ int opener_init(struct opener_ctx *ctx, struct opener_opts *opts) {
     yclcli_init(&ctx->cli, ctx->opts.msgbuf);
     ret = yclcli_connect(&ctx->cli, ctx->opts.socket);
     if (ret != YCL_OK) {
-      return opener_error(ctx, ycl_strerror(&ctx->ycl));
+      return opener_error(ctx, ycl_strerror(&ctx->cli.ycl));
     }
 
     /* Mark YCL as inited for the cleanup function */
@@ -90,8 +90,8 @@ void opener_cleanup(struct opener_ctx *ctx) {
     ycl_msg_cleanup(&ctx->msgbuf);
   }
 
-  if (ctx->flags &= OPENERCTXF_INITEDYCL) {
-    ycl_close(&ctx->ycl);
+  if (ctx->flags & OPENERCTXF_INITEDYCL) {
+    yclcli_close(&ctx->cli);
   }
 
   if (ctx->allotted_store_id != NULL) {

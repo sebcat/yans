@@ -16,7 +16,6 @@ struct opener_opts {
 struct opener_ctx {
   /* internal */
   struct yclcli_ctx cli;
-  struct ycl_ctx ycl;
   struct ycl_msg msgbuf; /* don't use directly - use opts.msgbuf instead */
   struct opener_opts opts;
   const char *err;

@@ -69,10 +69,13 @@ banner {
 }
 
 httpmsg {
+  # Some fields are commented out here. They are thought to be needed when
+  # building a crawler, but we don't currently have that.
+
   # Message stuff
-  data id;
-  data parent_id;
-  long depth;
+  # data id;
+  # data parent_id;
+  # long depth;
 
   # URL parts
   data scheme;
@@ -87,8 +90,8 @@ httpmsg {
 
   # HTTP request parts
   data method;
-  data reqtype; # content type of request body
-  data reqbody;
+  # data reqtype; # content type of request body
+  # data reqbody;
 
   # HTTP response parts
   data resphdr;

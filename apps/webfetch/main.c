@@ -147,6 +147,7 @@ int main(int argc, char *argv[]) {
 
   opts_or_die(&opts, argc, argv);
   signal(SIGPIPE, SIG_IGN);
+  curl_global_init(CURL_GLOBAL_ALL);
 
   /* Init the TCP connection source */
   ret = tcpsrc_init(&tcpsrc);

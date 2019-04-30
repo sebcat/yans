@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <curl/curl.h>
+
 #include <lib/net/tcpsrc.h>
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
@@ -284,18 +286,10 @@ static struct fetch_transfer *find_transfer(struct fetch_ctx *ctx,
 
 static int complete_transfer(struct fetch_ctx *ctx,
     struct fetch_transfer *t) {
-  int tlen;
-  int blen;
 
-  printf("DONE [%s] %s (%zu bytes)\n", t->dstaddr, t->urlbuf.data, t->recvbuf.len);
-  tlen = (int)fetch_transfer_headerlen(t);
-  blen = fetch_transfer_bodylen(t),
-  printf("tlen:%d blen:%d\n", tlen, blen);
-  printf("\"%.*s\"\n\"%.*s\"\n\n",
-      tlen,
-      fetch_transfer_header(t),
-      blen,
-      fetch_transfer_body(t));
+  if (ctx->opts.on_completed) {
+    ctx->opts.on_completed(t, ctx->opts.completeddata);
+  }
 
   buf_clear(&t->urlbuf);
   buf_clear(&t->connecttobuf);

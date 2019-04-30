@@ -9,21 +9,15 @@
 #include <lib/ycl/opener.h>
 #include <lib/ycl/ycl_msg.h>
 
+#include <curl/curl.h>
+
 #include <apps/webfetch/fetch.h>
+#include <apps/webfetch/module.h>
 
 #define MAX_MODULES 8 /* 8 modules should be enough for everybody! */
 
 #define MAX_NFETCHERS     100
 #define DEFAULT_NFETCHERS   8
-
-struct module_data {
-  char *name;
-  int argc;
-  char **argv;
-
-  int (*mod_init)(int, char **, void **);
-  /* TODO: mod_process, mod_cleanup */
-};
 
 struct opts {
   int sandbox;
@@ -35,13 +29,29 @@ struct opts {
   struct module_data modules[MAX_MODULES];
 };
 
+static void on_completed(struct fetch_transfer *t, void *data) {
+  struct opts *opts;
+  struct module_data *mod;
+  int i;
+
+  opts = data;
+  for (i = 0; i < opts->nmodules; i++) {
+    mod = &opts->modules[i];
+    if (mod->mod_process != NULL) {
+      mod->mod_process(t, mod->mod_data);
+    }
+  }
+}
+
 static void opts_or_die(struct opts *opts, int argc, char **argv) {
   int modoff = 0;
   int paramoff = 0;
   int pos;
   int ch;
   int i;
+  int ret;
   const char *optstr = "m:pXs:i:n:c:h";
+  struct module_data *mod;
   static const struct option options[] = {
     {"module",      required_argument, NULL, 'm'},
     {"params",      no_argument,       NULL, 'p'},
@@ -61,7 +71,8 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
         fprintf(stderr, "too many modules given\n");
         goto usage;
       }
-      opts->modules[modoff++].name = optarg;
+      opts->modules[modoff].name = optarg;
+      modoff++;
       opts->nmodules = modoff;
       break;
     case 'p':
@@ -107,22 +118,25 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
     goto usage;
   }
 
-  /* update the module argument vector (if any) with module name as
-   * argv[0] */
   for (i = 0; i < opts->nmodules; i++) {
-    if (opts->modules[i].argv) {
-      opts->modules[i].argv[0] = opts->modules[i].name;
+    mod = &opts->modules[i];
+
+    /* update the module argument vector (if any) with module name as
+     * argv[0] */
+    if (mod->argv) {
+      mod->argv[0] = mod->name;
+    }
+
+    /* load the module */
+    ret = module_load(mod);
+    if (ret < 0) {
+      fprintf(stderr, "failed to load module %s\n", mod->name);
+      for (i = 0; i < opts->nmodules; i++) { /* NB: i reuse */
+        module_cleanup(&opts->modules[i]);
+      }
+      goto usage;
     }
   }
-
-  for (pos = 0; pos < opts->nmodules; pos++) {
-    printf("%s: ", opts->modules[pos].name);
-    for (ch = 0; ch < opts->modules[pos].argc; ch++) {
-      fprintf(stdout, "%s ", opts->modules[pos].argv[ch]);
-    }
-    printf(" (%d)\n", opts->modules[pos].argc);
-  }
-
 
   return;
 usage:
@@ -189,10 +203,12 @@ int main(int argc, char *argv[]) {
   }
 
   /* initialize the fetcher */
-  fetch_opts.infp      = infp;
-  fetch_opts.tcpsrc    = &tcpsrc;
-  fetch_opts.nfetchers = opts.nfetchers;
-  fetch_opts.maxsize   = opts.maxsize;
+  fetch_opts.infp          = infp;
+  fetch_opts.tcpsrc        = &tcpsrc;
+  fetch_opts.nfetchers     = opts.nfetchers;
+  fetch_opts.maxsize       = opts.maxsize;
+  fetch_opts.on_completed  = on_completed;
+  fetch_opts.completeddata = &opts;
   ret = fetch_init(&fetch, &fetch_opts);
   if (ret < 0) {
     fprintf(stderr, "fetch_init failure\n");

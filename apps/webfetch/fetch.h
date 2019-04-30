@@ -15,6 +15,7 @@
     ((t)->bodyoff > 0 ? (t)->recvbuf.len - (t)->bodyoff : 0)
 
 struct fetch_transfer {
+  char dstaddr[64]; /* destination address in textual representation */
   buf_t urlbuf;
   buf_t connecttobuf;
   CURL *easy;

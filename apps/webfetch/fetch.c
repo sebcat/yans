@@ -287,7 +287,7 @@ static int complete_transfer(struct fetch_ctx *ctx,
   int tlen;
   int blen;
 
-  printf("DONE %s (%zu bytes)\n", t->urlbuf.data, t->recvbuf.len);
+  printf("DONE [%s] %s (%zu bytes)\n", t->dstaddr, t->urlbuf.data, t->recvbuf.len);
   tlen = (int)fetch_transfer_headerlen(t);
   blen = fetch_transfer_bodylen(t),
   printf("tlen:%d blen:%d\n", tlen, blen);
@@ -326,6 +326,9 @@ static int start_transfer(struct fetch_ctx *ctx,
   if (ret < 0) {
     return -1;
   }
+
+  strncpy(t->dstaddr, httpmsg.addr.data, sizeof(t->dstaddr));
+  t->dstaddr[sizeof(t->dstaddr)-1] = '\0';
 
   /* build the string which tells curl how to map the url host to a
    * specific address */

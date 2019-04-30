@@ -28,6 +28,7 @@ struct module_data {
 struct opts {
   int sandbox;
   int nfetchers;
+  int maxsize;
   const char *opener_socket;
   const char *input_path; /* TODO: We could have multiple input paths */
   int nmodules;
@@ -40,7 +41,7 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
   int pos;
   int ch;
   int i;
-  const char *optstr = "m:pXs:i:n:h";
+  const char *optstr = "m:pXs:i:n:c:h";
   static const struct option options[] = {
     {"module",      required_argument, NULL, 'm'},
     {"params",      no_argument,       NULL, 'p'},
@@ -48,6 +49,7 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
     {"opener-sock", required_argument, NULL, 's'},
     {"in-httpmsgs", required_argument, NULL, 'i'},
     {"nfetchers",   required_argument, NULL, 'n'},
+    {"maxsize",     required_argument, NULL, 'c'},
     {"help",        no_argument,       NULL, 'h'},
     {NULL, 0, NULL, 0},
   };
@@ -90,6 +92,9 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
       break;
     case 'n':
       opts->nfetchers = (int)strtol(optarg, NULL, 10);
+      break;
+    case 'c':
+      opts->maxsize = (int)strtol(optarg, NULL, 10);
       break;
     case 'h':
     default:
@@ -187,6 +192,7 @@ int main(int argc, char *argv[]) {
   fetch_opts.infp      = infp;
   fetch_opts.tcpsrc    = &tcpsrc;
   fetch_opts.nfetchers = opts.nfetchers;
+  fetch_opts.maxsize   = opts.maxsize;
   ret = fetch_init(&fetch, &fetch_opts);
   if (ret < 0) {
     fprintf(stderr, "fetch_init failure\n");

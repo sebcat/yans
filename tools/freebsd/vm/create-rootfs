@@ -5,7 +5,8 @@ die() {
   exit 1
 }
 
-RM_RF_PATHS="/rescue /media /mnt /net /usr/share/misc /etc/periodic"
+RM_RF_PATHS="/rescue /media /mnt /net /usr/share/misc /etc/periodic \
+/usr/local/share/doc"
 RM_F_PATHS="/usr/sbin/cxgbetool /etc/defaults/periodic.conf"
 
 : ${MOUNTPOINT:=$(pwd)/mntpoint}
@@ -14,7 +15,7 @@ RM_F_PATHS="/usr/sbin/cxgbetool /etc/defaults/periodic.conf"
 : ${WORLDDIR:=/usr/src}
 : ${KERNCONF:=MYKERNEL}
 : ${SRCCONF:=$(pwd)/src.conf.installworld}
-: ${PKGS:=nginx-lite jansson re2}
+: ${PKGS:=nginx-lite jansson re2 curl}
 
 [ -e "$MOUNTPOINT" ] && die "MOUNTPOINT exists"
 [ -z "$IMG" -o -e "$IMG" ] && die "missing IMG name or existing IMG"
@@ -68,7 +69,8 @@ find "$MOUNTPOINT" -type f -name '*.a' -delete
 
 # Remove content of /var, since we'll mount a memory disk over it anyway
 chflags noschg "$MOUNTPOINT/var/empty"
-rm -rf "$MOUNTPOINT/var/*"
+rm -rf "$MOUNTPOINT/var/"
+mkdir "$MOUNTPOINT/var/"
 
 # Compress kernel
 gzip -9 "$MOUNTPOINT/boot/kernel/kernel"

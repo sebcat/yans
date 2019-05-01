@@ -1,12 +1,13 @@
 # TODO
 
-- find-urls --http-msgs ... --to-url-list ... (gumbo-parser based)
+- The current curl binary port depends on a lot of shit. Either
+  build/install from ports, or introduce it as a in-tree 3rd_party
+  dependency
 
-- scan collate --type httpreqs --from-url-list ... --from-banners ...
+- webfetch module: reqfinder (sigil-gumbo based)
 
-- scan http --deduptbl <path> --cookie-jar <path> --httpreqs <path>
-
-- yans-fe: Make HTML tables sortable (sort.js)
+- yans-fe: Make HTML tables sortable (sort.js) have spinner to indicate
+           when sorting
 
 - Write wrapper for qsort_r which deals with various arg orders
 - Continue to work on Linux version

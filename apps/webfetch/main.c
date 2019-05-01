@@ -49,9 +49,7 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
   int pos;
   int ch;
   int i;
-  int ret;
   const char *optstr = "m:pXs:i:n:c:h";
-  struct module_data *mod;
   static const struct option options[] = {
     {"module",      required_argument, NULL, 'm'},
     {"params",      no_argument,       NULL, 'p'},
@@ -118,26 +116,6 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
     goto usage;
   }
 
-  for (i = 0; i < opts->nmodules; i++) {
-    mod = &opts->modules[i];
-
-    /* update the module argument vector (if any) with module name as
-     * argv[0] */
-    if (mod->argv) {
-      mod->argv[0] = mod->name;
-    }
-
-    /* load the module */
-    ret = module_load(mod);
-    if (ret < 0) {
-      fprintf(stderr, "failed to load module %s\n", mod->name);
-      for (i = 0; i < opts->nmodules; i++) { /* NB: i reuse */
-        module_cleanup(&opts->modules[i]);
-      }
-      goto usage;
-    }
-  }
-
   return;
 usage:
   fprintf(stderr, "usage: %s [opts]\nopts:\n", argv[0]);
@@ -151,11 +129,13 @@ usage:
 int main(int argc, char *argv[]) {
   int status = EXIT_FAILURE;
   int ret;
+  int i;
   struct opener_opts opener_opts = {0};
   struct opener_ctx opener;
   struct tcpsrc_ctx tcpsrc;
   struct fetch_ctx fetch;
   struct fetch_opts fetch_opts = {0};
+  struct module_data *mod;
   FILE *infp;
   static struct opts opts = {
     /* default values, possibly overridden in opts_or_die */
@@ -195,11 +175,36 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "warning: sandbox disabled\n");
   }
 
+  /* Init the modules, do this after entering the sandbox */
+  for (i = 0; i < opts.nmodules; i++) {
+    mod = &opts.modules[i];
+
+    /* update the module argument vector (if any) with module name as
+     * argv[0] */
+    if (mod->argv) {
+      mod->argv[0] = mod->name;
+    } else {
+      mod->argv = &mod->name;
+      mod->argc = 1;
+    }
+
+    /* make the module aware of the opener */
+    mod->opener = &opener;
+
+    /* load the module */
+    ret = module_load(mod);
+    if (ret < 0) {
+      fprintf(stderr, "failed to load module %s\n", mod->name);
+      goto module_cleanup;
+    }
+  }
+
+
   /* open the input file for HTTP messages */
   ret = opener_fopen(&opener, opts.input_path, "rb", &infp);
   if (ret < 0) {
     fprintf(stderr, "opener_init: %s\n", opener_strerror(&opener));
-    goto opener_cleanup;
+    goto module_cleanup;
   }
 
   /* initialize the fetcher */
@@ -223,6 +228,10 @@ int main(int argc, char *argv[]) {
   fetch_cleanup(&fetch);
 fclose_infp:
   fclose(infp);
+module_cleanup:
+  for (i = 0; i < opts.nmodules; i++) {
+    module_cleanup(&opts.modules[i]);
+  }
 opener_cleanup:
   opener_cleanup(&opener);
 tcpsrc_cleanup:

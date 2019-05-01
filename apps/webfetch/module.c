@@ -14,9 +14,9 @@ static const struct module_data modules_[] = {
   },
   {
     .name        = "simplelog",
-    .mod_init    = NULL,
+    .mod_init    = simplelog_init,
     .mod_process = simplelog_process,
-    .mod_cleanup = NULL,
+    .mod_cleanup = simplelog_cleanup,
   }
 };
 
@@ -33,7 +33,7 @@ int module_load(struct module_data *mod) {
       mod->mod_process = modules_[i].mod_process;
       mod->mod_cleanup = modules_[i].mod_cleanup;
       if (mod->mod_init) {
-        return mod->mod_init(mod->argc, mod->argv, &mod->mod_data);
+        return mod->mod_init(mod);
       } else {
         return 0;
       }

@@ -9,9 +9,11 @@ webfetch_DEPS     = lib/util/io.c lib/util/buf.c lib/util/netstring.c \
 webfetch_DEPSOBJS = ${webfetch_DEPS:.c=.o}
 webfetch_SOURCES  = apps/webfetch/main.c apps/webfetch/fetch.c \
                     apps/webfetch/module.c \
-                    apps/webfetch/modules/logger.c
+                    apps/webfetch/modules/logger.c \
+                    apps/webfetch/modules/writer.c
 webfetch_HEADERS  = apps/webfetch/fetch.h apps/webfetch/module.h \
-                    apps/webfetch/modules/logger.h
+                    apps/webfetch/modules/logger.h \
+                    apps/webfetch/modules/writer.h
 webfetch_OBJS     = ${webfetch_SOURCES:.c=.o}
 webfetch_BIN      = apps/webfetch/webfetch
 webfetch_LDADD    = ${libcurl_LDFLAGS} -lz

@@ -776,8 +776,6 @@ static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
       msg.port.len = strlen(port);
       msg.path.data = "/";
       msg.path.len = sizeof("/") - 1;
-      msg.method.data = "GET";
-      msg.method.len = sizeof("GET") - 1;
       ret = ycl_msg_create_httpmsg(&msgbuf, &msg);
       if (ret != YCL_OK) {
         fprintf(stderr, "httpmsg serialization failure\n");

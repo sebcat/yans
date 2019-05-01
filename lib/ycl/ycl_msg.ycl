@@ -77,6 +77,9 @@ httpmsg {
   # data parent_id;
   # long depth;
 
+  # Complete URL
+  data url;
+
   # URL parts
   data scheme;
   data addr;     # IPv4/IPv6 address
@@ -88,8 +91,8 @@ httpmsg {
   #       do not save it. Add it here when-/ifever fragment-specific
   #       functionality is added (e.g., JS eval).
 
-  # HTTP request parts
-  data method;
+  # HTTP request parts TODO: currently only GET is supported
+  # data method;
   # data reqtype; # content type of request body
   # data reqbody;
 

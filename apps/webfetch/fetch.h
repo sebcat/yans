@@ -5,9 +5,13 @@
 #include <lib/ycl/ycl_msg.h>
 
 #define fetch_transfer_dstaddr(t) \
-    ((t)->dstaddr ? (t)->dstaddr : "")
+    ((t)->dstaddr)
+#define fetch_transfer_hostname(t) \
+    ((t)->hostname)
 #define fetch_transfer_url(t) \
     ((t)->urlbuf.len ? (t)->urlbuf.data : "")
+#define fetch_transfer_urllen(t) \
+    ((t)->urlbuf.len ? (t)->urlbuf.len-1 : 0)
 #define fetch_transfer_header(t) \
     ((t)->recvbuf.len > 0 ? (t)->recvbuf.data : "")
 #define fetch_transfer_headerlen(t) \
@@ -18,6 +22,7 @@
     ((t)->bodyoff > 0 ? (t)->recvbuf.len - (t)->bodyoff : 0)
 
 struct fetch_transfer {
+  char hostname[256]; /* hostname in textual representation */
   char dstaddr[64]; /* destination address in textual representation */
   buf_t urlbuf;
   buf_t connecttobuf;

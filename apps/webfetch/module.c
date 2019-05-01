@@ -3,6 +3,7 @@
 
 #include <lib/util/macros.h>
 #include <apps/webfetch/module.h>
+#include <apps/webfetch/modules/writer.h>
 #include <apps/webfetch/modules/logger.h>
 
 static const struct module_data modules_[] = {
@@ -17,6 +18,12 @@ static const struct module_data modules_[] = {
     .mod_init    = logger_init,
     .mod_process = logger_process,
     .mod_cleanup = logger_cleanup,
+  },
+  {
+    .name        = "writer",
+    .mod_init    = writer_init,
+    .mod_process = writer_process,
+    .mod_cleanup = writer_cleanup,
   }
 };
 

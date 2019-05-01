@@ -226,8 +226,20 @@ static int build_connect_to(buf_t *buf, struct ycl_msg_httpmsg *msg) {
 }
 
 static int build_request_url(buf_t *urlbuf, struct ycl_msg_httpmsg *msg) {
+  int ret;
 
   buf_clear(urlbuf);
+
+  /* do we already have a URL?  If so, copy it and we're done! */
+  if (msg->url.len > 0) {
+    ret = buf_adata(urlbuf, msg->url.data, msg->url.len);
+    if (ret != 0) {
+      return -1;
+    }
+    buf_achar(urlbuf, '\0');
+    return 0;
+  }
+
   if (msg->scheme.len == 0 || msg->hostname.len == 0) {
     return -1;
   }
@@ -295,6 +307,8 @@ static int complete_transfer(struct fetch_ctx *ctx,
   buf_clear(&t->connecttobuf);
   buf_clear(&t->recvbuf);
   curl_slist_free_all(t->ctslist);
+  t->dstaddr[0] = '\0';
+  t->hostname[0] = '\0';
   t->ctslist = NULL;
   t->scanoff = 0;
   t->bodyoff = 0;
@@ -323,6 +337,8 @@ static int start_transfer(struct fetch_ctx *ctx,
 
   strncpy(t->dstaddr, httpmsg.addr.data, sizeof(t->dstaddr));
   t->dstaddr[sizeof(t->dstaddr)-1] = '\0';
+  strncpy(t->hostname, httpmsg.hostname.data, sizeof(t->hostname));
+  t->hostname[sizeof(t->hostname)-1] = '\0';
 
   /* build the string which tells curl how to map the url host to a
    * specific address */

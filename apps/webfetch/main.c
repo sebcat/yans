@@ -44,8 +44,6 @@ static void on_completed(struct fetch_transfer *t, void *data) {
 }
 
 static void opts_or_die(struct opts *opts, int argc, char **argv) {
-  int modoff = 0;
-  int paramoff = 0;
   int pos;
   int ch;
   int i;
@@ -65,18 +63,20 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
   while ((ch = getopt_long(argc, argv, optstr, options, NULL)) != -1) {
     switch(ch) {
     case 'm':
-      if (modoff >= MAX_MODULES) {
+      if (opts->modules[opts->nmodules].name) {
+        opts->nmodules++;
+      }
+
+      if (opts->nmodules >= MAX_MODULES) {
         fprintf(stderr, "too many modules given\n");
         goto usage;
       }
-      opts->modules[modoff].name = optarg;
-      modoff++;
-      opts->nmodules = modoff;
+      opts->modules[opts->nmodules].name = optarg;
       break;
     case 'p':
-      if (paramoff >= MAX_MODULES) {
-        fprintf(stderr, "too many params given\n");
-        goto usage;
+      /* make sure we have a module set up */
+      if (!opts->modules[opts->nmodules].name) {
+        fprintf(stderr, "param directive must follow a module\n");
       }
 
       /* find the end of the params */
@@ -85,10 +85,10 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
 
       /* set the argv, argc of the module to that of the command line.
        * include the -p/--params flag for later replacement of argv[0] */
-      opts->modules[paramoff].argc = pos - optind;
-      opts->modules[paramoff].argv = argv + optind - 1;
-      paramoff++;
+      opts->modules[opts->nmodules].argc = pos - optind;
+      opts->modules[opts->nmodules].argv = argv + optind - 1;
       optind = pos;
+      opts->nmodules++;
       break;
     case 'X':
       opts->sandbox = 0;
@@ -114,6 +114,11 @@ static void opts_or_die(struct opts *opts, int argc, char **argv) {
   if (opts->nfetchers < 0 || opts->nfetchers >= MAX_NFETCHERS) {
     fprintf(stderr, "invalid number of fetchers\n");
     goto usage;
+  }
+
+  /* if we stopped on a -m, we need to advance opts->nmodules here */
+  if (opts->modules[opts->nmodules].name) {
+    opts->nmodules++;
   }
 
   return;
@@ -198,7 +203,6 @@ int main(int argc, char *argv[]) {
       goto module_cleanup;
     }
   }
-
 
   /* open the input file for HTTP messages */
   ret = opener_fopen(&opener, opts.input_path, "rb", &infp);

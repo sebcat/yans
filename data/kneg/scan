@@ -13,6 +13,9 @@ STATUS=
 # scan(1) binary to use
 : ${SCAN:=scan}
 
+# webfetch(1) binary to use
+: ${WEBFETCH:=webfetch}
+
 # flags to use for all invocations of $SCAN
 : ${SCANOPTS:=}
 
@@ -103,6 +106,14 @@ run $SCAN collate                             \
     --type httpmsgs                           \
     --in-services-csv zlib:services.csv.gz    \
     --out-httpmsgs zlib:httpreqs.0
+
+run $WEBFETCH                                 \
+    --in-httpmsgs zlib:httpreqs.0             \
+    --module logger --params                  \
+        --out-logfile zlib:httpmsgs.log ';'   \
+    --module writer --params                  \
+        --out-httpmsgs zlib:httpmsgs.0 ';'    \
+
 
 
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

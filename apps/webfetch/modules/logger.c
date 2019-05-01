@@ -4,20 +4,20 @@
 #include <time.h>
 
 #include <lib/util/macros.h>
-#include <apps/webfetch/modules/simplelog.h>
+#include <apps/webfetch/modules/logger.h>
 
 #define DEFAULT_OUTPATH "-"
 
-struct simplelog_data {
+struct logger_data {
   FILE *out;
 };
 
-int simplelog_init(struct module_data *mod) {
+int logger_init(struct module_data *mod) {
   int ch;
   int ret;
   const char *outpath = DEFAULT_OUTPATH;
   char *optstr = "o:";
-  struct simplelog_data *data;
+  struct logger_data *data;
   struct option opts[] = {
     {"out-logfile", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0},
@@ -34,9 +34,9 @@ int simplelog_init(struct module_data *mod) {
     }
   }
 
-  data = calloc(1, sizeof(struct simplelog_data));
+  data = calloc(1, sizeof(struct logger_data));
   if (!data) {
-    fprintf(stderr, "failed to allocate simplelog data\n");
+    fprintf(stderr, "failed to allocate logger data\n");
     return -1;
   }
 
@@ -50,12 +50,12 @@ int simplelog_init(struct module_data *mod) {
   mod->mod_data = data;
   return 0;
 usage:
-  fprintf(stderr, "usage: simplelog [--out-logfile <path>]\n");
+  fprintf(stderr, "usage: logger [--out-logfile <path>]\n");
   return -1;
 }
 
-void simplelog_cleanup(void *data) {
-  struct simplelog_data *d;
+void logger_cleanup(void *data) {
+  struct logger_data *d;
 
   if (data) {
     d = data;
@@ -67,11 +67,11 @@ void simplelog_cleanup(void *data) {
   }
 }
 
-void simplelog_process(struct fetch_transfer *t, void *data) {
+void logger_process(struct fetch_transfer *t, void *data) {
   char *crlf;
   char *start;
   size_t len;
-  struct simplelog_data *sd;
+  struct logger_data *sd;
   char status_line[128];
   char timebuf[128];
   time_t tval = 0;

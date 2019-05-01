@@ -3,7 +3,7 @@
 
 #include <lib/util/macros.h>
 #include <apps/webfetch/module.h>
-#include <apps/webfetch/modules/simplelog.h>
+#include <apps/webfetch/modules/logger.h>
 
 static const struct module_data modules_[] = {
   {
@@ -13,10 +13,10 @@ static const struct module_data modules_[] = {
     .mod_cleanup = NULL,
   },
   {
-    .name        = "simplelog",
-    .mod_init    = simplelog_init,
-    .mod_process = simplelog_process,
-    .mod_cleanup = simplelog_cleanup,
+    .name        = "logger",
+    .mod_init    = logger_init,
+    .mod_process = logger_process,
+    .mod_cleanup = logger_cleanup,
   }
 };
 

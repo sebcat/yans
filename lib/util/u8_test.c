@@ -41,7 +41,7 @@ static int test_u8_to_from_cp() {
     actual = u8_to_cp(tests[i].s, tests[i].len, &tolen);
     if (tests[i].expected != actual) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("index:%zu expected:0x%08x actual:0x%08x", i,
+      TEST_LOGF("index:%zu expected:0x%08x actual:0x%08x", i,
           tests[i].expected, actual);
     }
 
@@ -50,13 +50,13 @@ static int test_u8_to_from_cp() {
     ret = u8_from_cp(buf, sizeof(buf), actual, &fromlen);
     if (ret < 0) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("index:%zu return:%d\n", i, ret);
+      TEST_LOGF("index:%zu return:%d\n", i, ret);
     } else if (memcmp(tests[i].s, buf, tests[i].len + 1) != 0) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("index:%zu mismatched", i);
+      TEST_LOGF("index:%zu mismatched", i);
     } else if (tolen != fromlen) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("index:%zu tolen:%zu fromlen:%zu", i, tolen, fromlen);
+      TEST_LOGF("index:%zu tolen:%zu fromlen:%zu", i, tolen, fromlen);
     }
   }
 
@@ -84,7 +84,7 @@ static int test_u8_tolower() {
     actual = u8_tolower(tests[i].input);
     if (actual != tests[i].expected) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("index:%zu expected:0x%08X actual:0x%08X", i,
+      TEST_LOGF("index:%zu expected:0x%08X actual:0x%08X", i,
           tests[i].expected, actual);
     }
   }

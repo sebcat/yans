@@ -27,14 +27,14 @@ int test_match() {
     ret = reset_add(reset, inputs[i].re);
     if (ret != (int)i) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("reset_add ID mismatch i:%zu %s", i, reset_strerror(reset));
+      TEST_LOGF("reset_add ID mismatch i:%zu %s", i, reset_strerror(reset));
     }
   }
 
   ret = reset_compile(reset);
   if (ret != RESET_OK) {
     status = TEST_FAIL;
-    TEST_LOG_ERRF("%s", reset_strerror(reset));
+    TEST_LOGF("%s", reset_strerror(reset));
   }
 
   for (i = 0; i < ARRAY_SIZE(inputs); i++) {
@@ -42,7 +42,7 @@ int test_match() {
         inputs[i].len == 0 ? strlen(inputs[i].data) : inputs[i].len);
     if (ret != RESET_OK) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("i:%zu %s", i, reset_strerror(reset));
+      TEST_LOGF("i:%zu %s", i, reset_strerror(reset));
     }
 
     found = 0;
@@ -55,7 +55,7 @@ int test_match() {
 
     if (!found) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("i:%zu mismatch", i);
+      TEST_LOGF("i:%zu mismatch", i);
     }
   }
 
@@ -80,9 +80,9 @@ int test_noadd() {
     reset = reset_new();
     ret = reset_add(reset, inputs[i].re);
     if (ret == RESET_ERR) {
-      TEST_LOG_ERRF("expected failure i:%zu %s", i, reset_strerror(reset));
+      TEST_LOGF("expected failure i:%zu %s", i, reset_strerror(reset));
     } else {
-      TEST_LOG_ERRF("unexpected success i:%zu", i);
+      TEST_LOGF("unexpected success i:%zu", i);
       status = TEST_FAIL;
     }
 
@@ -114,14 +114,14 @@ int test_nomatch() {
     ret = reset_add(reset, inputs[i].re);
     if (ret != (int)i) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("reset_add ID mismatch i:%zu %s", i, reset_strerror(reset));
+      TEST_LOGF("reset_add ID mismatch i:%zu %s", i, reset_strerror(reset));
     }
   }
 
   ret = reset_compile(reset);
   if (ret != RESET_OK) {
     status = TEST_FAIL;
-    TEST_LOG_ERRF("%s", reset_strerror(reset));
+    TEST_LOGF("%s", reset_strerror(reset));
   }
 
   for (i = 0; i < ARRAY_SIZE(inputs); i++) {
@@ -137,7 +137,7 @@ int test_nomatch() {
 
     if (found) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("i:%zu unexpected match", i);
+      TEST_LOGF("i:%zu unexpected match", i);
     }
   }
 
@@ -160,7 +160,7 @@ int test_substrings() {
   ret = reset_compile(reset);
   if (ret != RESET_OK) {
     status = TEST_FAIL;
-    TEST_LOG_ERRF("%s", reset_strerror(reset));
+    TEST_LOGF("%s", reset_strerror(reset));
   }
 
   reset_match(reset, data, sizeof(data)-1);
@@ -168,7 +168,7 @@ int test_substrings() {
     sub = reset_get_substring(reset, id, data, sizeof(data)-1, NULL);
     if (sub == NULL) {
       status = TEST_FAIL;
-      TEST_LOG_ERRF("missing substring for id %d", id);
+      TEST_LOGF("missing substring for id %d", id);
       continue;
     }
 
@@ -176,24 +176,24 @@ int test_substrings() {
     case 0:
       if (strcmp(sub, "adam") != 0) {
         status = TEST_FAIL;
-        TEST_LOG_ERRF("expected adam, got %s", sub);
+        TEST_LOGF("expected adam, got %s", sub);
       }
       break;
     case 1:
       if (strcmp(sub, "bertil") != 0) {
         status = TEST_FAIL;
-        TEST_LOG_ERRF("expected bertil, got %s", sub);
+        TEST_LOGF("expected bertil, got %s", sub);
       }
       break;
     case 2:
       if (strcmp(sub, "cesar") != 0) {
         status = TEST_FAIL;
-        TEST_LOG_ERRF("expected cesar, got %s", sub);
+        TEST_LOGF("expected cesar, got %s", sub);
       }
       break;
     default:
       status = TEST_FAIL;
-      TEST_LOG_ERRF("unexpected id: %d", id);
+      TEST_LOGF("unexpected id: %d", id);
     }
   }
 

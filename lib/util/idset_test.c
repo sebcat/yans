@@ -6,14 +6,14 @@ static int test_instantiation() {
 
   set = idset_new(10);
   if (set == NULL) {
-    TEST_LOG_ERR("failed to instantiate set: nids 10");
+    TEST_LOG("failed to instantiate set: nids 10");
     return TEST_FAIL;
   }
 
   idset_free(set);
   set = idset_new(0);
   if (set != NULL) {
-    TEST_LOG_ERR("failed to instantiate set: nids 0");
+    TEST_LOG("failed to instantiate set: nids 0");
     return TEST_FAIL;
   }
 
@@ -32,7 +32,7 @@ static int test_interval() {
   for (i = 0; i < sizeof(nids)/sizeof(*nids); i++) {
     set = idset_new(nids[i]);
     if (set == NULL) {
-      TEST_LOG_ERRF("failed to instantiate set: nids: %d", nids[i]);
+      TEST_LOGF("failed to instantiate set: nids: %d", nids[i]);
       return TEST_FAIL;
     }
 
@@ -41,13 +41,13 @@ static int test_interval() {
       if (id == -1) {
         break;
       } else if (id != j) {
-        TEST_LOG_ERRF("i:%d - expected id:%d, got:%d", i, j, id);
+        TEST_LOGF("i:%d - expected id:%d, got:%d", i, j, id);
         goto fail;
       }
     }
 
     if (j != nids[i]) {
-      TEST_LOG_ERRF("i:%d - expected end:%d, got:%d", i, nids[i], j);
+      TEST_LOGF("i:%d - expected end:%d, got:%d", i, nids[i], j);
       goto fail;
     }
 
@@ -67,25 +67,25 @@ static int test_reuse() {
 
   set = idset_new(2);
   if (set == NULL) {
-    TEST_LOG_ERR("failed to instantiate set");
+    TEST_LOG("failed to instantiate set");
     return TEST_FAIL;
   }
 
   id = idset_use_next(set);
   if (id != 0) {
-    TEST_LOG_ERRF("expected 0, got %d", id);
+    TEST_LOGF("expected 0, got %d", id);
     goto done;
   }
 
   id = idset_use_next(set);
   if (id != 1) {
-    TEST_LOG_ERRF("expected 1, got %d", id);
+    TEST_LOGF("expected 1, got %d", id);
     goto done;
   }
 
   id = idset_use_next(set);
   if (id != -1) {
-    TEST_LOG_ERRF("expected -1, got %d", id);
+    TEST_LOGF("expected -1, got %d", id);
     goto done;
   }
 
@@ -93,13 +93,13 @@ static int test_reuse() {
 
   id = idset_use_next(set);
   if (id != 1) {
-    TEST_LOG_ERRF("expected 1, got %d", id);
+    TEST_LOGF("expected 1, got %d", id);
     goto done;
   }
 
   id = idset_use_next(set);
   if (id != -1) {
-    TEST_LOG_ERRF("expected -1, got %d", id);
+    TEST_LOGF("expected -1, got %d", id);
     goto done;
   }
 
@@ -107,13 +107,13 @@ static int test_reuse() {
 
   id = idset_use_next(set);
   if (id != 0) {
-    TEST_LOG_ERRF("expected 0, got %d", id);
+    TEST_LOGF("expected 0, got %d", id);
     goto done;
   }
 
   id = idset_use_next(set);
   if (id != -1) {
-    TEST_LOG_ERRF("expected -1, got %d", id);
+    TEST_LOGF("expected -1, got %d", id);
     goto done;
   }
 

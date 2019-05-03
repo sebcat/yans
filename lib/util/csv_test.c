@@ -46,13 +46,13 @@ static int test_encode() {
     cptr = (const char **)vals[i].elems;
     ret = csv_encode(&buf, cptr, vals[i].nelems);
     if (ret != 0) {
-      TEST_LOG_ERRF("index:%zu csv_encode failure", i);
+      TEST_LOGF("index:%zu csv_encode failure", i);
       result = TEST_FAIL;
     }
 
     if (strncmp(buf.data, vals[i].expected, buf.len) != 0) {
       buf_achar(&buf, '\0'); /* \0-terminate for the log message */
-      TEST_LOG_ERRF("index:%zu expected:%s was:%s", i, vals[i].expected,
+      TEST_LOGF("index:%zu expected:%s was:%s", i, vals[i].expected,
           buf.data);
       result = TEST_FAIL;
     }
@@ -126,21 +126,21 @@ static int test_read_row() {
   for (i = 0; i < ARRAY_SIZE(vals); i++) {
     fp = fmemopen(vals[i].input, strlen(vals[i].input), "rb");
     if (!fp) {
-      TEST_LOG_ERRF("index:%zu failed to open input", i);
+      TEST_LOGF("index:%zu failed to open input", i);
       result = TEST_FAIL;
       continue;
     }
 
     ret = csv_read_row(&r, fp);
     if (ret < 0) {
-      TEST_LOG_ERRF("index:%zu failed to read csv input", i);
+      TEST_LOGF("index:%zu failed to read csv input", i);
       result = TEST_FAIL;
     }
 
     fclose(fp);
     nelems = csv_reader_nelems(&r);
     if (nelems != vals[i].nelems) {
-      TEST_LOG_ERRF("index:%zu nelems expected:%zu actual:%zu input:%s", i,
+      TEST_LOGF("index:%zu nelems expected:%zu actual:%zu input:%s", i,
           vals[i].nelems, nelems, vals[i].input);
       result = TEST_FAIL;
     }
@@ -149,7 +149,7 @@ static int test_read_row() {
     for (j = 0; j < nelems; j++) {
       col = csv_reader_elem(&r, j);
       if (strcmp(vals[i].elems[j], col) != 0) {
-        TEST_LOG_ERRF("index:%zu elem:%zu expected:%s actual:%s input:%s",
+        TEST_LOGF("index:%zu elem:%zu expected:%s actual:%s input:%s",
             i, j, vals[i].elems[j], col, vals[i].input);
         result = TEST_FAIL;
       }

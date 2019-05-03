@@ -29,7 +29,7 @@ static int test_decode() {
     urlquery_decode(tmp);
     if (strcmp(tmp, tests[i].expected) != 0) {
       result = TEST_FAIL;
-      TEST_LOG_ERRF("expected:\"%s\" actual:\"%s\"", tests[i].expected,
+      TEST_LOGF("expected:\"%s\" actual:\"%s\"", tests[i].expected,
           tmp);
     }
     free(tmp);
@@ -144,26 +144,26 @@ static int test_next_pair() {
     for (pair = 0; pair < tests[i].expected.npairs; pair++) {
       ret = urlquery_next_pair(&curr, &key, &val);
       if (ret != 1) {
-        TEST_LOG_ERRF("expected ret:1 actual:%d test:%zu pair:%zu",
+        TEST_LOGF("expected ret:1 actual:%d test:%zu pair:%zu",
             ret, i, pair);
         result = TEST_FAIL;
       } else if (key == NULL ||
           strcmp(key, tests[i].expected.keys[pair]) != 0) {
-        TEST_LOG_ERRF("expected key:\"%s\" actual:\"%s\" "
+        TEST_LOGF("expected key:\"%s\" actual:\"%s\" "
              "test:%zu pair:%zu",
             tests[i].expected.keys[pair], key ? key : "(null)", i, pair);
         result = TEST_FAIL;
       } else if (val == NULL && tests[i].expected.vals[pair] != NULL) {
-        TEST_LOG_ERRF("expected value:\"%s\" was:(null) test:%zu pair:%zu",
+        TEST_LOGF("expected value:\"%s\" was:(null) test:%zu pair:%zu",
             tests[i].expected.vals[pair], i, pair);
         result = TEST_FAIL;
       } else if (val != NULL && tests[i].expected.vals[pair] == NULL) {
-        TEST_LOG_ERRF("expected NULL value, was:\"%s\" test:%zu pair:%zu",
+        TEST_LOGF("expected NULL value, was:\"%s\" test:%zu pair:%zu",
             val, i, pair);
         result = TEST_FAIL;
       } else if (val != NULL && tests[i].expected.vals[pair] != NULL &&
           strcmp(val, tests[i].expected.vals[pair]) != 0) {
-        TEST_LOG_ERRF("expected value:\"%s\", actual:\"%s\" "
+        TEST_LOGF("expected value:\"%s\", actual:\"%s\" "
             "test:%zu pair:%zu",tests[i].expected.vals[pair], val, i,
             pair);
         result = TEST_FAIL;
@@ -172,17 +172,17 @@ static int test_next_pair() {
 
     if (*curr != '\0') {
       result = TEST_FAIL;
-      TEST_LOG_ERR("expected to end up at end of string");
+      TEST_LOG("expected to end up at end of string");
     }
 
     /* do one moar, expect zero return and NULL key */
     ret = urlquery_next_pair(&curr, &key, &val);
     if (ret != 0) {
       result = TEST_FAIL;
-      TEST_LOG_ERRF("expected 0 return at end, was:%d", ret);
+      TEST_LOGF("expected 0 return at end, was:%d", ret);
     } else if (key != NULL) {
       result = TEST_FAIL;
-      TEST_LOG_ERR("expected NULL key at end");
+      TEST_LOG("expected NULL key at end");
     }
 
     free(str);

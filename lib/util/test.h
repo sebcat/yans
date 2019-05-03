@@ -7,9 +7,9 @@
 #define TEST_FAIL -1
 
 /*NB: str,fmt must be a string literal */
-#define TEST_LOG_ERR(str) \
+#define TEST_LOG(str) \
     fprintf(stderr, "  %s:%d %s\n", __FILE__, __LINE__, str)
-#define TEST_LOG_ERRF(fmt, ...) \
+#define TEST_LOGF(fmt, ...) \
     fprintf(stderr, "  %s:%d " fmt "\n", __FILE__, __LINE__, __VA_ARGS__)
 
 #define TEST_ENTRY(...) \

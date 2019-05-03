@@ -9,7 +9,7 @@ static int test_init_cleanup() {
 
   ret = tcpproto_init(&ctx);
   if (ret != 0) {
-    TEST_LOG_ERR("tcpproto_init failure");
+    TEST_LOG("tcpproto_init failure");
     return TEST_FAIL;
   }
 
@@ -35,12 +35,12 @@ static int test_type_to_string() {
   for (i = 0; tests[i].str != NULL; i++) {
     str = tcpproto_type_to_string(tests[i].proto);
     if (str == NULL) {
-      TEST_LOG_ERRF("failed to get string representation (index:%d)", i);
+      TEST_LOGF("failed to get string representation (index:%d)", i);
       return TEST_FAIL;
     }
 
     if (strcmp(str, tests[i].str) != 0) {
-      TEST_LOG_ERRF("expected \"%s\", got \"%s\" (index:%d)",
+      TEST_LOGF("expected \"%s\", got \"%s\" (index:%d)",
           tests[i].str, str, i);
       return TEST_FAIL;
     }
@@ -66,7 +66,7 @@ static int test_type_from_port() {
   for (i = 0; i < sizeof(tests) / sizeof(*tests); i++) {
     t = tcpproto_type_from_port(tests[i].port);
     if (t != tests[i].proto) {
-      TEST_LOG_ERRF("expected:%d got:%d index:%zu", tests[i].proto, t, i);
+      TEST_LOGF("expected:%d got:%d index:%zu", tests[i].proto, t, i);
       return TEST_FAIL;
     }
   }
@@ -108,14 +108,14 @@ static int test_match() {
 
   ret = tcpproto_init(&ctx);
   if (ret != 0) {
-    TEST_LOG_ERR("tcpproto_init failure");
+    TEST_LOG("tcpproto_init failure");
     return TEST_FAIL;
   }
 
   for (i = 0; i < sizeof(tests) / sizeof(*tests); i++) {
     t = tcpproto_match(&ctx, tests[i].data, strlen(tests[i].data), 0);
     if (t != tests[i].proto_plain) {
-      TEST_LOG_ERRF("tcpproto_match plain expected:%d got:%d index:%zu",
+      TEST_LOGF("tcpproto_match plain expected:%d got:%d index:%zu",
           tests[i].proto_plain, t, i);
       result = TEST_FAIL;
     }
@@ -123,7 +123,7 @@ static int test_match() {
     t = tcpproto_match(&ctx, tests[i].data, strlen(tests[i].data),
         TCPPROTO_MATCHF_TLS);
     if (t != tests[i].proto_tls) {
-      TEST_LOG_ERRF("tcpproto_match tls expected:%d got:%d index:%zu",
+      TEST_LOGF("tcpproto_match tls expected:%d got:%d index:%zu",
           tests[i].proto_plain, t, i);
       result = TEST_FAIL;
     }

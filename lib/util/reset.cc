@@ -18,17 +18,18 @@ struct reset_t {
   std::vector<int> matches;
   std::size_t curr_match_index;
   std::string errstr;
+  std::string substring_;
 };
 
 class Pattern {
 public:
   Pattern(std::string &re) : pstr_(re), matcher_(nullptr) {};
   Pattern(const char *resp) : pstr_(resp), matcher_(nullptr) {};
-  const char *substring(const char *data, size_t len, size_t *ol);
+  ~Pattern();
+  bool substring(const char *data, size_t len, string *s);
 
 private:
   std::string pstr_;
-  std::string substring_;
   re2::RE2 *matcher_;
 };
 
@@ -38,40 +39,39 @@ static void init_options(RE2::Options& opts) {
   opts.set_posix_syntax(true); /* enforce POSIX ERE syntax */
 }
 
-const char *Pattern::substring(const char *data, size_t len, size_t *ol) {
+Pattern::~Pattern() {
+  if (matcher_) {
+    delete matcher_;
+    matcher_ = nullptr;
+  }
+}
+
+bool Pattern::substring(const char *data, size_t len, string *s) {
   int nsubgroups;
   bool matched;
   re2::StringPiece sub[2];
-
-  if (ol) {
-    *ol = 0;
-  }
 
   if (matcher_ == nullptr) {
     RE2::Options opts;
     init_options(opts);
     matcher_ = new(std::nothrow) re2::RE2(pstr_, opts);
     if (matcher_ == nullptr) {
-      return NULL;
+      return false;
     }
   }
 
   nsubgroups = matcher_->NumberOfCapturingGroups();
   if (nsubgroups < 1) {
-    return NULL;
+    return false;
   }
 
   matched = matcher_->Match(data, 0, len, RE2::UNANCHORED, sub, 2);
-  if (matched) {
-    size_t sublen = sub[1].length();
-    substring_.assign(sub[1].data(), sublen);
-    if (ol) {
-      *ol = sublen;
-    }
-    return substring_.c_str();
-  } else {
-    return NULL;
+  if (!matched) {
+    return false;
   }
+
+  s->assign(sub[1].data(), sub[1].length());
+  return true;
 }
 
 reset_t *reset_new() {
@@ -96,7 +96,6 @@ reset_t *reset_new() {
 }
 
 void reset_free(reset_t *reset) {
-
   if (reset != NULL) {
     delete reset->set;
     reset->set = NULL;
@@ -163,9 +162,19 @@ int reset_get_next_match(reset_t *reset) {
 
 const char *reset_get_substring(reset_t *reset, int id, const char *data,
     size_t len, size_t *ol) {
+  bool matched;
+
   if (id < 0 || id >= reset->patterns.size()) {
     return NULL;
   }
 
-  return reset->patterns[id].substring(data, len, ol);
+  matched = reset->patterns[id].substring(data, len, &reset->substring_);
+  if (matched) {
+    if (ol) {
+      *ol = reset->substring_.length();
+    }
+    return reset->substring_.c_str();
+  }
+
+  return NULL;
 }

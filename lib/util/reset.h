@@ -2,6 +2,12 @@
 #define RESET_H__
 
 #ifdef __cplusplus
+#include <cstddef>
+#else
+#include <stddef.h>
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -18,6 +24,8 @@ int reset_add(reset_t *reset, const char *re);
 int reset_compile(reset_t *reset);
 int reset_match(reset_t *reset, const char *data, size_t datalen);
 int reset_get_next_match(reset_t *reset);
+const char *reset_get_substring(reset_t *reset, int id, const char *data,
+    size_t len, size_t *ol);
 
 #ifdef __cplusplus
 }

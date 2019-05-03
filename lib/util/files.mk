@@ -28,6 +28,7 @@ lib_util_SOURCES = \
 lib_util_SOURCES_CC = lib/util/reset.cc
 
 CXXFLAGS_lib_util_reset != pkg-config --cflags re2
+LDFLAGS_lib_util_reset  != pkg-config --libs re2
 
 lib_util_OBJS = ${lib_util_SOURCES:.c=.o} ${lib_util_SOURCES_CC:.cc=.o}
 
@@ -76,6 +77,11 @@ lib_util_idset_test_DEPSOBJS = ${lib_util_idset_test_DEPS:.c=.o}
 lib_util_idset_test_SOURCES = lib/util/idset_test.c
 lib_util_idset_test_OBJS = ${lib_util_idset_test_SOURCES:.c=.o}
 
+lib_util_reset_test_DEPS = lib/util/reset.c
+lib_util_reset_test_DEPSOBJS = ${lib_util_reset_test_DEPS:.c=.o}
+lib_util_reset_test_SOURCES = lib/util/reset_test.c
+lib_util_reset_test_OBJS = ${lib_util_reset_test_SOURCES:.c=.o}
+
 
 lib_util_CTESTSRCS = \
     $(lib_util_csv_test_SOURCES) \
@@ -86,7 +92,8 @@ lib_util_CTESTSRCS = \
     $(lib_util_os_test_SOURCES) \
     $(lib_util_u8_test_SOURCES) \
     $(lib_util_str_test_SOURCES) \
-    $(lib_util_idset_test_SOURCES)
+    $(lib_util_idset_test_SOURCES) \
+    $(lib_util_reset_test_SOURCES)
 
 lib_util_CTESTS = ${lib_util_CTESTSRCS:.c=}
 

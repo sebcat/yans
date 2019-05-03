@@ -63,3 +63,7 @@ lib/util/idset_test: $(lib_util_idset_test_DEPSOBJS) $(lib_util_idset_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_idset_test_DEPSOBJS) \
 		$(lib_util_idset_test_OBJS) $(LDFLAGS)
 
+lib/util/reset_test: $(lib_util_reset_test_DEPSOBJS) $(lib_util_reset_test_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(lib_util_reset_test_DEPSOBJS) \
+		$(lib_util_reset_test_OBJS) $(LDFLAGS) \
+		$(LDFLAGS_lib_util_reset) -lstdc++

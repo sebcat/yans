@@ -31,6 +31,7 @@ lib/util/idtbl_test
 lib/util/objtbl_test
 lib/util/netstring_test
 lib/util/os_test
+lib/util/reset_test
 lib/util/str_test
 lib/util/u8_test
 lib/net/urlquery_test

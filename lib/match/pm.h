@@ -11,7 +11,7 @@ enum pm_match_type {
 };
 
 struct pm_pattern {
-  const char *name;
+  char *name;
 };
 
 struct pm_ctx {

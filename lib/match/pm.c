@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <assert.h>
 #include <lib/match/pm.h>
@@ -20,8 +21,15 @@ int pm_init(struct pm_ctx *ctx) {
 }
 
 void pm_cleanup(struct pm_ctx *ctx) {
+  size_t i;
+
   reset_free(ctx->reset);
   ctx->reset = NULL;
+  for (i = 0; i < ctx->plen; i++) {
+    free(ctx->patterns[i].name);
+  }
+
+  free(ctx->patterns);
 }
 
 static int grow_patterns(struct pm_ctx *ctx) {
@@ -31,11 +39,11 @@ static int grow_patterns(struct pm_ctx *ctx) {
 
   incr = MAX(ctx->pcap / 2, MIN_GROWTH);
   newcap = ctx->pcap + incr;
-  if (newcap < ctx->pcap) {
+  if (newcap < ctx->pcap || newcap > UINT_MAX/sizeof(struct pm_pattern)) {
     return -1; /* overflow */
   }
 
-  newpat = realloc(ctx->patterns, newcap);
+  newpat = realloc(ctx->patterns, newcap * sizeof(struct pm_pattern));
   if (newpat == NULL) {
     return -1;
   }

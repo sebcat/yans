@@ -164,7 +164,7 @@ const char *reset_get_substring(reset_t *reset, int id, const char *data,
     size_t len, size_t *ol) {
   bool matched;
 
-  if (id < 0 || id >= reset->patterns.size()) {
+  if (id < 0 || id >= (int)reset->patterns.size()) {
     return NULL;
   }
 

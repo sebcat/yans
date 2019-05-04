@@ -141,3 +141,14 @@ int pm_load_csv(struct pm_ctx *ctx, FILE *in, size_t *npatterns) {
   csv_reader_cleanup(&reader);
   return status;
 }
+
+int pm_compile(struct pm_ctx *ctx) {
+  int ret;
+
+  ret = reset_compile(ctx->reset);
+  if (ret != RESET_OK) {
+    return -1;
+  }
+
+  return 0;
+}

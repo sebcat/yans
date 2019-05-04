@@ -26,5 +26,6 @@ void pm_cleanup(struct pm_ctx *ctx);
 int pm_add_pattern(struct pm_ctx *ctx, enum pm_match_type t,
     const char *name, const char *pattern);
 int pm_load_csv(struct pm_ctx *ctx, FILE *in, size_t *npatterns);
+int pm_compile(struct pm_ctx *ctx);
 
 #endif

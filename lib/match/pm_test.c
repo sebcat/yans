@@ -52,6 +52,12 @@ static int test_load_csv() {
     goto done;
   }
 
+  ret = pm_compile(&pm);
+  if (ret != 0) {
+    TEST_LOG("failed to compile loaded patterns");
+    goto done;
+  }
+
   status = TEST_OK;
 done:
   pm_cleanup(&pm);

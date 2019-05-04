@@ -59,6 +59,11 @@ CFLAGS += -DBINDIR=\"$(BINDIR)\" -DDATAROOTDIR=\"$(DATAROOTDIR)\"
 CFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
 CFLAGS += -DLIBDIR=\"$(LIBDIR)\"
 
+CXXFLAGS += -Wall -Werror -Wformat -Wformat-security -I. -fPIC -fwrapv
+CXXFLAGS += -DBINDIR=\"$(BINDIR)\" -DDATAROOTDIR=\"$(DATAROOTDIR)\"
+CXXFLAGS += -DLOCALSTATEDIR=\"$(LOCALSTATEDIR)\"
+CXXFLAGS += -DLIBDIR=\"$(LIBDIR)\"
+
 # set MAYBE_VALGRIND to the valgrind command if USE_VALGRIND is set to 1
 # used for make check
 MAYBE_VALGRIND_1 = valgrind --error-exitcode=1 --leak-check=full

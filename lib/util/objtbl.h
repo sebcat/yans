@@ -54,7 +54,7 @@ struct objtbl_stats {
 #define objtbl_cap(ctx__) ((ctx__)->header.cap)
 #define objtbl_val(ctx__, i__) ((ctx__)->entries[(i__)].value)
 
-int objtbl_init(struct objtbl_ctx *tbl, struct objtbl_opts *opts,
+int objtbl_init(struct objtbl_ctx *tbl, const struct objtbl_opts *opts,
     uint32_t nslots);
 void objtbl_cleanup(struct objtbl_ctx *tbl);
 int objtbl_get(struct objtbl_ctx *tbl, const void * keyobj, void **value);
@@ -70,5 +70,9 @@ void objtbl_dump(struct objtbl_ctx *ctx, FILE *fp);
 void objtbl_sort(struct objtbl_ctx *tbl);
 
 const char *objtbl_strerror(int code);
+
+/* default hash and compare for '\0'-terminated strings */
+int objtbl_strcmp(const void *k, const void *e);
+objtbl_hash_t objtbl_strhash(const void *obj, objtbl_hash_t seed);
 
 #endif

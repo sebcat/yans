@@ -4,6 +4,20 @@
 
 #include <lib/util/objtbl.h>
 
+/* 32-bit FNV1a constants */
+#define FNV1A_OFFSET 0x811c9dc5
+#define FNV1A_PRIME   0x1000193
+
+/* NULL sort order in *cmp funcs */
+#define NULLCMP(l,r)                       \
+  if ((l) == NULL && (r) == NULL) {        \
+    return 0;                              \
+  } else if ((l) == NULL && (r) != NULL) { \
+    return 1;                              \
+  } else if ((l) != NULL && (r) == NULL) { \
+    return -1;                             \
+  }
+
 /* calculate the size of an objtbl_table of a certain capacity */
 #define OBJTBL_SIZE(cap_) \
     (cap_ * sizeof(struct objtbl_entry))
@@ -56,7 +70,7 @@ static int init_header(struct objtbl_header *hdr, uint32_t nslots) {
 }
 
 /* -1 on failed allocation, 0 on success */
-static int init_table(struct objtbl_ctx *tbl, struct objtbl_opts *opts,
+static int init_table(struct objtbl_ctx *tbl, const struct objtbl_opts *opts,
     uint32_t nslots) {
   int ret;
   struct objtbl_header hdr;
@@ -286,7 +300,7 @@ static int grow(struct objtbl_ctx *tbl) {
   return OBJTBL_OK;
 }
 
-int objtbl_init(struct objtbl_ctx *tbl, struct objtbl_opts *opts,
+int objtbl_init(struct objtbl_ctx *tbl, const struct objtbl_opts *opts,
     uint32_t nslots) {
   uint32_t cap;
   int ret;
@@ -437,4 +451,30 @@ const char *objtbl_strerror(int code) {
     default:
       return "unknown error";
   }
+}
+
+objtbl_hash_t objtbl_strhash(const void *obj, objtbl_hash_t seed) {
+  objtbl_hash_t hash = FNV1A_OFFSET;
+  const unsigned char *data = obj;
+  size_t i;
+
+  if (obj == NULL) {
+    return hash;
+  }
+
+  for (i = 0; i < sizeof(objtbl_hash_t); i++) {
+    hash = (hash ^ (seed & 0xff)) * FNV1A_PRIME;
+    seed >>= 8;
+  }
+
+  for (i = 0; data[i]; i++) {
+    hash = (hash ^ data[i]) * FNV1A_PRIME;
+  }
+
+  return hash;
+}
+
+int objtbl_strcmp(const void *k, const void *e) {
+  NULLCMP(k,e);
+  return strcmp(k, e);
 }

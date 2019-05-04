@@ -120,34 +120,6 @@ unsigned int chainid_ = 1; /* 0 indicates no chain */
     return -1;                             \
   }
 
-
-static objtbl_hash_t namehash(const void *obj, objtbl_hash_t seed) {
-  objtbl_hash_t hash = FNV1A_OFFSET;
-  const unsigned char *data = obj;
-  size_t i;
-
-  if (obj == NULL) {
-    return hash;
-  }
-
-  for (i = 0; i < sizeof(objtbl_hash_t); i++) {
-    hash = (hash ^ (seed & 0xff)) * FNV1A_PRIME;
-    seed >>= 8;
-  }
-
-  for (i = 0; data[i]; i++) {
-    hash = (hash ^ data[i]) * FNV1A_PRIME;
-  }
-
-  return hash;
-}
-
-static int namecmp(const void *k, const void *e) {
-
-  NULLCMP(k,e);
-  return strcmp(k, e);
-}
-
 static objtbl_hash_t addrhash(const void *obj, objtbl_hash_t seed) {
   const union saddr_t *addr = obj;
   objtbl_hash_t hash = FNV1A_OFFSET;
@@ -212,7 +184,7 @@ static objtbl_hash_t svchash(const void *obj, objtbl_hash_t seed) {
     return FNV1A_OFFSET;
   }
 
-  return addrhash(svc->addr, seed) ^ namehash(svc->name, seed);
+  return addrhash(svc->addr, seed) ^ objtbl_strhash(svc->name, seed);
 }
 
 static int svccmp(const void *a, const void *b) {
@@ -221,7 +193,7 @@ static int svccmp(const void *a, const void *b) {
   int res;
 
   NULLCMP(a,b);
-  res = namecmp(left->name, right->name);
+  res = objtbl_strcmp(left->name, right->name);
   if (res == 0) {
     res = addrcmp(left->addr, right->addr);
   }
@@ -669,8 +641,8 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
   int ret;
   struct ycl_msg_banner banner;
   static struct objtbl_opts nametblopts = {
-    .hashfunc = namehash,
-    .cmpfunc = namecmp,
+    .hashfunc = objtbl_strhash,
+    .cmpfunc = objtbl_strcmp,
   };
   static struct objtbl_opts addrtblopts = {
     .hashfunc = addrhash,

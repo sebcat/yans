@@ -18,9 +18,6 @@ lib/util/u8.o: lib/util/u8.c lib/util/u8.h
 lib/util/ylog.o: lib/util/ylog.c lib/util/ylog.h
 lib/util/zfile.o: lib/util/zfile.c lib/util/zfile.h
 
-lib/util/reset.o: lib/util/reset.cc
-	$(CXX) $(CXXFLAGS) $(CXXFLAGS_lib_util_reset) -c $< -o $@
-
 lib/util/csv_test: $(lib_util_csv_test_DEPSOBJS) \
 		$(lib_util_csv_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_csv_test_DEPSOBJS) \
@@ -63,7 +60,3 @@ lib/util/idset_test: $(lib_util_idset_test_DEPSOBJS) $(lib_util_idset_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_idset_test_DEPSOBJS) \
 		$(lib_util_idset_test_OBJS) $(LDFLAGS)
 
-lib/util/reset_test: $(lib_util_reset_test_DEPSOBJS) $(lib_util_reset_test_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(lib_util_reset_test_DEPSOBJS) \
-		$(lib_util_reset_test_OBJS) $(LDFLAGS) \
-		$(LDFLAGS_lib_util_reset) -lstdc++

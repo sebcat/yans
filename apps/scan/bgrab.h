@@ -3,8 +3,8 @@
 
 #include <openssl/ssl.h>
 
+#include <lib/match/tcpproto.h>
 #include <lib/net/dsts.h>
-#include <lib/net/tcpproto.h>
 #include <lib/net/tcpsrc.h>
 #include <lib/ycl/ycl.h>
 

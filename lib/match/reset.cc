@@ -6,7 +6,7 @@
 
 #include <re2/set.h>
 
-#include <lib/util/reset.h>
+#include <lib/match/reset.h>
 
 using namespace re2;
 

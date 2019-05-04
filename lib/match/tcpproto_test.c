@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include <lib/net/tcpproto.h>
+#include <lib/match/tcpproto.h>
 #include <lib/util/test.h>
 
 static int test_init_cleanup() {

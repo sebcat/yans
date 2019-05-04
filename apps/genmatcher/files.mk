@@ -1,5 +1,5 @@
 genmatcher_DEPS     =
-genmatcher_DEPS_CC  = lib/util/reset.cc
+genmatcher_DEPS_CC  = lib/match/reset.cc
 genmatcher_DEPSOBJS = ${genmatcher_DEPS:.c=.o} ${genmatcher_DEPS_CC:.cc=.o}
 genmatcher_SOURCES  = apps/genmatcher/main.c
 genmatcher_HEADERS  =

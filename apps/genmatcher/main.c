@@ -7,7 +7,7 @@
 #include <getopt.h>
 #include <stdio.h>
 
-#include <lib/util/reset.h>
+#include <lib/match/reset.h>
 #include <lib/util/macros.h>
 
 /* Increase MAX_* as needed */

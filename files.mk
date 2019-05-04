@@ -3,6 +3,7 @@ include tools/linux/systemd/files.mk
 include tools/yclgen/files.mk
 include lib/alloc/files.mk
 include lib/util/files.mk
+include lib/match/files.mk
 include lib/net/files.mk
 include lib/ycl/files.mk
 include apps/stored/files.mk

@@ -3,6 +3,7 @@ include tools/linux/systemd/rules.mk
 include tools/yclgen/rules.mk
 include lib/alloc/rules.mk
 include lib/util/rules.mk
+include lib/match/rules.mk
 include lib/net/rules.mk
 include lib/ycl/rules.mk
 include apps/stored/rules.mk

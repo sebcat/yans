@@ -2,7 +2,7 @@
 #define YANS_TCPPROTO_H__
 
 #include <lib/net/tcpproto_types.h>
-#include <lib/util/reset.h>
+#include <lib/match/reset.h>
 
 #define TCPPROTO_MATCHF_TLS (1 << 0) /* assume TLS encapsulation */
 

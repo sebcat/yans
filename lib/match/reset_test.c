@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include <lib/util/reset.h>
+#include <lib/match/reset.h>
 #include <lib/util/macros.h>
 #include <lib/util/test.h>
 

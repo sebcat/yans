@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <lib/net/tcpproto.h>
+#include <lib/match/tcpproto.h>
 
 /* RE for a tcpproto pattern, as well as the types of the tcpproto if
  * the pattern matches, with either TLS or non-TLS transport */

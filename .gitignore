@@ -18,11 +18,12 @@ apps/sysinfoapi/sysinfoapi
 apps/yans/yans
 data/yans-fe/index.html
 data/yans/ycfg.yans
-lib/lua/ycl.c
+lib/match/pm_test
+lib/match/reset_test
+lib/match/tcpproto_test
 lib/net/dsts_test
 lib/net/punycode_test
 lib/net/scgi_test
-lib/net/tcpproto_test
 lib/net/url_test
 lib/util/csv_test
 lib/util/flagset_test
@@ -31,7 +32,6 @@ lib/util/idtbl_test
 lib/util/objtbl_test
 lib/util/netstring_test
 lib/util/os_test
-lib/util/reset_test
 lib/util/str_test
 lib/util/u8_test
 lib/net/urlquery_test

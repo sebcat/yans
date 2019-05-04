@@ -34,9 +34,10 @@ private:
 };
 
 static void init_options(RE2::Options& opts) {
-  opts.set_dot_nl(true);       /* Allow '.' to match newline */
-  opts.set_max_mem(INT_MAX);   /* INT_MAX sounds high enough */
-  opts.set_posix_syntax(true); /* enforce POSIX ERE syntax */
+  opts.set_dot_nl(true);        /* Allow '.' to match newline */
+  opts.set_max_mem(INT_MAX);    /* INT_MAX sounds high enough */
+  opts.set_posix_syntax(true);  /* enforce POSIX ERE syntax */
+  opts.set_longest_match(true); /* needed for optional version matching */
 }
 
 Pattern::~Pattern() {

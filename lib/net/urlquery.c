@@ -16,7 +16,6 @@ static int fromhex(int ch) {
 }
 
 char *urlquery_decode(char *str) {
-  char *start;
   char *dst;
   int num;
 
@@ -24,7 +23,7 @@ char *urlquery_decode(char *str) {
     return NULL;
   }
 
-  start = dst = str;
+  dst = str;
   while(*str) {
     if (str[0] == '%' && isxdigit(str[1]) && isxdigit(str[2])) {
       num = fromhex(str[1]) * 16 + fromhex(str[2]);

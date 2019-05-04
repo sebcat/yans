@@ -107,11 +107,13 @@ clean:
 distclean: clean
 	rm -f $(CODEGEN)
 
-check: $(yans_BIN) $(CTESTS)
+check: $(CTESTS) apps/genmatcher/genmatcher
 	@for T in $(CTESTS); do \
 		echo $$T; \
 		$(MAYBE_VALGRIND) ./$$T; \
 	done
+	@echo apps/genmatcher/genmatcher
+	@./apps/genmatcher/genmatcher --check
 
 manifest:
 	@for B in $(BINS) $(script_BINS); do \

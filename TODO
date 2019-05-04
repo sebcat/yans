@@ -4,6 +4,18 @@
   build/install from ports, or introduce it as a in-tree 3rd_party
   dependency
 
+- Add patterns for finding software components and map them to services by
+  ID.
+  e.g.,
+  Found Components
+  ID,Vendor,Product,Version
+  1,foo,bar,1.2.3
+
+  Found Components by Service
+  Service ID,Component ID
+  1,1
+  ...
+
 - webfetch module: reqfinder (sigil-gumbo based)
 
 - yans-fe: Make HTML tables sortable (sort.js) have spinner to indicate

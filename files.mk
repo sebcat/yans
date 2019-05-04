@@ -24,3 +24,4 @@ include apps/scan/files.mk
 include apps/tcpctl/files.mk
 include apps/deduptbl/files.mk
 include apps/webfetch/files.mk
+include apps/genmatcher/files.mk

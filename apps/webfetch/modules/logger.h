@@ -1,5 +1,5 @@
-#ifndef WEBFETCH_SIMPLELOG_H__
-#define WEBFETCH_SIMPLELOG_H__
+#ifndef WEBFETCH_LOGGER_H__
+#define WEBFETCH_LOGGER_H__
 
 #include <apps/webfetch/module.h>
 #include <apps/webfetch/fetch.h>

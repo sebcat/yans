@@ -7,9 +7,11 @@ lib_match_LDFLAGS  != pkg-config --libs re2
 lib_match_LDFLAGS  += -lstdc++
 
 lib_match_reset_test_DEPS = lib/match/reset.cc lib/match/reset_csv.c \
-                                lib/util/csv.c lib/util/buf.c
+                            lib/util/csv.c lib/util/buf.c \
+                            lib/match/reset_type2str.c
 lib_match_reset_test_DEPSOBJS = lib/match/reset.o lib/match/reset_csv.o \
-                                lib/util/csv.o lib/util/buf.o
+                                lib/util/csv.o lib/util/buf.o \
+                            lib/match/reset_type2str.c
 lib_match_reset_test_SOURCES = lib/match/reset_test.c
 lib_match_reset_test_OBJS = ${lib_match_reset_test_SOURCES:.c=.o}
 

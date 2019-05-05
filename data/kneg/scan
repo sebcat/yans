@@ -113,6 +113,8 @@ run $WEBFETCH                                 \
         --out-logfile zlib:httpmsgs.log ';'   \
     --module writer --params                  \
         --out-httpmsgs zlib:httpmsgs.0 ';'    \
+    --module matcher --params                 \
+        --out-matchfile zlib:matches.0 ';'
 
 
 

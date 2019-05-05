@@ -1,6 +1,6 @@
 include tools/freebsd/etc.rc.d/rules.mk
 include tools/linux/systemd/rules.mk
-include tools/yclgen/rules.mk
+include apps/yclgen/rules.mk
 include lib/alloc/rules.mk
 include lib/util/rules.mk
 include lib/match/rules.mk

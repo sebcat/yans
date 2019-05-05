@@ -14,6 +14,7 @@
 
 #include <lib/alloc/linvar.h>
 
+#include <lib/util/macros.h>
 #include <lib/util/objtbl.h>
 #include <lib/util/sandbox.h>
 #include <lib/util/csv.h>
@@ -524,7 +525,7 @@ static int print_chain_csv(struct collate_certchain *certchain,
   size_t i;
   char chain_id[24];
   char depth[24];
-  const char *fields[5];
+  const char *fields[7];
   char nsanstr[24];
   int ret;
   struct x509_certchain *chain;
@@ -537,6 +538,8 @@ static int print_chain_csv(struct collate_certchain *certchain,
   size_t nouts;
   size_t j;
   size_t nsans;
+  char notbefore[64];
+  char notafter[64];
 
   nouts = opts->nout_certs_csv;
   if (nouts == 0) {
@@ -561,6 +564,9 @@ static int print_chain_csv(struct collate_certchain *certchain,
     x509_cert_get_subject_name(&cert, &subject_name);
     issuer_name = NULL;
     x509_cert_get_issuer_name(&cert, &issuer_name);
+    notbefore[0] = notafter[0] = '\0';
+    x509_cert_get_valid_not_before(&cert, notbefore, sizeof(notbefore));
+    x509_cert_get_valid_not_after(&cert, notafter, sizeof(notafter));
 
     /* TODO: Move this to its own thing later */
     nsanstr[0] = '\0';
@@ -576,9 +582,11 @@ static int print_chain_csv(struct collate_certchain *certchain,
     fields[1] = depth;
     fields[2] = subject_name;
     fields[3] = issuer_name;
-    fields[4] = nsanstr;
+    fields[4] = notbefore;
+    fields[5] = notafter;
+    fields[6] = nsanstr;
     buf_clear(&buf);
-    ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
+    ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
 
     /* free per-iteration allocations before checking return status of
      * csv_encode */
@@ -902,7 +910,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Chain,Depth,Subject,Issuer,# of SANs\r\n";
+      tmpstr = "Chain,Depth,Subject,Issuer,Not Valid Before,Not Valid After,# of SANs\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_certs_csv[opts.nout_certs_csv-1]);
       break;

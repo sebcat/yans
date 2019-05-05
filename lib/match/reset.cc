@@ -78,16 +78,6 @@ bool Pattern::substring(const char *data, size_t len, string *s) {
   return true;
 }
 
-const char *reset_type2str(enum reset_match_type t) {
-  switch (t) {
-  case RESET_MATCH_COMPONENT:
-    return "component";
-  case RESET_MATCH_UNKNOWN:
-  default:
-    return "unknown";
-  }
-}
-
 const char *reset_strerror(reset_t *reset) {
   return reset->errstr.c_str();
 }

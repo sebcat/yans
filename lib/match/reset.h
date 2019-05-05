@@ -25,7 +25,7 @@ typedef struct reset_t reset_t;
 const char *reset_type2str(enum reset_match_type t);
 
 /* return RESET_ERR and sets the error string */
-int reset_error(struct reset_t *reset, const char *errstr);
+int reset_error(reset_t *reset, const char *errstr);
 
 const char *reset_strerror(reset_t *reset);
 

@@ -55,3 +55,4 @@ tools/linux/systemd/stored.service
 apps/tcpctl/tcpctl
 apps/deduptbl/deduptbl
 apps/webfetch/webfetch
+apps/matchgen/matchgen

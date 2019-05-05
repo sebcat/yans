@@ -318,12 +318,12 @@ static int test_match_httpheaders() {
     {
       .input = "HTTP/2 301 \r\nServer: cloudfront\r\n",
       .type = RESET_MATCH_COMPONENT,
-      .name = "cloudflare/cloudfront"
+      .name = "amazon/cloudfront"
     },
     {
       .input = "HTTP/2 301 \r\nserver: CloudFront\r\n",
       .type = RESET_MATCH_COMPONENT,
-      .name = "cloudflare/cloudfront"
+      .name = "amazon/cloudfront"
     },
     {
       .input = "HTTP/2 301 \r\nserver: apache",

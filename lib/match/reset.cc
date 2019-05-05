@@ -18,18 +18,22 @@ struct reset_t {
   std::vector<int> matches;
   std::size_t curr_match_index;
   std::string errstr;
-  std::string substring_;
+  std::string substring;
 };
 
 class Pattern {
 public:
-  Pattern(std::string &re) : pstr_(re), matcher_(nullptr) {};
-  Pattern(const char *resp) : pstr_(resp), matcher_(nullptr) {};
+  Pattern(const char *re, enum reset_match_type mtype, const char *name) :
+      pstr_(re), mtype_(mtype), name_(name), matcher_(nullptr) {};
   ~Pattern();
+  const char *name() { return name_.c_str(); }
+  enum reset_match_type type() { return mtype_; }
   bool substring(const char *data, size_t len, string *s);
 
 private:
   std::string pstr_;
+  enum reset_match_type mtype_;
+  std::string name_;
   re2::RE2 *matcher_;
 };
 
@@ -74,6 +78,25 @@ bool Pattern::substring(const char *data, size_t len, string *s) {
   return true;
 }
 
+const char *reset_type2str(enum reset_match_type t) {
+  switch (t) {
+  case RESET_MATCH_COMPONENT:
+    return "component";
+  case RESET_MATCH_UNKNOWN:
+  default:
+    return "unknown";
+  }
+}
+
+const char *reset_strerror(reset_t *reset) {
+  return reset->errstr.c_str();
+}
+
+int reset_error(struct reset_t *reset, const char *errstr) {
+  reset->errstr.assign(errstr);
+  return RESET_ERR;
+}
+
 reset_t *reset_new() {
   reset_t *reset;
   RE2::Set *set;
@@ -103,11 +126,8 @@ void reset_free(reset_t *reset) {
   }
 }
 
-const char *reset_strerror(reset_t *reset) {
-  return reset->errstr.c_str();
-}
-
-int reset_add(reset_t *reset, const char *re) {
+int reset_add_type_name_pattern(reset_t *reset, enum reset_match_type mtype,
+    const char *name, const char *re) {
   string err;
   int res;
   StringPiece resp(re);
@@ -115,14 +135,28 @@ int reset_add(reset_t *reset, const char *re) {
   /* Add a regular expression to the RE2::Set, as well as to the
    * pattern vector. The ID allocation for the RE2::Set and the pattern
    * vector indices should be consistent. */
-
   res = reset->set->Add(resp, &reset->errstr);
   if (res < 0) {
     return RESET_ERR;
   }
 
-  reset->patterns.push_back(Pattern(re));
+  if (name == NULL) {
+    name = "";
+  }
+
+  reset->patterns.push_back(Pattern(re, mtype, name));
   return res;
+}
+
+int reset_add_name_pattern(reset_t *reset, const char *name,
+    const char *re) {
+  return reset_add_type_name_pattern(reset, RESET_MATCH_UNKNOWN,
+      name, re);
+}
+
+int reset_add_pattern(reset_t *reset, const char *re) {
+  return reset_add_type_name_pattern(reset, RESET_MATCH_UNKNOWN,
+      NULL, re);
 }
 
 int reset_compile(reset_t *reset) {
@@ -160,6 +194,22 @@ int reset_get_next_match(reset_t *reset) {
   return res;
 }
 
+const char *reset_get_name(reset_t *reset, int id) {
+  if (id < 0 || id >= (int)reset->patterns.size()) {
+    return "";
+  }
+
+  return reset->patterns[id].name();
+}
+
+enum reset_match_type reset_get_type(reset_t *reset, int id) {
+  if (id < 0 || id >= (int)reset->patterns.size()) {
+    return RESET_MATCH_UNKNOWN;
+  }
+
+  return reset->patterns[id].type();
+}
+
 const char *reset_get_substring(reset_t *reset, int id, const char *data,
     size_t len, size_t *ol) {
   bool matched;
@@ -168,12 +218,12 @@ const char *reset_get_substring(reset_t *reset, int id, const char *data,
     return NULL;
   }
 
-  matched = reset->patterns[id].substring(data, len, &reset->substring_);
+  matched = reset->patterns[id].substring(data, len, &reset->substring);
   if (matched) {
     if (ol) {
-      *ol = reset->substring_.length();
+      *ol = reset->substring.length();
     }
-    return reset->substring_.c_str();
+    return reset->substring.c_str();
   }
 
   return NULL;

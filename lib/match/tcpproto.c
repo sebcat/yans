@@ -99,8 +99,8 @@ int tcpproto_init(struct tcpproto_ctx *ctx) {
   }
 
   for (i = 0; i < sizeof(patterns_) / sizeof(*patterns_); i++) {
-    ret = reset_add(r, patterns_[i].pattern);
-    if (ret < 0) {
+    ret = reset_add_pattern(r, patterns_[i].pattern);
+    if (ret == RESET_ERR) {
       ctx->err = reset_strerror(r);
       goto fail_reset_free;
     }

@@ -41,7 +41,12 @@ int x509_cert_get_subject_name(struct x509_cert *cert, char **strname);
 
 int x509_cert_get_issuer_name(struct x509_cert *cert, char **strname);
 
-/* TODO: Implement serial, valid_from, valid_to accessors */
+int x509_cert_get_valid_not_before(struct x509_cert *cert, char *out,
+    size_t len);
+int x509_cert_get_valid_not_after(struct x509_cert *cert, char *out,
+    size_t len);
+
+/* TODO: Implement serial accessor */
 
 int x509_cert_get_sans(struct x509_cert *cert, struct x509_sans *sans);
 

@@ -65,6 +65,43 @@ int x509_certchain_get_cert(struct x509_certchain *chain, size_t depth,
   return X509_OK;
 }
 
+static int convert_time(ASN1_TIME *t, char *out, size_t len) {
+  int ret;
+  int status = X509_ERR;
+  BIO *b;
+
+  b = BIO_new(BIO_s_mem());
+  ret = ASN1_TIME_print(b, t);
+  if (ret != 1) {
+    goto done;
+  }
+
+  ret = BIO_gets(b, out, len);
+  if (ret <= 0) {
+    goto done;
+  }
+
+  status = X509_OK;
+done:
+  return status;
+}
+
+int x509_cert_get_valid_not_before(struct x509_cert *cert, char *out,
+    size_t len) {
+  ASN1_TIME *t;
+
+  t = X509_get_notBefore(cert->cert);
+  return convert_time(t, out, len);
+}
+
+int x509_cert_get_valid_not_after(struct x509_cert *cert, char *out,
+    size_t len) {
+  ASN1_TIME *t;
+
+  t = X509_get_notAfter(cert->cert);
+  return convert_time(t, out, len);
+}
+
 int x509_cert_get_subject_name(struct x509_cert *cert, char **strname) {
   X509_NAME *name;
 

@@ -34,6 +34,9 @@ KNEGMANIFEST =
 # Yans web front-end, installed to $(DATAROOTDIR)/yans-fe
 YANS_FE =
 
+# pattern data
+PATTERNDATA =
+
 # Section 1 man pages
 MANPAGES1 =
 
@@ -81,7 +84,7 @@ SHLIBS += ${${UNAME_S}_SHLIBS}
 
 all: $(nodist_BINS) $(BINS) $(nodist_SHLIBS) $(SHLIBS) \
 	$(GENERATED_RCFILES) $(KNEGLIB) \
-	$(KNEGMANIFEST) $(YANS_FE)
+	$(KNEGMANIFEST) $(YANS_FE) $(PATTERNDATA)
 
 # driver building, installing, cleaning is done explicitly, with no
 # dependencies in targets like "all", "clean", "install" since most
@@ -136,6 +139,9 @@ manifest:
 	@for K in $(YANS_FE); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
 	done
+	@for K in $(PATTERNDATA); do \
+		echo $(DESTDIR)$(DATAROOTDIR)/pm/$${K#data/pm/}; \
+	done
 
 manifest-rcfiles:
 	@for RC in $(RCFILES) $(GENERATED_RCFILES); do \
@@ -144,11 +150,12 @@ manifest-rcfiles:
 	done
 
 install: $(script_BINS) $(BINS) $(SHLIBS) $(KNEGLIB) \
-		$(KNEGMANIFEST) $(YANS_FE)
+		$(KNEGMANIFEST) $(YANS_FE) $(PATTERNDATA)
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans-fe
+	mkdir -p $(DESTDIR)$(DATAROOTDIR)/pm
 	for B in $(BINS) $(script_BINS); do \
 		$(INSTALL) -m 755 $$B $(DESTDIR)$(BINDIR); \
 	done
@@ -163,6 +170,9 @@ install: $(script_BINS) $(BINS) $(SHLIBS) $(KNEGLIB) \
 	done
 	for K in $(YANS_FE); do \
 		$(INSTALL) -m 644 $$K $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
+	done
+	for K in $(PATTERNDATA); do \
+		$(INSTALL) -m 644 $$K $(DESTDIR)$(DATAROOTDIR)/pm/$${K#data/pm/}; \
 	done
 
 install-strip: install

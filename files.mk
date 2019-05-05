@@ -19,6 +19,7 @@ include apps/a2/files.mk
 include apps/sc2/files.mk
 include data/kneg/files.mk
 include data/yans-fe/files.mk
+include data/pm/files.mk
 include drivers/files.mk
 include apps/sysinfoapi/files.mk
 include apps/scan/files.mk

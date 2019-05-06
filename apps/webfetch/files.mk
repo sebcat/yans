@@ -1,8 +1,3 @@
-libcurl_CFLAGS   != pkg-config --cflags libcurl
-libcurl_LDFLAGS  != pkg-config --libs libcurl
-
-re2_LDFLAGS      != pkg-config --libs re2
-
 webfetch_DEPS     = lib/util/io.c lib/util/buf.c lib/util/netstring.c \
                     lib/util/zfile.c lib/net/tcpsrc.c \
                     lib/util/os.c lib/util/sandbox.c lib/ycl/opener.c \

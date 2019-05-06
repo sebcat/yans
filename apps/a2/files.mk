@@ -9,8 +9,8 @@ a2_HEADERS  = apps/a2/yapi.h
 a2_OBJS     = ${a2_SOURCES:.c=.o}
 a2_SHLIB    = apps/a2/a2.so
 
-a2_CFLAGS != pkg-config --cflags jansson zlib
-a2_LDADD  != pkg-config --libs jansson zlib
+a2_CFLAGS = ${jansson_CFLAGS} ${zlib_CFLAGS}
+a2_LDADD  = ${jansson_LDFLAGS} ${zlib_LDFLAGS}
 
 OBJS += $(a2_OBJS)
 SHLIBS += $(a2_SHLIB)

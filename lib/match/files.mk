@@ -1,10 +1,8 @@
 lib_match_SOURCES = lib/match/tcpproto.c lib/match/reset_csv.c
 lib_match_SOURCES_CC = lib/match/reset.cc
 
-lib_match_reset_CXXFLAGS != pkg-config --cflags re2
-
-lib_match_LDFLAGS  != pkg-config --libs re2
-lib_match_LDFLAGS  += -lstdc++
+lib_match_reset_CXXFLAGS = ${re2_CXXFLAGS}
+lib_match_LDFLAGS        = ${re2_LDFLAGS} -lstdc++
 
 lib_match_reset_test_DEPS = lib/match/reset.cc lib/match/reset_csv.c \
                             lib/util/csv.c lib/util/buf.c \

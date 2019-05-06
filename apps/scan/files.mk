@@ -17,8 +17,7 @@ scan_HEADERS  = apps/scan/resolve.h apps/scan/banners.h \
                 apps/scan/bgrab.h apps/scan/collate.h
 scan_OBJS     = ${scan_SOURCES:.c=.o}
 scan_BIN      = apps/scan/scan
-scan_LDADD   != pkg-config --libs re2
-scan_LDADD   += -lz -lssl -lcrypto -lstdc++
+scan_LDADD    = ${re2_LDFLAGS} ${zlib_LDFLAGS} -lssl -lcrypto -lstdc++
 
 FreeBSD_OBJS += $(scan_OBJS)
 FreeBSD_BINS += $(scan_BIN)

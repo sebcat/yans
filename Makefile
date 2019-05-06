@@ -40,6 +40,19 @@ MANPAGES1 =
 # Kernel drivers
 DRIVERS =
 
+# CFLAGS/CXXFLAGS for dependencies
+jansson_CFLAGS   != pkg-config --cflags jansson
+libcurl_CFLAGS   != pkg-config --cflags libcurl
+re2_CXXFLAGS     != pkg-config --cflags re2
+zlib_CFLAGS      != pkg-config --cflags zlib
+
+# LDFLAGS for dependencies
+jansson_LDFLAGS  != pkg-config --libs jansson
+libcurl_LDFLAGS  != pkg-config --libs libcurl
+re2_LDFLAGS      != pkg-config --libs re2
+zlib_LDFLAGS     != pkg-config --libs zlib
+
+
 UNAME_S != uname -s
 INSTALL = install
 STRIP = strip -s

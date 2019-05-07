@@ -388,7 +388,7 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
   size_t k;
   size_t tbllen;
   buf_t buf;
-  const char *fields[6];
+  const char *fields[7];
   char addrbuf[128];
   char portbuf[8];
   struct collate_service *svc;
@@ -397,6 +397,8 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
   int status = -1;
   char certid[24];
   struct collate_certchain *chain;
+  char service_idbuf[24];
+  unsigned int service_id = 0;
 
   if (!buf_init(&buf, 2048)) {
     return -1;
@@ -438,14 +440,19 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
           certid[0] = '\0';
         }
 
+        /* assign a unique (for this collation) ID to the service */
+        service_id++;
+        snprintf(service_idbuf, sizeof(service_idbuf), "%u", service_id);
+
         buf_clear(&buf);
-        fields[0] = svc->name;
-        fields[1] = addrbuf;
-        fields[2] = "tcp";
-        fields[3] = portbuf;
-        fields[4] = tcpproto_type_to_string(svc->mpids[k]);
-        fields[5] = certid;
-        ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
+        fields[0] = service_idbuf;
+        fields[1] = svc->name;
+        fields[2] = addrbuf;
+        fields[3] = "tcp";
+        fields[4] = portbuf;
+        fields[5] = tcpproto_type_to_string(svc->mpids[k]);
+        fields[6] = certid;
+        ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
         if (ret != 0) {
           goto end;
         }
@@ -723,6 +730,7 @@ static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
   const char *addr;
   const char *port;
   const char *service;
+  const char *service_idstr;
   struct ycl_msg_httpmsg msg;
   struct ycl_msg msgbuf;
   size_t i;
@@ -733,10 +741,11 @@ static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
     in = opts->in_services_csv[isindex];
     while (!feof(in)) {
       csv_read_row(&r, in);
-      hostname = csv_reader_elem(&r, 0);
-      addr     = csv_reader_elem(&r, 1);
-      port     = csv_reader_elem(&r, 3);
-      service  = csv_reader_elem(&r, 4);
+      service_idstr = csv_reader_elem(&r, 0);
+      hostname      = csv_reader_elem(&r, 1);
+      addr          = csv_reader_elem(&r, 2);
+      port          = csv_reader_elem(&r, 4);
+      service       = csv_reader_elem(&r, 5);
       if (service == NULL || strncmp(service, "http", 4) != 0) {
         continue;
       }
@@ -756,6 +765,7 @@ static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
       msg.port.len = strlen(port);
       msg.path.data = "/";
       msg.path.len = sizeof("/") - 1;
+      msg.service_id = strtol(service_idstr, NULL, 10);
       ret = ycl_msg_create_httpmsg(&msgbuf, &msg);
       if (ret != YCL_OK) {
         fprintf(stderr, "httpmsg serialization failure\n");
@@ -899,7 +909,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Name,Address,Transport,Port,Service,Certificate Chain\r\n";
+      tmpstr = "Service ID,Name,Address,Transport,Port,Service,Certificate Chain\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_services_csv[opts.nout_services_csv-1]);
       break;

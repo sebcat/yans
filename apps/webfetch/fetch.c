@@ -330,6 +330,7 @@ static int start_transfer(struct fetch_ctx *ctx,
     return -1;
   }
 
+  t->service_id = httpmsg.service_id;
   ret = build_request_url(&t->urlbuf, &httpmsg);
   if (ret < 0) {
     return -1;

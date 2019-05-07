@@ -99,4 +99,7 @@ httpmsg {
   # HTTP response parts
   data resphdr;
   data respbody;
+
+  # Service ID, to track from which "service" this request was deduced from
+  long service_id;
 }

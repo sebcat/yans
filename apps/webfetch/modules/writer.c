@@ -80,6 +80,7 @@ void writer_process(struct fetch_transfer *t, void *data) {
   struct ycl_msg_httpmsg msg = {{0}};
   struct writer_data *wd = data;
 
+  msg.service_id     = fetch_transfer_service_id(t);
   msg.url.data       = fetch_transfer_url(t);
   msg.url.len        = fetch_transfer_urllen(t);
   msg.addr.data      = fetch_transfer_dstaddr(t);

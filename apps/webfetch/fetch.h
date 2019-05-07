@@ -4,6 +4,8 @@
 #include <lib/ycl/ycl.h>
 #include <lib/ycl/ycl_msg.h>
 
+#define fetch_transfer_service_id(t) \
+    ((t)->service_id)
 #define fetch_transfer_dstaddr(t) \
     ((t)->dstaddr)
 #define fetch_transfer_hostname(t) \
@@ -22,6 +24,7 @@
     ((t)->bodyoff > 0 ? (t)->recvbuf.len - (t)->bodyoff : 0)
 
 struct fetch_transfer {
+  long service_id;
   char hostname[256]; /* hostname in textual representation */
   char dstaddr[64]; /* destination address in textual representation */
   buf_t urlbuf;

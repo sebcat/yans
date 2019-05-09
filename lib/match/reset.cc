@@ -28,7 +28,7 @@ public:
   ~Pattern();
   const char *name() { return name_.c_str(); }
   enum reset_match_type type() { return mtype_; }
-  bool substring(const char *data, size_t len, string *s);
+  bool substring(const char *data, size_t len, std::string *s);
 
 private:
   std::string pstr_;
@@ -50,7 +50,7 @@ Pattern::~Pattern() {
   }
 }
 
-bool Pattern::substring(const char *data, size_t len, string *s) {
+bool Pattern::substring(const char *data, size_t len, std::string *s) {
   int nsubgroups;
   bool matched;
   re2::StringPiece sub[2];
@@ -118,7 +118,7 @@ void reset_free(reset_t *reset) {
 
 int reset_add_type_name_pattern(reset_t *reset, enum reset_match_type mtype,
     const char *name, const char *re) {
-  string err;
+  std::string err;
   int res;
   StringPiece resp(re);
 

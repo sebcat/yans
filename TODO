@@ -1,8 +1,9 @@
 # TODO
 
-- The current curl binary port depends on a lot of shit. Either
-  build/install from ports, or introduce it as a in-tree 3rd_party
-  dependency
+- curl from ports is built with kerberos. If we build our own curl
+  without kerberos (and without some other cruft in libcurl) and we
+  make buildworld with WITHOUT_KERBEROS=true, we would save couple of
+  MB's
 
 - Add patterns for finding software components and map them to services by
   ID.

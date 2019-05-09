@@ -7,4 +7,4 @@ matchgen_OBJS     = ${matchgen_SOURCES:.c=.o}
 matchgen_BIN      = apps/matchgen/matchgen
 
 OBJS += $(matchgen_OBJS)
-BINS += $(matchgen_BIN)
+nodist_BINS += $(matchgen_BIN)

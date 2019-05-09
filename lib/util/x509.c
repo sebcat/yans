@@ -83,6 +83,7 @@ static int convert_time(ASN1_TIME *t, char *out, size_t len) {
     goto done;
   }
 
+  BIO_free(b);
   status = X509_OK;
 done:
   return status;

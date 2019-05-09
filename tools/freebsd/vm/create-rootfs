@@ -13,7 +13,7 @@ RM_F_PATHS="/usr/sbin/cxgbetool /etc/defaults/periodic.conf"
 : ${IMG:=$1}
 : ${VMSIZE:=256M}
 : ${WORLDDIR:=/usr/src}
-: ${KERNCONF:=MYKERNEL}
+: ${KERNCONF:=YANS}
 : ${SRCCONF:=$(pwd)/src.conf.installworld}
 : ${PKGS:=nginx-lite jansson re2 curl}
 

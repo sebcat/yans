@@ -5,9 +5,9 @@ die() {
   exit 1
 }
 
-: ${MBR:=/usr/obj/usr/src/stand/i386/pmbr/pmbr}
-: ${EFIBOOT1:=/usr/obj/usr/src/stand/efi/boot1/boot1.efifat}
-: ${BOOTFS:=/usr/obj/usr/src/stand/i386/gptboot/gptboot}
+: ${MBR:=/usr/obj/usr/src/amd64.amd64/stand/i386/pmbr/pmbr}
+: ${EFIBOOT1:=/usr/obj/usr/src/amd64.amd64/stand/efi/boot1/boot1.efifat}
+: ${BOOTFS:=/usr/obj/usr/src/amd64.amd64/stand/i386/gptboot/gptboot}
 : ${ROOTFS:=$1}
 : ${VMSIZE:=128M}
 : ${DESTDIR:=$(pwd)}

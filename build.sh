@@ -5,9 +5,9 @@
 
 CFLAGS_release="-Os -pipe -fvisibility=hidden \
 -ffunction-sections -fdata-sections -fomit-frame-pointer \
--fstack-protector-strong -march=native"
+-fstack-protector-strong -march=native -fPIE -Wno-unused-command-line-argument"
 # -DNDEBUG
-LDFLAGS_release="-Wl,--gc-sections"
+LDFLAGS_release="-Wl,--gc-sections -pie"
 # -Wl,--build-id=none
 
 CFLAGS_dev="-O0 -g -pipe -fsanitize=address -fstack-protector-strong"

@@ -128,7 +128,7 @@ distclean: clean
 check: $(CTESTS)
 	@for T in $(CTESTS); do \
 		echo $$T; \
-		$(MAYBE_VALGRIND) ./$$T; \
+		ASAN_OPTIONS=detect_container_overflow=0 $(MAYBE_VALGRIND) ./$$T; \
 	done
 
 manifest:

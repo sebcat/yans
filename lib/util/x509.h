@@ -21,11 +21,10 @@ struct x509_sans {
 };
 
 struct x509_san {
-  BUF_MEM *str;
+  char *str;
 };
 
-#define x509_san_get_data(san__)   ((san__)->str->data)
-#define x509_san_get_length(san__) ((san__)->str->length)
+#define x509_san_get_data(san__)   ((san__)->str)
 
 int x509_certchain_from_mem(struct x509_certchain *chain, const void *data,
     size_t len);

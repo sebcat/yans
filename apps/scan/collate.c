@@ -505,7 +505,6 @@ static int print_sans_csv(struct x509_sans *sans,
       fields[3] = sep;
     }
 
-
     buf_clear(&buf);
     ret = csv_encode(&buf, fields, sizeof(fields) / sizeof(*fields));
     x509_free_san(&san);

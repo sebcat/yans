@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/objects.h>
@@ -169,6 +171,7 @@ int x509_sans_get_san(struct x509_sans *sans, size_t index,
   BIO *b;
   size_t nsans;
   GENERAL_NAME *name;
+  char *tmp = NULL;
 
   nsans = x509_sans_get_nelems(sans);
   if (index >= nsans) {
@@ -188,15 +191,31 @@ int x509_sans_get_san(struct x509_sans *sans, size_t index,
 
   GENERAL_NAME_print(b, name);
   BIO_write(b, "", 1); /* append trailing \0-byte */
+/*
+  This it what we used to do here:
   BIO_get_mem_ptr(b, &san->str);
   BIO_set_close(b, BIO_NOCLOSE);
+  BIO_free(b);
+
+  Using BIO_NOCLOSE in that way is described in the OpenSSL man pages.
+  This was (is, at the moment with FreeBSD 13.0-CURRENT) broken for
+  multiple later OpenSSL versions[1]. Depending on the version it would
+  either cause a memleak or BIO_NOCLOSE was ignored in BIO_free causing us
+  to do a use-after-free later in the code.
+
+  Just strdup the SAN for now.
+
+  [1] https://github.com/openssl/openssl/issues/8375
+*/
+  BIO_get_mem_data(b, &tmp);
+  san->str = strdup(tmp);
   BIO_free(b);
   return X509_OK;
 }
 
 void x509_free_san(struct x509_san *san) {
   if (san && san->str) {
-    BUF_MEM_free(san->str);
+    free(san->str);
     san->str = NULL;
   }
 }

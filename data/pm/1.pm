@@ -19,3 +19,4 @@ Match Type,Name,Pattern
 1,canonical/ubuntu,"\r?\n[Ss]erver:[^\r\n]+\([Uu]buntu\)"
 1,openssl/openssl,"\r?\n[Ss]erver:[^\r\n]+[Oo]pen[Ss][Ss][Ll]/?([0-9][A-Za-z0-9.-]+)?"
 1,akamai/ghost,"\r?\n[Ss]erver: ?[Aa]kamai[Gg][Hh]ost"
+1,sucuri/cloudproxy,"\r?\n[Ss]erver: ?[Ss]ucuri/[Cc]loudproxy"

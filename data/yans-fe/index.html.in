@@ -797,7 +797,7 @@ JReq("GET", "/a1/queueinfo")
     let queueinfo = document.getElementById("queueinfo");
     queueinfo.innerHTML = "";
     queueinfo.appendChild(document.createTextNode(
-        "in queue: " + data.nrunning + "/" + data.nslots +
+        "occupied slots: " + data.nrunning + "/" + data.nslots +
         ", last waited for: " + data["last-waited-for"] + " seconds"));
   }).send();
 

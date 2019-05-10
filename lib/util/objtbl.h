@@ -65,6 +65,13 @@ int objtbl_copy(struct objtbl_ctx *dst, struct objtbl_ctx *src);
 int objtbl_calc_stats(struct objtbl_ctx *tbl, struct objtbl_stats *result);
 void objtbl_dump(struct objtbl_ctx *ctx, FILE *fp);
 
+
+/* iterate over table and call func(data, elem) for every element. if
+ * func returns 1 the iteration continue, otherwise the iteration stops
+ * and the value returned from func is returned by objtbl_foreach */
+int objtbl_foreach(struct objtbl_ctx *ctx, int (*func)(void *, void *),
+    void *data);
+
 /* XXX: Destructive operation - use with care. Makes it impossible to
  *      use the get, contains, remove, insert functions. */
 void objtbl_sort(struct objtbl_ctx *tbl);

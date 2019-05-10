@@ -111,16 +111,6 @@ unsigned int chainid_ = 1; /* 0 indicates no chain */
 #define FNV1A_OFFSET 0x811c9dc5
 #define FNV1A_PRIME   0x1000193
 
-/* NULL sort order in *cmp funcs */
-#define NULLCMP(l,r)                       \
-  if ((l) == NULL && (r) == NULL) {        \
-    return 0;                              \
-  } else if ((l) == NULL && (r) != NULL) { \
-    return 1;                              \
-  } else if ((l) != NULL && (r) == NULL) { \
-    return -1;                             \
-  }
-
 static objtbl_hash_t addrhash(const void *obj, objtbl_hash_t seed) {
   const union saddr_t *addr = obj;
   objtbl_hash_t hash = FNV1A_OFFSET;

@@ -2,21 +2,12 @@
 #include <string.h>
 #include <limits.h>
 
+#include <lib/util/macros.h>
 #include <lib/util/objtbl.h>
 
 /* 32-bit FNV1a constants */
 #define FNV1A_OFFSET 0x811c9dc5
 #define FNV1A_PRIME   0x1000193
-
-/* NULL sort order in *cmp funcs */
-#define NULLCMP(l,r)                       \
-  if ((l) == NULL && (r) == NULL) {        \
-    return 0;                              \
-  } else if ((l) == NULL && (r) != NULL) { \
-    return 1;                              \
-  } else if ((l) != NULL && (r) == NULL) { \
-    return -1;                             \
-  }
 
 /* calculate the size of an objtbl_table of a certain capacity */
 #define OBJTBL_SIZE(cap_) \
@@ -344,6 +335,31 @@ int objtbl_copy(struct objtbl_ctx *dst, struct objtbl_ctx *src) {
   }
 
   return OBJTBL_OK;
+}
+
+int objtbl_foreach(struct objtbl_ctx *ctx, int (*func)(void *, void *),
+    void *data) {
+  uint32_t i;
+  uint32_t cap;
+  uint32_t nseen;
+  int ret;
+
+  cap = ctx->header.cap;
+  nseen = 0;
+  for (i = 0; i < cap && nseen < ctx->header.size; i++) {
+    if (ENTRY_IS_EMPTY(&ctx->entries[i])) {
+      continue;
+    }
+
+    ret = func(data, ctx->entries[i].value);
+    if (ret != 1) {
+      return ret;
+    }
+
+    nseen++;
+  }
+
+  return 0;
 }
 
 #ifdef __FreeBSD__

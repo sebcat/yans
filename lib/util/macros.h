@@ -21,4 +21,14 @@
 
 #define STATIC_ASSERT(expr, msg) _Static_assert((expr), msg)
 
+/* NULL sort order in *cmp funcs */
+#define NULLCMP(l,r)                       \
+  if ((l) == NULL && (r) == NULL) {        \
+    return 0;                              \
+  } else if ((l) == NULL && (r) != NULL) { \
+    return 1;                              \
+  } else if ((l) != NULL && (r) == NULL) { \
+    return -1;                             \
+  }
+
 #endif

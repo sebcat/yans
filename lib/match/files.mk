@@ -1,4 +1,5 @@
-lib_match_SOURCES = lib/match/tcpproto.c lib/match/reset_csv.c
+lib_match_SOURCES    = lib/match/tcpproto.c lib/match/reset_csv.c \
+                       lib/match/reset_type2str.c lib/match/component.c
 lib_match_SOURCES_CC = lib/match/reset.cc
 
 lib_match_reset_CXXFLAGS = ${re2_CXXFLAGS}

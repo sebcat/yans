@@ -188,12 +188,19 @@ int component_register(struct component_ctx *c, const char *name,
   return 0;
 }
 
+static int component_idcmp(const void *a, const void *b) {
+  const struct c_entry *left = a;
+  const struct c_entry *right = b;
+  NULLCMP(left, right);
+  return (int)((unsigned int)(b-1) - (unsigned int)(a-1));
+}
+
 int component_foreach(struct component_ctx *c,
     int (*func)(void *, void *),
     void *data) {
 
   if (!(c->flags & COMPONENT_FSORTED)) {
-    /* TODO: change sort order to ID (1-indexed) */
+    objtbl_set_cmpfunc(&c->ctbl, component_idcmp);
     objtbl_sort(&c->ctbl);
     c->flags |= COMPONENT_FSORTED;
   }

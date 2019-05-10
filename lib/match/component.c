@@ -192,7 +192,7 @@ static int component_idcmp(const void *a, const void *b) {
   const struct c_entry *left = a;
   const struct c_entry *right = b;
   NULLCMP(left, right);
-  return (int)((unsigned int)(b-1) - (unsigned int)(a-1));
+  return (int)((unsigned int)(right->id-1) - (unsigned int)(left->id-1));
 }
 
 int component_foreach(struct component_ctx *c,

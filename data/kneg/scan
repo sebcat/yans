@@ -105,17 +105,22 @@ EOF
 run $SCAN collate                             \
     --type httpmsgs                           \
     --in-services-csv zlib:services.csv.gz    \
-    --out-httpmsgs zlib:httpreqs.0
+    --out-httpmsgs zlib:httpreqs.bin.gz
 
-run $WEBFETCH                                 \
-    --in-httpmsgs zlib:httpreqs.0             \
-    --module logger --params                  \
-        --out-logfile zlib:httpmsgs.log ';'   \
-    --module writer --params                  \
-        --out-httpmsgs zlib:httpmsgs.0 ';'    \
-    --module matcher --params                 \
-        --out-matchfile zlib:matches.0 ';'
+run $WEBFETCH                                     \
+    --in-httpmsgs zlib:httpreqs.bin.gz            \
+    --module logger --params                      \
+        --out-logfile zlib:httpmsgs.log.gz ';'    \
+    --module writer --params                      \
+        --out-httpmsgs zlib:httpmsgs.bin.gz ';'   \
+    --module matcher --params                     \
+        --out-components zlib:comp.csv.gz         \
+        --out-compsvclist zlib:compsvc.csv.gz ';'
 
+cat <<EOF | manifest
+comp.csv.gz Found Components
+compsvc.csv.gz Service by Found Components
+EOF
 
 
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

@@ -172,6 +172,10 @@ after_header:
   return;
 }
 
+static int svccmp(const void *a, const void *b) {
+  return *(int*)a - *(int*)b;
+}
+
 static int print_component(void *data, void *value) {
   struct matcher_data *m = data;
   struct c_entry *c = value;
@@ -182,28 +186,35 @@ static int print_component(void *data, void *value) {
   char compidstr[24];
   char svcidstr[24];
 
-  snprintf(compidstr, sizeof(compidstr), "%d", c->id);
-  buf_clear(&m->rowbuf);
-  compfields[0] = compidstr;
-  compfields[1] = c->name;
-  compfields[2] = c->version;
-  ret = csv_encode(&m->rowbuf, compfields, ARRAY_SIZE(compfields));
-  if (ret < 0) {
-    return 1; /* skip it */
+  /* Encode the component as CSV and write it */
+  if (m->out_components) {
+    snprintf(compidstr, sizeof(compidstr), "%d", c->id);
+    buf_clear(&m->rowbuf);
+    compfields[0] = compidstr;
+    compfields[1] = c->name;
+    compfields[2] = c->version;
+    ret = csv_encode(&m->rowbuf, compfields, ARRAY_SIZE(compfields));
+    if (ret < 0) {
+      return 1; /* skip it */
+    }
+    fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_components);
   }
 
-  fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_components);
-  for (i = 0; i < c->slen; i++) {
-    buf_clear(&m->rowbuf);
-    snprintf(svcidstr, sizeof(svcidstr), "%d", c->services[i]);
-    compsvcfields[0] = compidstr;
-    compsvcfields[1] = svcidstr;
-    ret = csv_encode(&m->rowbuf, compsvcfields, ARRAY_SIZE(compsvcfields));
-    if (ret < 0) {
-      continue; /* skip it */
-    }
+  /* Encode and write the component to services list as CSV */
+  if (m->out_compsvclist) {
+    qsort(c->services, c->slen, sizeof(c->services[0]), svccmp);
+    for (i = 0; i < c->slen; i++) {
+      buf_clear(&m->rowbuf);
+      snprintf(svcidstr, sizeof(svcidstr), "%d", c->services[i]);
+      compsvcfields[0] = compidstr;
+      compsvcfields[1] = svcidstr;
+      ret = csv_encode(&m->rowbuf, compsvcfields, ARRAY_SIZE(compsvcfields));
+      if (ret < 0) {
+        continue; /* skip it */
+      }
 
-    fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_compsvclist);
+      fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_compsvclist);
+    }
   }
 
   return 1;

@@ -2,7 +2,8 @@ webfetch_DEPS     = lib/util/io.c lib/util/buf.c lib/util/netstring.c \
                     lib/util/zfile.c lib/net/tcpsrc.c \
                     lib/util/os.c lib/util/sandbox.c lib/ycl/opener.c \
                     lib/ycl/yclcli.c lib/ycl/yclcli_store.c lib/ycl/ycl.c \
-                    lib/ycl/ycl_msg.c
+                    lib/ycl/ycl_msg.c lib/match/component.c \
+                    lib/util/csv.c lib/util/objtbl.c
 webfetch_DEPSOBJS = ${webfetch_DEPS:.c=.o}  lib/match/reset.o
 webfetch_SOURCES  = apps/webfetch/main.c apps/webfetch/fetch.c \
                     apps/webfetch/module.c \

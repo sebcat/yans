@@ -221,6 +221,14 @@ static int chaincmp(const void *a, const void *b) {
   return memcmp(left->sha1hash, right->sha1hash, sizeof(right->sha1hash));
 }
 
+static int chainidcmp(const void *a, const void *b) {
+  const struct collate_certchain *left = a;
+  const struct collate_certchain *right = b;
+
+  NULLCMP(left,right);
+  return right-left;
+}
+
 static struct collate_certchain *upsert_chain(const char *hash,
     size_t hashlen, const char *pems, size_t pemslen) {
 
@@ -691,8 +699,8 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
     goto end;
   }
 
-  objtbl_sort(&chaintbl_); /* FIXME: Currently, this sorts by sha1hash
-                            *        which is always set, if unused  too */
+  objtbl_set_cmpfunc(&chaintbl_, chainidcmp);
+  objtbl_sort(&chaintbl_);
   ret = print_chains_csv(&chaintbl_, opts);
   if (ret < 0) {
     goto end;

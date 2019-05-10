@@ -53,6 +53,8 @@ struct objtbl_stats {
 #define objtbl_size(ctx__) ((ctx__)->header.size)
 #define objtbl_cap(ctx__) ((ctx__)->header.cap)
 #define objtbl_val(ctx__, i__) ((ctx__)->entries[(i__)].value)
+#define objtbl_set_cmpfunc(ctx__, func__) \
+    ((ctx__)->header.opts.cmpfunc = (func__))
 
 int objtbl_init(struct objtbl_ctx *tbl, const struct objtbl_opts *opts,
     uint32_t nslots);

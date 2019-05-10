@@ -548,8 +548,119 @@ static int get_report_sections(struct yapi_ctx *ctx) {
   return 0;
 }
 
+static int queue_work(struct yapi_ctx *ctx, const char *sub, size_t sublen,
+    const char *id, const char *type, const char *name) {
+  struct a2_ctx *a2data = yapi_data(ctx);
+  int ret;
+  FILE *fp;
+  size_t len;
+
+  /* write the subject entry to subject.txt */
+  ret = yclcli_store_fopen(&a2data->store, "subject.txt", "wb", &fp);
+  if (ret == YCL_OK) {
+    len = fwrite(sub, 1, sublen, fp);
+    fclose(fp);
+    if (len < sublen) {
+      return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+          "failed to save subject list");
+    }
+  } else {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        yclcli_strerror(&a2data->store));
+  }
+
+  /* queue the work! */
+  ret = yclcli_kneg_queue(&a2data->kneg, id, type, name, 0, NULL);
+  if (ret != YCL_OK) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        yclcli_strerror(&a2data->kneg));
+  }
+
+  return 0;
+}
+
 /*
  * POST /a1/scan
+ * Content-Type: text/plain
+ *
+ * URL Parameters:
+ *   - name (opt): A name, will get truncated if too long
+ *   - type (opt): Type of job to perform, defaults to DFL_KNEG_TYPE
+ *
+ * Returns 200 OK on success, with the store ID as the response body
+ */
+static int post_scan_text(struct yapi_ctx *ctx) {
+  struct a2_ctx *a2data = yapi_data(ctx);
+  buf_t reqbody         = {0};
+  char namebuf[40]      = {0};
+  const char *type      = DFL_KNEG_TYPE;
+  const char *tmp;
+  char *key;
+  char *val;
+  char idbuf[64];
+  size_t len;
+  int ret;
+
+  /* parse URL query parameters */
+  while (urlquery_next_pair(&ctx->req.query_string, &key, &val)) {
+    if (strcmp(key, "name") == 0) {
+      len = strlen(val);
+      if (len < sizeof(namebuf)) {
+        snprintf(namebuf, sizeof(namebuf), "%.*s", (int)len, val);
+      } else {
+        snprintf(namebuf, sizeof(namebuf), "%.*s...", (int)len - 4, val);
+      }
+    } else if (strcmp(key, "type") == 0) {
+      type = val;
+    }
+  }
+
+  /* initialize request body buffer */
+  if (!buf_init(&reqbody, 8192)) {
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        "failed to allocate receive buffer");
+  }
+
+  /* read the request body and make sure we have some minimal amount of
+   *  data at this point */
+  yapi_read(ctx, &reqbody);
+  if (reqbody.len < 3) {
+    buf_cleanup(&reqbody);
+    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+        "missing request body");
+  }
+
+  /* enter the store, get an ID */
+  ret = yclcli_store_enter(&a2data->store, NULL, &tmp);
+  if (ret != YCL_OK) {
+    buf_cleanup(&reqbody);
+    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
+        yclcli_strerror(&a2data->store));
+  } else {
+    strncpy(idbuf, tmp, sizeof(idbuf));
+    idbuf[sizeof(idbuf)-1] = '\0';
+  }
+
+  /* If a name was not supplied as an URL parameter, set it to the ID
+   * of the store now */
+  if (namebuf[0] == '\0') {
+    snprintf(namebuf, sizeof(namebuf), "%s", idbuf);
+  }
+
+  ret = queue_work(ctx, reqbody.data, reqbody.len,
+    idbuf, type, namebuf);
+  if (ret != 0) {
+    return ret;
+  }
+
+  yapi_header(ctx, YAPI_STATUS_OK, YAPI_CTYPE_TEXT);
+  yapi_write(ctx, idbuf, strlen(idbuf));
+  return 0;
+}
+
+/*
+ * POST /a1/scan
+ * Content-Type: application/json
  *
  * Request object:
  * {
@@ -564,7 +675,7 @@ static int get_report_sections(struct yapi_ctx *ctx) {
  *   }
  * }
  */
-static int post_scan(struct yapi_ctx *ctx) {
+static int post_scan_json(struct yapi_ctx *ctx) {
   struct a2_ctx *a2data = yapi_data(ctx);
   const char *parserr   = "Invalid scan request";
   buf_t reqbody         = {0};
@@ -585,13 +696,6 @@ static int post_scan(struct yapi_ctx *ctx) {
   FILE *fp;
   json_t *top;
   json_t *data;
-
-  /* require a valid content type for security reasons */
-  if (!ctx->req.content_type ||
-      !strstr(ctx->req.content_type, "application/json")) {
-    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
-        "missing/invalid content-type");
-  }
 
   /* initialize the request body receive buffer */
   if (!buf_init(&reqbody, 8192)) {
@@ -626,16 +730,9 @@ static int post_scan(struct yapi_ctx *ctx) {
     goto invalid_req;
   }
 
-  /* check for disallowed characters in subject, and make lowercase */
+  /* make lowercase */
   for (i = 0; i < len; i += width) {
     ch = u8_to_cp(subject + i, len - i, &width);
-    if (ch == '\0' || ch == '\r' || ch == '\n' || ch == '\t' ||
-        ch == ' ') {
-      parserr = "Invalid characters in scan subject";
-      goto invalid_req;
-    }
-
-    /* convert code-point to lowercase and append it to subjectbuf */
     ch = u8_tolower(ch);
     ret = buf_reserve(&subjectbuf, 8);
     if (ret < 0) {
@@ -694,26 +791,14 @@ static int post_scan(struct yapi_ctx *ctx) {
     }
   }
 
-  /* write the subject entry to subject.txt for easier processing */
-  ret = yclcli_store_fopen(&a2data->store, "subject.txt", "wb", &fp);
-  if (ret == YCL_OK) {
-    ret = fprintf(fp, "%s\n",
-        json_string_value(json_object_get(req, "subject")));
-    fclose(fp);
-    if (ret < 0) {
-      return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
-          "failed to save subject list");
-    }
-  }
-
+  /* queue the work! */
+  jstr = json_object_get(req, "subject");
+  ret = queue_work(ctx,json_string_value(jstr), json_string_length(jstr),
+    idbuf, type, namebuf);
   json_decref(req);
   req = NULL;
-
-  /* queue the work! */
-  ret = yclcli_kneg_queue(&a2data->kneg, idbuf, type, namebuf, 0, NULL);
-  if (ret != YCL_OK) {
-    return yapi_error(ctx, YAPI_STATUS_INTERNAL_SERVER_ERROR,
-        "failed to enqueue request");
+  if (ret != 0) {
+    return ret;
   }
 
   /* build and write the response */
@@ -732,6 +817,31 @@ invalid_req:
   buf_cleanup(&subjectbuf);
   /* TODO: Error feedback from jsonerr, if relevant? */
   return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST, parserr);
+}
+
+static int post_scan(struct yapi_ctx *ctx) {
+  enum yapi_ctype ctype = YAPI_CTYPE_NONE;
+
+  /* Determine and validate Content-Type */
+  if (!ctx->req.content_type || *ctx->req.content_type == '\0') {
+    return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+        "missing content-type");
+  } else if (strstr(ctx->req.content_type, "application/json")) {
+    ctype = YAPI_CTYPE_JSON;
+  } else if (strstr(ctx->req.content_type, "text/plain")) {
+    ctype = YAPI_CTYPE_TEXT;
+  } else {
+  }
+
+  switch (ctype) {
+    case YAPI_CTYPE_JSON:
+      return post_scan_json(ctx);
+    case YAPI_CTYPE_TEXT:
+      return post_scan_text(ctx);
+    default:
+      return yapi_error(ctx, YAPI_STATUS_BAD_REQUEST,
+          "invalid content-type");
+  }
 }
 
 SC2MOD_API int sc2_setup(struct sc2mod_ctx *mod) {

@@ -362,6 +362,11 @@ static int test_match_httpheaders() {
       .type = RESET_MATCH_COMPONENT,
       .name = "openssl/openssl"
     },
+    {
+      .input = "HTTP/2 301 \r\nServer: AkamaiGHost\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "akamai/ghost"
+    },
   };
 
   reset = reset_new();

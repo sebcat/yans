@@ -1,0 +1,107 @@
+#!/bin/sh -xe
+#shellcheck disable=SC2039
+#
+# gitter --
+#   Queue jobs, fetch the result and export the data to diffable CSV files
+
+: ${EXPORTER:=./export.php}
+: ${YANSAPI:=http://127.0.0.1/}
+
+warn()  { printf '%s\n' "$1" >&2; }
+croak() { warn "$1"; exit 1; }
+usage() { croak "$0 <queue|fetch|export|commit> <path>"; }
+must_have() { command -v "$1" >/dev/null || croak "Missing command: $1"; }
+
+# queue --
+#   Add subjects from files in <path>/subjects to $YANSAPI queue
+queue() {
+  local path=$1
+  local queued=$path/internal/queued
+  mkdir -p "$path/subjects"
+  find "$path/subjects" -type f | while read -r file; do
+    local subject
+    local id
+    subject=$(basename "$file" .txt)
+    id=$(curl -sS --data-binary "@${file}" -H 'Content-Type: text/plain' \
+        "${YANSAPI}a1/scan?name=$subject")
+    if [ ${#id} -ne 20 ]; then
+      warn "Failed to queue $subject: $id"
+    else
+      printf '%s %s\n' "$id" "$subject" >> "$queued"
+    fi
+  done
+}
+
+# fetch --
+#   Fetch results from $YANSAPI and commit them to the git in <path>
+fetch() {
+  local path=$1
+  local queued=$path/internal/queued
+  if [ -f "$queued" ]; then
+    while read -r id subject; do
+      local dstdir=$path/internal/fetched/$subject
+      mkdir -p "$dstdir"
+      curl -sS "${YANSAPI}a1/report-section?id=$id&name=MANIFEST" | while read -r section rest; do
+        local name
+        name=$(basename "$section" .gz)
+        curl -sS -o "$dstdir/$name" "${YANSAPI}a1/report-section?id=$id&name=$section"
+      done
+    done < "$queued"
+    rm -f "$queued"
+  fi
+}
+
+# export_data --
+#   Export the fetched results to the export format du jour
+export_data() {
+  local path=$1
+  find "$path/internal/fetched" -mindepth 1 -type d | while read -r srcdir; do
+    local subject
+    local dstdir
+    subject=$(basename $srcdir)
+    dstdir=$path/results/$subject
+    mkdir -p "$dstdir"
+    $EXPORTER "$srcdir" "$dstdir"
+  done
+}
+
+# commit --
+#   Commit the new results to the git
+commit() {
+  local path=$1
+  git -C "$path" add -u
+  git -C "$path" commit -m "$(date '+%Y/%m/%d %H:%M:%S %z'): New results"
+}
+
+# main --
+#   You know what main is
+main() {
+  local subcmd=$1
+  local path=$2
+  [ ! -d "$path" ]  && usage
+  [ -z "$YANSAPI" ] && croak "Missing YANSAPI"
+  mkdir -p "$path/internal" || croak "Failed to create internal state dir"
+  case $subcmd in
+    queue)
+      queue "$path"
+      ;;
+    fetch)
+      fetch "$path"
+      ;;
+    export)
+      export_data "$path"
+      ;;
+    commit)
+      commit "$path"
+      ;;
+    *)
+      usage
+      ;;
+  esac
+}
+
+must_have curl
+must_have git
+must_have php
+must_have "$EXPORTER"
+main "$@"

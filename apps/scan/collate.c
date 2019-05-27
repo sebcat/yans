@@ -416,9 +416,9 @@ static void postprocess_services(struct objtbl_ctx *svctbl) {
 
 static int print_services_csv(struct objtbl_ctx *svctbl,
     struct collate_opts *opts) {
-  size_t i;
-  size_t j;
   size_t k;
+  size_t out_ix;
+  size_t svc_ix;
   size_t tbllen;
   buf_t buf;
   const char *fields[7];
@@ -437,51 +437,51 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
   }
 
   tbllen = objtbl_size(svctbl);
-  for (i = 0; i < opts->nout_services_csv; i++) { /* TODO: Move this */
-    for (j = 0; j < tbllen; j++) {
-      svc = objtbl_val(svctbl, j);
-      assert(svc != NULL);
+  for (svc_ix = 0; svc_ix < tbllen; svc_ix++) {
+    svc = objtbl_val(svctbl, svc_ix);
+    assert(svc != NULL);
 
-      salen = saddr_len(svc->addr);
-      ret = getnameinfo(&svc->addr->sa, salen, addrbuf, sizeof(addrbuf),
-          portbuf, sizeof(portbuf), NI_NUMERICHOST | NI_NUMERICSERV);
-      if (ret != 0) {
-        fprintf(stderr, "getnameinfo: %s\n", gai_strerror(ret));
-        continue;
+    salen = saddr_len(svc->addr);
+    ret = getnameinfo(&svc->addr->sa, salen, addrbuf, sizeof(addrbuf),
+        portbuf, sizeof(portbuf), NI_NUMERICHOST | NI_NUMERICSERV);
+    if (ret != 0) {
+      fprintf(stderr, "getnameinfo: %s\n", gai_strerror(ret));
+      continue;
+    }
+
+    for (k = 0; k < MAX_MPIDS; k++) {
+      if (k > 0 && svc->mpids[k] == TCPPROTO_UNKNOWN) {
+        /* No more matched IDs. mpids[0] should still have been printed */
+        break;
       }
 
-      for (k = 0; k < MAX_MPIDS; k++) {
-        if (k > 0 && svc->mpids[k] == TCPPROTO_UNKNOWN) {
-          /* No more matched IDs. mpids[0] should still have been printed */
-          break;
-        }
+      /* create certid field */
+      chain = svc->mpchains[k];
+      if (chain != NULL && chain->id > 0) {
+        snprintf(certid, sizeof(certid), "%u", chain->id);
+      } else {
+        certid[0] = '\0';
+      }
 
-        /* create certid field */
-        chain = svc->mpchains[k];
-        if (chain != NULL && chain->id > 0) {
-          snprintf(certid, sizeof(certid), "%u", chain->id);
-        } else {
-          certid[0] = '\0';
-        }
+      /* create service ID field */
+      snprintf(service_idbuf, sizeof(service_idbuf), "%u",
+          svc->service_ids[k]);
 
-        /* create service ID field */
-        snprintf(service_idbuf, sizeof(service_idbuf), "%u",
-            svc->service_ids[k]);
+      buf_clear(&buf);
+      fields[0] = service_idbuf;
+      fields[1] = svc->name;
+      fields[2] = addrbuf;
+      fields[3] = "tcp";
+      fields[4] = portbuf;
+      fields[5] = tcpproto_type_to_string(svc->mpids[k]);
+      fields[6] = certid;
+      ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
+      if (ret != 0) {
+        goto end;
+      }
 
-        buf_clear(&buf);
-        fields[0] = service_idbuf;
-        fields[1] = svc->name;
-        fields[2] = addrbuf;
-        fields[3] = "tcp";
-        fields[4] = portbuf;
-        fields[5] = tcpproto_type_to_string(svc->mpids[k]);
-        fields[6] = certid;
-        ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
-        if (ret != 0) {
-          goto end;
-        }
-
-        if (fwrite(buf.data, buf.len, 1, opts->out_services_csv[i]) != 1) {
+      for (out_ix = 0; out_ix < opts->nout_services_csv; out_ix++) {
+        if (fwrite(buf.data, buf.len, 1, opts->out_services_csv[out_ix]) != 1) {
           goto end;
         }
       }

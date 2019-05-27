@@ -89,6 +89,7 @@ struct collate_certchain {
 };
 
 struct collate_service {
+  unsigned int service_ids[MAX_MPIDS];
   union saddr_t *addr;
   const char *name;
   unsigned short mpids[MAX_MPIDS];
@@ -105,7 +106,10 @@ struct objtbl_ctx nametbl_;
 struct objtbl_ctx addrtbl_;
 struct objtbl_ctx svctbl_;
 struct objtbl_ctx chaintbl_;
-unsigned int chainid_ = 1; /* 0 indicates no chain */
+
+/* assigned ID counters */
+unsigned int serviceid_;
+unsigned int chainid_;
 
 /* 32-bit FNV1a constants */
 #define FNV1A_OFFSET 0x811c9dc5
@@ -259,7 +263,7 @@ static struct collate_certchain *upsert_chain(const char *hash,
 
     memcpy(newchain->sha1hash, hash, sizeof(newchain->sha1hash));
     newchain->chain = chain;
-    newchain->id = chainid_++;
+    newchain->id = ++chainid_;
     objtbl_insert(&chaintbl_, newchain);
   } else {
     newchain = val;
@@ -379,6 +383,37 @@ static struct collate_service *process_banner(
   return res;
 }
 
+static void postprocess_services(struct objtbl_ctx *svctbl) {
+  struct collate_service *svc;
+  size_t tbllen;
+  size_t svc_index;
+  size_t match_index;
+
+  tbllen = objtbl_size(svctbl);
+  for (svc_index = 0; svc_index < tbllen; svc_index++) {
+    svc = objtbl_val(svctbl, svc_index);
+    assert(svc != NULL);
+
+    /* If no mpid exists, set the fpid as the mpid. Fallback should only be
+     * used if no pattern has matched. */
+    if (svc->mpids[0] == TCPPROTO_UNKNOWN) {
+      svc->mpids[0] = svc->eflags.fpid;
+      svc->mpchains[0] = svc->fpchain;
+    }
+
+    /* Iterate over matched patterns and assign service IDs  */
+    for (match_index = 0; match_index < MAX_MPIDS; match_index++) {
+      if (match_index > 0 && svc->mpids[match_index] == TCPPROTO_UNKNOWN) {
+        /* No more matched IDs. mpids[0] should still have been printed */
+        break;
+      }
+
+      svc->service_ids[match_index] = ++serviceid_;
+    }
+  }
+
+}
+
 static int print_services_csv(struct objtbl_ctx *svctbl,
     struct collate_opts *opts) {
   size_t i;
@@ -396,14 +431,13 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
   char certid[24];
   struct collate_certchain *chain;
   char service_idbuf[24];
-  unsigned int service_id = 0;
 
   if (!buf_init(&buf, 2048)) {
     return -1;
   }
 
   tbllen = objtbl_size(svctbl);
-  for (i = 0; i < opts->nout_services_csv; i++) {
+  for (i = 0; i < opts->nout_services_csv; i++) { /* TODO: Move this */
     for (j = 0; j < tbllen; j++) {
       svc = objtbl_val(svctbl, j);
       assert(svc != NULL);
@@ -414,14 +448,6 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
       if (ret != 0) {
         fprintf(stderr, "getnameinfo: %s\n", gai_strerror(ret));
         continue;
-      }
-
-      /* If no mpid exists, set the fpid as the mpid. FIXME:
-       * There could be a cert in mpids[0] though, should step up index if
-       * so*/
-      if (svc->mpids[0] == TCPPROTO_UNKNOWN) {
-        svc->mpids[0] = svc->eflags.fpid;
-        svc->mpchains[0] = svc->fpchain;
       }
 
       for (k = 0; k < MAX_MPIDS; k++) {
@@ -438,9 +464,9 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
           certid[0] = '\0';
         }
 
-        /* assign a unique (for this collation) ID to the service */
-        service_id++;
-        snprintf(service_idbuf, sizeof(service_idbuf), "%u", service_id);
+        /* create service ID field */
+        snprintf(service_idbuf, sizeof(service_idbuf), "%u",
+            svc->service_ids[k]);
 
         buf_clear(&buf);
         fields[0] = service_idbuf;
@@ -694,6 +720,7 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
   }
 
   objtbl_sort(&svctbl_); /* XXX: Destructive operation */
+  postprocess_services(&svctbl_);
   ret = print_services_csv(&svctbl_, opts);
   if (ret < 0) {
     goto end;

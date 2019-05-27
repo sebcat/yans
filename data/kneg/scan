@@ -93,12 +93,14 @@ run $SCAN collate                             \
     --in-banners        zlib:banners.plain.gz \
     --in-banners        zlib:banners.tls.gz   \
     --out-services-csv  zlib:services.csv.gz  \
+    --out-svccert-csv   zlib:svccert.csv.gz   \
     --out-certs-csv     zlib:certs.csv.gz     \
     --out-cert-sans-csv zlib:sans.csv.gz
 
 cat <<EOF | manifest
 services.csv.gz Services
 certs.csv.gz Certificates
+svccert.csv.gz Certificates by Service
 sans.csv.gz Certificate Subject Alternative Names
 EOF
 
@@ -119,7 +121,7 @@ run $WEBFETCH                                     \
 
 cat <<EOF | manifest
 comp.csv.gz Found Components
-compsvc.csv.gz Service by Found Components
+compsvc.csv.gz Found Components by Service
 EOF
 
 

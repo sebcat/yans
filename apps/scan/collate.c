@@ -53,6 +53,9 @@ struct collate_opts {
   FILE *out_services_csv[MAX_INOUTS];
   size_t nout_services_csv;
 
+  FILE *out_svccert_csv[MAX_INOUTS];
+  size_t nout_svccert_csv;
+
   FILE *out_certs_csv[MAX_INOUTS];
   size_t nout_certs_csv;
 
@@ -421,16 +424,18 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
   size_t svc_ix;
   size_t tbllen;
   buf_t buf;
-  const char *fields[7];
+  const char *fields[6];
   char addrbuf[128];
   char portbuf[8];
   struct collate_service *svc;
   socklen_t salen;
   int ret;
   int status = -1;
-  char certid[24];
-  struct collate_certchain *chain;
   char service_idbuf[24];
+
+  if (opts->nout_services_csv == 0) {
+    return 0;
+  }
 
   if (!buf_init(&buf, 2048)) {
     return -1;
@@ -455,14 +460,6 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
         break;
       }
 
-      /* create certid field */
-      chain = svc->mpchains[k];
-      if (chain != NULL && chain->id > 0) {
-        snprintf(certid, sizeof(certid), "%u", chain->id);
-      } else {
-        certid[0] = '\0';
-      }
-
       /* create service ID field */
       snprintf(service_idbuf, sizeof(service_idbuf), "%u",
           svc->service_ids[k]);
@@ -474,7 +471,6 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
       fields[3] = "tcp";
       fields[4] = portbuf;
       fields[5] = tcpproto_type_to_string(svc->mpids[k]);
-      fields[6] = certid;
       ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
       if (ret != 0) {
         goto end;
@@ -492,6 +488,46 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
 end:
   buf_cleanup(&buf);
   return status;
+}
+
+static int print_svccerts_csv(struct objtbl_ctx *svctbl,
+    struct collate_opts *opts) {
+  struct collate_service *svc;
+  size_t tbllen;
+  size_t svc_ix;
+  size_t out_ix;
+  char rowbuf[128];
+  struct collate_certchain *chain;
+  size_t proto_ix;
+  int len;
+
+  if (opts->nout_svccert_csv == 0) {
+    return 0;
+  }
+
+  tbllen = objtbl_size(svctbl);
+  for (svc_ix = 0; svc_ix < tbllen; svc_ix++) {
+    svc = objtbl_val(svctbl, svc_ix);
+    for (proto_ix = 0; proto_ix < MAX_MPIDS; proto_ix++) {
+      if (proto_ix > 0 && svc->mpids[proto_ix] == TCPPROTO_UNKNOWN) {
+        break;
+      }
+
+      chain = svc->mpchains[proto_ix];
+      if (chain != NULL && chain->id > 0) {
+        len = snprintf(rowbuf, sizeof(rowbuf), "%u,%u\r\n",
+            svc->service_ids[proto_ix], chain->id);
+        len = CLAMP(len, 0, sizeof(rowbuf)-1);
+        for (out_ix = 0; out_ix < opts->nout_svccert_csv; out_ix++) {
+          if (fwrite(rowbuf, len, 1, opts->out_svccert_csv[out_ix]) != 1) {
+            return -1;
+          }
+        }
+      }
+    }
+  }
+
+  return 0;
 }
 
 static int print_sans_csv(struct x509_sans *sans,
@@ -726,6 +762,11 @@ static int banners(struct scan_ctx *ctx, struct collate_opts *opts) {
     goto end;
   }
 
+  ret = print_svccerts_csv(&svctbl_, opts);
+  if (ret < 0) {
+    goto end;
+  }
+
   objtbl_set_cmpfunc(&chaintbl_, chainidcmp);
   objtbl_sort(&chaintbl_);
   ret = print_chains_csv(&chaintbl_, opts);
@@ -879,7 +920,7 @@ static void usage(const char *argv0) {
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:S:s:c:a:m:X";
+  const char *optstr = "t:B:S:s:e:c:a:m:X";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
@@ -892,6 +933,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     {"in-banners",        required_argument, NULL, 'B'},
     {"in-services-csv",   required_argument, NULL, 'S'},
     {"out-services-csv",  required_argument, NULL, 's'},
+    {"out-svccert-csv",   required_argument, NULL, 'e'},
     {"out-certs-csv",     required_argument, NULL, 'c'},
     {"out-cert-sans-csv", required_argument, NULL, 'a'},
     {"out-httpmsgs",      required_argument, NULL, 'm'},
@@ -933,9 +975,20 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Service ID,Name,Address,Transport,Port,Service,Certificate Chain\r\n";
+      tmpstr = "Service ID,Name,Address,Transport,Port,Service\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_services_csv[opts.nout_services_csv-1]);
+      break;
+    case 'e': /* out-svccert-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_svccert_csv, &opts.nout_svccert_csv);
+      if (ret < 0) {
+        goto end;
+      }
+
+      tmpstr = "Service ID,Certificate Chain\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_svccert_csv[opts.nout_svccert_csv-1]);
       break;
     case 'c': /* out-certs-csv */
       ret = open_io(&opts, &scan->opener, optarg, "wb",

@@ -11,7 +11,7 @@
 #define DEFAULT_OUTPATH "-"
 
 struct matcher_data {
-  reset_t *reset;
+  reset_t *httpheader_reset;
   struct component_ctx ctbl;
   FILE *out_components;
   FILE *out_compsvclist;
@@ -65,26 +65,26 @@ int matcher_init(struct module_data *mod) {
     goto fail_free_m;
   }
 
-  m->reset = reset_new();
-  if (m->reset == NULL) {
+  m->httpheader_reset = reset_new();
+  if (m->httpheader_reset == NULL) {
     fprintf(stderr, "failed to create reset for matcher\n");
     goto fail_buf_cleanup;
   }
 
   for (i = 0; i < ARRAY_SIZE(httpheader_); i++) {
-    ret = reset_add_type_name_pattern(m->reset, httpheader_[i].type,
-        httpheader_[i].name, httpheader_[i].pattern);
+    ret = reset_add_type_name_pattern(m->httpheader_reset,
+        httpheader_[i].type, httpheader_[i].name, httpheader_[i].pattern);
     if (ret == RESET_ERR) {
       fprintf(stderr, "failed to add pattern entry %zu: %s\n", i,
-          reset_strerror(m->reset));
+          reset_strerror(m->httpheader_reset));
       goto fail_reset_free;
     }
   }
 
-  ret = reset_compile(m->reset);
+  ret = reset_compile(m->httpheader_reset);
   if (ret != RESET_OK) {
     fprintf(stderr, "failed to compile reset: %s\n",
-        reset_strerror(m->reset));
+        reset_strerror(m->httpheader_reset));
     goto fail_reset_free;
   }
 
@@ -126,7 +126,7 @@ fail_fclose_components:
     fclose(m->out_components);
   }
 fail_reset_free:
-  reset_free(m->reset);
+  reset_free(m->httpheader_reset);
 fail_buf_cleanup:
   buf_cleanup(&m->rowbuf);
 fail_free_m:
@@ -153,18 +153,18 @@ void matcher_process(struct fetch_transfer *t, void *data) {
   headerlen = fetch_transfer_headerlen(t);
   if (headerlen > 0) {
     header = fetch_transfer_header(t);
-    ret = reset_match(m->reset, header, headerlen);
+    ret = reset_match(m->httpheader_reset, header, headerlen);
     if (ret == RESET_ERR) {
       goto after_header;
     }
 
-    while ((id = reset_get_next_match(m->reset)) >= 0) {
-      type = reset_get_type(m->reset, id);
+    while ((id = reset_get_next_match(m->httpheader_reset)) >= 0) {
+      type = reset_get_type(m->httpheader_reset, id);
       if (type == RESET_MATCH_COMPONENT) {
         component_register(&m->ctbl,
-            reset_get_name(m->reset, id),
-            reset_get_substring(m->reset, id, header, headerlen, NULL),
-            fetch_transfer_service_id(t));
+            reset_get_name(m->httpheader_reset, id),
+            reset_get_substring(m->httpheader_reset, id, header, headerlen,
+            NULL), fetch_transfer_service_id(t));
       }
     }
   }
@@ -235,7 +235,7 @@ void matcher_cleanup(void *data) {
       fclose(m->out_components);
     }
 
-    reset_free(m->reset);
+    reset_free(m->httpheader_reset);
     buf_cleanup(&m->rowbuf);
     free(m);
   }

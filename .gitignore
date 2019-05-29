@@ -57,3 +57,4 @@ apps/deduptbl/deduptbl
 apps/webfetch/webfetch
 apps/matchgen/matchgen
 apps/webfetch/modules/matcher_httpheader.c
+apps/webfetch/modules/matcher_httpbody.c

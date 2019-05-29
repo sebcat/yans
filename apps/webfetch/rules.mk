@@ -3,7 +3,11 @@ $(webfetch_OBJS): $(webfetch_DEPSOBJS) $(webfetch_SOURCES) $(webfetch_HEADERS)
 apps/webfetch/modules/matcher_httpheader.c: data/pm/httpheader.pm apps/matchgen/matchgen
 	./apps/matchgen/matchgen < ./data/pm/httpheader.pm httpheader_ > apps/webfetch/modules/matcher_httpheader.c
 
-apps/webfetch/modules/matcher.o: apps/webfetch/modules/matcher.c apps/webfetch/modules/matcher_httpheader.c
+apps/webfetch/modules/matcher_httpbody.c: data/pm/httpbody.pm apps/matchgen/matchgen
+	./apps/matchgen/matchgen < ./data/pm/httpbody.pm httpbody_ > apps/webfetch/modules/matcher_httpbody.c
+
+apps/webfetch/modules/matcher.o: apps/webfetch/modules/matcher.c apps/webfetch/modules/matcher_httpheader.c \
+		apps/webfetch/modules/matcher_httpbody.c
 
 apps/webfetch/main.o: apps/webfetch/main.c
 	$(CC) $(CFLAGS) $(libcurl_CFLAGS) -c $< -o $@

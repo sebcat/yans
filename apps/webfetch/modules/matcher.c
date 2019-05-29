@@ -12,6 +12,7 @@
 
 struct matcher_data {
   reset_t *httpheader_reset;
+  reset_t *httpbody_reset;
   struct component_ctx ctbl;
   FILE *out_components;
   FILE *out_compsvclist;
@@ -26,10 +27,46 @@ struct pattern_data {
 
 /* genmatcher output */
 #include <apps/webfetch/modules/matcher_httpheader.c>
+#include <apps/webfetch/modules/matcher_httpbody.c>
+
+static int init_matcher_reset(struct module_data *mod, reset_t **out_reset,
+    const struct pattern_data *patterns, size_t npatterns) {
+  reset_t *reset;
+  size_t i;
+  int ret;
+
+  reset = reset_new();
+  if (reset == NULL) {
+    fprintf(stderr, "failed to create reset for matcher\n");
+    return -1;
+  }
+
+  for (i = 0; i < npatterns; i++) {
+    ret = reset_add_type_name_pattern(reset,
+        patterns[i].type, patterns[i].name, patterns[i].pattern);
+    if (ret == RESET_ERR) {
+      fprintf(stderr, "failed to add pattern entry %zu: %s\n", i,
+          reset_strerror(reset));
+      goto fail_reset_free;
+    }
+  }
+
+  ret = reset_compile(reset);
+  if (ret != RESET_OK) {
+    fprintf(stderr, "failed to compile reset: %s\n",
+        reset_strerror(reset));
+    goto fail_reset_free;
+  }
+
+  *out_reset = reset;
+  return 0;
+
+fail_reset_free:
+  return -1;
+}
 
 int matcher_init(struct module_data *mod) {
   struct matcher_data *m;
-  size_t i;
   int ret;
   int ch;
   const char *out_components_path = NULL;
@@ -65,27 +102,19 @@ int matcher_init(struct module_data *mod) {
     goto fail_free_m;
   }
 
-  m->httpheader_reset = reset_new();
-  if (m->httpheader_reset == NULL) {
-    fprintf(stderr, "failed to create reset for matcher\n");
+  /* TODO: check ret */
+  ret = init_matcher_reset(mod, &m->httpheader_reset, httpheader_,
+      ARRAY_SIZE(httpheader_));
+  if (ret != 0) {
+    fprintf(stderr, "failed to init httpheader reset\n");
     goto fail_buf_cleanup;
   }
 
-  for (i = 0; i < ARRAY_SIZE(httpheader_); i++) {
-    ret = reset_add_type_name_pattern(m->httpheader_reset,
-        httpheader_[i].type, httpheader_[i].name, httpheader_[i].pattern);
-    if (ret == RESET_ERR) {
-      fprintf(stderr, "failed to add pattern entry %zu: %s\n", i,
-          reset_strerror(m->httpheader_reset));
-      goto fail_reset_free;
-    }
-  }
-
-  ret = reset_compile(m->httpheader_reset);
-  if (ret != RESET_OK) {
-    fprintf(stderr, "failed to compile reset: %s\n",
-        reset_strerror(m->httpheader_reset));
-    goto fail_reset_free;
+  ret = init_matcher_reset(mod, &m->httpbody_reset, httpbody_,
+      ARRAY_SIZE(httpbody_));
+  if (ret != 0) {
+    fprintf(stderr, "failed to init httpbody reset\n");
+    goto fail_httpheader_reset_free;
   }
 
   if (out_components_path) {
@@ -94,7 +123,7 @@ int matcher_init(struct module_data *mod) {
     if (ret < 0) {
       fprintf(stderr, "%s: %s\n", out_components_path,
           opener_strerror(mod->opener));
-      goto fail_reset_free;
+      goto fail_httpbody_reset_free;
     }
     fputs("Component ID,Name,Version\r\n", m->out_components);
   }
@@ -125,7 +154,9 @@ fail_fclose_components:
   if (m->out_components) {
     fclose(m->out_components);
   }
-fail_reset_free:
+fail_httpbody_reset_free:
+  reset_free(m->httpbody_reset);
+fail_httpheader_reset_free:
   reset_free(m->httpheader_reset);
 fail_buf_cleanup:
   buf_cleanup(&m->rowbuf);
@@ -140,36 +171,50 @@ usage:
   return -1;
 }
 
-void matcher_process(struct fetch_transfer *t, void *data) {
-  struct matcher_data *m = data;
+static void process_matches(struct component_ctx *ctbl, reset_t *reset,
+    const void *data, size_t len, long service_id) {
   int ret;
   int id;
-  const char *header;
-  size_t headerlen;
   enum reset_match_type type;
+
+  ret = reset_match(reset, data, len);
+  if (ret == RESET_ERR) {
+    return;
+  }
+
+  while ((id = reset_get_next_match(reset)) >= 0) {
+    type = reset_get_type(reset, id);
+    if (type == RESET_MATCH_COMPONENT) {
+      component_register(ctbl,
+          reset_get_name(reset, id),
+          reset_get_substring(reset, id, data, len, NULL),
+          service_id);
+    }
+  }
+}
+
+void matcher_process(struct fetch_transfer *t, void *matcherdata) {
+  struct matcher_data *m = matcherdata;
+  const char *data;
+  size_t len;
 
   /* see if any HTTP header patterns match, and if they do register the
    * match */
-  headerlen = fetch_transfer_headerlen(t);
-  if (headerlen > 0) {
-    header = fetch_transfer_header(t);
-    ret = reset_match(m->httpheader_reset, header, headerlen);
-    if (ret == RESET_ERR) {
-      goto after_header;
-    }
-
-    while ((id = reset_get_next_match(m->httpheader_reset)) >= 0) {
-      type = reset_get_type(m->httpheader_reset, id);
-      if (type == RESET_MATCH_COMPONENT) {
-        component_register(&m->ctbl,
-            reset_get_name(m->httpheader_reset, id),
-            reset_get_substring(m->httpheader_reset, id, header, headerlen,
-            NULL), fetch_transfer_service_id(t));
-      }
-    }
+  len = fetch_transfer_headerlen(t);
+  if (len > 0) {
+    data = fetch_transfer_header(t);
+    process_matches(&m->ctbl, m->httpheader_reset, data, len,
+        fetch_transfer_service_id(t));
   }
-after_header:
-  return;
+
+  /* see if any HTTP body patterns match, and if they do register the
+   * match */
+  len = fetch_transfer_bodylen(t);
+  if (len > 0) {
+    data = fetch_transfer_body(t);
+    process_matches(&m->ctbl, m->httpbody_reset, data, len,
+        fetch_transfer_service_id(t));
+  }
 }
 
 static int svccmp(const void *a, const void *b) {
@@ -235,6 +280,7 @@ void matcher_cleanup(void *data) {
       fclose(m->out_components);
     }
 
+    reset_free(m->httpbody_reset);
     reset_free(m->httpheader_reset);
     buf_cleanup(&m->rowbuf);
     free(m);

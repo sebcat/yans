@@ -19,5 +19,6 @@ webfetch_BIN      = apps/webfetch/webfetch
 webfetch_LDADD    = ${libcurl_LDFLAGS} ${re2_LDFLAGS} -lstdc++ -lz
 
 CODEGEN += apps/webfetch/modules/matcher_httpheader.c
+CODEGEN += apps/webfetch/modules/matcher_httpbody.c
 OBJS    += $(webfetch_OBJS)
 BINS    += $(webfetch_BIN)

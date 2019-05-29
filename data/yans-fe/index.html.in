@@ -157,7 +157,7 @@ table tr:nth-child(1) td {
 }
 
 .shady {
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 @keyframes spin {
@@ -187,7 +187,7 @@ table tr:nth-child(1) td {
   text-align: center;
   font-style: italic;
   font-size: smaller;
-  color: #ccc;
+  color: #777;
   margin: 1rem;
 }
 

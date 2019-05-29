@@ -42,6 +42,11 @@ table tr:nth-child(1) td {
   font-weight: bold;
 }
 
+.rounded-right {
+  border-top-right-radius: .4em;
+  border-bottom-right-radius: .4em;
+}
+
 .input-group {
   display: inline-flex;
   flex-wrap: wrap;
@@ -201,7 +206,7 @@ table tr:nth-child(1) td {
   <div class="input-group">
     <input id="scan-subject" type="text" class="input-group-append"
         placeholder="domain or address..." />
-    <button id="scan-btn" class="input-group-append">Scan Now!</button>
+    <button id="scan-btn" class="input-group-append rounded-right">Scan Now!</button>
   </div>
 </div>
 

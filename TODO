@@ -1,5 +1,14 @@
 # TODO
 
+- Add non-HTTP pattern matching of banners
+- Add tests for HTTP body patterns
+- Add tests for non-HTTP patterns
+- Add support for multiple kneg queues, keep a default one
+- Adjust size of /var depending on available RAM
+
+- Remove report-sections, job.json &c. Keep MANIFEST. How to correlate
+  with time &c?
+
 - curl from ports is built with kerberos. If we build our own curl
   without kerberos (and without some other cruft in libcurl) and we
   make buildworld with WITHOUT_KERBEROS=true, we would save couple of
@@ -17,7 +26,7 @@
   1,1
   ...
 
-- webfetch module: reqfinder (sigil-gumbo based)
+- webfetch module: reqfinder || crawler || other-name (sigil-gumbo based)
 
 - yans-fe: Make HTML tables sortable (sort.js) have spinner to indicate
            when sorting

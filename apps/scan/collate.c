@@ -591,8 +591,7 @@ static int print_chain_csv(struct collate_certchain *certchain,
   size_t i;
   char chain_id[24];
   char depth[24];
-  const char *fields[7];
-  char nsanstr[24];
+  const char *fields[6];
   int ret;
   struct x509_certchain *chain;
   struct x509_cert cert;
@@ -603,7 +602,6 @@ static int print_chain_csv(struct collate_certchain *certchain,
   buf_t buf;
   size_t nouts;
   size_t j;
-  size_t nsans;
   char notbefore[64];
   char notafter[64];
 
@@ -634,12 +632,9 @@ static int print_chain_csv(struct collate_certchain *certchain,
     x509_cert_get_valid_not_before(&cert, notbefore, sizeof(notbefore));
     x509_cert_get_valid_not_after(&cert, notafter, sizeof(notafter));
 
-    /* TODO: Move this to its own thing later */
-    nsanstr[0] = '\0';
+    /* TODO: Move this to its own thing? */
     ret = x509_cert_get_sans(&cert, &sans);
     if (ret == X509_OK) {
-      nsans = x509_sans_get_nelems(&sans);
-      snprintf(nsanstr, sizeof(nsanstr), "%zu", nsans);
       print_sans_csv(&sans, opts, chain_id, depth);
       x509_sans_cleanup(&sans);
     }
@@ -650,7 +645,6 @@ static int print_chain_csv(struct collate_certchain *certchain,
     fields[3] = issuer_name;
     fields[4] = notbefore;
     fields[5] = notafter;
-    fields[6] = nsanstr;
     buf_clear(&buf);
     ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
 
@@ -997,7 +991,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
         goto end;
       }
 
-      tmpstr = "Chain,Depth,Subject,Issuer,Not Valid Before,Not Valid After,# of SANs\r\n";
+      tmpstr = "Chain,Depth,Subject,Issuer,Not Valid Before,Not Valid After\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_certs_csv[opts.nout_certs_csv-1]);
       break;

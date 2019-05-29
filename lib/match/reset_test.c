@@ -6,7 +6,7 @@
 #include <lib/util/macros.h>
 #include <lib/util/test.h>
 
-#define HTTPHEADER_PATTERN_FILE "./data/pm/1.pm"
+#define HTTPHEADER_PATTERN_FILE "./data/pm/httpheader.pm"
 #define HTTPHEADER_MIN_ROWS 18 /* subject to change, update as needed */
 
 int test_match() {

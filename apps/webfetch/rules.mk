@@ -1,7 +1,7 @@
 $(webfetch_OBJS): $(webfetch_DEPSOBJS) $(webfetch_SOURCES) $(webfetch_HEADERS)
 
-apps/webfetch/modules/matcher_httpheader.c: data/pm/1.pm apps/matchgen/matchgen
-	./apps/matchgen/matchgen < ./data/pm/1.pm httpheader_ > apps/webfetch/modules/matcher_httpheader.c
+apps/webfetch/modules/matcher_httpheader.c: data/pm/httpheader.pm apps/matchgen/matchgen
+	./apps/matchgen/matchgen < ./data/pm/httpheader.pm httpheader_ > apps/webfetch/modules/matcher_httpheader.c
 
 apps/webfetch/modules/matcher.o: apps/webfetch/modules/matcher.c apps/webfetch/modules/matcher_httpheader.c
 

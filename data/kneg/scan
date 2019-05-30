@@ -105,6 +105,7 @@ sans.csv.gz Certificate Subject Alternative Names
 EOF
 
 run $SCAN collate                             \
+    $SCANOPTS                                 \
     --type httpmsgs                           \
     --in-services-csv zlib:services.csv.gz    \
     --out-httpmsgs zlib:httpreqs.bin.gz

@@ -474,8 +474,10 @@ objtbl_hash_t objtbl_strhash(const void *obj, objtbl_hash_t seed) {
   const unsigned char *data = obj;
   size_t i;
 
+  /* If no string is given, return the seed as-is. It may have
+   * been the output of an earlier invocation of a hash function */
   if (obj == NULL) {
-    return hash;
+    return seed;
   }
 
   for (i = 0; i < sizeof(objtbl_hash_t); i++) {

@@ -10,6 +10,10 @@
 
 #define DEFAULT_OUTPATH "-"
 
+/* genmatcher output */
+#include <apps/webfetch/modules/matcher_httpheader.c>
+#include <apps/webfetch/modules/matcher_httpbody.c>
+
 struct matcher_data {
   reset_t *httpheader_reset;
   reset_t *httpbody_reset;
@@ -19,20 +23,9 @@ struct matcher_data {
   buf_t rowbuf;
 };
 
-struct pattern_data {
-  enum reset_match_type type;
-  const char *name;
-  const char *pattern;
-};
-
-/* genmatcher output */
-#include <apps/webfetch/modules/matcher_httpheader.c>
-#include <apps/webfetch/modules/matcher_httpbody.c>
-
-static int init_matcher_reset(struct module_data *mod, reset_t **out_reset,
-    const struct pattern_data *patterns, size_t npatterns) {
+static int init_matcher_reset(reset_t **out_reset,
+    const struct reset_pattern *patterns, size_t npatterns) {
   reset_t *reset;
-  size_t i;
   int ret;
 
   reset = reset_new();
@@ -41,28 +34,15 @@ static int init_matcher_reset(struct module_data *mod, reset_t **out_reset,
     return -1;
   }
 
-  for (i = 0; i < npatterns; i++) {
-    ret = reset_add_type_name_pattern(reset,
-        patterns[i].type, patterns[i].name, patterns[i].pattern);
-    if (ret == RESET_ERR) {
-      fprintf(stderr, "failed to add pattern entry %zu: %s\n", i,
-          reset_strerror(reset));
-      goto fail_reset_free;
-    }
-  }
-
-  ret = reset_compile(reset);
+  ret = reset_load(reset, patterns, npatterns);
   if (ret != RESET_OK) {
-    fprintf(stderr, "failed to compile reset: %s\n",
-        reset_strerror(reset));
-    goto fail_reset_free;
+    fprintf(stderr, "reset_load: %s\n", reset_strerror(reset));
+    reset_free(reset);
+    return -1;
   }
 
   *out_reset = reset;
   return 0;
-
-fail_reset_free:
-  return -1;
 }
 
 int matcher_init(struct module_data *mod) {
@@ -102,15 +82,14 @@ int matcher_init(struct module_data *mod) {
     goto fail_free_m;
   }
 
-  /* TODO: check ret */
-  ret = init_matcher_reset(mod, &m->httpheader_reset, httpheader_,
+  ret = init_matcher_reset(&m->httpheader_reset, httpheader_,
       ARRAY_SIZE(httpheader_));
   if (ret != 0) {
     fprintf(stderr, "failed to init httpheader reset\n");
     goto fail_buf_cleanup;
   }
 
-  ret = init_matcher_reset(mod, &m->httpbody_reset, httpbody_,
+  ret = init_matcher_reset(&m->httpbody_reset, httpbody_,
       ARRAY_SIZE(httpbody_));
   if (ret != 0) {
     fprintf(stderr, "failed to init httpbody reset\n");

@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  fprintf(stdout, "static const struct pattern_data %s[] = {\n",
+  fprintf(stdout, "static const struct reset_pattern %s[] = {\n",
       argv[1]);
   ret = emit_elems(stdout, stdin);
   if (ret < 0) {

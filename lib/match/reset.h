@@ -22,6 +22,12 @@ enum reset_match_type {
 
 typedef struct reset_t reset_t;
 
+struct reset_pattern {
+  enum reset_match_type type;
+  const char *name;
+  const char *pattern;
+};
+
 const char *reset_type2str(enum reset_match_type t);
 
 /* return RESET_ERR and sets the error string */
@@ -44,6 +50,11 @@ const char *reset_get_name(reset_t *reset, int id);
 enum reset_match_type reset_get_type(reset_t *reset, int id);
 const char *reset_get_substring(reset_t *reset, int id, const char *data,
     size_t len, size_t *ol);
+
+/* add + compile of multiple patterns */
+int reset_load(reset_t *reset, const struct reset_pattern *pattern,
+    size_t npatterns);
+
 
 
 #ifdef __cplusplus

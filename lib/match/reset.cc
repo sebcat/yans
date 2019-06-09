@@ -3,6 +3,7 @@
 #include <new>
 #include <algorithm>
 #include <vector>
+#include <sstream>
 
 #include <re2/set.h>
 
@@ -217,4 +218,28 @@ const char *reset_get_substring(reset_t *reset, int id, const char *data,
   }
 
   return NULL;
+}
+
+int reset_load(reset_t *reset, const struct reset_pattern *patterns,
+    size_t npatterns) {
+  size_t i;
+  int ret;
+
+  for (i = 0; i < npatterns; i++) {
+    ret = reset_add_type_name_pattern(reset,
+        patterns[i].type, patterns[i].name, patterns[i].pattern);
+    if (ret == RESET_ERR) {
+      std::ostringstream ss;
+      ss << "pattern " << i << ": " << reset_strerror(reset);
+      reset->errstr.assign(ss.str());
+      return RESET_ERR;
+    }
+  }
+
+  ret = reset_compile(reset);
+  if (ret != RESET_OK) {
+    return RESET_ERR;
+  }
+
+  return RESET_OK;
 }

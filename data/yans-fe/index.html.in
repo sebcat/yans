@@ -20,6 +20,10 @@ button {
   cursor: pointer;
 }
 
+button:hover {
+  background: #eee;
+}
+
 button:active {
   background: #aaa;
 }

@@ -18,8 +18,7 @@ struct matcher_data {
   reset_t *httpheader_reset;
   reset_t *httpbody_reset;
   struct component_ctx ctbl;
-  FILE *out_components;
-  FILE *out_compsvclist;
+  FILE *out_compsvc_csv;
   buf_t rowbuf;
 };
 
@@ -49,12 +48,10 @@ int matcher_init(struct module_data *mod) {
   struct matcher_data *m;
   int ret;
   int ch;
-  const char *out_components_path = NULL;
-  const char *out_compsvclist_path = NULL;
-  char *optstr = "o:c:";
+  const char *out_compsvc_path = NULL;
+  char *optstr = "o:";
   struct option opts[] = {
-    {"out-components", required_argument, NULL, 'o'},
-    {"out-compsvclist", required_argument, NULL, 'c'},
+    {"out-compsvc-csv", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0},
   };
 
@@ -62,10 +59,7 @@ int matcher_init(struct module_data *mod) {
   while ((ch = getopt_long(mod->argc, mod->argv, optstr, opts, NULL)) != -1) {
     switch (ch) {
     case 'o':
-      out_components_path = optarg;
-      break;
-    case 'c':
-      out_compsvclist_path = optarg;
+      out_compsvc_path = optarg;
       break;
     default:
       goto usage;
@@ -96,42 +90,27 @@ int matcher_init(struct module_data *mod) {
     goto fail_httpheader_reset_free;
   }
 
-  if (out_components_path) {
-    ret = opener_fopen(mod->opener, out_components_path, "wb",
-        &m->out_components);
+  if (out_compsvc_path) {
+    ret = opener_fopen(mod->opener, out_compsvc_path, "wb",
+        &m->out_compsvc_csv);
     if (ret < 0) {
-      fprintf(stderr, "%s: %s\n", out_components_path,
+      fprintf(stderr, "%s: %s\n", out_compsvc_path,
           opener_strerror(mod->opener));
       goto fail_httpbody_reset_free;
     }
-    fputs("Component ID,Name,Version\r\n", m->out_components);
-  }
-
-  if (out_compsvclist_path) {
-    ret = opener_fopen(mod->opener, out_compsvclist_path, "wb",
-        &m->out_compsvclist);
-    if (ret < 0) {
-      fprintf(stderr, "%s: %s\n", out_compsvclist_path,
-          opener_strerror(mod->opener));
-      goto fail_fclose_components;
-    }
-    fputs("Component ID,Service ID\r\n", m->out_compsvclist);
+    fputs("Name,Version,Service ID\r\n", m->out_compsvc_csv);
   }
 
   ret = component_init(&m->ctbl);
   if (ret != 0) {
-    goto fail_fclose_compsvclist;
+    goto fail_fclose_compsvc;
   }
 
   mod->mod_data = m;
   return 0;
-fail_fclose_compsvclist:
-  if (m->out_compsvclist) {
-    fclose(m->out_compsvclist);
-  }
-fail_fclose_components:
-  if (m->out_components) {
-    fclose(m->out_components);
+fail_fclose_compsvc:
+  if (m->out_compsvc_csv) {
+    fclose(m->out_compsvc_csv);
   }
 fail_httpbody_reset_free:
   reset_free(m->httpbody_reset);
@@ -145,7 +124,7 @@ fail:
   return -1;
 usage:
   fprintf(stderr,
-      "usage: matcher [--out-components <path>]"
+      "usage: matcher [--out-compsvc-csv <path>]"
       " [--out-compsvclist <path>]\n");
   return -1;
 }
@@ -196,48 +175,27 @@ void matcher_process(struct fetch_transfer *t, void *matcherdata) {
   }
 }
 
-static int svccmp(const void *a, const void *b) {
-  return *(int*)a - *(int*)b;
-}
-
 static int print_component(void *data, void *value) {
   struct matcher_data *m = data;
-  struct c_entry *c = value;
-  int i;
+  struct component_entry *c = value;
   int ret;
   const char *compfields[3];
-  const char *compsvcfields[2];
-  char compidstr[24];
   char svcidstr[24];
+  size_t svc;
 
   /* Encode the component as CSV and write it */
-  if (m->out_components) {
-    snprintf(compidstr, sizeof(compidstr), "%d", c->id);
-    buf_clear(&m->rowbuf);
-    compfields[0] = compidstr;
-    compfields[1] = c->name;
-    compfields[2] = c->version;
-    ret = csv_encode(&m->rowbuf, compfields, ARRAY_SIZE(compfields));
-    if (ret < 0) {
-      return 1; /* skip it */
-    }
-    fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_components);
-  }
-
-  /* Encode and write the component to services list as CSV */
-  if (m->out_compsvclist) {
-    qsort(c->services, c->slen, sizeof(c->services[0]), svccmp);
-    for (i = 0; i < c->slen; i++) {
+  if (m->out_compsvc_csv) {
+    for (svc = 0; svc < c->slen; svc++) {
+      snprintf(svcidstr, sizeof(svcidstr), "%d", c->services[svc]);
       buf_clear(&m->rowbuf);
-      snprintf(svcidstr, sizeof(svcidstr), "%d", c->services[i]);
-      compsvcfields[0] = compidstr;
-      compsvcfields[1] = svcidstr;
-      ret = csv_encode(&m->rowbuf, compsvcfields, ARRAY_SIZE(compsvcfields));
+      compfields[0] = c->name;
+      compfields[1] = c->version;
+      compfields[2] = svcidstr;
+      ret = csv_encode(&m->rowbuf, compfields, ARRAY_SIZE(compfields));
       if (ret < 0) {
-        continue; /* skip it */
+        return 1; /* skip it */
       }
-
-      fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_compsvclist);
+      fwrite(m->rowbuf.data, 1, m->rowbuf.len, m->out_compsvc_csv);
     }
   }
 
@@ -251,12 +209,8 @@ void matcher_cleanup(void *data) {
     component_foreach(&m->ctbl, print_component, m);
 
     component_cleanup(&m->ctbl);
-    if (m->out_compsvclist) {
-      fclose(m->out_compsvclist);
-    }
-
-    if (m->out_components) {
-      fclose(m->out_components);
+    if (m->out_compsvc_csv) {
+      fclose(m->out_compsvc_csv);
     }
 
     reset_free(m->httpbody_reset);

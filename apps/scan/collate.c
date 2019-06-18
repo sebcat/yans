@@ -14,6 +14,9 @@
 
 #include <lib/alloc/linvar.h>
 
+#include <lib/match/reset.h>
+#include <lib/match/component.h>
+
 #include <lib/util/macros.h>
 #include <lib/util/objtbl.h>
 #include <lib/util/sandbox.h>
@@ -38,6 +41,8 @@ enum collate_type {
   COLLATE_UNKNOWN = 0,
   COLLATE_BANNERS,
   COLLATE_HTTPMSGS,
+  COLLATE_MATCHES,
+  COLLATE_COMPONENTS,
   COLLATE_MAX,
 };
 
@@ -49,6 +54,9 @@ struct collate_opts {
 
   FILE *in_services_csv[MAX_INOUTS];
   size_t nin_services_csv;
+
+  FILE *in_compsvc_csv[MAX_INOUTS];
+  size_t nin_compsvc_csv;
 
   FILE *out_services_csv[MAX_INOUTS];
   size_t nout_services_csv;
@@ -64,6 +72,15 @@ struct collate_opts {
 
   FILE *out_httpmsgs[MAX_INOUTS];
   size_t nout_httpmsgs;
+
+  FILE *out_compsvc_csv[MAX_INOUTS]; /* Name,Version,Service ID */
+  size_t nout_compsvc_csv;
+
+  FILE *out_components_csv[MAX_INOUTS]; /* Component ID,Name,Version */
+  size_t nout_components_csv;
+
+  FILE *out_compidsvcid_csv[MAX_INOUTS]; /* Component ID,Service ID */
+  size_t nout_compidsvcid_csv;
 
   FILE *closefps[MAX_FOPENS];
   size_t nclosefps;
@@ -100,6 +117,9 @@ struct collate_service {
   struct collate_certchain *fpchain;
   struct collate_certchain *mpchains[MAX_MPIDS];
 };
+
+/* matchgen output */
+#include <apps/scan/collate_matches.c>
 
 /* allocator used */
 struct linvar_ctx varmem_;
@@ -468,7 +488,7 @@ static int print_services_csv(struct objtbl_ctx *svctbl,
       fields[0] = service_idbuf;
       fields[1] = svc->name;
       fields[2] = addrbuf;
-      fields[3] = "tcp";
+      fields[3] = "tcp"; /* FIXME */
       fields[4] = portbuf;
       fields[5] = tcpproto_type_to_string(svc->mpids[k]);
       ret = csv_encode(&buf, fields, ARRAY_SIZE(fields));
@@ -845,17 +865,417 @@ done:
   return status;
 }
 
+struct svclut_entry {
+  char *service_id;
+  char *hostname;
+  char *addr;
+  char *transport;
+  char *port;
+  char *service;
+};
+
+static struct svclut_entry *mksvclut(const char *service_id,
+    const char *hostname, const char *addr, const char *transport,
+    const char *port, const char *service) {
+  struct svclut_entry *e;
+
+  e = calloc(1, sizeof(struct svclut_entry));
+  if (e == NULL) {
+    return NULL;
+  }
+
+  e->service_id = strdup(service_id);
+  e->hostname   = strdup(hostname);
+  e->addr       = strdup(addr);
+  e->transport  = strdup(transport);
+  e->port       = strdup(port);
+  e->service    = strdup(service);
+  return e;
+}
+
+static void freesvclut(struct svclut_entry *e) {
+  if (e) {
+    free(e->service_id);
+    free(e->hostname);
+    free(e->addr);
+    free(e->transport);
+    free(e->port);
+    free(e->service);
+    memset(e, 0, sizeof(*e));
+  }
+}
+
+static objtbl_hash_t svcluthash(const void *obj, objtbl_hash_t seed) {
+  const struct svclut_entry *e = obj;
+  objtbl_hash_t hash = seed;
+
+  if (obj == NULL) {
+    return FNV1A_OFFSET;
+  }
+
+  hash = objtbl_strhash(e->hostname, hash);
+  hash = objtbl_strhash(e->addr, hash);
+  hash = objtbl_strhash(e->transport, hash);
+  hash = objtbl_strhash(e->port, hash);
+  hash = objtbl_strhash(e->service, hash);
+  return hash;
+}
+
+static int svclutcmp(const void *a, const void *b) {
+  const struct svclut_entry *left = a;
+  const struct svclut_entry *right = b;
+  int ret;
+
+  /* svclut is used to find an ID by the
+   * (hostname, addr, transport, port, service)-tuple, therefor the
+   * service_id field is not part of the comparison here */
+
+  NULLCMP(a,b);
+
+  ret = objtbl_strcmp(left->hostname, right->hostname);
+  if (ret != 0) {
+    return ret;
+  }
+
+  ret = objtbl_strcmp(left->addr, right->addr);
+  if (ret != 0) {
+    return ret;
+  }
+
+  ret = objtbl_strcmp(left->transport, right->transport);
+  if (ret != 0) {
+    return ret;
+  }
+
+  ret = objtbl_strcmp(left->port, right->port);
+  if (ret != 0) {
+    return ret;
+  }
+
+  return objtbl_strcmp(left->service, right->service);
+}
+
+static void load_svclut(struct objtbl_ctx *svclut, FILE **files,
+    size_t nfiles) {
+  struct csv_reader r;
+  const char *service_idstr;
+  const char *hostname;
+  const char *addr;
+  const char *transport;
+  const char *port;
+  const char *service;
+  FILE *in;
+  size_t i;
+  struct svclut_entry *e;
+  int ret;
+
+  csv_reader_init(&r);
+  for (i = 0; i < nfiles; i++) {
+    in = files[i];
+    while (!feof(in)) {
+      csv_read_row(&r, in);
+      service_idstr = csv_reader_elem(&r, 0);
+      hostname      = csv_reader_elem(&r, 1);
+      addr          = csv_reader_elem(&r, 2);
+      transport     = csv_reader_elem(&r, 3);
+      port          = csv_reader_elem(&r, 4);
+      service       = csv_reader_elem(&r, 5);
+      if (!service_idstr || *service_idstr < '0' || *service_idstr > '9') {
+        continue;
+      }
+
+      e = mksvclut(service_idstr, hostname, addr, transport, port,
+          service);
+      if (e == NULL) {
+        continue;
+      }
+
+      ret = objtbl_insert(svclut, e);
+      if (ret != OBJTBL_OK) {
+        freesvclut(e);
+        continue;
+      }
+    }
+  }
+
+  csv_reader_cleanup(&r);
+}
+
+static int clear_svclut_entry(void *data, void *entry) {
+  struct svclut_entry *e = entry;
+  freesvclut(e);
+  return 1;
+}
+
+static void clear_svclut(struct objtbl_ctx *svclut) {
+  objtbl_foreach(svclut, clear_svclut_entry, NULL);
+}
+
+static int get_svc_id(struct objtbl_ctx *svclut,
+    struct ycl_msg_banner *banner) {
+  struct svclut_entry *e;
+  struct svclut_entry key = {0};
+  void *result;
+  int ret;
+  long val;
+  char *ptr;
+  char host[128];
+  char serv[64];
+
+  ret = getnameinfo((struct sockaddr *)banner->addr.data,
+      (socklen_t)banner->addr.len, host, sizeof(host),
+      serv, sizeof(serv), NI_NUMERICHOST | NI_NUMERICSERV);
+  if (ret == 0) {
+    key.addr = host;
+    key.port = serv;
+  }
+
+  key.service = (char*)tcpproto_type_to_string(
+      banner->mpid == TCPPROTO_UNKNOWN ? banner->fpid : banner->mpid);
+  key.hostname = (char*)banner->name.data;
+  key.transport = "tcp"; /* FIXME */
+  ret = objtbl_get(svclut, &key, &result);
+  if (ret != OBJTBL_OK) {
+    return -1;
+  }
+
+  e = result;
+  if (!e->service_id || !*e->service_id) {
+    return -1;
+  }
+
+  val = strtol(e->service_id, &ptr, 10);
+  if (*ptr != '\0') {
+    return -1;
+  }
+
+  return val;
+}
+
+struct cprinter {
+  struct collate_opts *opts;
+  buf_t rowbuf;
+};
+
+static int print_compmatch(void *data, void *value) {
+  struct cprinter *printer = data;
+  struct component_entry *c = value;
+  size_t i;
+  size_t svc;
+  char svcidstr[64];
+  const char *compfields[3];
+  int ret;
+  int id;
+
+  for (i = 0; i < printer->opts->nout_compsvc_csv; i++) {
+    for (svc = 0; svc < c->slen; svc++) {
+      id = c->services[svc];
+      snprintf(svcidstr, sizeof(svcidstr), "%d", id);
+      buf_clear(&printer->rowbuf);
+      compfields[0] = c->name;
+      compfields[1] = c->version;
+      compfields[2] = svcidstr;
+      ret = csv_encode(&printer->rowbuf, compfields, ARRAY_SIZE(compfields));
+      if (ret < 0) {
+        continue;
+      }
+      fwrite(printer->rowbuf.data, 1, printer->rowbuf.len,
+          printer->opts->out_compsvc_csv[i]);
+    }
+  }
+
+  return 1;
+}
+
+static int matches(struct scan_ctx *ctx, struct collate_opts *opts) {
+  struct ycl_ctx ycl;
+  struct ycl_msg msg;
+  struct ycl_msg_banner banner;
+  struct component_ctx ctbl;
+  struct cprinter printer;
+  size_t ibindex;
+  int status = EXIT_FAILURE;
+  int ret;
+  struct objtbl_ctx svclut;
+  reset_t *reset;
+  int id;
+  int service_id;
+  enum reset_match_type type;
+  static struct objtbl_opts svclutopts = {
+    .hashfunc = svcluthash,
+    .cmpfunc = svclutcmp,
+  };
+
+  ycl_init(&ycl, YCL_NOFD);
+  ycl_msg_init(&msg);
+  objtbl_init(&svclut, &svclutopts, NMEMB_SVCS);
+  component_init(&ctbl);
+  load_svclut(&svclut, opts->in_services_csv, opts->nin_services_csv);
+
+  reset = reset_new();
+  if (reset == NULL) {
+    goto done;
+  }
+
+  ret = reset_load(reset, banner_, ARRAY_SIZE(banner_));
+  if (ret != RESET_OK) {
+    goto reset_free;
+  }
+
+  for (ibindex = 0; ibindex < opts->nin_banners; ibindex++) {
+    while (ycl_readmsg(&ycl, &msg, opts->in_banners[ibindex]) == YCL_OK) {
+      ret = ycl_msg_parse_banner(&msg, &banner);
+      if (ret != YCL_OK) {
+        break;
+      }
+
+      ret = reset_match(reset, banner.banner.data, banner.banner.len);
+      if (ret == RESET_ERR) {
+        continue; /* no matches */
+      }
+
+      service_id = get_svc_id(&svclut, &banner);
+      while ((id = reset_get_next_match(reset)) >= 0) {
+        type = reset_get_type(reset, id);
+        if (type == RESET_MATCH_COMPONENT) {
+          component_register(&ctbl,
+              reset_get_name(reset, id),
+              reset_get_substring(reset, id, banner.banner.data,
+              banner.banner.len, NULL),
+              service_id);
+        }
+      }
+    }
+  }
+
+  printer.opts = opts;
+  buf_init(&printer.rowbuf, 1024);
+  component_foreach(&ctbl, print_compmatch, &printer);
+  buf_cleanup(&printer.rowbuf);
+
+  status = EXIT_SUCCESS;
+reset_free:
+  reset_free(reset);
+done:
+  clear_svclut(&svclut);
+  component_cleanup(&ctbl);
+  ycl_msg_cleanup(&msg);
+  return status;
+}
+
+static int print_component(void *data, void *value) {
+  struct cprinter *printer = data;
+  struct collate_opts *opts = printer->opts;
+  struct component_entry *c = value;
+  size_t i;
+  size_t svc;
+  int svcid;
+  char compidstr[32];
+  char svcidstr[32];
+  const char *row[3];
+  int ret;
+
+  snprintf(compidstr, sizeof(compidstr), "%d", c->id);
+
+  for (i = 0; i < opts->nout_components_csv; i++) {
+    buf_clear(&printer->rowbuf);
+    row[0] = compidstr;
+    row[1] = c->name;
+    row[2] = c->version;
+    ret = csv_encode(&printer->rowbuf, row, 3);
+    if (ret < 0) {
+      continue;
+    }
+    fwrite(printer->rowbuf.data, 1, printer->rowbuf.len,
+        printer->opts->out_components_csv[i]);
+  }
+
+  for (i = 0; i < opts->nout_compidsvcid_csv; i++) {
+    for (svc = 0; svc < c->slen; svc++) {
+      svcid = c->services[svc];
+      snprintf(svcidstr, sizeof(svcidstr), "%d", svcid);
+      buf_clear(&printer->rowbuf);
+      row[0] = compidstr;
+      row[1] = svcidstr;
+      ret = csv_encode(&printer->rowbuf, row, 2);
+      if (ret < 0) {
+        continue;
+      }
+      fwrite(printer->rowbuf.data, 1, printer->rowbuf.len,
+          printer->opts->out_compidsvcid_csv[i]);
+    }
+  }
+
+  return 1;
+}
+
+static int components(struct scan_ctx *ctx, struct collate_opts *opts) {
+  int status = EXIT_FAILURE;
+  struct component_ctx ctbl;
+  struct cprinter printer;
+  struct csv_reader r;
+  size_t compindex;
+  FILE *in;
+  const char *name;
+  const char *version;
+  const char *service_idstr;
+  int service_id;
+  char *cptr;
+  int ret;
+
+  component_init(&ctbl);
+  csv_reader_init(&r);
+  for (compindex = 0; compindex < opts->nin_compsvc_csv; compindex++) {
+    in = opts->in_compsvc_csv[compindex];
+    while (!feof(in)) {
+      csv_read_row(&r, in);
+      name = csv_reader_elem(&r, 0);
+      version = csv_reader_elem(&r, 1);
+      service_idstr = csv_reader_elem(&r, 2);
+
+      if (service_idstr == NULL) {
+        break;
+      }
+
+      service_id = (int)strtol(service_idstr, &cptr, 10);
+      if (service_id <= 0 || *cptr != '\0') {
+        /* the current row could be header row, or the service ID might be
+         * missing or malformed; skip either way */
+        continue;
+      }
+
+      component_register(&ctbl, name, version, service_id);
+    }
+  }
+
+  printer.opts = opts;
+  buf_init(&printer.rowbuf, 1024);
+  ret = component_foreach(&ctbl, print_component, &printer);
+  buf_cleanup(&printer.rowbuf);
+  if (ret != 0) {
+    goto done;
+  }
+
+  status = EXIT_SUCCESS;
+done:
+  csv_reader_cleanup(&r);
+  component_cleanup(&ctbl);
+  return status;
+}
+
 enum collate_type collate_type_from_str(const char *str) {
   static const struct {
     char *name;
     enum collate_type type;
   } map[] = {
-    {"banners", COLLATE_BANNERS},
-    {"httpmsgs", COLLATE_HTTPMSGS},
+    {"banners",    COLLATE_BANNERS},
+    {"httpmsgs",   COLLATE_HTTPMSGS},
+    {"matches",    COLLATE_MATCHES},
+    {"components", COLLATE_COMPONENTS},
   };
   size_t i;
 
-  for (i = 0; i < sizeof(map) / sizeof(*map); i++) {
+  for (i = 0; i < ARRAY_SIZE(map); i++) {
     if (strcmp(map[i].name, str) == 0) {
       return map[i].type;
     }
@@ -906,6 +1326,8 @@ static void usage(const char *argv0) {
       "      Certificate SANs CSV output\n"
       "  -m|--out-httpmsgs <path>\n"
       "      HTTP message output\n"
+      "  -i|--out-compsvc-csv <path>\n"
+      "      Component matches by service output\n"
       "  -X|--no-sandbox\n"
       "      Disable sandbox\n"
       ,argv0);
@@ -914,24 +1336,30 @@ static void usage(const char *argv0) {
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:S:s:e:c:a:m:X";
+  const char *optstr = "t:B:S:I:s:e:c:a:m:i:o:p:X";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
-    [COLLATE_BANNERS]  = banners,
-    [COLLATE_HTTPMSGS] = httpmsgs,
+    [COLLATE_BANNERS]    = banners,
+    [COLLATE_HTTPMSGS]   = httpmsgs,
+    [COLLATE_MATCHES]    = matches,
+    [COLLATE_COMPONENTS] = components,
   };
   /* short opts: uppercase letters for inputs, if sane to do so */
   static const struct option lopts[] = {
-    {"type",              required_argument, NULL, 't'},
-    {"in-banners",        required_argument, NULL, 'B'},
-    {"in-services-csv",   required_argument, NULL, 'S'},
-    {"out-services-csv",  required_argument, NULL, 's'},
-    {"out-svccert-csv",   required_argument, NULL, 'e'},
-    {"out-certs-csv",     required_argument, NULL, 'c'},
-    {"out-cert-sans-csv", required_argument, NULL, 'a'},
-    {"out-httpmsgs",      required_argument, NULL, 'm'},
-    {"no-sandbox",        no_argument,       NULL, 'X'},
+    {"type",                required_argument, NULL, 't'},
+    {"in-banners",          required_argument, NULL, 'B'},
+    {"in-services-csv",     required_argument, NULL, 'S'},
+    {"in-compsvc-csv",      required_argument, NULL, 'I'},
+    {"out-services-csv",    required_argument, NULL, 's'},
+    {"out-svccert-csv",     required_argument, NULL, 'e'},
+    {"out-certs-csv",       required_argument, NULL, 'c'},
+    {"out-cert-sans-csv",   required_argument, NULL, 'a'},
+    {"out-httpmsgs",        required_argument, NULL, 'm'},
+    {"out-compsvc-csv",     required_argument, NULL, 'i'},
+    {"out-components-csv",  required_argument, NULL, 'o'},
+    {"out-compidsvcid-csv", required_argument, NULL, 'p'},
+    {"no-sandbox",          no_argument,       NULL, 'X'},
     {NULL, 0, NULL, 0}};
   int ch;
   int status = EXIT_FAILURE;
@@ -958,6 +1386,13 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     case 'S': /* in-services-csv */
       ret = open_io(&opts, &scan->opener, optarg, "rb",
           opts.in_services_csv, &opts.nin_services_csv);
+      if (ret < 0) {
+        goto end;
+      }
+      break;
+    case 'I': /* in-compsvc-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "rb",
+          opts.in_compsvc_csv, &opts.nin_compsvc_csv);
       if (ret < 0) {
         goto end;
       }
@@ -1012,6 +1447,36 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
       if (ret < 0) {
         goto end;
       }
+      break;
+    case 'i': /* out-compsvc-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_compsvc_csv, &opts.nout_compsvc_csv);
+      if (ret < 0) {
+        goto end;
+      }
+      tmpstr = "Component,Version,Service ID\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_compsvc_csv[opts.nout_compsvc_csv-1]);
+      break;
+    case 'o': /* out-components-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_components_csv, &opts.nout_components_csv);
+      if (ret < 0) {
+        goto end;
+      }
+      tmpstr = "Component ID,Name,Version\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_components_csv[opts.nout_components_csv-1]);
+      break;
+    case 'p': /* out-compidsvcid-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_compidsvcid_csv, &opts.nout_compidsvcid_csv);
+      if (ret < 0) {
+        goto end;
+      }
+      tmpstr = "Component ID,Service ID\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_compidsvcid_csv[opts.nout_compidsvcid_csv-1]);
       break;
     case 'X':
       sandbox = 0;

@@ -8,7 +8,7 @@ scan_DEPS     = lib/alloc/linvar.c lib/net/dsts.c \
                 lib/ycl/ycl_msg.c lib/ycl/yclcli.c lib/ycl/yclcli_store.c \
                 lib/ycl/yclcli_resolve.c \
                 lib/util/objtbl.c lib/util/sha1.c lib/util/x509.c \
-                lib/util/os.c lib/ycl/opener.c
+                lib/util/os.c lib/ycl/opener.c lib/match/component.c
 scan_DEPS_CC  = lib/match/reset.cc
 scan_DEPSOBJS = ${scan_DEPS:.c=.o} ${scan_DEPS_CC:.cc=.o}
 scan_SOURCES  = apps/scan/main.c apps/scan/resolve.c apps/scan/banners.c \
@@ -21,3 +21,5 @@ scan_LDADD    = ${re2_LDFLAGS} ${zlib_LDFLAGS} -lssl -lcrypto -lstdc++
 
 FreeBSD_OBJS += $(scan_OBJS)
 FreeBSD_BINS += $(scan_BIN)
+
+CODEGEN += apps/scan/collate_matches.c

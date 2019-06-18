@@ -97,6 +97,14 @@ run $SCAN collate                             \
     --out-certs-csv     zlib:certs.csv.gz     \
     --out-cert-sans-csv zlib:sans.csv.gz
 
+run $SCAN collate                               \
+    $SCANOPTS                                   \
+    --type matches                              \
+    --in-banners         zlib:banners.plain.gz  \
+    --in-banners         zlib:banners.tls.gz    \
+    --in-services-csv    zlib:services.csv.gz   \
+    --out-compsvc-csv    zlib:banner-compsvc.csv.gz
+
 cat <<EOF | manifest
 services.csv.gz Services
 certs.csv.gz Certificates
@@ -110,20 +118,30 @@ run $SCAN collate                             \
     --in-services-csv zlib:services.csv.gz    \
     --out-httpmsgs zlib:httpreqs.bin.gz
 
-run $WEBFETCH                                     \
-    --in-httpmsgs zlib:httpreqs.bin.gz            \
-    --module logger --params                      \
-        --out-logfile zlib:httpmsgs.log.gz ';'    \
-    --module writer --params                      \
-        --out-httpmsgs zlib:httpmsgs.bin.gz ';'   \
-    --module matcher --params                     \
-        --out-components zlib:comp.csv.gz         \
-        --out-compsvclist zlib:compsvc.csv.gz ';'
+run $WEBFETCH                                      \
+    --in-httpmsgs zlib:httpreqs.bin.gz             \
+    --module logger --params                       \
+        --out-logfile zlib:httpmsgs.log.gz ';'     \
+    --module writer --params                       \
+        --out-httpmsgs zlib:httpmsgs.bin.gz ';'    \
+    --module matcher --params                      \
+        --out-compsvc-csv zlib:http-compsvc.csv.gz
+
+run $SCAN collate                                  \
+    $SCANOPTS                                      \
+    --type components                              \
+    --in-compsvc-csv zlib:banner-compsvc.csv.gz    \
+    --in-compsvc-csv zlib:http-compsvc.csv.gz      \
+    --out-compidsvcid-csv zlib:compidsvcid.csv.gz  \
+    --out-components-csv zlib:components.csv.gz
 
 cat <<EOF | manifest
-comp.csv.gz Found Components
-compsvc.csv.gz Found Components by Service
+components.csv.gz Components
+compidsvcid.csv.gz Components by Service
 EOF
 
+# TODO:
+#   comp.csv.gz Found Components
+#   compsvc.csv.gz Found Components by Service
 
 printf "[%s] Scan done\n" "$(date '+%Y-%m-%d %H:%M:%S %z')"

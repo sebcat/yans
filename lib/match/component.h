@@ -3,7 +3,7 @@
 
 #include <lib/util/objtbl.h>
 
-struct c_entry {
+struct component_entry {
   int id;
   const char *name;
   const char *version;

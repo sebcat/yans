@@ -367,6 +367,62 @@ static int test_match_httpheaders() {
       .type = RESET_MATCH_COMPONENT,
       .name = "akamai/ghost"
     },
+    {
+      .input = "HTTP/2 301 \r\nserver: Apache/2.4.6 (Red Hat Enterprise Linux) OpenSSL/1.0.2k-fips PHP/7.1.28",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "redhat/rhel"
+    },
+    {
+      .input = "HTTP/2 301 \r\nserver: Apache/2.4.6 (Red Hat Enterprise Linux) OpenSSL/1.0.2k-fips PHP/7.1.28",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "apache/apache",
+      .version = "2.4.6",
+    },
+    {
+      .input = "HTTP/2 301 \r\nserver: Apache/2.4.6 (Red Hat Enterprise Linux) OpenSSL/1.0.2k-fips PHP/7.1.28",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "openssl/openssl",
+      .version = "1.0.2k-fips",
+    },
+    {
+      .input = "HTTP/2 301 \r\nserver: Apache/2.4.6 (Red Hat Enterprise Linux) OpenSSL/1.0.2k-fips PHP/7.1.28",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "php/php",
+      .version = "7.1.28",
+    },
+    {
+      .input = "HTTP/2 301 \r\nServer: IIS\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "microsoft/iis"
+    },
+    {
+      .input = "HTTP/2 301 \r\nserver: Microsoft-IIS/10.0\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "microsoft/iis",
+      .version = "10.0",
+    },
+    {
+      .input = "HTTP/2 301 \r\nserver: Jetty\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "jetty/jetty",
+    },
+    {
+      .input = "HTTP/2 301 \r\nserver: Jetty(9.4.12.v20180830)\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "jetty/jetty",
+      .version = "9.4.12.v20180830",
+    },
+    {
+      .input = "HTTP/2 301 \r\nx-powered-by: Next.js\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "nextjs/nextjs",
+    },
+    {
+      .input = "HTTP/2 301 \r\nx-powered-by: Next.js 7.0.2\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "nextjs/nextjs",
+      .version = "7.0.2",
+    }
   };
 
   reset = reset_new();
@@ -410,7 +466,10 @@ static int test_match_httpheaders() {
     ret = reset_match(reset, tests[i].input, inputlen);
     if (ret != RESET_OK) {
       status = TEST_FAIL;
-      TEST_LOGF("test:%zu no matches", i);
+      TEST_LOGF("test:%zu no matches, expected %s%s%s", i,
+          tests[i].name,
+          tests[i].version ? " " : "",
+          tests[i].version ? tests[i].version : "");
       continue;
     }
 

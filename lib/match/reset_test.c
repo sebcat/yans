@@ -7,7 +7,8 @@
 #include <lib/util/test.h>
 
 #define HTTPHEADER_PATTERN_FILE "./data/pm/httpheader.pm"
-#define HTTPHEADER_MIN_ROWS 18 /* subject to change, update as needed */
+#define HTTPBODY_PATTERN_FILE "./data/pm/httpbody.pm"
+#define PFILE_MIN_ROWS 2
 
 int test_match() {
   int status = TEST_OK;
@@ -206,20 +207,101 @@ int test_substrings() {
   return status;
 }
 
-static int test_match_httpheaders() {
-  int ret;
-  int id;
-  size_t i;
-  int status = TEST_OK;
+struct match_test {
+  const char *input;
+  enum reset_match_type type;
+  const char *name;
+  const char *version;
+};
+
+static int match_patterns(const char *pfile, const struct match_test *tests,
+    size_t ntests) {
   size_t npatterns;
   FILE *fp;
   reset_t *reset;
-  struct {
-    const char *input;
-    enum reset_match_type type;
-    const char *name;
-    const char *version;
-  } tests[] = {
+  int status = TEST_OK;
+  int ret;
+  int id;
+  size_t i;
+
+  reset = reset_new();
+  if (reset == NULL) {
+    TEST_LOG("reset_new failure");
+    return TEST_FAIL;
+  }
+
+  fp = fopen(pfile, "rb");
+  if (!fp) {
+    status = TEST_FAIL;
+    TEST_LOGF("%s: %s", pfile, strerror(errno));
+    goto done;
+  }
+
+  ret = reset_csv_load(reset, fp, &npatterns);
+  if (ret != RESET_OK) {
+    status = TEST_FAIL;
+    TEST_LOGF("failed to load patterns from CSV: %s",
+        reset_strerror(reset));
+    goto done;
+  }
+
+  if (npatterns < PFILE_MIN_ROWS) {
+    TEST_LOGF("number of rows, min:%zu actual:%zu\n",
+        (size_t)PFILE_MIN_ROWS,
+        npatterns);
+    status = TEST_FAIL;
+    goto done;
+  }
+
+  ret = reset_compile(reset);
+  if (ret != RESET_OK) {
+    status = TEST_FAIL;
+    TEST_LOG("failed to compile loaded patterns");
+    goto done;
+  }
+
+  for (i = 0; i < ntests; i++) {
+    size_t inputlen = strlen(tests[i].input);
+    ret = reset_match(reset, tests[i].input, inputlen);
+    if (ret != RESET_OK) {
+      status = TEST_FAIL;
+      TEST_LOGF("test:%zu no matches, expected %s%s%s", i,
+          tests[i].name,
+          tests[i].version ? " " : "",
+          tests[i].version ? tests[i].version : "");
+      continue;
+    }
+
+    while ((id = reset_get_next_match(reset)) >= 0) {
+      if (tests[i].type == reset_get_type(reset, id) &&
+          strcmp(tests[i].name, reset_get_name(reset, id)) == 0) {
+        if (tests[i].type == RESET_MATCH_COMPONENT && tests[i].version) {
+          const char *version =
+              reset_get_substring(reset, id, tests[i].input, inputlen, NULL);
+          if (strcmp(tests[i].version, version) == 0) {
+            break; /* matched expected type, name, version */
+          }
+        } else {
+          break; /* matched expected type, name */
+        }
+      }
+    }
+
+    if (id < 0) {
+      status = TEST_FAIL;
+      TEST_LOGF("test:%zu no matches for type:%s name:%s version:%s", i,
+          reset_type2str(tests[i].type), tests[i].name,
+          tests[i].version ? tests[i].version : "none");
+    }
+  }
+
+done:
+  reset_free(reset);
+  return status;
+}
+
+static int test_match_httpheaders() {
+  static const struct match_test tests[] = {
     {
       .input = "HTTP/2 301 \r\nserver: nginx\r\n",
       .type = RESET_MATCH_COMPONENT,
@@ -425,80 +507,43 @@ static int test_match_httpheaders() {
     }
   };
 
-  reset = reset_new();
-  if (reset == NULL) {
-    TEST_LOG("reset_new failure");
-    return TEST_FAIL;
-  }
+  return match_patterns(HTTPHEADER_PATTERN_FILE, tests, ARRAY_SIZE(tests));
+}
 
-  fp = fopen(HTTPHEADER_PATTERN_FILE, "rb");
-  if (!fp) {
-    status = TEST_FAIL;
-    TEST_LOGF(HTTPHEADER_PATTERN_FILE ": %s", strerror(errno));
-    goto done;
-  }
-
-  ret = reset_csv_load(reset, fp, &npatterns);
-  if (ret != RESET_OK) {
-    status = TEST_FAIL;
-    TEST_LOGF("failed to load patterns from CSV: %s",
-        reset_strerror(reset));
-    goto done;
-  }
-
-  if (npatterns < HTTPHEADER_MIN_ROWS) {
-    TEST_LOGF("number of rows, min:%zu actual:%zu\n",
-        (size_t)HTTPHEADER_MIN_ROWS,
-        npatterns);
-    status = TEST_FAIL;
-    goto done;
-  }
-
-  ret = reset_compile(reset);
-  if (ret != RESET_OK) {
-    status = TEST_FAIL;
-    TEST_LOG("failed to compile loaded patterns");
-    goto done;
-  }
-
-  for (i = 0; i < ARRAY_SIZE(tests); i++) {
-    size_t inputlen = strlen(tests[i].input);
-    ret = reset_match(reset, tests[i].input, inputlen);
-    if (ret != RESET_OK) {
-      status = TEST_FAIL;
-      TEST_LOGF("test:%zu no matches, expected %s%s%s", i,
-          tests[i].name,
-          tests[i].version ? " " : "",
-          tests[i].version ? tests[i].version : "");
-      continue;
+static int test_match_httpbody() {
+  static const struct match_test tests[] = {
+    {
+      .input = "<meta name=\"generator\" content=\"WordPress 5.2.1\" />",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "wordpress/wordpress",
+      .version = "5.2.1"
+    },
+    {
+      .input = "<address>Apache/2.4.25 (Debian) Server at example.com Port 80</address>",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "apache/apache",
+      .version = "2.4.25"
+    },
+    {
+      .input = "<address>Apache/2.4.25 Server at example.com Port 80</address>",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "apache/apache",
+      .version = "2.4.25"
+    },
+    {
+      .input = "<meta name=\"generator\" content=\"Drupal 7 (https://www.drupal.org) />",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "drupal/drupal",
+      .version = "7"
+    },
+    {
+      .input = "<meta name=\"Generator\" content=\"Drupal\"/>",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "drupal/drupal",
     }
+  };
 
-    while ((id = reset_get_next_match(reset)) >= 0) {
-      if (tests[i].type == reset_get_type(reset, id) &&
-          strcmp(tests[i].name, reset_get_name(reset, id)) == 0) {
-        if (tests[i].type == RESET_MATCH_COMPONENT && tests[i].version) {
-          const char *version =
-              reset_get_substring(reset, id, tests[i].input, inputlen, NULL);
-          if (strcmp(tests[i].version, version) == 0) {
-            break; /* matched expected type, name, version */
-          }
-        } else {
-          break; /* matched expected type, name */
-        }
-      }
-    }
-
-    if (id < 0) {
-      status = TEST_FAIL;
-      TEST_LOGF("test:%zu no matches for type:%s name:%s version:%s", i,
-          reset_type2str(tests[i].type), tests[i].name,
-          tests[i].version ? tests[i].version : "none");
-    }
-  }
-
-done:
-  reset_free(reset);
-  return status;
+  return match_patterns(HTTPBODY_PATTERN_FILE, tests, ARRAY_SIZE(tests));
 }
 
 TEST_ENTRY(
@@ -507,4 +552,5 @@ TEST_ENTRY(
   {"nomatch", test_nomatch},
   {"substrings", test_substrings},
   {"match_httpheaders", test_match_httpheaders},
+  {"match_httpbody", test_match_httpbody},
 )

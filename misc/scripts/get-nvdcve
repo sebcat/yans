@@ -1,0 +1,17 @@
+#!/bin/sh
+
+die() {
+  echo "$1" >&2
+  exit 1
+}
+
+YEAR=2002
+END_YEAR=$(date +%Y)
+while [ "$YEAR" -le "$END_YEAR" ]; do
+  curl \
+      --output "nvdcve-1.0-$YEAR.json.gz" \
+      "https://nvd.nist.gov/feeds/json/cve/1.0/nvdcve-1.0-$YEAR.json.gz" \
+      || die "cURL failure"
+  YEAR=$((YEAR + 1))
+done
+

@@ -34,6 +34,7 @@ lib/util/netstring_test
 lib/util/os_test
 lib/util/str_test
 lib/util/u8_test
+lib/util/vaguever_test
 lib/net/urlquery_test
 lib/ycl/ycl_msg.c
 lib/ycl/ycl_msg.h

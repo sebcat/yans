@@ -72,6 +72,11 @@ lib_util_idset_test_DEPSOBJS = ${lib_util_idset_test_DEPS:.c=.o}
 lib_util_idset_test_SOURCES = lib/util/idset_test.c
 lib_util_idset_test_OBJS = ${lib_util_idset_test_SOURCES:.c=.o}
 
+lib_util_vaguever_test_DEPS = lib/util/vaguever.c
+lib_util_vaguever_test_DEPSOBJS = ${lib_util_vaguever_test_DEPS:.c=.o}
+lib_util_vaguever_test_SOURCES = lib/util/vaguever_test.c
+lib_util_vaguever_test_OBJS = ${lib_util_vaguever_test_SOURCES:.c=.o}
+
 lib_util_CTESTSRCS = \
     $(lib_util_csv_test_SOURCES) \
     $(lib_util_flagset_test_SOURCES) \
@@ -81,7 +86,8 @@ lib_util_CTESTSRCS = \
     $(lib_util_os_test_SOURCES) \
     $(lib_util_u8_test_SOURCES) \
     $(lib_util_str_test_SOURCES) \
-    $(lib_util_idset_test_SOURCES)
+    $(lib_util_idset_test_SOURCES) \
+    $(lib_util_vaguever_test_SOURCES)
 
 lib_util_CTESTS = ${lib_util_CTESTSRCS:.c=}
 

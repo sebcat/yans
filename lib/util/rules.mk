@@ -60,3 +60,7 @@ lib/util/idset_test: $(lib_util_idset_test_DEPSOBJS) $(lib_util_idset_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_idset_test_DEPSOBJS) \
 		$(lib_util_idset_test_OBJS) $(LDFLAGS)
 
+lib/util/vaguever_test: $(lib_util_vaguever_test_DEPSOBJS) \
+		$(lib_util_vaguever_test_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(lib_util_vaguever_test_DEPSOBJS) \
+		$(lib_util_vaguever_test_OBJS) $(LDFLAGS)

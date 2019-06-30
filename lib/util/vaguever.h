@@ -15,11 +15,11 @@ enum vaguever_fields {
 
 struct vaguever_version {
   int nused;
-  unsigned int fields[VAGUEVER_NFIELDS];
+  int fields[VAGUEVER_NFIELDS];
 };
 
 void vaguever_init(struct vaguever_version *v, const char *str);
 void vaguever_str(struct vaguever_version *v, char *out, size_t len);
-int vaguever_cmp(struct vaguever_version *v, const char *str);
+int vaguever_cmp(struct vaguever_version *v1, struct vaguever_version *v2);
 
 #endif

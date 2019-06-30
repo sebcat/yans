@@ -7,7 +7,7 @@ void vaguever_init(struct vaguever_version *v, const char *str) {
   int i = 0;
   int ch;
   const char *curr = str;
-  unsigned int val = 0;
+  int val = 0;
   int hasval = 0;
 
   memset(v, 0, sizeof(*v)); /* always clear: unset fields == 0 */
@@ -70,3 +70,17 @@ void vaguever_str(struct vaguever_version *v, char *out, size_t len) {
   }
 }
 
+int vaguever_cmp(struct vaguever_version *v1,
+    struct vaguever_version *v2) {
+  int i;
+  int diff;
+
+  for (i = 0; i < VAGUEVER_NFIELDS; i++) {
+    diff = v1->fields[i] - v2->fields[i];
+    if (diff != 0) {
+      return diff;
+    }
+  }
+
+  return 0;
+}

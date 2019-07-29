@@ -6,6 +6,7 @@ include lib/util/rules.mk
 include lib/match/rules.mk
 include lib/net/rules.mk
 include lib/ycl/rules.mk
+include lib/vulnmatch/rules.mk
 include apps/stored/rules.mk
 include apps/expand-dst/rules.mk
 include apps/fc2/rules.mk

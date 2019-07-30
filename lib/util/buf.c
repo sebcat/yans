@@ -36,6 +36,13 @@ int buf_grow(buf_t *buf, size_t needed) {
     return -1;
   }
 
+  /* This memset is here for two reasons:
+     1) If the buffer is serialized, we do not want to leak any data in
+        padding for alignment
+     2) If there's a bug using allocated but uninitialized memory, we want
+        that memory to have a known value for ease of debugging */
+  memset(ndata + buf->cap, 0, added);
+
   buf->cap += added;
   buf->data = ndata;
   return 0;

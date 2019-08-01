@@ -79,3 +79,26 @@ int buf_adata(buf_t *buf, const void *data, size_t len) {
   return ret;
 }
 
+int buf_alloc(buf_t *buf, size_t len, size_t *offset) {
+  int ret;
+  size_t nlen;
+  size_t off;
+
+  if (len == 0) {
+    return -1;
+  }
+
+  off = buf->len;
+  if ((ret = buf_reserve(buf, len)) != 0) {
+    return -1;
+  }
+
+  nlen = buf->len + len;
+  if (nlen < buf->len) { /* overflow check */
+    return -1;
+  }
+
+  buf->len = nlen;
+  *offset = off;
+  return 0;
+}

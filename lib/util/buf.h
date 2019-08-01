@@ -35,6 +35,7 @@ buf_t *buf_init(buf_t *buf, size_t cap);
 void buf_cleanup(buf_t *buf);
 int buf_grow(buf_t *buf, size_t needed);
 int buf_align(buf_t *buf);
+int buf_alloc(buf_t *buf, size_t len, size_t *offset);
 int buf_adata(buf_t *buf, const void *data, size_t len);
 
 static inline int buf_reserve(buf_t *buf, size_t nbytes) {
@@ -57,5 +58,4 @@ static inline int buf_achar(buf_t *buf, int ch) {
 
   return ret;
 }
-
 #endif

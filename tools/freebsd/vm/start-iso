@@ -1,0 +1,14 @@
+#!/bin/sh
+
+usage() {
+  echo "usage: $0 <iso> <vm-name>" >&2
+  exit 1
+}
+
+ISO=$1
+VMNAME=$2
+[ -z "$ISO" ] && usage
+[ -z "VMNAME" ] && usage
+
+bhyveload -c stdio -m 512M -d "$ISO" "$VMNAME"
+bhyve -c 2 -m 512M -H -A -P -g 0 -s 0:0,hostbridge -s 1:0,lpc -s 2:0,virtio-net,tap0 -l com1,stdio -s "31:0,ahci-cd,$ISO" "$VMNAME"

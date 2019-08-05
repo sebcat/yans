@@ -9,6 +9,7 @@ CFGFILES=skel/boot/loader.conf \
     skel/etc/host.conf \
     skel/etc/motd \
     skel/etc/newsyslog.conf \
+    skel/etc/nsswitch.conf \
     skel/etc/rc.conf \
     skel/etc/resolv.conf \
     skel/etc/resolvconf.conf \

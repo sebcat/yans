@@ -36,7 +36,7 @@ lib/util/str_test
 lib/util/u8_test
 lib/util/vaguever_test
 lib/net/urlquery_test
-lib/vulnmatch/reader_test
+lib/vulnmatch/vulnmatch_test
 lib/ycl/ycl_msg.c
 lib/ycl/ycl_msg.h
 tools/freebsd/etc.rc.d/clid

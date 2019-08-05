@@ -180,7 +180,7 @@ static int test_read_token() {
           break;
         }
       } else if (tokval == VULNMATCH_TSTRING) {
-        sval = vulnmatch_reader_string(&r);
+        sval = vulnmatch_reader_string(&r, NULL);
         if (strcmp(tests[i].svals[tok], sval) != 0) {
           TEST_LOGF("index:%zu token:%zu expected:%s was:%s\n", i, tok,
               tests[i].svals[tok], sval);

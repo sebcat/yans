@@ -65,10 +65,16 @@ struct vulnmatch_node {
   struct vulnmatch_value next;
 };
 
+struct vulnmatch_component_node {
+  struct vulnmatch_cvalue vendprod;
+  struct vulnmatch_cvalue version;
+};
+
 struct vulnmatch_cve_node {
   struct vulnmatch_cvalue id;
   double cvss3_base;
   struct vulnmatch_cvalue description;
+  struct vulnmatch_value vulnexpr;
 };
 
 struct vulnmatch_parser {

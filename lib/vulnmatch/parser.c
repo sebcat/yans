@@ -1,5 +1,6 @@
 #include <string.h>
 
+
 #include "lib/vulnmatch/vulnmatch.h"
 
 #define PROGN_DEFAULT_SIZE (1024 * 512)
@@ -22,8 +23,59 @@ static inline void expect(struct vulnmatch_parser *p, enum vulnmatch_token t) {
 
 #define NOD(p, v) ((void*)((p)->progn.buf.data + (v).offset))
 
+static struct vulnmatch_value compar(struct vulnmatch_parser *p,
+    enum vulnmatch_token cmp) {
+  struct vulnmatch_value v = {0};
+  /* TODO: Implement */
+  return v;
+}
+
+static struct vulnmatch_value vulnexpr(struct vulnmatch_parser *p) {
+  struct vulnmatch_value nodeval;
+  struct vulnmatch_value val;
+  enum vulnmatch_token t;
+  enum vulnmatch_token op;
+
+  progn_alloc(p, sizeof(struct vulnmatch_node), &nodeval);
+
+  expect(p, VULNMATCH_TLPAREN);
+  t = vulnmatch_read_token(&p->r);
+  switch (t) {
+  case VULNMATCH_TLT:
+  case VULNMATCH_TLE:
+  case VULNMATCH_TEQ:
+  case VULNMATCH_TGE:
+  case VULNMATCH_TGT:
+    val = compar(p, t);
+    do {
+      struct vulnmatch_node *tmp;
+      tmp = NOD(p, nodeval);
+      tmp->type = t;
+      tmp->value = val;
+    } while(0);
+    expect(p, VULNMATCH_TRPAREN);
+    break;
+  case VULNMATCH_TAND:
+  case VULNMATCH_TOR:
+    op = t; /* save operation for later */
+    while ((t = vulnmatch_read_token(&p->r)) == VULNMATCH_TLPAREN) {
+
+    }
+
+    if (t != VULNMATCH_TRPAREN) {
+
+    }
+    break;
+  default:
+    break;
+  }
+
+  return nodeval;
+}
+
 static struct vulnmatch_value cve(struct vulnmatch_parser *p) {
   struct vulnmatch_value cve;
+  struct vulnmatch_value vexpr;
   struct vulnmatch_value val;
   const char *s;
   size_t len;
@@ -53,6 +105,13 @@ static struct vulnmatch_value cve(struct vulnmatch_parser *p) {
     tmp = NOD(p, cve);
     tmp->description.length = len + 1;
     tmp->description.value = val;
+  } while(0);
+
+  vexpr = vulnexpr(p);
+  do {
+    struct vulnmatch_cve_node *tmp;
+    tmp = NOD(p, cve);
+    tmp->vulnexpr = vexpr;
   } while(0);
 
   return cve;

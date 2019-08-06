@@ -14,6 +14,18 @@ void vulnmatch_progn_cleanup(struct vulnmatch_progn *progn) {
   buf_cleanup(&progn->buf);
 }
 
+int vulnmatch_progn_alloc(struct vulnmatch_progn *progn,
+    size_t len, struct vulnmatch_value *out) {
+  int i;
+
+  i = buf_alloc(&progn->buf, len, &out->offset);
+  if (i == 0) {
+    i = buf_align(&progn->buf);
+  }
+
+  return i;
+}
+
 void *vulnmatch_progn_deref(struct vulnmatch_progn *progn,
     struct vulnmatch_value *val, size_t len) {
   size_t endoff;

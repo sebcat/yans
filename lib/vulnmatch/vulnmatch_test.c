@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "lib/util/hexdump.h"
 #include "lib/util/test.h"
 #include "lib/util/macros.h"
 #include "lib/vulnmatch/vulnmatch.h"
@@ -197,6 +198,74 @@ static int test_read_token() {
   return status;
 }
 
+static int test_parse_ok() {
+  static struct {
+    char *input;
+  } tests[] = {
+    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+     "  (= \"foo/bar\" \"1.2.3\"))"},
+    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+     "  (= \"foo/bar\" \"1.2.3\"))\n"
+     "(cve \"CVE-2019-02-18\" 8.8 \"my desc\"\n"
+     "  (= \"foo/bar\" \"1.2.3\"))\n"},
+    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+     "  (v\n"
+     "    (^\n"
+     "      (>= \"foo/bar\" \"1.2.3\")\n"
+     "      (<= \"foo/bar\" \"2.0.0\"))\n"
+     "    (^\n"
+     "      (>= \"bar/baz\" \"6.6.6\")\n"
+     "      (<= \"bar/baz\" \"7.7.7\"))))\n"}
+  };
+  int status = TEST_OK;
+  size_t i;
+  FILE *fp;
+  struct vulnmatch_parser p;
+  int ret;
+  char *envdbg;
+  int debug = 0;
+
+  envdbg = getenv("TEST_DEBUG");
+  if (envdbg != NULL && *envdbg == '1') {
+    debug = 1;
+  }
+
+  for (i = 0; i < ARRAY_SIZE(tests); i++) {
+    ret = vulnmatch_parser_init(&p);
+    if (ret != 0) {
+      TEST_LOGF("index:%zu vulnmatch_parser_init failure", i);
+      status = TEST_FAIL;
+      continue;
+    }
+
+    fp = fmemopen(tests[i].input, strlen(tests[i].input), "rb");
+    if (!fp) {
+      TEST_LOGF("index:%zu fmemopen failure", i);
+      status = TEST_FAIL;
+      goto parser_cleanup;
+    }
+
+    ret = vulnmatch_parse(&p, fp);
+    if (ret != 0) {
+      TEST_LOGF("index:%zu vulnmatch_parse %d\n", i, ret);
+      status = TEST_FAIL;
+    }
+
+    if (debug) {
+      fprintf(stderr, "%s\n  =>\n", tests[i].input);
+      hexdump(stderr, p.progn.buf.data, p.progn.buf.len);
+      fprintf(stderr, "\n\n");
+    }
+
+    fclose(fp);
+parser_cleanup:
+    vulnmatch_parser_cleanup(&p);
+  }
+
+  return status;
+}
+
 TEST_ENTRY(
   {"read_token", test_read_token},
+  {"parse_ok", test_parse_ok},
 );

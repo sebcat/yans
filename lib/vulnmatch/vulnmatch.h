@@ -31,6 +31,19 @@ enum vulnmatch_token {
   VULNMATCH_TCVE,
 };
 
+enum vulnmatch_node_type {
+  VULNMATCH_INVALID_NODE,
+  VULNMATCH_CVE_NODE,
+  VULNMATCH_OR_NODE,
+  VULNMATCH_AND_NODE,
+  VULNMATCH_SEQ_NODE,
+  VULNMATCH_LT_NODE,
+  VULNMATCH_LE_NODE,
+  VULNMATCH_EQ_NODE,
+  VULNMATCH_GE_NODE,
+  VULNMATCH_GT_NODE,
+};
+
 struct vulnmatch_value {
   size_t offset;
 };
@@ -59,18 +72,22 @@ struct vulnmatch_reader {
   } num;
 };
 
-struct vulnmatch_node {
-  enum vulnmatch_token type;
-  struct vulnmatch_value value;
-  struct vulnmatch_value next;
-};
 
-struct vulnmatch_component_node {
+struct vulnmatch_compar_node {
+  enum vulnmatch_node_type type;
   struct vulnmatch_cvalue vendprod;
   struct vulnmatch_cvalue version;
 };
 
+struct vulnmatch_boolean_node {
+  enum vulnmatch_node_type type;
+  struct vulnmatch_value next;
+  struct vulnmatch_value value;
+};
+
 struct vulnmatch_cve_node {
+  enum vulnmatch_node_type type;
+  struct vulnmatch_value next;
   struct vulnmatch_cvalue id;
   double cvss3_base;
   struct vulnmatch_cvalue description;
@@ -110,10 +127,8 @@ const char *vulnmatch_token2str(enum vulnmatch_token t);
 
 int vulnmatch_progn_init(struct vulnmatch_progn *progn);
 void vulnmatch_progn_cleanup(struct vulnmatch_progn *progn);
-static inline int vulnmatch_progn_alloc(struct vulnmatch_progn *progn,
-    size_t len, struct vulnmatch_value *out) {
-  return buf_alloc(&progn->buf, len, &out->offset);
-}
+int vulnmatch_progn_alloc(struct vulnmatch_progn *progn,
+    size_t len, struct vulnmatch_value *out);
 static inline void *vulnmatch_progn_deref_unsafe(
     struct vulnmatch_progn *progn, struct vulnmatch_value *val) {
   return progn->buf.data + val->offset;

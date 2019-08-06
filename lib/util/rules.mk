@@ -2,6 +2,7 @@ lib/util/buf.o: lib/util/buf.c lib/util/buf.h
 lib/util/csv.o: lib/util/csv.c lib/util/csv.h
 lib/util/eds.o: lib/util/eds.c lib/util/eds.h lib/util/io.h
 lib/util/flagset.o: lib/util/flagset.c lib/util/flagset.h
+lib/util/hexdump.o: lib/util/hexdump.c lib/util/hexdump.h
 lib/util/idset.o: lib/util/idset.c lib/util/idset.h
 lib/util/idtbl.o: lib/util/idtbl.c lib/util/idtbl.h
 lib/util/objtbl.o: lib/util/objtbl.c lib/util/objtbl.h

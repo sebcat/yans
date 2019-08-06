@@ -4,6 +4,7 @@ lib_util_SOURCES = \
     lib/util/deduptbl.c \
     lib/util/eds.c \
     lib/util/flagset.c \
+    lib/util/hexdump.c \
     lib/util/io.c \
     lib/util/idset.c \
     lib/util/idtbl.c \

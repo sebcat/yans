@@ -17,12 +17,18 @@ void vulnmatch_progn_cleanup(struct vulnmatch_progn *progn) {
 int vulnmatch_progn_alloc(struct vulnmatch_progn *progn,
     size_t len, struct vulnmatch_value *out) {
   int i;
+  size_t off;
 
-  i = buf_alloc(&progn->buf, len, &out->offset);
+  i = buf_alloc(&progn->buf, len, &off);
   if (i == 0) {
     i = buf_align(&progn->buf);
   }
 
+  if (off > UINT32_MAX) {
+    return -1;
+  }
+
+  out->offset = (uint32_t)off;
   return i;
 }
 

@@ -3,6 +3,7 @@
 
 #include <setjmp.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include "lib/util/buf.h"
 #include "lib/util/objtbl.h"
@@ -48,13 +49,13 @@ enum vulnmatch_node_type {
 };
 
 struct vulnmatch_value {
-  size_t offset;
+  uint32_t offset;
 };
 
 /* for variable length allocations where the size is not determined by
  * the node type */
 struct vulnmatch_cvalue {
-  size_t length;
+  uint32_t length;
   struct vulnmatch_value value;
 };
 
@@ -90,8 +91,8 @@ struct vulnmatch_boolean_node {
 struct vulnmatch_cve_node {
   enum vulnmatch_node_type type;
   struct vulnmatch_value next;
+  uint32_t cvss3_base; /* represented as fixed point */
   struct vulnmatch_cvalue id;
-  double cvss3_base;
   struct vulnmatch_cvalue description;
   struct vulnmatch_value vulnexpr;
 };

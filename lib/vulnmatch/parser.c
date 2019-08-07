@@ -1,10 +1,65 @@
 #include <string.h>
+#include <stdlib.h>
 #include <assert.h>
 
+#include "lib/util/macros.h"
 #include "lib/vulnmatch/vulnmatch.h"
 
 /* dereference a struct vulnmatch_value */
 #define NOD(p, v) ((void*)((p)->progn.buf.data + (v).offset))
+
+/* initial size of string table */
+#define STRTAB_ENTRIES 4096
+
+struct strtab_entry {
+  char *str;
+  size_t len;
+  struct vulnmatch_value val;
+};
+
+static int strtab_cmp(const void *k, const void *e) {
+  const struct strtab_entry *key = k;
+  const struct strtab_entry *entry = e;
+  size_t minlen;
+
+  /* NB: comparison includes trailing \0-byte */
+  minlen = MIN(key->len, entry->len);
+  return memcmp(key->str, entry->str, minlen);
+}
+
+static objtbl_hash_t strtab_hash(const void *obj, objtbl_hash_t seed) {
+  objtbl_hash_t h;
+  const struct strtab_entry *entry = obj;
+  h = objtbl_strhash(entry->str, seed);
+  return h;
+}
+
+static struct strtab_entry *strtab_new(const char *s, size_t len,
+    struct vulnmatch_value val) {
+  struct strtab_entry *e;
+
+  e = calloc(1, sizeof(struct strtab_entry));
+  if (e == NULL) {
+    return NULL;
+  }
+
+  e->str = strdup(s);
+  if (e->str == NULL) {
+    free(e);
+    return NULL;
+  }
+
+  e->len = len;
+  e->val = val;
+  return e;
+}
+
+static void strtab_free(struct strtab_entry *ent) {
+  if (ent) {
+    free(ent->str);
+    free(ent);
+  }
+}
 
 static void progn_alloc(struct vulnmatch_parser *p, size_t len,
     struct vulnmatch_value *out) {
@@ -29,19 +84,46 @@ static inline void expect(struct vulnmatch_parser *p, enum vulnmatch_token t) {
 static void loads(struct vulnmatch_parser *p,
     struct vulnmatch_cvalue *out) {
   struct vulnmatch_value val;
-  const char *s;
-  size_t len;
+  int ret;
+  void *tblentry;
+  struct strtab_entry e;
 
-  expect(p, VULNMATCH_TSTRING); /* load a string from input to parser */
-  s = vulnmatch_reader_string(&p->r, &len); /* fetch the string */
-  len++; /* include null byte */
-  progn_alloc(p, len, &val);
-  memcpy(NOD(p, val), s, len);
-  out->length = len;
-  out->value = val;
+  /* load the string from the reader */
+  expect(p, VULNMATCH_TSTRING);
+  e.str = (char*)vulnmatch_reader_string(&p->r, &e.len);
+  e.len++; /* include trailing null byte */
+
+  /* lookup the string in the string table. If the string is already added,
+   * reuse that offset. Otherwise, add the string and save the offset in
+   * the string table */
+  ret = objtbl_get(&p->strtab, &e, &tblentry);
+  if (ret == OBJTBL_OK) {
+    struct strtab_entry *ent = tblentry;
+    out->length = ent->len;
+    out->value = ent->val;
+  } else if (ret == OBJTBL_ENOTFOUND) {
+    struct strtab_entry *ent;
+    progn_alloc(p, e.len, &val);
+    memcpy(NOD(p, val), e.str, e.len);
+    ent = strtab_new(e.str, e.len, val);
+    if (ent == NULL) {
+      bail(p, VULNMATCH_ESTRTAB);
+    }
+
+    ret = objtbl_insert(&p->strtab, ent);
+    if (ret != OBJTBL_OK) {
+      strtab_free(ent);
+      bail(p, VULNMATCH_ESTRTAB);
+    }
+
+    out->length = ent->len;
+    out->value = ent->val;
+  } else {
+    bail(p, VULNMATCH_ESTRTAB);
+  }
 }
 
-static enum vulnmatch_node_type token2node( enum vulnmatch_token t) {
+static enum vulnmatch_node_type token2node(enum vulnmatch_token t) {
   switch(t) {
   case VULNMATCH_TOR:
     return VULNMATCH_OR_NODE;
@@ -50,7 +132,7 @@ static enum vulnmatch_node_type token2node( enum vulnmatch_token t) {
   case VULNMATCH_TLT:
     return VULNMATCH_LT_NODE;
   case VULNMATCH_TLE:
-    return VULNMATCH_GT_NODE;
+    return VULNMATCH_LE_NODE;
   case VULNMATCH_TEQ:
     return VULNMATCH_EQ_NODE;
   case VULNMATCH_TGE:
@@ -195,11 +277,29 @@ static struct vulnmatch_value cve(struct vulnmatch_parser *p) {
 }
 
 int vulnmatch_parser_init(struct vulnmatch_parser *p) {
+  int ret;
+  static const struct objtbl_opts strtab_opts = {
+    .hashfunc = strtab_hash,
+    .cmpfunc  = strtab_cmp,
+  };
+
   memset(p, 0, sizeof(*p));
+  ret = objtbl_init(&p->strtab, &strtab_opts, STRTAB_ENTRIES);
+  if (ret != OBJTBL_OK) {
+    return -1;
+  }
+
   return vulnmatch_progn_init(&p->progn);
 }
 
+static int free_strtab(void *data, void *elem) {
+  strtab_free(elem);
+  return 1;
+}
+
 void vulnmatch_parser_cleanup(struct vulnmatch_parser *p) {
+  objtbl_foreach(&p->strtab, free_strtab, NULL);
+  objtbl_cleanup(&p->strtab);
   vulnmatch_progn_cleanup(&p->progn);
 }
 
@@ -215,7 +315,7 @@ int vulnmatch_parse(struct vulnmatch_parser *p, FILE *in) {
   }
 
   buf_clear(&p->progn.buf);
-  buf_adata(&p->progn.buf, "VM0\0", 4);
+  buf_adata(&p->progn.buf, "VM0\0\0\0\0", 8); /* 8 byte header*/
   if ((status = setjmp(p->errjmp)) != 0) {
     goto done;
   }

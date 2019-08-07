@@ -3,10 +3,13 @@
 
 #include <setjmp.h>
 #include <stdio.h>
+
 #include "lib/util/buf.h"
+#include "lib/util/objtbl.h"
 
 #define VULNMATCH_EUNEXPECTED_TOKEN -1
 #define VULNMATCH_EMALLOC           -2
+#define VULNMATCH_ESTRTAB           -3
 
 // (cve "CVE-2019-0001" 8.2 "long description string"
 //   (or
@@ -72,7 +75,6 @@ struct vulnmatch_reader {
   } num;
 };
 
-
 struct vulnmatch_compar_node {
   enum vulnmatch_node_type type;
   struct vulnmatch_cvalue vendprod;
@@ -95,11 +97,11 @@ struct vulnmatch_cve_node {
 };
 
 struct vulnmatch_parser {
+  struct objtbl_ctx strtab;
   struct vulnmatch_progn progn;
   struct vulnmatch_reader r;
   jmp_buf errjmp;
 };
-
 
 static inline long vulnmatch_reader_long(struct vulnmatch_reader *r) {
   return r->num.ival;

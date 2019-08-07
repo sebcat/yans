@@ -91,6 +91,7 @@ include files.mk
 OBJS   += ${${UNAME_S}_OBJS}
 BINS   += ${${UNAME_S}_BINS}
 SHLIBS += ${${UNAME_S}_SHLIBS}
+GENERATED_RCFILES += ${GENERATED_RCFILES_${UNAME_S}}
 
 all: $(nodist_BINS) $(BINS) $(nodist_SHLIBS) $(SHLIBS) \
 	$(GENERATED_RCFILES) $(KNEGLIB) \

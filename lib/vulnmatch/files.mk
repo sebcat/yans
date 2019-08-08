@@ -1,5 +1,5 @@
 lib_vulnmatch_SOURCES = lib/vulnmatch/reader.c lib/vulnmatch/parser.c \
-    lib/vulnmatch/progn.c
+    lib/vulnmatch/progn.c lib/vulnmatch/validator.c
 lib_vulnmatch_OBJS = ${lib_vulnmatch_SOURCES:.c=.o}
 
 lib_vulnmatch_vulnmatch_test_DEPS = $(lib_vulnmatch_SOURCES) lib/util/buf.c \

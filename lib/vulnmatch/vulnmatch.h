@@ -8,14 +8,15 @@
 #include "lib/util/buf.h"
 #include "lib/util/objtbl.h"
 
+#define VULNMATCH_OK                 0
 #define VULNMATCH_EUNEXPECTED_TOKEN -1
 #define VULNMATCH_EMALLOC           -2
 #define VULNMATCH_ESTRTAB           -3
+#define VULNMATCH_EINVALID_OFFSET   -4
+#define VULNMATCH_EINVALID_NODE     -5
 
-// (cve "CVE-2019-0001" 8.2 "long description string"
-//   (or
-//     (< "vendor/product" "version")
-//     (> "vendor/product" "version")))
+#define VULNMATCH_HEADER                     "VM0\0\0\0\0"
+#define VULNMATCH_HEADER_SIZE     sizeof(VULNMATCH_HEADER)
 
 enum vulnmatch_token {
   VULNMATCH_TINVALID,
@@ -59,23 +60,6 @@ struct vulnmatch_cvalue {
   struct vulnmatch_value value;
 };
 
-struct vulnmatch_progn {
-  buf_t buf;
-};
-
-struct vulnmatch_reader {
-  FILE *input;
-  size_t row;
-  size_t col;
-  size_t lastcol;
-  size_t depth;
-  buf_t sval;
-  union {
-    double dval;
-    long ival;
-  } num;
-};
-
 struct vulnmatch_compar_node {
   enum vulnmatch_node_type type;
   struct vulnmatch_cvalue vendprod;
@@ -97,11 +81,34 @@ struct vulnmatch_cve_node {
   struct vulnmatch_value vulnexpr;
 };
 
+struct vulnmatch_progn {
+  buf_t buf;
+};
+
+struct vulnmatch_reader {
+  FILE *input;
+  size_t row;
+  size_t col;
+  size_t lastcol;
+  size_t depth;
+  buf_t sval;
+  union {
+    double dval;
+    long ival;
+  } num;
+};
+
 struct vulnmatch_parser {
   struct objtbl_ctx strtab;
   struct vulnmatch_progn progn;
   struct vulnmatch_reader r;
   jmp_buf errjmp;
+};
+
+struct vulnmatch_validator {
+  jmp_buf errjmp;
+  const char *data;
+  size_t len;
 };
 
 static inline long vulnmatch_reader_long(struct vulnmatch_reader *r) {
@@ -146,4 +153,7 @@ static inline void *vulnmatch_progn_cderef(struct vulnmatch_progn *progn,
 int vulnmatch_parser_init(struct vulnmatch_parser *p);
 void vulnmatch_parser_cleanup(struct vulnmatch_parser *p);
 int vulnmatch_parse(struct vulnmatch_parser *p, FILE *in);
+
+int vulnmatch_validate(struct vulnmatch_validator *v, const char *data,
+    size_t len);
 #endif

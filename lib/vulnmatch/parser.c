@@ -315,7 +315,7 @@ int vulnmatch_parse(struct vulnmatch_parser *p, FILE *in) {
   }
 
   buf_clear(&p->progn.buf);
-  buf_adata(&p->progn.buf, "VM0\0\0\0\0", 8); /* 8 byte header*/
+  buf_adata(&p->progn.buf, VULNMATCH_HEADER, VULNMATCH_HEADER_SIZE);
   if ((status = setjmp(p->errjmp)) != 0) {
     goto done;
   }

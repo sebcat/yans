@@ -23,6 +23,7 @@ add path urandom unhide
 add path stdin unhide
 add path stdout unhide
 add path stderr unhide
+add path 'tty*' unhide
 add path fd unhide
 add path 'fd/*' unhide
 add path tcpctl unhide

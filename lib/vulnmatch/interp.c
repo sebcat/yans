@@ -1,4 +1,15 @@
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "lib/vulnmatch/vulnmatch.h"
+
+struct vulnmatch_validator {
+  jmp_buf errjmp;
+  const char *data;
+  size_t len;
+};
 
 static inline void bail(struct vulnmatch_validator *v, int err) {
   longjmp(v->errjmp, err);
@@ -124,7 +135,7 @@ static void vnode(struct vulnmatch_validator *v, size_t offset) {
   }
 }
 
-int vulnmatch_validate(struct vulnmatch_validator *v, const char *data,
+static int validate(struct vulnmatch_validator *v, const char *data,
     size_t len) {
   int status;
 
@@ -137,4 +148,69 @@ int vulnmatch_validate(struct vulnmatch_validator *v, const char *data,
   vnode(v, VULNMATCH_HEADER_SIZE);
 done:
   return status;
+}
+
+static const char *loadfile(const char *file, size_t *len) {
+  struct stat st;
+  int ret;
+  int fd;
+  const char *data;
+
+
+  fd = open(file, O_RDONLY);
+  if (fd < 0) {
+    return NULL;
+  }
+
+  ret = fstat(fd, &st);
+  if (ret < 0) {
+    close(fd);
+    return NULL;
+  }
+
+#ifdef __FreeBSD__
+  data = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE|MAP_PREFAULT_READ,
+      fd, 0);
+#else
+  data = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE|MAP_POPULATE,
+      fd, 0);
+#endif
+  close(fd);
+  if (data == MAP_FAILED) {
+    return NULL;
+  }
+
+  *len = st.st_size;
+  return data;
+}
+
+void vulnmatch_unload(struct vulnmatch_interp *interp) {
+  munmap((char*)interp->data, interp->len);
+}
+
+int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,
+    size_t len) {
+  struct vulnmatch_validator v;
+  int ret;
+
+  ret = validate(&v, data, len);
+  if (ret != 0) {
+    return ret;
+  }
+
+  interp->data = data;
+  interp->len = len;
+  return 0;
+}
+
+int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file) {
+  const char *data;
+  size_t len;
+
+  data = loadfile(file, &len);
+  if (data == NULL) {
+    return VULNMATCH_ELOAD;
+  }
+
+  return vulnmatch_load(interp, data, len);
 }

@@ -240,7 +240,7 @@ static int test_parse_ok() {
   int ret;
   char *envdbg;
   int debug = 0;
-  struct vulnmatch_validator v;
+  struct vulnmatch_interp interp;
 
   envdbg = getenv("TEST_DEBUG");
   if (envdbg != NULL && *envdbg == '1') {
@@ -268,7 +268,7 @@ static int test_parse_ok() {
       status = TEST_FAIL;
     }
 
-    ret = vulnmatch_validate(&v, p.progn.buf.data, p.progn.buf.len);
+    ret = vulnmatch_load(&interp, p.progn.buf.data, p.progn.buf.len);
     if (ret != 0) {
       TEST_LOGF("index:%zu vulnmatch_validate %d\n", i, ret);
       status = TEST_FAIL;

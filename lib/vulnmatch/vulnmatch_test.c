@@ -268,6 +268,7 @@ static int test_parse_ok() {
       status = TEST_FAIL;
     }
 
+    vulnmatch_init(&interp, NULL);
     ret = vulnmatch_load(&interp, p.progn.buf.data, p.progn.buf.len);
     if (ret != 0) {
       TEST_LOGF("index:%zu vulnmatch_validate %d\n", i, ret);

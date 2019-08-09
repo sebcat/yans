@@ -106,9 +106,16 @@ struct vulnmatch_parser {
   jmp_buf errjmp;
 };
 
+struct vulnmatch_match {
+  const char *id;
+  float cvss3_base;
+  const char *desc;
+};
+
 struct vulnmatch_interp {
   const char *data;
   size_t len;
+  int (*on_match)(struct vulnmatch_match *, void *);
 };
 
 static inline long vulnmatch_reader_long(struct vulnmatch_reader *r) {
@@ -154,7 +161,9 @@ int vulnmatch_parser_init(struct vulnmatch_parser *p);
 void vulnmatch_parser_cleanup(struct vulnmatch_parser *p);
 int vulnmatch_parse(struct vulnmatch_parser *p, FILE *in);
 
-void vulnmatch_unload(struct vulnmatch_interp *interp);
+void vulnmatch_init(struct vulnmatch_interp *interp,
+    int (*on_match)(struct vulnmatch_match *, void *));
+void vulnmatch_unloadfile(struct vulnmatch_interp *interp);
 int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,
   size_t len);
 int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file);

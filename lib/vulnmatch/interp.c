@@ -1,3 +1,4 @@
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -184,7 +185,14 @@ static const char *loadfile(const char *file, size_t *len) {
   return data;
 }
 
-void vulnmatch_unload(struct vulnmatch_interp *interp) {
+void vulnmatch_init(struct vulnmatch_interp *interp,
+    int (*on_match)(struct vulnmatch_match *, void *)) {
+  interp->data = NULL;
+  interp->len = 0;
+  interp->on_match = on_match;
+}
+
+void vulnmatch_unloadfile(struct vulnmatch_interp *interp) {
   munmap((char*)interp->data, interp->len);
 }
 
@@ -206,11 +214,17 @@ int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,
 int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file) {
   const char *data;
   size_t len;
+  int ret;
 
   data = loadfile(file, &len);
   if (data == NULL) {
     return VULNMATCH_ELOAD;
   }
 
-  return vulnmatch_load(interp, data, len);
+  ret = vulnmatch_load(interp, data, len);
+  if (ret < 0) {
+    vulnmatch_unloadfile(interp);
+  }
+
+  return ret;
 }

@@ -368,6 +368,76 @@ static int test_eval_one() {
       "  (> \"foo/bar\" \"1.2.2\"))",
       "my-cve",
     },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (^\n"
+      "    (> \"foo/bar\" \"1.2.2\")\n"
+      "    (< \"foo/bar\" \"1.2.4\")))\n",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.4",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (^\n"
+      "    (> \"foo/bar\" \"1.2.2\")\n"
+      "    (< \"foo/bar\" \"1.2.4\")))\n",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (v\n"
+      "    (^\n"
+      "      (> \"bar/foo\" \"1.2.2\")\n"
+      "      (< \"bar/foo\" \"1.2.4\"))\n"
+      "    (^\n"
+      "      (> \"foo/bar\" \"1.2.2\")\n"
+      "      (< \"foo/bar\" \"1.2.4\"))))\n",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.4",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (v\n"
+      "    (^\n"
+      "      (> \"bar/foo\" \"1.2.2\")\n"
+      "      (< \"bar/foo\" \"1.2.4\"))\n"
+      "    (^\n"
+      "      (> \"foo/bar\" \"1.2.2\")\n"
+      "      (< \"foo/bar\" \"1.2.4\"))))\n",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.4",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (v\n"
+      "    (^\n"
+      "      (> \"bar/foo\" \"1.2.2\")\n"
+      "      (<= \"bar/foo\" \"1.2.4\"))\n"
+      "    (^\n"
+      "      (> \"foo/bar\" \"1.2.2\")\n"
+      "      (< \"foo/bar\" \"1.2.4\"))))\n",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.4",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (v\n"
+      "    (^\n"
+      "      (> \"bar/foo\" \"1.2.2\")\n"
+      "      (<= \"bar/foo\" \"1.2.4\"))\n"
+      "    (^\n"
+      "      (> \"foo/bar\" \"1.2.2\")\n"
+      "      (<= \"foo/bar\" \"1.2.4\"))))\n",
+      "my-cve",
+    }
   };
   int ret;
   struct vulnmatch_parser p;

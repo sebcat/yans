@@ -289,7 +289,170 @@ parser_cleanup:
   return status;
 }
 
+static int eval_one_cb(struct vulnmatch_match *m, void *data) {
+  const char **wiie = data;
+
+  *wiie = m->id;
+  return 1;
+}
+
+static int test_eval_one() {
+  int status = TEST_OK;
+  size_t i;
+  static struct {
+    const char *vendprod;
+    const char *version;
+    char *prog;
+    const char *expected_cve;
+  } tests[] = {
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (< \"foo/bar\" \"1.2.4\"))",
+      "my-cve"
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (< \"foo/bar\" \"1.2.3\"))",
+      NULL
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (<= \"foo/bar\" \"1.2.3\"))",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (= \"foo/bar\" \"1.2.3.4\"))",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (= \"foo/bar\" \"1.2.3\"))",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (= \"foo/bar\" \"1.2.4\"))",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (>= \"foo/bar\" \"1.2.3\"))",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (> \"foo/bar\" \"1.2.3\"))",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "  (> \"foo/bar\" \"1.2.2\"))",
+      "my-cve",
+    },
+  };
+  int ret;
+  struct vulnmatch_parser p;
+  struct vulnmatch_interp interp;
+  FILE *fp;
+  char *envdbg;
+  int debug = 0;
+  char *cve;
+
+  envdbg = getenv("TEST_DEBUG");
+  if (envdbg != NULL && *envdbg == '1') {
+    debug = 1;
+  }
+
+  for (i = 0; i < ARRAY_SIZE(tests); i++) {
+    ret = vulnmatch_parser_init(&p);
+    if (ret != 0) {
+      TEST_LOGF("index:%zu vulnmatch_parser_init failure\n", i);
+      status = TEST_FAIL;
+      continue;
+    }
+
+    fp = fmemopen(tests[i].prog, strlen(tests[i].prog), "rb");
+    if (!fp) {
+      TEST_LOGF("index:%zu fmemopen failure", i);
+      status = TEST_FAIL;
+      goto parser_cleanup;
+    }
+
+    ret = vulnmatch_parse(&p, fp);
+    if (ret != 0) {
+      TEST_LOGF("index:%zu vulnmatch_parse %d\n", i, ret);
+      status = TEST_FAIL;
+      goto fclose_fp;
+    }
+
+    vulnmatch_init(&interp, eval_one_cb);
+    ret = vulnmatch_load(&interp, p.progn.buf.data, p.progn.buf.len);
+    if (ret != 0) {
+      TEST_LOGF("index:%zu vulnmatch_validate %d\n", i, ret);
+      status = TEST_FAIL;
+      goto fclose_fp;
+    }
+
+    if (debug) {
+      fprintf(stderr, "%s\n  =>\n", tests[i].prog);
+      hexdump(stderr, p.progn.buf.data, p.progn.buf.len);
+      fprintf(stderr, "\n\n");
+    }
+
+    cve = NULL;
+    ret = vulnmatch_eval(&interp, tests[i].vendprod, tests[i].version,
+      &cve);
+    if (ret != 0) {
+      TEST_LOGF("index:%zu vulnmatch_eval %d\n", i, ret);
+      status = TEST_FAIL;
+      goto fclose_fp;
+    }
+
+    if (cve == NULL && tests[i].expected_cve != NULL) {
+      TEST_LOGF("index:%zu cve: expected %s, was NULL", i,
+          tests[i].expected_cve);
+      status = TEST_FAIL;
+    } else if (cve != NULL && tests[i].expected_cve == NULL) {
+      TEST_LOGF("index:%zu cve: expected NULL, was %s\n", i, cve);
+      status = TEST_FAIL;
+    } else if (cve != NULL && tests[i].expected_cve != NULL) {
+      if (strcmp(cve, tests[i].expected_cve) != 0) {
+        TEST_LOGF("index:%zu cve: expected %s, was %s\n", i,
+            tests[i].expected_cve, cve);
+        status = TEST_FAIL;
+      }
+    }
+
+fclose_fp:
+    fclose(fp);
+parser_cleanup:
+    vulnmatch_parser_cleanup(&p);
+  }
+
+  return status;
+}
+
 TEST_ENTRY(
   {"read_token", test_read_token},
   {"parse_ok", test_parse_ok},
+  {"eval_one", test_eval_one},
 );

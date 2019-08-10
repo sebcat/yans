@@ -7,6 +7,7 @@
 
 #include "lib/util/buf.h"
 #include "lib/util/objtbl.h"
+#include "lib/util/vaguever.h"
 
 #define VULNMATCH_OK                 0
 #define VULNMATCH_EUNEXPECTED_TOKEN -1
@@ -64,7 +65,7 @@ struct vulnmatch_cvalue {
 struct vulnmatch_compar_node {
   enum vulnmatch_node_type type;
   struct vulnmatch_cvalue vendprod;
-  struct vulnmatch_cvalue version;
+  struct vaguever_version version;
 };
 
 struct vulnmatch_boolean_node {
@@ -116,6 +117,10 @@ struct vulnmatch_interp {
   const char *data;
   size_t len;
   int (*on_match)(struct vulnmatch_match *, void *);
+  void *on_match_data;
+  const char *curr_vendprod;
+  struct vaguever_version curr_version;
+  jmp_buf errjmp;
 };
 
 static inline long vulnmatch_reader_long(struct vulnmatch_reader *r) {
@@ -167,4 +172,6 @@ void vulnmatch_unloadfile(struct vulnmatch_interp *interp);
 int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,
   size_t len);
 int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file);
+int vulnmatch_eval(struct vulnmatch_interp *interp, const char *vendprod,
+    const char *version, void *data);
 #endif

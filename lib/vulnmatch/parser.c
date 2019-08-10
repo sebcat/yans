@@ -150,20 +150,18 @@ static struct vulnmatch_value compar(struct vulnmatch_parser *p,
     enum vulnmatch_node_type t) {
   struct vulnmatch_value compar;
   struct vulnmatch_cvalue cval;
+  const char *versionstr;
 
   progn_alloc(p, sizeof(struct vulnmatch_compar_node), &compar);
 
-  loads(p, &cval);
+  loads(p, &cval); /* load vend/prod string */
+  expect(p, VULNMATCH_TSTRING); /* version */
+  versionstr = (char*)vulnmatch_reader_string(&p->r, NULL);
   do {
     struct vulnmatch_compar_node *node = NOD(p, compar);
     node->vendprod = cval;
+    vaguever_init(&node->version, versionstr);
     node->type = t;
-  } while(0);
-
-  loads(p, &cval);
-  do {
-    struct vulnmatch_compar_node *node = NOD(p, compar);
-    node->version = cval;
   } while(0);
 
   expect(p, VULNMATCH_TRPAREN);

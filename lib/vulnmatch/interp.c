@@ -12,14 +12,8 @@ struct vulnmatch_validator {
   size_t len;
 };
 
-static inline void bail(struct vulnmatch_validator *v, int err) {
-  longjmp(v->errjmp, err);
-}
-
-static inline const void *ref(struct vulnmatch_validator *v,
-    size_t offset) {
-  return v->data + offset;
-}
+#define bail(obj, err) longjmp((obj)->errjmp, (err))
+#define ref(obj, offset) ((void*)((obj)->data + (offset)))
 
 static void check(struct vulnmatch_validator *v, size_t offset,
     size_t len) {
@@ -58,7 +52,6 @@ static void vcompar(struct vulnmatch_validator *v, size_t offset) {
   check(v, offset, sizeof(struct vulnmatch_compar_node));
   node = ref(v, offset);
   vstr(v, &node->vendprod);
-  vstr(v, &node->version);
 }
 
 static void vvulnexpr(struct vulnmatch_validator *v, size_t offset);
@@ -227,4 +220,130 @@ int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file) {
   }
 
   return ret;
+}
+
+static int ecompar(struct vulnmatch_interp *interp, size_t offset) {
+  const struct vulnmatch_compar_node *node;
+  const char *vendprod;
+  int cmp;
+
+  node = ref(interp, offset);
+  vendprod = ref(interp, node->vendprod.value.offset);
+  if (strcmp(vendprod, interp->curr_vendprod) != 0) {
+    return 0;
+  }
+
+  cmp = vaguever_cmp(&interp->curr_version, &node->version);
+  switch (node->type) {
+    case VULNMATCH_LT_NODE:
+      return cmp < 0;
+    case VULNMATCH_LE_NODE:
+      return cmp <= 0;
+    case VULNMATCH_EQ_NODE:
+      return cmp == 0;
+    case VULNMATCH_GE_NODE:
+      return cmp >= 0;
+    case VULNMATCH_GT_NODE:
+      return cmp > 0;
+    default:
+      break;
+  }
+
+  return 0;
+}
+
+static int evulnexpr(struct vulnmatch_interp *interp, size_t offset);
+
+static int eboolean(struct vulnmatch_interp *interp, size_t offset) {
+  const struct vulnmatch_boolean_node *node;
+  int ret = 0;
+
+  while (offset > 0) {
+    node = ref(interp, offset);
+    switch(node->type) {
+    case VULNMATCH_AND_NODE:
+    case VULNMATCH_OR_NODE:
+      break;
+    default:
+      bail(interp, VULNMATCH_EINVALID_NODE);
+    }
+
+    ret = evulnexpr(interp, node->value.offset);
+    if (!ret && node->type == VULNMATCH_AND_NODE) {
+      break;
+    } else if (ret && node->type == VULNMATCH_OR_NODE) {
+      break;
+    }
+
+    offset = node->next.offset;
+  }
+
+  return ret;
+}
+
+static int evulnexpr(struct vulnmatch_interp *interp, size_t offset) {
+  const enum vulnmatch_node_type *tptr;
+  int ret = 0;
+
+  tptr = ref(interp, offset);
+  switch(*tptr) {
+  case VULNMATCH_LT_NODE:
+  case VULNMATCH_LE_NODE:
+  case VULNMATCH_EQ_NODE:
+  case VULNMATCH_GE_NODE:
+  case VULNMATCH_GT_NODE:
+    ret = ecompar(interp, offset);
+    break;
+  case VULNMATCH_AND_NODE:
+  case VULNMATCH_OR_NODE:
+    ret = eboolean(interp, offset);
+    break;
+  default:
+    bail(interp, VULNMATCH_EINVALID_NODE);
+  }
+
+  return ret;
+}
+
+static void enodes(struct vulnmatch_interp *interp, size_t offset) {
+  const struct vulnmatch_cve_node *cve;
+  int ret;
+
+  while (offset > 0) {
+    cve = ref(interp, offset);
+    if (cve->type != VULNMATCH_CVE_NODE) {
+      bail(interp, VULNMATCH_EINVALID_NODE);
+    }
+
+    ret = evulnexpr(interp, cve->vulnexpr.offset);
+    if (ret && interp->on_match) {
+      struct vulnmatch_match m = {
+        .id = ref(interp, cve->id.value.offset),
+	.cvss3_base = (float)cve->cvss3_base / 100.0,
+	.desc = ref(interp, cve->id.value.offset),
+      };
+
+      ret = interp->on_match(&m, interp->on_match_data);
+      if (ret <= 0) {
+        bail(interp, ret);
+      }
+    }
+    offset = cve->next.offset;
+  }
+}
+
+int vulnmatch_eval(struct vulnmatch_interp *interp, const char *vendprod,
+    const char *version, void *data) {
+  int status;
+
+  if ((status = setjmp(interp->errjmp)) != 0) {
+    goto done;
+  }
+
+  interp->curr_vendprod = vendprod;
+  vaguever_init(&interp->curr_version, version);
+  interp->on_match_data = data;
+  enodes(interp, VULNMATCH_HEADER_SIZE);
+done:
+  return status;
 }

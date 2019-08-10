@@ -70,8 +70,8 @@ void vaguever_str(struct vaguever_version *v, char *out, size_t len) {
   }
 }
 
-int vaguever_cmp(struct vaguever_version *v1,
-    struct vaguever_version *v2) {
+int vaguever_cmp(const struct vaguever_version *v1,
+    const struct vaguever_version *v2) {
   int i;
   int diff;
 

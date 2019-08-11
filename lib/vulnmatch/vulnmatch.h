@@ -16,6 +16,7 @@
 #define VULNMATCH_EINVALID_OFFSET   -4
 #define VULNMATCH_EINVALID_NODE     -5
 #define VULNMATCH_ELOAD             -6
+#define VULNMATCH_EHEADER           -7
 
 #define VULNMATCH_HEADER                     "VM0\0\0\0\0"
 #define VULNMATCH_HEADER_SIZE     sizeof(VULNMATCH_HEADER)

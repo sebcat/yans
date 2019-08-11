@@ -133,6 +133,11 @@ static int validate(struct vulnmatch_validator *v, const char *data,
     size_t len) {
   int status;
 
+  if (len < VULNMATCH_HEADER_SIZE ||
+      memcmp(data, VULNMATCH_HEADER, VULNMATCH_HEADER_SIZE) != 0) {
+    return VULNMATCH_EHEADER;
+  }
+
   if ((status = setjmp(v->errjmp)) != 0) {
     goto done;
   }

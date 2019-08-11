@@ -165,6 +165,11 @@ static inline void *vulnmatch_progn_cderef(struct vulnmatch_progn *progn,
 int vulnmatch_parser_init(struct vulnmatch_parser *p);
 void vulnmatch_parser_cleanup(struct vulnmatch_parser *p);
 int vulnmatch_parse(struct vulnmatch_parser *p, FILE *in);
+static inline const char *vulnmatch_parser_data(struct vulnmatch_parser *p,
+  size_t *len) {
+  if (len) *len = p->progn.buf.len;
+  return p->progn.buf.data;
+}
 
 void vulnmatch_init(struct vulnmatch_interp *interp,
     int (*on_match)(struct vulnmatch_match *, void *));

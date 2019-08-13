@@ -136,7 +136,6 @@ void *linvar_alloc(struct linvar_ctx *ctx, size_t len) {
   blk = ctx->blks;
   chunk = blk->chunks + blk->offset;
   blk->offset += chunk_needed;
-  blk->cap -= chunk_needed;
   return chunk;
 }
 

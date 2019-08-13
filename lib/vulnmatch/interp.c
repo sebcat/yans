@@ -149,21 +149,13 @@ done:
   return status;
 }
 
-static const char *loadfile(const char *file, size_t *len) {
+static const char *mapfd(int fd, size_t *len) {
   struct stat st;
   int ret;
-  int fd;
   const char *data;
-
-
-  fd = open(file, O_RDONLY);
-  if (fd < 0) {
-    return NULL;
-  }
 
   ret = fstat(fd, &st);
   if (ret < 0) {
-    close(fd);
     return NULL;
   }
 
@@ -174,7 +166,6 @@ static const char *loadfile(const char *file, size_t *len) {
   data = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE|MAP_POPULATE,
       fd, 0);
 #endif
-  close(fd);
   if (data == MAP_FAILED) {
     return NULL;
   }
@@ -211,12 +202,12 @@ int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,
   return 0;
 }
 
-int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file) {
+int vulnmatch_loadfile(struct vulnmatch_interp *interp, int fd) {
   const char *data;
   size_t len;
   int ret;
 
-  data = loadfile(file, &len);
+  data = mapfd(fd, &len);
   if (data == NULL) {
     return VULNMATCH_ELOAD;
   }

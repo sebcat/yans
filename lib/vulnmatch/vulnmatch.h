@@ -177,7 +177,7 @@ void vulnmatch_init(struct vulnmatch_interp *interp,
 void vulnmatch_unloadfile(struct vulnmatch_interp *interp);
 int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,
   size_t len);
-int vulnmatch_loadfile(struct vulnmatch_interp *interp, const char *file);
+int vulnmatch_loadfile(struct vulnmatch_interp *interp, int fd);
 int vulnmatch_eval(struct vulnmatch_interp *interp, const char *vendprod,
     const char *version, void *data);
 #endif

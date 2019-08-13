@@ -191,7 +191,9 @@ void vulnmatch_init(struct vulnmatch_interp *interp,
 }
 
 void vulnmatch_unloadfile(struct vulnmatch_interp *interp) {
-  munmap((char*)interp->data, interp->len);
+  if (interp->len > 0) {
+    munmap((char*)interp->data, interp->len);
+  }
 }
 
 int vulnmatch_load(struct vulnmatch_interp *interp, const char *data,

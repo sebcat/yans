@@ -521,8 +521,24 @@ parser_cleanup:
   return status;
 }
 
+static int on_match(struct vulnmatch_match *m, void *data) {
+  return 1;
+}
+
+static int test_eval_noload() {
+  struct vulnmatch_interp p;
+  int ret;
+
+  vulnmatch_init(&p, on_match);
+  ret = vulnmatch_eval(&p, "foo/bar", "1.2.3", NULL);
+  vulnmatch_unloadfile(&p);
+  return ret == 0 ? TEST_OK : TEST_FAIL;
+}
+
+
 TEST_ENTRY(
   {"read_token", test_read_token},
   {"parse_ok", test_parse_ok},
   {"eval_one", test_eval_one},
+  {"eval_noload", test_eval_noload},
 );

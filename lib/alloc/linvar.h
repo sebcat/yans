@@ -29,5 +29,6 @@ struct linvar_ctx {
 void linvar_init(struct linvar_ctx *ctx, size_t blksize);
 void linvar_cleanup(struct linvar_ctx *ctx);
 void *linvar_alloc(struct linvar_ctx *ctx, size_t len);
+char *linvar_strdup(struct linvar_ctx *ctx, const char *s);
 
 #endif

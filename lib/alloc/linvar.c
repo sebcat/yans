@@ -139,4 +139,18 @@ void *linvar_alloc(struct linvar_ctx *ctx, size_t len) {
   return chunk;
 }
 
+char *linvar_strdup(struct linvar_ctx *ctx, const char *s) {
+  size_t len;
+  char *res;
+
+  len = strlen(s) + 1;
+  res = linvar_alloc(ctx, len);
+  if (res == NULL) {
+    return NULL;
+  }
+
+  memcpy(res, s, len);
+  return res;
+}
+
 #endif /* LINVAR_DBG */

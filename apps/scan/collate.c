@@ -10,21 +10,31 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include <lib/ycl/ycl_msg.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-#include <lib/alloc/linvar.h>
+#include "lib/ycl/ycl_msg.h"
 
-#include <lib/match/reset.h>
-#include <lib/match/component.h>
+#include "lib/alloc/linvar.h"
 
-#include <lib/util/macros.h>
-#include <lib/util/objtbl.h>
-#include <lib/util/sandbox.h>
-#include <lib/util/csv.h>
-#include <lib/util/sha1.h>
-#include <lib/util/x509.h>
-#include <lib/net/tcpproto_types.h>
-#include <apps/scan/collate.h>
+#include "lib/match/reset.h"
+#include "lib/match/component.h"
+
+#include "lib/util/macros.h"
+#include "lib/util/objtbl.h"
+#include "lib/util/sandbox.h"
+#include "lib/util/csv.h"
+#include "lib/util/sha1.h"
+#include "lib/util/x509.h"
+#include "lib/net/tcpproto_types.h"
+#include "lib/vulnmatch/vulnmatch.h"
+#include "apps/scan/collate.h"
+
+#ifndef DATAROOTDIR
+#define DATAROOTDIR "/usr/local/share"
+#endif
+
+#define DEFAULT_VULNSPEC_DIR DATAROOTDIR "/vulnspec"
 
 #define MAX_INOUTS 8
 #define MAX_FOPENS 128
@@ -43,6 +53,7 @@ enum collate_type {
   COLLATE_HTTPMSGS,
   COLLATE_MATCHES,
   COLLATE_COMPONENTS,
+  COLLATE_CVES,
   COLLATE_MAX,
 };
 
@@ -57,6 +68,9 @@ struct collate_opts {
 
   FILE *in_compsvc_csv[MAX_INOUTS];
   size_t nin_compsvc_csv;
+
+  FILE *in_components_csv[MAX_INOUTS];
+  size_t nin_components_csv;
 
   FILE *out_services_csv[MAX_INOUTS];
   size_t nout_services_csv;
@@ -82,8 +96,13 @@ struct collate_opts {
   FILE *out_compidsvcid_csv[MAX_INOUTS]; /* Component ID,Service ID */
   size_t nout_compidsvcid_csv;
 
+  FILE *out_cves_csv[MAX_INOUTS];
+  size_t nout_cves_csv;
+
   FILE *closefps[MAX_FOPENS];
   size_t nclosefps;
+
+  struct vulnmatch_interp interp;
 };
 
 union saddr_t {
@@ -122,17 +141,19 @@ struct collate_service {
 #include <apps/scan/collate_matches.c>
 
 /* allocator used */
-struct linvar_ctx varmem_;
+static struct linvar_ctx varmem_;
 
 /* collation tables */
-struct objtbl_ctx nametbl_;
-struct objtbl_ctx addrtbl_;
-struct objtbl_ctx svctbl_;
-struct objtbl_ctx chaintbl_;
+static struct objtbl_ctx nametbl_;
+static struct objtbl_ctx addrtbl_;
+static struct objtbl_ctx svctbl_;
+static struct objtbl_ctx chaintbl_;
 
 /* assigned ID counters */
-unsigned int serviceid_;
-unsigned int chainid_;
+static unsigned int serviceid_;
+static unsigned int chainid_;
+
+static char scratchpad_[8192];
 
 /* 32-bit FNV1a constants */
 #define FNV1A_OFFSET 0x811c9dc5
@@ -1263,6 +1284,142 @@ done:
   return status;
 }
 
+struct cveentry {
+  unsigned long component_id;
+  const char *cve_id;
+  float cvss3_base;
+  const char *description;
+};
+
+struct cvedata {
+  buf_t cvebuf;
+  unsigned long comp_id;
+};
+
+static int cveentrycmp(const void *a, const void *b) {
+  const struct cveentry *left = *(struct cveentry **)a;
+  const struct cveentry *right = *(struct cveentry **)b;
+  long diff;
+  float difff;
+
+  diff = (long)left->component_id - (long)right->component_id;
+  if (diff != 0) {
+    return (int)diff;
+  }
+
+  difff = right->cvss3_base - left->cvss3_base;
+  if (difff < 0) {
+    return -1;
+  } else if (difff > 0) {
+    return 1;
+  }
+
+  return 0;
+}
+
+static int on_matched_cve(struct vulnmatch_match *m, void *data) {
+  struct cvedata *cves = data;
+  struct cveentry *entry;
+
+  entry = linvar_alloc(&varmem_, sizeof(struct cveentry));
+  if (entry == NULL) {
+    return -1;
+  }
+
+  /* the strings in the vulnmatch_match struct are alive until
+   * vulnmatch_cleanup, so no strduping here */
+  entry->component_id = cves->comp_id;
+  entry->cve_id = m->id;
+  entry->cvss3_base = m->cvss3_base;
+  entry->description = m->desc;
+
+  buf_adata(&cves->cvebuf, &entry, sizeof(entry));
+  return 1;
+}
+
+static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
+  int status = EXIT_FAILURE;
+  struct csv_reader r;
+  FILE *in;
+  size_t compindex;
+  const char *comp_idstr;
+  const char *vendprod;
+  const char *version;
+  char *endptr;
+  struct cvedata cves;
+  size_t i;
+  struct cveentry *entry;
+  size_t outindex;
+  buf_t rowbuf;
+  const char *row[4];
+  int ret;
+
+  linvar_init(&varmem_, LINVAR_BLKSIZE);
+  csv_reader_init(&r);
+  if (!buf_init(&cves.cvebuf, 8192)) {
+    goto end;
+  }
+
+  if (!buf_init(&rowbuf, 4096)) {
+    goto end;
+  }
+
+  for (compindex = 0; compindex < opts->nin_components_csv; compindex++) {
+    in = opts->in_components_csv[compindex];
+    while (!feof(in)) {
+      csv_read_row(&r, in);
+      comp_idstr  = csv_reader_elem(&r, 0);
+      vendprod    = csv_reader_elem(&r, 1);
+      version     = csv_reader_elem(&r, 2);
+
+      /* skip rows with empty version fields */
+      if (version == NULL || version == '\0') {
+        continue;
+      }
+
+      /* skip rows with an invalid component ID (e.g., the header row) */
+      cves.comp_id = strtoul(comp_idstr, &endptr, 10);
+      if (cves.comp_id == ULONG_MAX || cves.comp_id == 0 ||
+          *endptr != '\0') {
+        continue;
+      }
+
+      vulnmatch_eval(&opts->interp, vendprod, version, &cves);
+    }
+  }
+
+
+  qsort(cves.cvebuf.data, cves.cvebuf.len / sizeof(struct cveentry *),
+      sizeof(struct cveentry *), cveentrycmp);
+  for (i = 0; i < cves.cvebuf.len / sizeof(struct cveentry *); i++) {
+    entry = ((struct cveentry **)cves.cvebuf.data)[i];
+    for (outindex = 0; outindex < opts->nout_cves_csv; outindex++) {
+      buf_clear(&rowbuf);
+      snprintf(scratchpad_, sizeof(scratchpad_), "%lu",
+          entry->component_id);
+      row[0] = scratchpad_;
+      row[1] = entry->cve_id;
+      snprintf(scratchpad_ + 64, sizeof(scratchpad_) - 64, "%.2f",
+          entry->cvss3_base);
+      row[2] = scratchpad_ + 64;
+      row[3] = entry->description;
+      ret = csv_encode(&rowbuf, row, ARRAY_SIZE(row));
+      if (ret < 0) {
+        continue;
+      }
+
+      fwrite(rowbuf.data, 1, rowbuf.len, opts->out_cves_csv[outindex]);
+    }
+  }
+
+end:
+  buf_cleanup(&rowbuf);
+  buf_cleanup(&cves.cvebuf);
+  csv_reader_cleanup(&r);
+  linvar_cleanup(&varmem_);
+  return status;
+}
+
 enum collate_type collate_type_from_str(const char *str) {
   static const struct {
     char *name;
@@ -1272,6 +1429,7 @@ enum collate_type collate_type_from_str(const char *str) {
     {"httpmsgs",   COLLATE_HTTPMSGS},
     {"matches",    COLLATE_MATCHES},
     {"components", COLLATE_COMPONENTS},
+    {"cves",       COLLATE_CVES},
   };
   size_t i;
 
@@ -1333,10 +1491,40 @@ static void usage(const char *argv0) {
       ,argv0);
 }
 
+static int open_vulnspec(const char *name) {
+  int ret;
+  int fd;
+  char *vulnspec_dir;
+
+  if (name == NULL || *name == '\0' || strchr(name, '/')) {
+    fputs("invalid vulnspec\n", stderr);
+    return -1;
+  }
+
+  vulnspec_dir = getenv("VULNSPEC_DIR");
+  if (vulnspec_dir == NULL || *vulnspec_dir == '\0') {
+    vulnspec_dir = DEFAULT_VULNSPEC_DIR;
+  }
+
+  ret = snprintf(scratchpad_, sizeof(scratchpad_), "%s/%s.vs",
+      vulnspec_dir, name);
+  if (ret < 0 || ret >= sizeof(scratchpad_)) {
+    fputs("vulnspec too long\n", stderr);
+    return -1;
+  }
+
+  fd = open(scratchpad_, O_RDONLY);
+  if (fd < 0) {
+    perror(name);
+  }
+
+  return fd;
+}
+
 int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   const char *tmpstr;
   const char *argv0;
-  const char *optstr = "t:B:S:I:s:e:c:a:m:i:o:p:X";
+  const char *optstr = "t:B:S:I:O:s:e:c:a:m:i:o:p:Xv:V:";
   static struct collate_opts opts;
   collate_func_t func;
   collate_func_t funcs[COLLATE_MAX] = {
@@ -1344,6 +1532,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     [COLLATE_HTTPMSGS]   = httpmsgs,
     [COLLATE_MATCHES]    = matches,
     [COLLATE_COMPONENTS] = components,
+    [COLLATE_CVES]       = cves,
   };
   /* short opts: uppercase letters for inputs, if sane to do so */
   static const struct option lopts[] = {
@@ -1351,6 +1540,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     {"in-banners",          required_argument, NULL, 'B'},
     {"in-services-csv",     required_argument, NULL, 'S'},
     {"in-compsvc-csv",      required_argument, NULL, 'I'},
+    {"in-components-csv",   required_argument, NULL, 'O'},
     {"out-services-csv",    required_argument, NULL, 's'},
     {"out-svccert-csv",     required_argument, NULL, 'e'},
     {"out-certs-csv",       required_argument, NULL, 'c'},
@@ -1359,13 +1549,18 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     {"out-compsvc-csv",     required_argument, NULL, 'i'},
     {"out-components-csv",  required_argument, NULL, 'o'},
     {"out-compidsvcid-csv", required_argument, NULL, 'p'},
+    {"out-cves-csv",        required_argument, NULL, 'v'},
     {"no-sandbox",          no_argument,       NULL, 'X'},
+    {"vulnspec",            required_argument, NULL, 'V'},
     {NULL, 0, NULL, 0}};
   int ch;
   int status = EXIT_FAILURE;
   int ret;
   int i;
   int sandbox = 1;
+  int vulnfd = -1;
+
+  vulnmatch_init(&opts.interp, on_matched_cve);
 
   argv0 = argv[0];
   argc--;
@@ -1375,6 +1570,12 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     switch (ch) {
     case 't': /* type */
       opts.type = collate_type_from_str(optarg);
+      break;
+    case 'V':
+      vulnfd = open_vulnspec(optarg);
+      if (vulnfd < 0) {
+        goto end;
+      }
       break;
     case 'B': /* in-banners */
       ret = open_io(&opts, &scan->opener, optarg, "rb",
@@ -1393,6 +1594,13 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     case 'I': /* in-compsvc-csv */
       ret = open_io(&opts, &scan->opener, optarg, "rb",
           opts.in_compsvc_csv, &opts.nin_compsvc_csv);
+      if (ret < 0) {
+        goto end;
+      }
+      break;
+    case 'O': /* in-components-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "rb",
+          opts.in_components_csv, &opts.nin_components_csv);
       if (ret < 0) {
         goto end;
       }
@@ -1478,6 +1686,16 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_compidsvcid_csv[opts.nout_compidsvcid_csv-1]);
       break;
+    case 'v': /* out-cves-csv */
+      ret = open_io(&opts, &scan->opener, optarg, "wb",
+          opts.out_cves_csv, &opts.nout_cves_csv);
+      if (ret < 0) {
+        goto end;
+      }
+      tmpstr = "Component ID,CVE-ID,CVVSv3 Base Score,Description\r\n";
+      fwrite(tmpstr, 1, strlen(tmpstr),
+          opts.out_cves_csv[opts.nout_cves_csv-1]);
+      break;
     case 'X':
       sandbox = 0;
       break;
@@ -1509,11 +1727,20 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
     fprintf(stderr, "warning: sandbox disabled\n");
   }
 
+  if (vulnfd >= 0) {
+    ret = vulnmatch_loadfile(&opts.interp, vulnfd);
+    if (ret != 0) {
+      fputs("failed to load vulnmatch file\n", stderr);
+      goto end;
+    }
+  }
+
   status = func(scan, &opts);
 end:
   for (i = 0; i < opts.nclosefps; i++) {
     fclose(opts.closefps[i]);
   }
 
+  vulnmatch_unloadfile(&opts.interp);
   return status;
 }

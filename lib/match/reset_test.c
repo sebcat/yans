@@ -410,12 +410,12 @@ static int test_match_httpheaders() {
     {
       .input = "HTTP/2 301 \r\nserver: apache",
       .type = RESET_MATCH_COMPONENT,
-      .name = "apache/apache"
+      .name = "apache/http_server"
     },
     {
       .input = "HTTP/2 301 \r\nServer: Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips",
       .type = RESET_MATCH_COMPONENT,
-      .name = "apache/apache",
+      .name = "apache/http_server",
       .version = "2.4.6"
     },
     {
@@ -457,7 +457,7 @@ static int test_match_httpheaders() {
     {
       .input = "HTTP/2 301 \r\nserver: Apache/2.4.6 (Red Hat Enterprise Linux) OpenSSL/1.0.2k-fips PHP/7.1.28",
       .type = RESET_MATCH_COMPONENT,
-      .name = "apache/apache",
+      .name = "apache/http_server",
       .version = "2.4.6",
     },
     {
@@ -521,13 +521,13 @@ static int test_match_httpbody() {
     {
       .input = "<address>Apache/2.4.25 (Debian) Server at example.com Port 80</address>",
       .type = RESET_MATCH_COMPONENT,
-      .name = "apache/apache",
+      .name = "apache/http_server",
       .version = "2.4.25"
     },
     {
       .input = "<address>Apache/2.4.25 Server at example.com Port 80</address>",
       .type = RESET_MATCH_COMPONENT,
-      .name = "apache/apache",
+      .name = "apache/http_server",
       .version = "2.4.25"
     },
     {

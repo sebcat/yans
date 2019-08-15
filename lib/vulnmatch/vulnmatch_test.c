@@ -202,13 +202,13 @@ static int test_parse_ok() {
   static struct {
     char *input;
   } tests[] = {
-    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+    {"(cve \"CVE-2019-02-17\" 8.8 1.0 \"my desc\"\n"
      "  (= \"foo/bar\" \"1.2.3\"))"},
-    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+    {"(cve \"CVE-2019-02-17\" 8.8 1.0 \"my desc\"\n"
      "  (= \"foo/bar\" \"1.2.3\"))\n"
-     "(cve \"CVE-2019-02-18\" 8.8 \"my desc\"\n"
+     "(cve \"CVE-2019-02-18\" 8.8 1.0 \"my desc\"\n"
      "  (= \"foo/bar\" \"1.2.3\"))\n"},
-    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+    {"(cve \"CVE-2019-02-17\" 8.8 1.0 \"my desc\"\n"
      "  (v\n"
      "    (^\n"
      "      (>= \"foo/bar\" \"1.2.3\")\n"
@@ -216,7 +216,7 @@ static int test_parse_ok() {
      "    (^\n"
      "      (>= \"bar/baz\" \"6.6.6\")\n"
      "      (<= \"bar/baz\" \"7.7.7\"))))\n"},
-    {"(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+    {"(cve \"CVE-2019-02-17\" 8.8 1.0 \"my desc\"\n"
      "  (v\n"
      "    (^\n"
      "      (>= \"foo/bar\" \"1.2.3\")\n"
@@ -224,7 +224,7 @@ static int test_parse_ok() {
      "    (^\n"
      "      (>= \"bar/baz\" \"6.6.6\")\n"
      "      (<= \"bar/baz\" \"7.7.7\"))))\n"
-     "(cve \"CVE-2019-02-17\" 8.8 \"my desc\"\n"
+     "(cve \"CVE-2019-02-17\" 8.8 1.0 \"my desc\"\n"
      "  (v\n"
      "    (^\n"
      "      (>= \"foo/bar\" \"1.2.3\")\n"
@@ -308,70 +308,70 @@ static int test_eval_one() {
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (< \"foo/bar\" \"1.2.4\"))",
       "my-cve"
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (< \"foo/bar\" \"1.2.3\"))",
       NULL
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (<= \"foo/bar\" \"1.2.3\"))",
       "my-cve",
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (= \"foo/bar\" \"1.2.3.4\"))",
       NULL,
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (= \"foo/bar\" \"1.2.3\"))",
       "my-cve",
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (= \"foo/bar\" \"1.2.4\"))",
       NULL,
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (>= \"foo/bar\" \"1.2.3\"))",
       "my-cve",
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (> \"foo/bar\" \"1.2.3\"))",
       NULL,
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (> \"foo/bar\" \"1.2.2\"))",
       "my-cve",
     },
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (^\n"
       "    (> \"foo/bar\" \"1.2.2\")\n"
       "    (< \"foo/bar\" \"1.2.4\")))\n",
@@ -380,7 +380,7 @@ static int test_eval_one() {
     {
       "foo/bar",
       "1.2.4",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (^\n"
       "    (> \"foo/bar\" \"1.2.2\")\n"
       "    (< \"foo/bar\" \"1.2.4\")))\n",
@@ -389,7 +389,7 @@ static int test_eval_one() {
     {
       "foo/bar",
       "1.2.3",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (v\n"
       "    (^\n"
       "      (> \"bar/foo\" \"1.2.2\")\n"
@@ -402,7 +402,7 @@ static int test_eval_one() {
     {
       "foo/bar",
       "1.2.4",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (v\n"
       "    (^\n"
       "      (> \"bar/foo\" \"1.2.2\")\n"
@@ -415,7 +415,7 @@ static int test_eval_one() {
     {
       "foo/bar",
       "1.2.4",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (v\n"
       "    (^\n"
       "      (> \"bar/foo\" \"1.2.2\")\n"
@@ -428,7 +428,7 @@ static int test_eval_one() {
     {
       "foo/bar",
       "1.2.4",
-      "(cve \"my-cve\" 6.5 \"bar\"\n"
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (v\n"
       "    (^\n"
       "      (> \"bar/foo\" \"1.2.2\")\n"

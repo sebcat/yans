@@ -317,6 +317,7 @@ static void enodes(struct vulnmatch_interp *interp, size_t offset) {
     if (ret && interp->on_match) {
       struct vulnmatch_match m = {
         .id = ref(interp, cve->id.value.offset),
+        .cvss2_base = (float)cve->cvss2_base / 100.0,
         .cvss3_base = (float)cve->cvss3_base / 100.0,
         .desc = ref(interp, cve->description.value.offset),
       };

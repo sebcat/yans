@@ -78,6 +78,7 @@ struct vulnmatch_boolean_node {
 struct vulnmatch_cve_node {
   enum vulnmatch_node_type type;
   struct vulnmatch_value next;
+  uint32_t cvss2_base; /* represented as fixed point */
   uint32_t cvss3_base; /* represented as fixed point */
   struct vulnmatch_cvalue id;
   struct vulnmatch_cvalue description;
@@ -110,6 +111,7 @@ struct vulnmatch_parser {
 
 struct vulnmatch_match {
   const char *id;
+  float cvss2_base;
   float cvss3_base;
   const char *desc;
 };

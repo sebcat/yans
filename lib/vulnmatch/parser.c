@@ -254,6 +254,8 @@ static struct vulnmatch_value cve(struct vulnmatch_parser *p) {
     struct vulnmatch_cve_node *node = NOD(p, cve);
     node->id = cval;
     expect(p, VULNMATCH_TDOUBLE);
+    node->cvss2_base = (uint32_t)(vulnmatch_reader_double(&p->r) * 100.0);
+    expect(p, VULNMATCH_TDOUBLE);
     node->cvss3_base = (uint32_t)(vulnmatch_reader_double(&p->r) * 100.0);
     node->type = VULNMATCH_CVE_NODE;
   } while(0);

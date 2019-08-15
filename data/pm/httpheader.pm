@@ -15,7 +15,7 @@ Match Type,Name,Pattern
 1,amazon/ecs,"\r?\n[Ss]erver: ?[Ee][Cc][Ss]"
 1,amazon/s3,"\r?\n[Ss]erver: ?[Aa]mazon[sS]3"
 1,cloudflare/cloudflare,"\r?\n[Ss]erver: ?[Cc]loud[Ff]lare"
-1,apache/apache,"\r?\n[Ss]erver: ?[Aa]pache/?([0-9.]+)?"
+1,apache/http_server,"\r?\n[Ss]erver: ?[Aa]pache/?([0-9.]+)?"
 1,redhat/centos,"\r?\n[Ss]erver:[^\r\n]+\([Cc]ent[Oo][Ss]\)"
 1,redhat/rhel,"\r?\n[Ss]erver:[^\r\n]+\([Rr]ed [Hh]at [Ee]nterprise [Ll]inux\)"
 1,debian/debian,"\r?\n[Ss]erver:[^\r\n]+\([Dd]ebian\)"

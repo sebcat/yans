@@ -62,3 +62,4 @@ apps/vulngen/vulngen
 apps/webfetch/modules/matcher_httpheader.c
 apps/webfetch/modules/matcher_httpbody.c
 apps/scan/collate_matches.c
+misc/vulnspec/*.gz

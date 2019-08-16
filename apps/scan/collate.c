@@ -1287,6 +1287,7 @@ done:
 struct cveentry {
   unsigned long component_id;
   const char *cve_id;
+  float cvss2_base;
   float cvss3_base;
   const char *description;
 };
@@ -1307,7 +1308,7 @@ static int cveentrycmp(const void *a, const void *b) {
     return (int)diff;
   }
 
-  difff = right->cvss3_base - left->cvss3_base;
+  difff = right->cvss2_base - left->cvss2_base;
   if (difff < 0) {
     return -1;
   } else if (difff > 0) {
@@ -1330,6 +1331,7 @@ static int on_matched_cve(struct vulnmatch_match *m, void *data) {
    * vulnmatch_cleanup, so no strduping here */
   entry->component_id = cves->comp_id;
   entry->cve_id = m->id;
+  entry->cvss2_base = m->cvss2_base;
   entry->cvss3_base = m->cvss3_base;
   entry->description = m->desc;
 
@@ -1351,7 +1353,7 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
   struct cveentry *entry;
   size_t outindex;
   buf_t rowbuf;
-  const char *row[4];
+  const char *row[5];
   int ret;
 
   linvar_init(&varmem_, LINVAR_BLKSIZE);
@@ -1399,10 +1401,11 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
           entry->component_id);
       row[0] = scratchpad_;
       row[1] = entry->cve_id;
-      snprintf(scratchpad_ + 64, sizeof(scratchpad_) - 64, "%.2f",
-          entry->cvss3_base);
+      snprintf(scratchpad_ + 64, 32, "%.2f", entry->cvss2_base);
       row[2] = scratchpad_ + 64;
-      row[3] = entry->description;
+      snprintf(scratchpad_ + 128, 32, "%.2f", entry->cvss3_base);
+      row[3] = scratchpad_ + 128;
+      row[4] = entry->description;
       ret = csv_encode(&rowbuf, row, ARRAY_SIZE(row));
       if (ret < 0) {
         continue;
@@ -1412,6 +1415,7 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
     }
   }
 
+  status = EXIT_SUCCESS;
 end:
   buf_cleanup(&rowbuf);
   buf_cleanup(&cves.cvebuf);
@@ -1692,7 +1696,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
       if (ret < 0) {
         goto end;
       }
-      tmpstr = "Component ID,CVE-ID,CVVSv3 Base Score,Description\r\n";
+      tmpstr = "Component ID,CVE-ID,CVSSv2 Base Score,CVSSv3 Base Score,Description\r\n";
       fwrite(tmpstr, 1, strlen(tmpstr),
           opts.out_cves_csv[opts.nout_cves_csv-1]);
       break;

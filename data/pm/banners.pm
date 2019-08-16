@@ -1,5 +1,5 @@
 Match Type,Name,Pattern
-1,beasts/vsftpd,"220 [^\r\n]+\(vsFTPd ([0-9]+)\)"
+1,beasts/vsftpd,"^220[^\r\n]+\(vsFTPd ?([0-9.]+)?\)"
 1,exim/exim,"^220[ -][^ ]+ ESMTP Exim ([0-9.]+)"
 1,postfix/postfix,"^220[ -][^ ]+ ESMTP Postfix"
 1,ubuntu/ubuntu,"^220[ -][^ ]+ ESMTP Postfix (Ubuntu)"

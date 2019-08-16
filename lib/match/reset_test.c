@@ -6,6 +6,7 @@
 #include <lib/util/macros.h>
 #include <lib/util/test.h>
 
+#define BANNERS_PATTERN_FILE "./data/pm/banners.pm"
 #define HTTPHEADER_PATTERN_FILE "./data/pm/httpheader.pm"
 #define HTTPBODY_PATTERN_FILE "./data/pm/httpbody.pm"
 #define PFILE_MIN_ROWS 2
@@ -278,7 +279,7 @@ static int match_patterns(const char *pfile, const struct match_test *tests,
         if (tests[i].type == RESET_MATCH_COMPONENT && tests[i].version) {
           const char *version =
               reset_get_substring(reset, id, tests[i].input, inputlen, NULL);
-          if (strcmp(tests[i].version, version) == 0) {
+          if (version && strcmp(tests[i].version, version) == 0) {
             break; /* matched expected type, name, version */
           }
         } else {
@@ -300,6 +301,35 @@ done:
   return status;
 }
 
+static int test_match_banners() {
+  static const struct match_test tests[] = {
+    {
+      .input = "220 (vsFTPd)\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "beasts/vsftpd",
+    },
+    {
+      .input = "220 (vsFTPd 3.0.3)\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "beasts/vsftpd",
+      .version = "3.0.3",
+    },
+    {
+      .input = "220 mail.example.com ESMTP Exim 4.89 Fri, 16 Aug 2019 03:31:52 +0000\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "exim/exim",
+      .version = "4.89",
+    },
+    {
+      .input = "SSH-2.0-OpenSSH_7.4p1 Debian-10+deb9u6\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "openbsd/openssh",
+      .version = "7.4p1",
+    },
+  };
+
+  return match_patterns(BANNERS_PATTERN_FILE, tests, ARRAY_SIZE(tests));
+}
 static int test_match_httpheaders() {
   static const struct match_test tests[] = {
     {
@@ -551,6 +581,7 @@ TEST_ENTRY(
   {"noadd", test_noadd},
   {"nomatch", test_nomatch},
   {"substrings", test_substrings},
+  {"match_banners", test_match_banners},
   {"match_httpheaders", test_match_httpheaders},
   {"match_httpbody", test_match_httpbody},
 )

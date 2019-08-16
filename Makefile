@@ -34,6 +34,9 @@ KNEGMANIFEST =
 # Yans web front-end, installed to $(DATAROOTDIR)/yans-fe
 YANS_FE =
 
+# Vulnspec files, installed to $(DATAROOTDIR)/vulnspec
+VULNSPEC =
+
 # Section 1 man pages
 MANPAGES1 =
 
@@ -95,7 +98,7 @@ GENERATED_RCFILES += ${GENERATED_RCFILES_${UNAME_S}}
 
 all: $(nodist_BINS) $(BINS) $(nodist_SHLIBS) $(SHLIBS) \
 	$(GENERATED_RCFILES) $(KNEGLIB) \
-	$(KNEGMANIFEST) $(YANS_FE)
+	$(KNEGMANIFEST) $(YANS_FE) $(VULNSPEC)
 
 # driver building, installing, cleaning is done explicitly, with no
 # dependencies in targets like "all", "clean", "install" since most
@@ -150,6 +153,9 @@ manifest:
 	@for K in $(YANS_FE); do \
 		echo $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
 	done
+	@for K in $(VULNSPEC); do \
+		echo $(DESTDIR)$(DATAROOTDIR)/vulnspec/$${K#data/vulnspec/}; \
+	done
 
 manifest-rcfiles:
 	@for RC in $(RCFILES) $(GENERATED_RCFILES); do \
@@ -158,11 +164,12 @@ manifest-rcfiles:
 	done
 
 install: $(script_BINS) $(BINS) $(SHLIBS) $(KNEGLIB) \
-		$(KNEGMANIFEST) $(YANS_FE)
+		$(KNEGMANIFEST) $(YANS_FE) $(VULNSPEC)
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/yans-fe
+	mkdir -p $(DESTDIR)$(DATAROOTDIR)/vulnspec
 	for B in $(BINS) $(script_BINS); do \
 		$(INSTALL) -m 755 $$B $(DESTDIR)$(BINDIR); \
 	done
@@ -177,6 +184,9 @@ install: $(script_BINS) $(BINS) $(SHLIBS) $(KNEGLIB) \
 	done
 	for K in $(YANS_FE); do \
 		$(INSTALL) -m 644 $$K $(DESTDIR)$(DATAROOTDIR)/yans-fe/$${K#data/yans-fe/}; \
+	done
+	for K in $(VULNSPEC); do \
+		$(INSTALL) -m 644 $$K $(DESTDIR)$(DATAROOTDIR)/vulnspec/$${K#data/vulnspec/}; \
 	done
 
 install-strip: install

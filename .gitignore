@@ -17,7 +17,7 @@ apps/stored/stored
 apps/sysinfoapi/sysinfoapi
 apps/yans/yans
 data/yans-fe/index.html
-data/yans/ycfg.yans
+data/vulnspec/components.vs
 lib/match/pm_test
 lib/match/reset_test
 lib/match/tcpproto_test

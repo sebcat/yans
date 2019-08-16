@@ -335,9 +335,19 @@ int vulnmatch_eval(struct vulnmatch_interp *interp, const char *vendprod,
     const char *version, void *data) {
   int status;
 
-  /* inited but no code loaded - do nothing without error */
+  /* inited but no code loaded - do nothing, without error */
   if (interp->len <=
       (VULNMATCH_HEADER_SIZE + sizeof(enum vulnmatch_node_type))) {
+    return 0;
+  }
+
+  /* unset vendprod - do nothing, without error */
+  if (!vendprod || !*vendprod) {
+    return 0;
+  }
+
+  /* unset version - do nothing, without error */
+  if (!version || !*version) {
     return 0;
   }
 

@@ -321,6 +321,20 @@ static int test_eval_one() {
     },
     {
       "foo/bar",
+      "",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (< \"foo/bar\" \"1.2.3\"))",
+      NULL
+    },
+    {
+      "foo/bar",
+      "",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (> \"foo/bar\" \"1.2.3\"))",
+      NULL
+    },
+    {
+      "foo/bar",
       "1.2.3",
       "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
       "  (<= \"foo/bar\" \"1.2.3\"))",

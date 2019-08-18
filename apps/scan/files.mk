@@ -9,7 +9,7 @@ scan_DEPS     = lib/alloc/linvar.c lib/net/dsts.c \
                 lib/ycl/yclcli_resolve.c \
                 lib/util/objtbl.c lib/util/sha1.c lib/util/x509.c \
                 lib/util/os.c lib/ycl/opener.c lib/match/component.c \
-                lib/vulnmatch/interp.c lib/util/vaguever.c
+                lib/vulnspec/interp.c lib/util/vaguever.c
 scan_DEPS_CC  = lib/match/reset.cc
 scan_DEPSOBJS = ${scan_DEPS:.c=.o} ${scan_DEPS_CC:.cc=.o}
 scan_SOURCES  = apps/scan/main.c apps/scan/resolve.c apps/scan/banners.c \

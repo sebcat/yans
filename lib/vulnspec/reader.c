@@ -2,9 +2,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "lib/vulnmatch/vulnmatch.h"
+#include "lib/vulnspec/vulnspec.h"
 
-static int vm_getc(struct vulnmatch_reader *r) {
+static int vm_getc(struct vulnspec_reader *r) {
   int ret;
 
   ret = getc(r->input);
@@ -19,7 +19,7 @@ static int vm_getc(struct vulnmatch_reader *r) {
   return ret;
 }
 
-static int vm_ungetc(struct vulnmatch_reader *r, int ch) {
+static int vm_ungetc(struct vulnspec_reader *r, int ch) {
   int ret;
 
   ret = ungetc(ch, r->input);
@@ -37,7 +37,7 @@ static int vm_ungetc(struct vulnmatch_reader *r, int ch) {
   return ret;
 }
 
-static enum vulnmatch_token read_number(struct vulnmatch_reader *r,
+static enum vulnspec_token read_number(struct vulnspec_reader *r,
     int first) {
   long ival = 0;
   long tmp;
@@ -63,7 +63,7 @@ static enum vulnmatch_token read_number(struct vulnmatch_reader *r,
     switch (ch) {
     case '.':
       if (fpdiv != 0) {
-        return VULNMATCH_TINVALID;
+        return VULNSPEC_TINVALID;
       }
       fpdiv = 1;
       break;
@@ -80,14 +80,14 @@ static enum vulnmatch_token read_number(struct vulnmatch_reader *r,
       tmp = ival * 10;
       tmp += ch - '0';
       if (tmp < ival) {
-        return VULNMATCH_TINVALID; /* overflow */
+        return VULNSPEC_TINVALID; /* overflow */
       }
       ival = tmp;
       break;
     default:
       /* should be unreachable */
       vm_ungetc(r, ch);
-      return VULNMATCH_TINVALID;
+      return VULNSPEC_TINVALID;
     }
   }
 
@@ -97,14 +97,14 @@ static enum vulnmatch_token read_number(struct vulnmatch_reader *r,
 
   if (fpdiv != 0) {
     r->num.dval = (double)ival / fpdiv;
-    return VULNMATCH_TDOUBLE;
+    return VULNSPEC_TDOUBLE;
   }
 
   r->num.ival = ival;
-  return VULNMATCH_TLONG;
+  return VULNSPEC_TLONG;
 }
 
-static enum vulnmatch_token read_string(struct vulnmatch_reader *r) {
+static enum vulnspec_token read_string(struct vulnspec_reader *r) {
   int ch;
 
   buf_clear(&r->sval);
@@ -112,33 +112,33 @@ static enum vulnmatch_token read_string(struct vulnmatch_reader *r) {
   while ((ch = vm_getc(r)) != EOF) {
     if (ch == '"') {
       buf_achar(&r->sval, '\0');
-      return VULNMATCH_TSTRING;
+      return VULNSPEC_TSTRING;
     } else if (ch == '\\') {
       ch = vm_getc(r);
       if (ch == EOF) {
-        return VULNMATCH_TINVALID;
+        return VULNSPEC_TINVALID;
       }
     }
     buf_achar(&r->sval, ch);
   }
 
-  return VULNMATCH_TINVALID;
+  return VULNSPEC_TINVALID;
 }
 
-int vulnmatch_reader_init(struct vulnmatch_reader *r, FILE *input) {
+int vulnspec_reader_init(struct vulnspec_reader *r, FILE *input) {
   memset(r, 0, sizeof(*r));
   r->input = input;
   buf_init(&r->sval, 8192);
   return 0;
 }
 
-void vulnmatch_reader_cleanup(struct vulnmatch_reader *r) {
+void vulnspec_reader_cleanup(struct vulnspec_reader *r) {
   if (r != NULL) {
     buf_cleanup(&r->sval);
   }
 }
 
-enum vulnmatch_token vulnmatch_read_token(struct vulnmatch_reader *r) {
+enum vulnspec_token vulnspec_read_token(struct vulnspec_reader *r) {
   int ch;
   int next;
 
@@ -151,9 +151,9 @@ enum vulnmatch_token vulnmatch_read_token(struct vulnmatch_reader *r) {
         /* consume whitespace */
         break;
       case '(':
-        return VULNMATCH_TLPAREN;
+        return VULNSPEC_TLPAREN;
       case ')':
-        return VULNMATCH_TRPAREN;
+        return VULNSPEC_TRPAREN;
       case '.':
       case '-':
       case '0':
@@ -170,82 +170,82 @@ enum vulnmatch_token vulnmatch_read_token(struct vulnmatch_reader *r) {
       case '"':
         return read_string(r);
       case 'v':
-        return VULNMATCH_TOR;
+        return VULNSPEC_TOR;
       case '^':
-        return VULNMATCH_TAND;
+        return VULNSPEC_TAND;
       case '<':
         next = vm_getc(r);
         if (next == '=') {
-          return VULNMATCH_TLE;
+          return VULNSPEC_TLE;
         }
 
         vm_ungetc(r, next);
-        return VULNMATCH_TLT;
+        return VULNSPEC_TLT;
       case '=':
-        return VULNMATCH_TEQ;
+        return VULNSPEC_TEQ;
       case '>':
         next = vm_getc(r);
         if (next == '=') {
-          return VULNMATCH_TGE;
+          return VULNSPEC_TGE;
         }
 
         vm_ungetc(r, next);
-        return VULNMATCH_TGT;
+        return VULNSPEC_TGT;
       case 'c':
         next = vm_getc(r);
         if (next != 'v') {
           vm_ungetc(r, next);
-          return VULNMATCH_TINVALID;
+          return VULNSPEC_TINVALID;
         }
 
         next = vm_getc(r);
         if (next != 'e') {
           vm_ungetc(r, next);
-          return VULNMATCH_TINVALID;
+          return VULNSPEC_TINVALID;
         }
 
-        return VULNMATCH_TCVE;
+        return VULNSPEC_TCVE;
       default:
         vm_ungetc(r, ch);
-        return VULNMATCH_TINVALID;
+        return VULNSPEC_TINVALID;
     }
   }
 
-  return VULNMATCH_TEOF;
+  return VULNSPEC_TEOF;
 }
 
-const char *vulnmatch_token2str(enum vulnmatch_token t) {
+const char *vulnspec_token2str(enum vulnspec_token t) {
   switch(t) {
-  case VULNMATCH_TINVALID:
-    return "VULNMATCH_TINVALID";
-  case VULNMATCH_TEOF:
-    return "VULNMATCH_TEOF";
-  case VULNMATCH_TLPAREN:
-    return "VULNMATCH_TLPAREN";
-  case VULNMATCH_TRPAREN:
-    return "VULNMATCH_TRPAREN";
-  case VULNMATCH_TSTRING:
-    return "VULNMATCH_TSTRING";
-  case VULNMATCH_TLONG:
-    return "VULNMATCH_TLONG";
-  case VULNMATCH_TDOUBLE:
-    return "VULNMATCH_TDOUBLE";
-  case VULNMATCH_TOR:
-    return "VULNMATCH_TOR";
-  case VULNMATCH_TAND:
-    return "VULNMATCH_TAND";
-  case VULNMATCH_TLT:
-    return "VULNMATCH_TLT";
-  case VULNMATCH_TLE:
-    return "VULNMATCH_TLE";
-  case VULNMATCH_TEQ:
-    return "VULNMATCH_TEQ";
-  case VULNMATCH_TGE:
-    return "VULNMATCH_TGE";
-  case VULNMATCH_TGT:
-    return "VULNMATCH_TGT";
-  case VULNMATCH_TCVE:
-    return "VULNMATCH_TCVE";
+  case VULNSPEC_TINVALID:
+    return "VULNSPEC_TINVALID";
+  case VULNSPEC_TEOF:
+    return "VULNSPEC_TEOF";
+  case VULNSPEC_TLPAREN:
+    return "VULNSPEC_TLPAREN";
+  case VULNSPEC_TRPAREN:
+    return "VULNSPEC_TRPAREN";
+  case VULNSPEC_TSTRING:
+    return "VULNSPEC_TSTRING";
+  case VULNSPEC_TLONG:
+    return "VULNSPEC_TLONG";
+  case VULNSPEC_TDOUBLE:
+    return "VULNSPEC_TDOUBLE";
+  case VULNSPEC_TOR:
+    return "VULNSPEC_TOR";
+  case VULNSPEC_TAND:
+    return "VULNSPEC_TAND";
+  case VULNSPEC_TLT:
+    return "VULNSPEC_TLT";
+  case VULNSPEC_TLE:
+    return "VULNSPEC_TLE";
+  case VULNSPEC_TEQ:
+    return "VULNSPEC_TEQ";
+  case VULNSPEC_TGE:
+    return "VULNSPEC_TGE";
+  case VULNSPEC_TGT:
+    return "VULNSPEC_TGT";
+  case VULNSPEC_TCVE:
+    return "VULNSPEC_TCVE";
   default:
     return "???";
   }

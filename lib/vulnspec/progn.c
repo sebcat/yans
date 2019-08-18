@@ -1,8 +1,8 @@
-#include "lib/vulnmatch/vulnmatch.h"
+#include "lib/vulnspec/vulnspec.h"
 
 #define DEFAULT_PROGN_SIZE (512 * 1024)
 
-int vulnmatch_progn_init(struct vulnmatch_progn *progn) {
+int vulnspec_progn_init(struct vulnspec_progn *progn) {
   if (!buf_init(&progn->buf, DEFAULT_PROGN_SIZE)) {
     return -1;
   }
@@ -10,12 +10,12 @@ int vulnmatch_progn_init(struct vulnmatch_progn *progn) {
   return 0;
 }
 
-void vulnmatch_progn_cleanup(struct vulnmatch_progn *progn) {
+void vulnspec_progn_cleanup(struct vulnspec_progn *progn) {
   buf_cleanup(&progn->buf);
 }
 
-int vulnmatch_progn_alloc(struct vulnmatch_progn *progn,
-    size_t len, struct vulnmatch_value *out) {
+int vulnspec_progn_alloc(struct vulnspec_progn *progn,
+    size_t len, struct vulnspec_value *out) {
   int i;
   size_t off;
 
@@ -32,8 +32,8 @@ int vulnmatch_progn_alloc(struct vulnmatch_progn *progn,
   return i;
 }
 
-void *vulnmatch_progn_deref(struct vulnmatch_progn *progn,
-    struct vulnmatch_value *val, size_t len) {
+void *vulnspec_progn_deref(struct vulnspec_progn *progn,
+    struct vulnspec_value *val, size_t len) {
   size_t endoff;
 
   endoff = val->offset + len;
@@ -45,6 +45,6 @@ void *vulnmatch_progn_deref(struct vulnmatch_progn *progn,
     return NULL;
   }
 
-  return vulnmatch_progn_deref_unsafe(progn, val);
+  return vulnspec_progn_deref_unsafe(progn, val);
 }
 

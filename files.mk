@@ -5,7 +5,7 @@ include lib/alloc/files.mk
 include lib/util/files.mk
 include lib/match/files.mk
 include lib/net/files.mk
-include lib/vulnmatch/files.mk
+include lib/vulnspec/files.mk
 include lib/ycl/files.mk
 include apps/stored/files.mk
 include apps/expand-dst/files.mk

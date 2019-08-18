@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "lib/vulnmatch/vulnmatch.h"
+#include "lib/vulnspec/vulnspec.h"
 
 static void die(const char *msg) {
   fprintf(stderr, "%s\n", msg);
@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
   FILE *infp = stdin;
   FILE *outfp = stdout;
   int ret;
-  struct vulnmatch_parser p;
+  struct vulnspec_parser p;
   int status = EXIT_FAILURE;
   size_t len;
   const char *data;
@@ -46,27 +46,27 @@ int main(int argc, char *argv[]) {
     die("refusing output to tty");
   }
 
-  ret = vulnmatch_parser_init(&p);
+  ret = vulnspec_parser_init(&p);
   if (ret != 0) {
-    perror("vulnmatch_parser");
+    perror("vulnspec_parser");
     goto done;
   }
 
-  ret = vulnmatch_parse(&p, infp);
+  ret = vulnspec_parse(&p, infp);
   if (ret != 0) {
-    fprintf(stderr, "vulnmatch_parse failure\n");
-    goto vulnmatch_parser_cleanup;
+    fprintf(stderr, "vulnspec_parse failure\n");
+    goto vulnspec_parser_cleanup;
   }
 
-  data = vulnmatch_parser_data(&p, &len);
+  data = vulnspec_parser_data(&p, &len);
   if (fwrite(data, 1, len, outfp) != len) {
     perror("fwrite");
-    goto vulnmatch_parser_cleanup;
+    goto vulnspec_parser_cleanup;
   }
 
   status = EXIT_SUCCESS;
-vulnmatch_parser_cleanup:
-  vulnmatch_parser_cleanup(&p);
+vulnspec_parser_cleanup:
+  vulnspec_parser_cleanup(&p);
 done:
   fclose(infp);
   fclose(outfp);

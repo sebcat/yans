@@ -27,7 +27,7 @@
 #include "lib/util/sha1.h"
 #include "lib/util/x509.h"
 #include "lib/net/tcpproto_types.h"
-#include "lib/vulnmatch/vulnmatch.h"
+#include "lib/vulnspec/vulnspec.h"
 #include "apps/scan/collate.h"
 
 #ifndef DATAROOTDIR
@@ -102,7 +102,7 @@ struct collate_opts {
   FILE *closefps[MAX_FOPENS];
   size_t nclosefps;
 
-  struct vulnmatch_interp interp;
+  struct vulnspec_interp interp;
 };
 
 union saddr_t {
@@ -1318,7 +1318,7 @@ static int cveentrycmp(const void *a, const void *b) {
   return 0;
 }
 
-static int on_matched_cve(struct vulnmatch_match *m, void *data) {
+static int on_matched_cve(struct vulnspec_match *m, void *data) {
   struct cvedata *cves = data;
   struct cveentry *entry;
 
@@ -1327,8 +1327,8 @@ static int on_matched_cve(struct vulnmatch_match *m, void *data) {
     return -1;
   }
 
-  /* the strings in the vulnmatch_match struct are alive until
-   * vulnmatch_cleanup, so no strduping here */
+  /* the strings in the vulnspec_match struct are alive until
+   * vulnspec_cleanup, so no strduping here */
   entry->component_id = cves->comp_id;
   entry->cve_id = m->id;
   entry->cvss2_base = m->cvss2_base;
@@ -1386,7 +1386,7 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
         continue;
       }
 
-      vulnmatch_eval(&opts->interp, vendprod, version, &cves);
+      vulnspec_eval(&opts->interp, vendprod, version, &cves);
     }
   }
 
@@ -1564,7 +1564,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   int sandbox = 1;
   int vulnfd = -1;
 
-  vulnmatch_init(&opts.interp, on_matched_cve);
+  vulnspec_init(&opts.interp, on_matched_cve);
 
   argv0 = argv[0];
   argc--;
@@ -1732,9 +1732,9 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   }
 
   if (vulnfd >= 0) {
-    ret = vulnmatch_loadfile(&opts.interp, vulnfd);
+    ret = vulnspec_loadfile(&opts.interp, vulnfd);
     if (ret != 0) {
-      fputs("failed to load vulnmatch file\n", stderr);
+      fputs("failed to load vulnspec file\n", stderr);
       goto end;
     }
   }
@@ -1745,6 +1745,6 @@ end:
     fclose(opts.closefps[i]);
   }
 
-  vulnmatch_unloadfile(&opts.interp);
+  vulnspec_unloadfile(&opts.interp);
   return status;
 }

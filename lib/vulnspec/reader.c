@@ -125,6 +125,36 @@ static enum vulnspec_token read_string(struct vulnspec_reader *r) {
   return VULNSPEC_TINVALID;
 }
 
+static enum vulnspec_token read_symbol(struct vulnspec_reader *r) {
+  int ch;
+  unsigned int offset = 0;
+
+  for (;;) {
+    ch = vm_getc(r);
+    switch(ch) {
+      case '(':
+      case ')':
+      case ' ':
+      case '\r':
+      case '\n':
+      case '\t':
+        vm_ungetc(r, ch);
+        /* fallthrough */
+      case EOF:
+        r->symbol[offset] = '\0';
+        return VULNSPEC_TSYMBOL;
+      default:
+        r->symbol[offset++] = ch;
+        if (offset >= sizeof(r->symbol)-1) {
+          return VULNSPEC_TINVALID;
+        }
+        break;
+    }
+  }
+
+  return VULNSPEC_TINVALID;
+}
+
 int vulnspec_reader_init(struct vulnspec_reader *r, FILE *input) {
   memset(r, 0, sizeof(*r));
   r->input = input;
@@ -140,7 +170,6 @@ void vulnspec_reader_cleanup(struct vulnspec_reader *r) {
 
 enum vulnspec_token vulnspec_read_token(struct vulnspec_reader *r) {
   int ch;
-  int next;
 
   while ((ch = vm_getc(r)) != EOF) {
     switch (ch) {
@@ -169,45 +198,9 @@ enum vulnspec_token vulnspec_read_token(struct vulnspec_reader *r) {
         return read_number(r, ch);
       case '"':
         return read_string(r);
-      case 'v':
-        return VULNSPEC_TOR;
-      case '^':
-        return VULNSPEC_TAND;
-      case '<':
-        next = vm_getc(r);
-        if (next == '=') {
-          return VULNSPEC_TLE;
-        }
-
-        vm_ungetc(r, next);
-        return VULNSPEC_TLT;
-      case '=':
-        return VULNSPEC_TEQ;
-      case '>':
-        next = vm_getc(r);
-        if (next == '=') {
-          return VULNSPEC_TGE;
-        }
-
-        vm_ungetc(r, next);
-        return VULNSPEC_TGT;
-      case 'c':
-        next = vm_getc(r);
-        if (next != 'v') {
-          vm_ungetc(r, next);
-          return VULNSPEC_TINVALID;
-        }
-
-        next = vm_getc(r);
-        if (next != 'e') {
-          vm_ungetc(r, next);
-          return VULNSPEC_TINVALID;
-        }
-
-        return VULNSPEC_TCVE;
       default:
         vm_ungetc(r, ch);
-        return VULNSPEC_TINVALID;
+        return read_symbol(r);
     }
   }
 
@@ -230,22 +223,8 @@ const char *vulnspec_token2str(enum vulnspec_token t) {
     return "VULNSPEC_TLONG";
   case VULNSPEC_TDOUBLE:
     return "VULNSPEC_TDOUBLE";
-  case VULNSPEC_TOR:
-    return "VULNSPEC_TOR";
-  case VULNSPEC_TAND:
-    return "VULNSPEC_TAND";
-  case VULNSPEC_TLT:
-    return "VULNSPEC_TLT";
-  case VULNSPEC_TLE:
-    return "VULNSPEC_TLE";
-  case VULNSPEC_TEQ:
-    return "VULNSPEC_TEQ";
-  case VULNSPEC_TGE:
-    return "VULNSPEC_TGE";
-  case VULNSPEC_TGT:
-    return "VULNSPEC_TGT";
-  case VULNSPEC_TCVE:
-    return "VULNSPEC_TCVE";
+  case VULNSPEC_TSYMBOL:
+    return "VULNSPEC_TSYMBOL";
   default:
     return "???";
   }

@@ -24,6 +24,7 @@ static int test_read_token() {
     long longvals[MAX_TOKENS];
     double dblvals[MAX_TOKENS];
     const char *svals[MAX_TOKENS];
+    const char *symvals[MAX_TOKENS];
   } tests[] = {
     {
       .input    = " ",
@@ -32,8 +33,9 @@ static int test_read_token() {
     },
     {
       .input    = "wut",
-      .ntokens  = 1,
-      .tokens   = {VULNSPEC_TINVALID},
+      .ntokens  = 2,
+      .tokens   = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"wut"},
     },
     {
       .input    = "\"wut wut\"",
@@ -96,52 +98,61 @@ static int test_read_token() {
     {
       .input   = "^",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TAND, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"^"},
     },
     {
       .input   = "v",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TOR, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"v"},
     },
     {
       .input   = "<",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TLT, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"<"},
     },
     {
       .input   = "<=",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TLE, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"<="},
     },
     {
       .input   = "=",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TEQ, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"="},
     },
     {
       .input   = ">=",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TGE, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {">="},
     },
     {
       .input   = ">",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TGT, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {">"},
     },
     {
       .input   = "cve",
       .ntokens = 2,
-      .tokens  = {VULNSPEC_TCVE, VULNSPEC_TEOF},
+      .tokens  = {VULNSPEC_TSYMBOL, VULNSPEC_TEOF},
+      .symvals  = {"cve"},
     },
     {
       .input    = "(cve 2.2 3 \"foo \\\"bar\\\"\" -222.11)",
       .ntokens  = 8,
-      .tokens   = {VULNSPEC_TLPAREN, VULNSPEC_TCVE, VULNSPEC_TDOUBLE,
+      .tokens   = {VULNSPEC_TLPAREN, VULNSPEC_TSYMBOL, VULNSPEC_TDOUBLE,
                    VULNSPEC_TLONG, VULNSPEC_TSTRING, VULNSPEC_TDOUBLE,
                    VULNSPEC_TRPAREN, VULNSPEC_TEOF},
       .dblvals  = {.0, .0, 2.2, .0, .0, -222.11, .0, .0},
       .longvals = {0, 0, 0, 3, 0, 0, 0, 0},
       .svals    = {"", "", "", "", "foo \"bar\"", "", "", ""},
+      .symvals  = {NULL, "cve", NULL, NULL, NULL, NULL, NULL, NULL},
     },
   };
 
@@ -185,6 +196,14 @@ static int test_read_token() {
         if (strcmp(tests[i].svals[tok], sval) != 0) {
           TEST_LOGF("index:%zu token:%zu expected:%s was:%s\n", i, tok,
               tests[i].svals[tok], sval);
+          status = TEST_FAIL;
+          break;
+        }
+      } else if (tokval == VULNSPEC_TSYMBOL) {
+        sval = vulnspec_reader_symbol(&r);
+        if (strcmp(tests[i].symvals[tok], sval) != 0) {
+          TEST_LOGF("index:%zu token:%zu expected:%s was:%s\n", i, tok,
+              tests[i].symvals[tok], sval);
           status = TEST_FAIL;
           break;
         }

@@ -123,27 +123,42 @@ static void loads(struct vulnspec_parser *p,
   }
 }
 
-static enum vulnspec_node_type token2node(enum vulnspec_token t) {
-  switch(t) {
-  case VULNSPEC_TOR:
-    return VULNSPEC_OR_NODE;
-  case VULNSPEC_TAND:
-    return VULNSPEC_AND_NODE;
-  case VULNSPEC_TLT:
-    return VULNSPEC_LT_NODE;
-  case VULNSPEC_TLE:
-    return VULNSPEC_LE_NODE;
-  case VULNSPEC_TEQ:
-    return VULNSPEC_EQ_NODE;
-  case VULNSPEC_TGE:
-    return VULNSPEC_GE_NODE;
-  case VULNSPEC_TGT:
-    return VULNSPEC_GT_NODE;
-  case VULNSPEC_TCVE:
-    return VULNSPEC_CVE_NODE;
-  default:
-    return VULNSPEC_INVALID_NODE;
+static enum vulnspec_node_type symbol2node(const char *sym) {
+  size_t i;
+  struct {
+    const char *symbol;
+    enum vulnspec_node_type node;
+  } vals[] = {
+    {"v",  VULNSPEC_OR_NODE},
+    {"^",  VULNSPEC_AND_NODE},
+    {"<",  VULNSPEC_LT_NODE},
+    {"<=", VULNSPEC_LE_NODE},
+    {"=",  VULNSPEC_EQ_NODE},
+    {">=", VULNSPEC_GE_NODE},
+    {">", VULNSPEC_GT_NODE},
+    {"cve", VULNSPEC_CVE_NODE}
+  };
+
+  for (i = 0; i < ARRAY_SIZE(vals); i++) {
+    if (strcmp(sym, vals[i].symbol) == 0) {
+      return vals[i].node;
+    }
   }
+
+  return VULNSPEC_INVALID_NODE;
+}
+
+static enum vulnspec_node_type read_symbol(struct vulnspec_parser *p) {
+  enum vulnspec_token t;
+  const char *sym;
+
+  t = vulnspec_read_token(&p->r);
+  if (t != VULNSPEC_TSYMBOL) {
+    bail(p, VULNSPEC_EUNEXPECTED_TOKEN);
+  }
+
+  sym = vulnspec_reader_symbol(&p->r);
+  return symbol2node(sym);
 }
 
 static struct vulnspec_value compar(struct vulnspec_parser *p,
@@ -217,22 +232,19 @@ static struct vulnspec_value boolean(struct vulnspec_parser *p,
 
 static struct vulnspec_value vulnexpr(struct vulnspec_parser *p) {
   struct vulnspec_value val = {0};
-  enum vulnspec_token t;
   enum vulnspec_node_type nodet;
 
-  t = vulnspec_read_token(&p->r);
-  switch (t) {
-  case VULNSPEC_TLT:
-  case VULNSPEC_TLE:
-  case VULNSPEC_TEQ:
-  case VULNSPEC_TGE:
-  case VULNSPEC_TGT:
-    nodet = token2node(t);
+  nodet = read_symbol(p);
+  switch (nodet) {
+  case VULNSPEC_LT_NODE:
+  case VULNSPEC_LE_NODE:
+  case VULNSPEC_EQ_NODE:
+  case VULNSPEC_GE_NODE:
+  case VULNSPEC_GT_NODE:
     val = compar(p, nodet);
     break;
-  case VULNSPEC_TAND:
-  case VULNSPEC_TOR:
-    nodet = token2node(t);
+  case VULNSPEC_AND_NODE:
+  case VULNSPEC_OR_NODE:
     val = boolean(p, nodet);
     break;
   default:
@@ -305,6 +317,7 @@ void vulnspec_parser_cleanup(struct vulnspec_parser *p) {
 
 int vulnspec_parse(struct vulnspec_parser *p, FILE *in) {
   enum vulnspec_token tok;
+  enum vulnspec_node_type nodet;
   struct vulnspec_value curr;
   struct vulnspec_value prev;
   int status;
@@ -327,9 +340,9 @@ int vulnspec_parse(struct vulnspec_parser *p, FILE *in) {
       goto done;
     }
 
-    tok = vulnspec_read_token(&p->r);
-    switch(tok) {
-    case VULNSPEC_TCVE:
+    nodet = read_symbol(p);
+    switch(nodet) {
+    case VULNSPEC_CVE_NODE:
       curr = cve(p);
       break;
     default:

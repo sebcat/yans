@@ -29,14 +29,7 @@ enum vulnspec_token {
   VULNSPEC_TSTRING,
   VULNSPEC_TLONG,
   VULNSPEC_TDOUBLE,
-  VULNSPEC_TOR,
-  VULNSPEC_TAND,
-  VULNSPEC_TLT,
-  VULNSPEC_TLE,
-  VULNSPEC_TEQ,
-  VULNSPEC_TGE,
-  VULNSPEC_TGT,
-  VULNSPEC_TCVE,
+  VULNSPEC_TSYMBOL,
 };
 
 enum vulnspec_node_type {
@@ -90,6 +83,7 @@ struct vulnspec_progn {
 };
 
 struct vulnspec_reader {
+  char symbol[32];
   FILE *input;
   size_t row;
   size_t col;
@@ -132,6 +126,11 @@ static inline long vulnspec_reader_long(struct vulnspec_reader *r) {
 
 static inline double vulnspec_reader_double(struct vulnspec_reader *r) {
   return r->num.dval;
+}
+
+static inline const char *vulnspec_reader_symbol(
+    struct vulnspec_reader *r) {
+  return r->symbol;
 }
 
 static inline const char *vulnspec_reader_string(

@@ -76,7 +76,8 @@ int vaguever_cmp(const struct vaguever_version *v1,
   int diff;
 
   for (i = 0; i < VAGUEVER_NFIELDS; i++) {
-    diff = v1->fields[i] - v2->fields[i];
+    diff =
+        (v1->fields[i] > v2->fields[i]) - (v1->fields[i] < v2->fields[i]);
     if (diff != 0) {
       return diff;
     }

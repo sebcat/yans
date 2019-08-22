@@ -65,3 +65,8 @@ lib/util/vaguever_test: $(lib_util_vaguever_test_DEPSOBJS) \
 		$(lib_util_vaguever_test_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(lib_util_vaguever_test_DEPSOBJS) \
 		$(lib_util_vaguever_test_OBJS) $(LDFLAGS)
+
+lib/util/nalphaver_test: $(lib_util_nalphaver_test_DEPSOBJS) \
+		$(lib_util_nalphaver_test_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(lib_util_nalphaver_test_DEPSOBJS) \
+		$(lib_util_nalphaver_test_OBJS) $(LDFLAGS)

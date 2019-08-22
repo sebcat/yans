@@ -22,6 +22,7 @@ lib_util_SOURCES = \
     lib/util/str.c \
     lib/util/sysinfo.c \
     lib/util/u8.c \
+    lib/util/vaguever.c \
     lib/util/x509.c \
     lib/util/ylog.c \
     lib/util/zfile.c
@@ -78,6 +79,11 @@ lib_util_vaguever_test_DEPSOBJS = ${lib_util_vaguever_test_DEPS:.c=.o}
 lib_util_vaguever_test_SOURCES = lib/util/vaguever_test.c
 lib_util_vaguever_test_OBJS = ${lib_util_vaguever_test_SOURCES:.c=.o}
 
+lib_util_nalphaver_test_DEPS = lib/util/nalphaver.c
+lib_util_nalphaver_test_DEPSOBJS = ${lib_util_nalphaver_test_DEPS:.c=.o}
+lib_util_nalphaver_test_SOURCES = lib/util/nalphaver_test.c
+lib_util_nalphaver_test_OBJS = ${lib_util_nalphaver_test_SOURCES:.c=.o}
+
 lib_util_CTESTSRCS = \
     $(lib_util_csv_test_SOURCES) \
     $(lib_util_flagset_test_SOURCES) \
@@ -88,7 +94,8 @@ lib_util_CTESTSRCS = \
     $(lib_util_u8_test_SOURCES) \
     $(lib_util_str_test_SOURCES) \
     $(lib_util_idset_test_SOURCES) \
-    $(lib_util_vaguever_test_SOURCES)
+    $(lib_util_vaguever_test_SOURCES) \
+    $(lib_util_nalphaver_test_SOURCES)
 
 lib_util_CTESTS = ${lib_util_CTESTSRCS:.c=}
 

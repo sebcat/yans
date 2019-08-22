@@ -30,6 +30,7 @@ lib/util/flagset_test
 lib/util/idset_test
 lib/util/idtbl_test
 lib/util/objtbl_test
+lib/util/nalphaver_test
 lib/util/netstring_test
 lib/util/os_test
 lib/util/str_test

@@ -1318,7 +1318,7 @@ static int cveentrycmp(const void *a, const void *b) {
   return 0;
 }
 
-static int on_matched_cve(struct vulnspec_match *m, void *data) {
+static int on_matched_cve(struct vulnspec_cve_match *m, void *data) {
   struct cvedata *cves = data;
   struct cveentry *entry;
 
@@ -1327,7 +1327,7 @@ static int on_matched_cve(struct vulnspec_match *m, void *data) {
     return -1;
   }
 
-  /* the strings in the vulnspec_match struct are alive until
+  /* the strings in the vulnspec_cve_match struct are alive until
    * vulnspec_cleanup, so no strduping here */
   entry->component_id = cves->comp_id;
   entry->cve_id = m->id;
@@ -1366,6 +1366,8 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
     goto end;
   }
 
+  vulnspec_set(&opts->interp, VULNSPEC_PCVEONMATCH, &on_matched_cve);
+  vulnspec_set(&opts->interp, VULNSPEC_PCVEONMATCHDATA, &cves);
   for (compindex = 0; compindex < opts->nin_components_csv; compindex++) {
     in = opts->in_components_csv[compindex];
     while (!feof(in)) {
@@ -1386,7 +1388,9 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
         continue;
       }
 
-      vulnspec_eval(&opts->interp, vendprod, version, &cves);
+      vulnspec_set(&opts->interp, VULNSPEC_PCVEVENDPROD, vendprod);
+      vulnspec_set(&opts->interp, VULNSPEC_PCVEVERSION, version);
+      vulnspec_eval(&opts->interp);
     }
   }
 
@@ -1564,7 +1568,7 @@ int collate_main(struct scan_ctx *scan, int argc, char **argv) {
   int sandbox = 1;
   int vulnfd = -1;
 
-  vulnspec_init(&opts.interp, on_matched_cve);
+  vulnspec_init(&opts.interp);
 
   argv0 = argv[0];
   argc--;

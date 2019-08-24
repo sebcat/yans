@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #include "lib/vulnspec/vulnspec.h"
 
@@ -174,11 +175,8 @@ static const char *mapfd(int fd, size_t *len) {
   return data;
 }
 
-void vulnspec_init(struct vulnspec_interp *interp,
-    int (*on_match)(struct vulnspec_match *, void *)) {
-  interp->data = NULL;
-  interp->len = 0;
-  interp->on_match = on_match;
+void vulnspec_init(struct vulnspec_interp *interp) {
+  memset(interp, 0, sizeof(*interp));
 }
 
 void vulnspec_unloadfile(struct vulnspec_interp *interp) {
@@ -227,11 +225,11 @@ static int ecompar(struct vulnspec_interp *interp, size_t offset) {
 
   node = ref(interp, offset);
   vendprod = ref(interp, node->vendprod.value.offset);
-  if (strcmp(vendprod, interp->curr_vendprod) != 0) {
+  if (strcmp(vendprod, interp->params.cve_vendprod) != 0) {
     return 0;
   }
 
-  cmp = vaguever_cmp(&interp->curr_version, &node->version);
+  cmp = vaguever_cmp(&interp->params.cve_vaguever_version, &node->version);
   switch (node->type) {
     case VULNSPEC_LT_NODE:
       return cmp < 0;
@@ -313,16 +311,25 @@ static void enodes(struct vulnspec_interp *interp, size_t offset) {
       bail(interp, VULNSPEC_EINVALID_NODE);
     }
 
+    /* Do not bother evaluating if we have no vendprod or version */
+    if (interp->params.cve_version == NULL ||
+        !*interp->params.cve_version ||
+        interp->params.cve_vendprod == NULL ||
+        !*interp->params.cve_vendprod) {
+      return;
+    }
+
     ret = evulnexpr(interp, cve->vulnexpr.offset);
-    if (ret && interp->on_match) {
-      struct vulnspec_match m = {
+    if (ret && interp->params.cve_on_match) {
+      struct vulnspec_cve_match m = {
         .id = ref(interp, cve->id.value.offset),
         .cvss2_base = (float)cve->cvss2_base / 100.0,
         .cvss3_base = (float)cve->cvss3_base / 100.0,
         .desc = ref(interp, cve->description.value.offset),
       };
 
-      ret = interp->on_match(&m, interp->on_match_data);
+      ret = interp->params.cve_on_match(&m,
+          interp->params.cve_on_match_data);
       if (ret <= 0) {
         bail(interp, ret);
       }
@@ -331,8 +338,7 @@ static void enodes(struct vulnspec_interp *interp, size_t offset) {
   }
 }
 
-int vulnspec_eval(struct vulnspec_interp *interp, const char *vendprod,
-    const char *version, void *data) {
+int vulnspec_eval(struct vulnspec_interp *interp) {
   int status;
 
   /* inited but no code loaded - do nothing, without error */
@@ -341,24 +347,40 @@ int vulnspec_eval(struct vulnspec_interp *interp, const char *vendprod,
     return 0;
   }
 
-  /* unset vendprod - do nothing, without error */
-  if (!vendprod || !*vendprod) {
-    return 0;
-  }
-
-  /* unset version - do nothing, without error */
-  if (!version || !*version) {
-    return 0;
-  }
-
   if ((status = setjmp(interp->errjmp)) != 0) {
     goto done;
   }
 
-  interp->curr_vendprod = vendprod;
-  vaguever_init(&interp->curr_version, version);
-  interp->on_match_data = data;
   enodes(interp, VULNSPEC_HEADER_SIZE);
 done:
   return status;
+}
+
+void vulnspec_set(struct vulnspec_interp *interp, enum vulnspec_ptype t,
+    ...) {
+  va_list ap;
+  const char *cp;
+
+  va_start(ap, t);
+  switch(t) {
+  case VULNSPEC_PCVEONMATCH:
+    interp->params.cve_on_match =
+        va_arg(ap, int(*)(struct vulnspec_cve_match *, void *));
+    break;
+  case VULNSPEC_PCVEONMATCHDATA:
+    interp->params.cve_on_match_data = va_arg(ap, void *);
+    break;
+  case VULNSPEC_PCVEVENDPROD:
+    interp->params.cve_vendprod = va_arg(ap, const char *);
+    break;
+  case VULNSPEC_PCVEVERSION:
+    cp = va_arg(ap, const char *);
+    interp->params.cve_version = cp;
+    vaguever_init(&interp->params.cve_vaguever_version, cp);
+    break;
+  default:
+    break;
+  }
+
+  va_end(ap);
 }

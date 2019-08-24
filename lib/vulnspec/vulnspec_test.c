@@ -287,7 +287,7 @@ static int test_parse_ok() {
       status = TEST_FAIL;
     }
 
-    vulnspec_init(&interp, NULL);
+    vulnspec_init(&interp);
     ret = vulnspec_load(&interp, p.progn.buf.data, p.progn.buf.len);
     if (ret != 0) {
       TEST_LOGF("index:%zu vulnspec_validate %d\n", i, ret);
@@ -308,7 +308,7 @@ parser_cleanup:
   return status;
 }
 
-static int eval_one_cb(struct vulnspec_match *m, void *data) {
+static int eval_one_cb(struct vulnspec_cve_match *m, void *data) {
   const char **wiie = data;
 
   *wiie = m->id;
@@ -507,7 +507,7 @@ static int test_eval_one() {
       goto fclose_fp;
     }
 
-    vulnspec_init(&interp, eval_one_cb);
+    vulnspec_init(&interp);
     ret = vulnspec_load(&interp, p.progn.buf.data, p.progn.buf.len);
     if (ret != 0) {
       TEST_LOGF("index:%zu vulnspec_validate %d\n", i, ret);
@@ -522,8 +522,11 @@ static int test_eval_one() {
     }
 
     cve = NULL;
-    ret = vulnspec_eval(&interp, tests[i].vendprod, tests[i].version,
-      &cve);
+    vulnspec_set(&interp, VULNSPEC_PCVEVENDPROD, tests[i].vendprod);
+    vulnspec_set(&interp, VULNSPEC_PCVEVERSION, tests[i].version);
+    vulnspec_set(&interp, VULNSPEC_PCVEONMATCH, &eval_one_cb);
+    vulnspec_set(&interp, VULNSPEC_PCVEONMATCHDATA, &cve);
+    ret = vulnspec_eval(&interp);
     if (ret != 0) {
       TEST_LOGF("index:%zu vulnspec_eval %d\n", i, ret);
       status = TEST_FAIL;
@@ -554,7 +557,7 @@ parser_cleanup:
   return status;
 }
 
-static int on_match(struct vulnspec_match *m, void *data) {
+static int on_match(struct vulnspec_cve_match *m, void *data) {
   return 1;
 }
 
@@ -562,8 +565,11 @@ static int test_eval_noload() {
   struct vulnspec_interp p;
   int ret;
 
-  vulnspec_init(&p, on_match);
-  ret = vulnspec_eval(&p, "foo/bar", "1.2.3", NULL);
+  vulnspec_init(&p);
+  vulnspec_set(&p, VULNSPEC_PCVEVENDPROD, "foo/bar");
+  vulnspec_set(&p, VULNSPEC_PCVEVERSION, "1.2.3");
+  vulnspec_set(&p, VULNSPEC_PCVEONMATCH, &on_match);
+  ret = vulnspec_eval(&p);
   vulnspec_unloadfile(&p);
   return ret == 0 ? TEST_OK : TEST_FAIL;
 }

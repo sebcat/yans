@@ -103,20 +103,33 @@ struct vulnspec_parser {
   jmp_buf errjmp;
 };
 
-struct vulnspec_match {
+struct vulnspec_cve_match {
   const char *id;
   float cvss2_base;
   float cvss3_base;
   const char *desc;
 };
 
+enum vulnspec_ptype {
+  VULNSPEC_PINVALID,
+  VULNSPEC_PCVEONMATCH,
+  VULNSPEC_PCVEONMATCHDATA,
+  VULNSPEC_PCVEVENDPROD,
+  VULNSPEC_PCVEVERSION,
+};
+
+struct vulnspec_params {
+  int (*cve_on_match)(struct vulnspec_cve_match *, void *);
+  void *cve_on_match_data;
+  const char *cve_vendprod;
+  const char *cve_version;
+  struct vaguever_version cve_vaguever_version;
+};
+
 struct vulnspec_interp {
+  struct vulnspec_params params;
   const char *data;
   size_t len;
-  int (*on_match)(struct vulnspec_match *, void *);
-  void *on_match_data;
-  const char *curr_vendprod;
-  struct vaguever_version curr_version;
   jmp_buf errjmp;
 };
 
@@ -173,12 +186,12 @@ static inline const char *vulnspec_parser_data(struct vulnspec_parser *p,
   return p->progn.buf.data;
 }
 
-void vulnspec_init(struct vulnspec_interp *interp,
-    int (*on_match)(struct vulnspec_match *, void *));
+void vulnspec_set(struct vulnspec_interp *interp, enum vulnspec_ptype t,
+    ...);
+void vulnspec_init(struct vulnspec_interp *interp);
 void vulnspec_unloadfile(struct vulnspec_interp *interp);
 int vulnspec_load(struct vulnspec_interp *interp, const char *data,
   size_t len);
 int vulnspec_loadfile(struct vulnspec_interp *interp, int fd);
-int vulnspec_eval(struct vulnspec_interp *interp, const char *vendprod,
-    const char *version, void *data);
+int vulnspec_eval(struct vulnspec_interp *interp);
 #endif

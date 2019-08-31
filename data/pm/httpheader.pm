@@ -10,6 +10,7 @@ Match Type,Name,Pattern
 1,litespeed/litespeed,"\r?\n[Xx]-[Ll]ite[Ss]peed"
 1,php/php,"\r?\n[Xx]-[Pp]owered-[Bb]y: ?PHP/?([0-9.]+)?"
 1,php/php,"\r?\n[Ss]erver:[^\r\n]+PHP/?([0-9.]+)?"
+1,python/python,"\r?\n[Ss]erver:[^\r\n]+Python/?([0-9.]+)?"
 1,amazon/awselb,"\r?\n[Ss]erver: ?awselb/?([0-9.]+)?"
 1,amazon/cloudfront,"\r?\n[Ss]erver: ?[Cc]loud[Ff]ront"
 1,amazon/ecs,"\r?\n[Ss]erver: ?[Ee][Cc][Ss]"
@@ -26,3 +27,4 @@ Match Type,Name,Pattern
 1,lighttpd/lighttpd,"\r?\n[Ss]erver: lighttpd/?([0-9.]+)?"
 1,jetty/jetty,"\r?\n[Ss]erver: [Jj]etty[/(]?([v0-9.]+)?\)?"
 1,nextjs/nextjs,"\r?\n[Xx]-[Pp]owered-[Bb]y: [Nn]ext\.js ?([0-9.]+)?"
+1,openresty/openresty,"\r?\n[Ss]erver: [Oo]pen[Rr]esty/?([0-9.]+)?"

@@ -503,6 +503,26 @@ static int test_match_httpheaders() {
       .version = "7.1.28",
     },
     {
+      .input = "HTTP/2 301 \r\nserver: Apache/2.4.6 (Red Hat Enterprise Linux) OpenSSL/1.0.2k-fips Python/7.2.9",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "python/python",
+      .version = "7.2.9",
+    },
+    {
+      .input = "HTTP/2 301\r\nServer: Apache/2.4.10 (Debian) SVN/1.8.10 mod_fastcgi/mod_fastcgi-SNAP-0910052141 mod_fcgid/2.3.9 mod_python/3.3.1 Python/2.7.9 OpenSSL/1.0.2l",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "apache/http_server",
+      .version = "2.4.10",
+
+    },
+    {
+      .input = "HTTP/2 301\r\nServer: Apache/2.4.10 (Debian) SVN/1.8.10 mod_fastcgi/mod_fastcgi-SNAP-0910052141 mod_fcgid/2.3.9 mod_python/3.3.1 Python/2.7.9 OpenSSL/1.0.2l",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "openssl/openssl",
+      .version = "1.0.2l",
+
+    },
+    {
       .input = "HTTP/2 301 \r\nServer: IIS\r\n",
       .type = RESET_MATCH_COMPONENT,
       .name = "microsoft/iis"
@@ -534,6 +554,12 @@ static int test_match_httpheaders() {
       .type = RESET_MATCH_COMPONENT,
       .name = "nextjs/nextjs",
       .version = "7.0.2",
+    },
+    {
+      .input = "HTTP/2 301 \r\nServer: openresty/1.13.6.2\r\n",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "openresty/openresty",
+      .version = "1.13.6.2",
     }
   };
 
@@ -559,6 +585,18 @@ static int test_match_httpbody() {
       .type = RESET_MATCH_COMPONENT,
       .name = "apache/http_server",
       .version = "2.4.25"
+    },
+    { .input = "<address>Apache/2.4.27 (Ubuntu) PHP/5.3.29"
+               " Server at example.com Port 80</address>",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "apache/http_server",
+      .version = "2.4.27"
+    },
+    { .input = "<address>Apache/2.4.27 (Ubuntu) PHP/5.3.29"
+               " Server at example.com Port 80</address>",
+      .type = RESET_MATCH_COMPONENT,
+      .name = "php/php",
+      .version = "5.3.29"
     },
     {
       .input = "<meta name=\"generator\" content=\"Drupal 7 (https://www.drupal.org) />",

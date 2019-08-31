@@ -1405,10 +1405,21 @@ static int cves(struct scan_ctx *ctx, struct collate_opts *opts) {
           entry->component_id);
       row[0] = scratchpad_;
       row[1] = entry->cve_id;
-      snprintf(scratchpad_ + 64, 32, "%.2f", entry->cvss2_base);
-      row[2] = scratchpad_ + 64;
-      snprintf(scratchpad_ + 128, 32, "%.2f", entry->cvss3_base);
-      row[3] = scratchpad_ + 128;
+
+      if (entry->cvss2_base > 0.0 && entry->cvss2_base < 10.1) {
+        snprintf(scratchpad_ + 64, 32, "%.2f", entry->cvss2_base);
+        row[2] = scratchpad_ + 64;
+      } else {
+        row[2] = "";
+      }
+
+      if (entry->cvss3_base > 0.0 && entry->cvss3_base < 10.1) {
+        snprintf(scratchpad_ + 128, 32, "%.2f", entry->cvss3_base);
+        row[3] = scratchpad_ + 128;
+      } else {
+        row[3] = "";
+      }
+
       row[4] = entry->description;
       ret = csv_encode(&rowbuf, row, ARRAY_SIZE(row));
       if (ret < 0) {

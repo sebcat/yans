@@ -820,6 +820,11 @@ end:
   return status;
 }
 
+static const char *seed_paths[] = {
+  "/",
+  "/wp-content/uploads/",
+};
+
 static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
   int ret;
   int status = EXIT_FAILURE;
@@ -834,6 +839,7 @@ static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
   struct ycl_msg_httpmsg msg;
   struct ycl_msg msgbuf;
   size_t i;
+  size_t pindex;
 
   csv_reader_init(&r);
   ycl_msg_init(&msgbuf);
@@ -854,27 +860,29 @@ static int httpmsgs(struct scan_ctx *ctx, struct collate_opts *opts) {
         hostname = addr;
       }
 
-      memset(&msg, 0, sizeof(msg));
-      msg.scheme.data = service;
-      msg.scheme.len = strlen(service);
-      msg.addr.data = addr;
-      msg.addr.len = strlen(addr);
-      msg.hostname.data = hostname;
-      msg.hostname.len = strlen(hostname);
-      msg.port.data = port;
-      msg.port.len = strlen(port);
-      msg.path.data = "/";
-      msg.path.len = sizeof("/") - 1;
-      msg.service_id = strtol(service_idstr, NULL, 10);
-      ret = ycl_msg_create_httpmsg(&msgbuf, &msg);
-      if (ret != YCL_OK) {
-        fprintf(stderr, "httpmsg serialization failure\n");
-        goto done;
-      }
+      for (pindex = 0; pindex < ARRAY_SIZE(seed_paths); pindex++) {
+        memset(&msg, 0, sizeof(msg));
+        msg.scheme.data = service;
+        msg.scheme.len = strlen(service);
+        msg.addr.data = addr;
+        msg.addr.len = strlen(addr);
+        msg.hostname.data = hostname;
+        msg.hostname.len = strlen(hostname);
+        msg.port.data = port;
+        msg.port.len = strlen(port);
+        msg.path.data = seed_paths[pindex];
+        msg.path.len = strlen(seed_paths[pindex]);
+        msg.service_id = strtol(service_idstr, NULL, 10);
+        ret = ycl_msg_create_httpmsg(&msgbuf, &msg);
+        if (ret != YCL_OK) {
+          fprintf(stderr, "httpmsg serialization failure\n");
+          goto done;
+        }
 
-      for (i = 0; i < opts->nout_httpmsgs; i++) {
-        fwrite(ycl_msg_bytes(&msgbuf), 1, ycl_msg_nbytes(&msgbuf),
-            opts->out_httpmsgs[i]);
+        for (i = 0; i < opts->nout_httpmsgs; i++) {
+          fwrite(ycl_msg_bytes(&msgbuf), 1, ycl_msg_nbytes(&msgbuf),
+              opts->out_httpmsgs[i]);
+        }
       }
     }
   }

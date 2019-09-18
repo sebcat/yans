@@ -37093,6 +37093,10 @@
         (>= "php/php" "7.0.0")
         (<= "php/php" "7.0.2")))))
 
+(cve "CVE-2016-10931" 6.80 8.10 "An issue was discovered in the openssl crate before 0.9.0 for Rust. There is an SSL/TLS man-in-the-middle vulnerability because certificate verification is off by default and there is no API for hostname verification."
+  (v
+    (< "openssl/openssl" "0.9.0")))
+
 (cve "CVE-2016-1247" 7.20 7.80 "The nginx package before 1.6.2-5+deb8u3 on Debian jessie, the nginx packages before 1.4.6-1ubuntu3.6 on Ubuntu 14.04 LTS, before 1.10.0-0ubuntu0.16.04.3 on Ubuntu 16.04 LTS, and before 1.10.1-0ubuntu1.1 on Ubuntu 16.10, and the nginx ebuild before 1.10.2-r3 on Gentoo allow local users with access to the web server user account to gain root privileges via a symlink attack on the error log."
   (v
     (^
@@ -42914,11 +42918,6 @@
         (>= "openbsd/openssh" "5.9")
         (<= "openbsd/openssh" "7.8")))))
 
-(cve "CVE-2018-16395" 7.50 9.80 "An issue was discovered in the OpenSSL library in Ruby before 2.3.8, 2.4.x before 2.4.5, 2.5.x before 2.5.2, and 2.6.x before 2.6.0-preview3. When two OpenSSL::X509::Name objects are compared using ==, depending on the ordering, non-equal objects may return true. When the first argument is one character longer than the second, or the second argument contains a character that is one less than a character in the same position of the first argument, the result of == will be true. This could be leveraged to create an illegitimate certificate that may be accepted as legitimate and then used in signing or encryption operations."
-  (v
-    (v
-      (< "openssl/openssl" "2.1.2"))))
-
 (cve "CVE-2018-16843" 7.80 7.50 "nginx before versions 1.15.6 and 1.14.1 has a vulnerability in the implementation of HTTP/2 that can allow for excessive memory consumption. This issue affects nginx compiled with the ngx_http_v2_module (not compiled by default) if the 'http2' option of the 'listen' directive is used in a configuration file."
   (v
     (v
@@ -43100,6 +43099,10 @@
         (>= "php/php" "7.2.0")
         (< "php/php" "7.2.13")))))
 
+(cve "CVE-2018-20997" 7.50 9.80 "An issue was discovered in the openssl crate before 0.10.9 for Rust. A use-after-free occurs in CMS Signing."
+  (v
+    (< "openssl/openssl" "0.10.9")))
+
 (cve "CVE-2018-5407" 1.90 4.70 "Simultaneous Multi-threading (SMT) in processors can enable local users to exploit software vulnerable to timing attacks via a side-channel timing attack on 'port contention'."
   (v
     (v
@@ -43242,6 +43245,13 @@
       (^
         (>= "apache/http_server" "2.4.0")
         (<= "apache/http_server" "2.4.38")))))
+
+(cve "CVE-2019-10081" 5.00 7.50 "HTTP/2 (2.4.20 through 2.4.39) very early pushes, for example configured with \"H2PushResource\", could lead to an overwrite of memory in the pushing request's pool, leading to crashes. The memory copied is that of the configured push link header values, not data supplied by the client."
+  (v
+    (v
+      (^
+        (>= "apache/http_server" "2.4.20")
+        (<= "apache/http_server" "2.4.39")))))
 
 (cve "CVE-2019-10241" 4.30 6.10 "In Eclipse Jetty version 9.2.26 and older, 9.3.25 and older, and 9.4.15 and older, the server is vulnerable to XSS conditions if a remote client USES a specially formatted URL against the DefaultServlet or ResourceHandler that is configured for showing a Listing of directory contents."
   (v
@@ -43534,7 +43544,7 @@
       (>= "php/php" "7.3.0")
       (< "php/php" "7.3.5"))))
 
-(cve "CVE-2019-11038" 5.00 5.30 "When using gdImageCreateFromXbm() function of PHP gd extension in PHP versions 7.1.x below 7.1.30, 7.2.x below 7.2.19 and 7.3.x below 7.3.6, it is possible to supply data that will cause the function to use the value of uninitialized variable. This may lead to disclosing contents of the stack that has been left there by previous code."
+(cve "CVE-2019-11038" 5.00 5.30 "When using the gdImageCreateFromXbm() function in the GD Graphics Library (aka LibGD) 2.2.5, as used in the PHP GD extension in PHP versions 7.1.x below 7.1.30, 7.2.x below 7.2.19 and 7.3.x below 7.3.6, it is possible to supply data that will cause the function to use the value of uninitialized variable. This may lead to disclosing contents of the stack that has been left there by previous code."
   (v
     (^
       (>= "php/php" "7.1.0")
@@ -43570,6 +43580,32 @@
       (>= "php/php" "7.3.0")
       (< "php/php" "7.3.6"))))
 
+(cve "CVE-2019-11041" 6.80 8.80 "When PHP EXIF extension is parsing EXIF information from an image, e.g. via exif_read_data() function, in PHP versions 7.1.x below 7.1.31, 7.2.x below 7.2.21 and 7.3.x below 7.3.8 it is possible to supply it with data what will cause it to read past the allocated buffer. This may lead to information disclosure or crash."
+  (v
+    (v
+      (^
+        (>= "php/php" "7.1.0")
+        (< "php/php" "7.1.31"))
+      (^
+        (>= "php/php" "7.2.0")
+        (< "php/php" "7.2.21"))
+      (^
+        (>= "php/php" "7.3.0")
+        (< "php/php" "7.3.8")))))
+
+(cve "CVE-2019-11042" 6.80 8.80 "When PHP EXIF extension is parsing EXIF information from an image, e.g. via exif_read_data() function, in PHP versions 7.1.x below 7.1.31, 7.2.x below 7.2.21 and 7.3.x below 7.3.8 it is possible to supply it with data what will cause it to read past the allocated buffer. This may lead to information disclosure or crash."
+  (v
+    (v
+      (^
+        (>= "php/php" "7.1.0")
+        (< "php/php" "7.1.31"))
+      (^
+        (>= "php/php" "7.2.0")
+        (< "php/php" "7.2.21"))
+      (^
+        (>= "php/php" "7.3.0")
+        (< "php/php" "7.3.8")))))
+
 (cve "CVE-2019-11072" 7.50 9.80 "** DISPUTED ** lighttpd before 1.4.54 has a signed integer overflow, which might allow remote attackers to cause a denial of service (application crash) or possibly have unspecified other impact via a malicious HTTP GET request, as demonstrated by mishandling of /%2F? in burl_normalize_2F_to_slash_fix in burl.c. NOTE: The developer states \"The feature which can be abused to cause the crash is a new feature in lighttpd 1.4.50, and is not enabled by default. It must be explicitly configured in the config file (e.g. lighttpd.conf). Certain input will trigger an abort() in lighttpd when that feature is enabled. lighttpd detects the underflow or realloc() will fail (in both 32-bit and 64-bit executables), also detected in lighttpd. Either triggers an explicit abort() by lighttpd. This is not exploitable beyond triggering the explicit abort() with subsequent application exit.\""
   (v
     (<= "lighttpd/lighttpd" "1.4.53")))
@@ -43601,6 +43637,24 @@
       (>= "openssl/openssl" "1.1.1")
       (<= "openssl/openssl" "1.1.1b"))))
 
+(cve "CVE-2019-1547" 1.90 -1.00 "Normally in OpenSSL EC groups always have a co-factor present and this is used in side channel resistant code paths. However, in some cases, it is possible to construct a group using explicit parameters (instead of using a named curve). In those cases it is possible that such a group does not have the cofactor present. This can occur even where all the parameters match a known named curve. If such a curve is used then OpenSSL falls back to non-side channel resistant code paths which may result in full key recovery during an ECDSA signature operation. In order to be vulnerable an attacker would have to have the ability to time the creation of a large number of signatures where explicit parameters with no co-factor present are in use by an application using libcrypto. For the avoidance of doubt libssl is not vulnerable because explicit parameters are never used. Fixed in OpenSSL 1.1.1d (Affected 1.1.1-1.1.1c). Fixed in OpenSSL 1.1.0l (Affected 1.1.0-1.1.0k). Fixed in OpenSSL 1.0.2t (Affected 1.0.2-1.0.2s)."
+  (v
+    (^
+      (>= "openssl/openssl" "1.0.2")
+      (<= "openssl/openssl" "1.0.2s"))
+    (^
+      (>= "openssl/openssl" "1.1.0")
+      (<= "openssl/openssl" "1.1.0k"))
+    (^
+      (>= "openssl/openssl" "1.1.1")
+      (<= "openssl/openssl" "1.1.1c"))))
+
+(cve "CVE-2019-1549" 5.00 -1.00 "OpenSSL 1.1.1 introduced a rewritten random number generator (RNG). This was intended to include protection in the event of a fork() system call in order to ensure that the parent and child processes did not share the same RNG state. However this protection was not being used in the default case. A partial mitigation for this issue is that the output from a high precision timer is mixed into the RNG state so the likelihood of a parent and child process sharing state is significantly reduced. If an application already calls OPENSSL_init_crypto() explicitly using OPENSSL_INIT_ATFORK then this problem does not occur at all. Fixed in OpenSSL 1.1.1d (Affected 1.1.1-1.1.1c)."
+  (v
+    (^
+      (>= "openssl/openssl" "1.1.1")
+      (<= "openssl/openssl" "1.1.1c"))))
+
 (cve "CVE-2019-1552" 1.90 3.30 "OpenSSL has internal defaults for a directory tree where it can find a configuration file as well as certificates used for verification in TLS. This directory is most commonly referred to as OPENSSLDIR, and is configurable with the --prefix / --openssldir configuration options. For OpenSSL versions 1.1.0 and 1.1.1, the mingw configuration targets assume that resulting programs and libraries are installed in a Unix-like environment and the default prefix for program installation as well as for OPENSSLDIR should be '/usr/local'. However, mingw programs are Windows programs, and as such, find themselves looking at sub-directories of 'C:/usr/local', which may be world writable, which enables untrusted users to modify OpenSSL's default configuration, insert CA certificates, modify (or even replace) existing engine modules, etc. For OpenSSL 1.0.2, '/usr/local/ssl' is used as default for OPENSSLDIR on all Unix and Windows targets, including Visual C builds. However, some build instructions for the diverse Windows targets on 1.0.2 encourage you to specify your own --prefix. OpenSSL versions 1.1.1, 1.1.0 and 1.0.2 are affected by this issue. Due to the limited scope of affected deployments this has been assessed as low severity and therefore we are not creating new releases at this time. Fixed in OpenSSL 1.1.1d (Affected 1.1.1-1.1.1c). Fixed in OpenSSL 1.1.0l (Affected 1.1.0-1.1.0k). Fixed in OpenSSL 1.0.2t (Affected 1.0.2-1.0.2s)."
   (v
     (^
@@ -43619,6 +43673,46 @@
       (^
         (>= "openssl/openssl" "1.0.2")
         (<= "openssl/openssl" "1.0.2q")))))
+
+(cve "CVE-2019-1563" 4.30 -1.00 "In situations where an attacker receives automated notification of the success or failure of a decryption attempt an attacker, after sending a very large number of messages to be decrypted, can recover a CMS/PKCS7 transported encryption key or decrypt any RSA encrypted message that was encrypted with the public RSA key, using a Bleichenbacher padding oracle attack. Applications are not affected if they use a certificate together with the private RSA key to the CMS_decrypt or PKCS7_decrypt functions to select the correct recipient info to decrypt. Fixed in OpenSSL 1.1.1d (Affected 1.1.1-1.1.1c). Fixed in OpenSSL 1.1.0l (Affected 1.1.0-1.1.0k). Fixed in OpenSSL 1.0.2t (Affected 1.0.2-1.0.2s)."
+  (v
+    (^
+      (>= "openssl/openssl" "1.0.2")
+      (<= "openssl/openssl" "1.0.2s"))
+    (^
+      (>= "openssl/openssl" "1.1.0")
+      (<= "openssl/openssl" "1.1.0k"))
+    (^
+      (>= "openssl/openssl" "1.1.1")
+      (<= "openssl/openssl" "1.1.1c"))))
+
+(cve "CVE-2019-16217" 4.30 -1.00 "WordPress before 5.2.3 allows XSS in media uploads because wp_ajax_upload_attachment is mishandled."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
+
+(cve "CVE-2019-16218" 4.30 -1.00 "WordPress before 5.2.3 allows XSS in stored comments."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
+
+(cve "CVE-2019-16219" 4.30 -1.00 "WordPress before 5.2.3 allows XSS in shortcode previews."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
+
+(cve "CVE-2019-16220" 5.80 -1.00 "In WordPress before 5.2.3, validation and sanitization of a URL in wp_validate_redirect in wp-includes/pluggable.php could lead to an open redirect."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
+
+(cve "CVE-2019-16221" 4.30 -1.00 "WordPress before 5.2.3 allows reflected XSS in the dashboard."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
+
+(cve "CVE-2019-16222" 4.30 -1.00 "WordPress before 5.2.3 has an issue with URL sanitization in wp_kses_bad_protocol_once in wp-includes/kses.php that can lead to cross-site scripting (XSS) attacks."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
+
+(cve "CVE-2019-16223" 3.50 -1.00 "WordPress before 5.2.3 allows XSS in post previews by authenticated users."
+  (v
+    (< "wordpress/wordpress" "5.2.3")))
 
 (cve "CVE-2019-6109" 4.00 6.80 "An issue was discovered in OpenSSH 7.9. Due to missing character encoding in the progress display, a malicious server (or Man-in-The-Middle attacker) can employ crafted object names to manipulate the client output, e.g., by using ANSI control codes to hide additional files being transferred. This affects refresh_progress_meter() in progressmeter.c."
   (v

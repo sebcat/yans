@@ -136,7 +136,8 @@ static enum vulnspec_node_type symbol2node(const char *sym) {
     {"=",  VULNSPEC_EQ_NODE},
     {">=", VULNSPEC_GE_NODE},
     {">", VULNSPEC_GT_NODE},
-    {"cve", VULNSPEC_CVE_NODE}
+    {"cve", VULNSPEC_CVE_NODE},
+    {"nalpha", VULNSPEC_NALPHA_NODE},
   };
 
   for (i = 0; i < ARRAY_SIZE(vals); i++) {
@@ -164,19 +165,34 @@ static enum vulnspec_node_type read_symbol(struct vulnspec_parser *p) {
 static struct vulnspec_value compar(struct vulnspec_parser *p,
     enum vulnspec_node_type t) {
   struct vulnspec_value compar;
-  struct vulnspec_cvalue cval;
-  const char *versionstr;
+  struct vulnspec_cvalue cvendprod;
+  struct vulnspec_cvalue cversion;
+  const char *versionstr = NULL;
 
   progn_alloc(p, sizeof(struct vulnspec_compar_node), &compar);
 
-  loads(p, &cval); /* load vend/prod string */
-  expect(p, VULNSPEC_TSTRING); /* version */
-  versionstr = (char*)vulnspec_reader_string(&p->r, NULL);
+  loads(p, &cvendprod); /* load vend/prod string */
+
+  if (p->vtype == VULNSPEC_VVAGUE) {
+    /* load the version into the reader buffer but do not allocate
+     * a string for it in the string table */
+    expect(p, VULNSPEC_TSTRING); /* version */
+    versionstr = (char*)vulnspec_reader_string(&p->r, NULL);
+  } else {
+    /* allocate a version string in the string table */
+    loads(p, &cversion);
+  }
+
   do {
     struct vulnspec_compar_node *node = NOD(p, compar);
-    node->vendprod = cval;
-    vaguever_init(&node->version, versionstr);
     node->type = t;
+    node->vtype = p->vtype;
+    node->vendprod = cvendprod;
+    if (p->vtype == VULNSPEC_VVAGUE) {
+      vaguever_init(&node->version.vague, versionstr);
+    } else {
+      node->version.cval = cversion;
+    }
   } while(0);
 
   expect(p, VULNSPEC_TRPAREN);
@@ -230,6 +246,19 @@ static struct vulnspec_value boolean(struct vulnspec_parser *p,
   return bnode;
 }
 
+static struct vulnspec_value nalpha(struct vulnspec_parser *p) {
+  struct vulnspec_value val = {0};
+  enum vulnspec_version_type tmp;
+
+  tmp = p->vtype;
+  p->vtype = VULNSPEC_VNALPHA;
+  expect(p, VULNSPEC_TLPAREN);
+  val = vulnexpr(p);
+  expect(p, VULNSPEC_TRPAREN);
+  p->vtype = tmp;
+  return val;
+}
+
 static struct vulnspec_value vulnexpr(struct vulnspec_parser *p) {
   struct vulnspec_value val = {0};
   enum vulnspec_node_type nodet;
@@ -246,6 +275,9 @@ static struct vulnspec_value vulnexpr(struct vulnspec_parser *p) {
   case VULNSPEC_AND_NODE:
   case VULNSPEC_OR_NODE:
     val = boolean(p, nodet);
+    break;
+  case VULNSPEC_NALPHA_NODE:
+    val = nalpha(p);
     break;
   default:
     bail(p, VULNSPEC_EUNEXPECTED_TOKEN);

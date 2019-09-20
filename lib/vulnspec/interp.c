@@ -6,6 +6,7 @@
 #include <stdarg.h>
 
 #include "lib/vulnspec/vulnspec.h"
+#include "lib/util/nalphaver.h"
 
 struct vulnspec_validator {
   jmp_buf errjmp;
@@ -53,6 +54,9 @@ static void vcompar(struct vulnspec_validator *v, size_t offset) {
   check(v, offset, sizeof(struct vulnspec_compar_node));
   node = ref(v, offset);
   vstr(v, &node->vendprod);
+  if (node->vtype != VULNSPEC_VVAGUE) {
+    vstr(v, &node->version.cval);
+  }
 }
 
 static void vvulnexpr(struct vulnspec_validator *v, size_t offset);
@@ -221,6 +225,7 @@ int vulnspec_loadfile(struct vulnspec_interp *interp, int fd) {
 static int ecompar(struct vulnspec_interp *interp, size_t offset) {
   const struct vulnspec_compar_node *node;
   const char *vendprod;
+  const char *version;
   int cmp;
 
   node = ref(interp, offset);
@@ -229,20 +234,33 @@ static int ecompar(struct vulnspec_interp *interp, size_t offset) {
     return 0;
   }
 
-  cmp = vaguever_cmp(&interp->params.cve_vaguever_version, &node->version);
+  switch (node->vtype) {
+  case VULNSPEC_VVAGUE:
+    cmp = vaguever_cmp(&interp->params.cve_vaguever_version, &node->version.vague);
+    break;
+  case VULNSPEC_VNALPHA:
+    version = ref(interp, node->version.cval.value.offset);
+    /* NB: Assume VULNSPEC_VNALPHA, as that's the only non-VULNSPEC_VVAGUE
+     * option ATM */
+    cmp = nalphaver_cmp(interp->params.cve_version, version);
+    break;
+  default:
+    return 0;
+  }
+
   switch (node->type) {
-    case VULNSPEC_LT_NODE:
-      return cmp < 0;
-    case VULNSPEC_LE_NODE:
-      return cmp <= 0;
-    case VULNSPEC_EQ_NODE:
-      return cmp == 0;
-    case VULNSPEC_GE_NODE:
-      return cmp >= 0;
-    case VULNSPEC_GT_NODE:
-      return cmp > 0;
-    default:
-      break;
+  case VULNSPEC_LT_NODE:
+    return cmp < 0;
+  case VULNSPEC_LE_NODE:
+    return cmp <= 0;
+  case VULNSPEC_EQ_NODE:
+    return cmp == 0;
+  case VULNSPEC_GE_NODE:
+    return cmp >= 0;
+  case VULNSPEC_GT_NODE:
+    return cmp > 0;
+  default:
+    break;
   }
 
   return 0;

@@ -470,7 +470,51 @@ static int test_eval_one() {
       "      (> \"foo/bar\" \"1.2.2\")\n"
       "      (<= \"foo/bar\" \"1.2.4\"))))\n",
       "my-cve",
-    }
+    },
+    /* start nalpha tests */
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (= \"foo/bar\" \"1.2.3r\"))",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.3r",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (= \"foo/bar\" \"1.2.3\"))",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.3r",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (= \"foo/bar\" \"1.2.3r\"))",
+      "my-cve",
+    },
+    {
+      "foo/bar",
+      "1.2.3",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (nalpha (= \"foo/bar\" \"1.2.3r\")))",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.3r",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (nalpha (= \"foo/bar\" \"1.2.3\")))",
+      NULL,
+    },
+    {
+      "foo/bar",
+      "1.2.3r",
+      "(cve \"my-cve\" 6.5 6.5 \"bar\"\n"
+      "  (nalpha (= \"foo/bar\" \"1.2.3r\")))",
+      "my-cve",
+    },
+    /* end nalpha tests */
   };
   int ret;
   struct vulnspec_parser p;

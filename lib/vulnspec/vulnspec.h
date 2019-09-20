@@ -43,6 +43,12 @@ enum vulnspec_node_type {
   VULNSPEC_EQ_NODE,
   VULNSPEC_GE_NODE,
   VULNSPEC_GT_NODE,
+  VULNSPEC_NALPHA_NODE,
+};
+
+enum vulnspec_version_type {
+  VULNSPEC_VVAGUE = 0,
+  VULNSPEC_VNALPHA,
 };
 
 struct vulnspec_value {
@@ -59,7 +65,11 @@ struct vulnspec_cvalue {
 struct vulnspec_compar_node {
   enum vulnspec_node_type type;
   struct vulnspec_cvalue vendprod;
-  struct vaguever_version version;
+  enum vulnspec_version_type vtype;
+  union {
+    struct vaguever_version vague;
+    struct vulnspec_cvalue cval;
+  } version;
 };
 
 struct vulnspec_boolean_node {
@@ -97,6 +107,7 @@ struct vulnspec_reader {
 };
 
 struct vulnspec_parser {
+  enum vulnspec_version_type vtype;
   struct objtbl_ctx strtab;
   struct vulnspec_progn progn;
   struct vulnspec_reader r;

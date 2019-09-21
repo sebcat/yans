@@ -8,6 +8,10 @@ class VulnspecBuilder:
   def __init__(self, isym = "  "):
     self.isym = isym
     self.level = 0
+    self.nalphavers = set((
+      "openssl/openssl",
+      "openbsd/openssh",
+    ))
     self.vendprod_map = {
       "php/php":                   "php/php",
       "drupal/drupal":             "drupal/drupal",
@@ -46,6 +50,13 @@ class VulnspecBuilder:
   def escape_string(self, s):
     return s.translate(str.maketrans({"\\":  "\\\\", '"': '\\"'}))
 
+  def make_cmp(self, op, vendprod, version, nalphavers = False):
+    if nalphavers:
+      return '(nalpha ({} "{}" "{}"))'.format(op, vendprod, version)
+    else:
+      return '({} "{}" "{}")'.format(op, vendprod, version)
+
+
   def process_cpe_match(self, node):
     if not node["vulnerable"]:
       return ""
@@ -59,22 +70,23 @@ class VulnspecBuilder:
       return ""
     else:
       vendprod = self.vendprod_map[vendprod]
+    nalphavers = True if vendprod in self.nalphavers else False
 
     cmps = []
     if "versionStartExcluding" in node:
       v = node["versionStartExcluding"]
-      cmps.append('(> "{}" "{}")'.format(vendprod, v))
+      cmps.append(self.make_cmp('>', vendprod, v, nalphavers))
     if "versionStartIncluding" in node:
       v = node["versionStartIncluding"]
-      cmps.append('(>= "{}" "{}")'.format(vendprod, v))
+      cmps.append(self.make_cmp('>=', vendprod, v, nalphavers))
     if "versionEndExcluding" in node:
       v = node["versionEndExcluding"]
-      cmps.append('(< "{}" "{}")'.format(vendprod, v))
+      cmps.append(self.make_cmp('<', vendprod, v, nalphavers))
     if "versionEndIncluding" in node:
       v = node["versionEndIncluding"]
-      cmps.append('(<= "{}" "{}")'.format(vendprod, v))
+      cmps.append(self.make_cmp('<=', vendprod, v, nalphavers))
     if version != "*" and version != "-":
-      cmps.append('(= "{}" "{}")'.format(vendprod, version))
+      cmps.append(self.make_cmp('=', vendprod, version, nalphavers))
 
     self.enter()
     if len(cmps) == 0:

@@ -1,98 +1,46 @@
 # TODO
 
-- Add non-HTTP pattern matching of banners
-- Add tests for HTTP body patterns
-- Add tests for non-HTTP patterns
-- Add support for multiple kneg queues, keep a default one
 - Adjust size of /var depending on available RAM
 
-- Remove report-sections, job.json &c. Keep MANIFEST. How to correlate
-  with time &c?
+- curl from ports is built with kerberos. Building curl
+  without kerberos (and without some other cruft in libcurl) and running
+  make buildworld with WITHOUT_KERBEROS=true saves a couple of MBs
 
-- curl from ports is built with kerberos. If we build our own curl
-  without kerberos (and without some other cruft in libcurl) and we
-  make buildworld with WITHOUT_KERBEROS=true, we would save couple of
-  MB's
+- webfetch module: reqfinder || crawler || other-name (sigil-gumbo based?)
 
-- Add patterns for finding software components and map them to services by
-  ID.
-  e.g.,
-  Found Components
-  ID,Vendor,Product,Version
-  1,foo,bar,1.2.3
-
-  Found Components by Service
-  Service ID,Component ID
-  1,1
-  ...
-
-- webfetch module: reqfinder || crawler || other-name (sigil-gumbo based)
-
-- yans-fe: Make HTML tables sortable (sort.js) have spinner to indicate
-           when sorting
+- yans-fe: Make HTML tables sortable, have spinner to indicate when sorting
 
 - Write wrapper for qsort_r which deals with various arg orders
+
 - Continue to work on Linux version
 
-Collations:
-
-Services
-  ID, Name, Address, Transport, Port, Service, Certificate Chain, Certificate Status
-
-Certificates
-  Chain, Depth, Serial, Common Name, Organization, Valid From, Valid To
-
-Certificate Subject Alternative Names
-  Chain, Depth, Name
-
-Identified Software Components
-  ID, Name, Version
-
-Software Mappings
-  Service ID, Software ID
-
-CVE Search
-  Software ID, CVE, Title, Reference
-
-## grab-banners,reaplan,tcpsrc
-
-kng_mod_fini, - make sure it works the way it is intended
+- kng_mod_fini, - make sure it works the way it is intended
   (kng_mod_fini has no SIGCHLD handler, so no EINTR in
   nanosleep?) and don't wait more in stop_service_listeners than needed.
 
-reaplan: handle_tls_handshake - if the handshake fails we should still
+- reaplan: handle_tls_handshake - if the handshake fails we should still
   write an empty banner in grab-banners. Implement, verify with test case
   of a server sending a TLS Alert.
-
-## unsorted
 
 - Currently, a hard restart prevents services from starting again due to
   existing PID-files. Clean pidfiles on service start (potential issues
   if service is started two times?)
+
 - Do not wait while shutting down a service if all children are terminated
+
 - sync index vs job.json times - queued or started? Maybe no duplication?
 
-## lib/net/url
-  - url_normalize: if we have a percent-encoding to a valid char, decode it
+- url_normalize: if we have a percent-encoding to a valid char, decode it
 
-## lib/net/ip
-  - make it possible to add/remove an address/range to/from a range
-  - have contains work on current instead of first?
+- url_normalize: Add host case normalization
 
-## To add
-  - SSDP, MDNS, ICMP multicast for host discovery on LAN
+- lib/net/ip: make it possible to add/remove an address/range to/from a
+  range
+
+- lib/net/ip: have contains work on current instead of first?
+
+- add: SSDP, MDNS, ICMP multicast for host discovery on LAN
   protocols: dns, ssh, ftp, http, smtp, pop3, imap, vnc, rdp
   functionality: enumeration of capabilities (cipher suites, commands, &c)
                  default account testing
 
-## slask
-
-for E in $(store list); do store list $E; done | cut -f 1 -d ' ' | paste -s -d+ - | bc
-
-tcpdump -n '(ether broadcast or ether multicast or ether dst 00:24:d7:17:9c:38) and (not ether src 00:24:d7:17:9c:38)'
-
-tcpdump -n 'ether src not <local0> and ether src not <local1> ... and ether src not <localN>'
-
-echo -en 'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssdp:discover\r\nMX: 10\r\nST: ssdp:all\r\nUser-Agent: DinMammaOchDanHarmon/1.0 UPnP/1.1\r\n\r\n' | socat stdio udp4-datagram:239.255.255.250:1900
-
-echo -en 'M-SEARCH * HTTP/1.1\r\nHOST: [FF02::C]:1900\r\nMAN: ssdp:discover\r\nMX: 10\r\nST: ssdp:all\r\nUser-Agent: DinMammaOchDanHarmon/1.0 UPnP/1.1\r\n\r\n' | socat stdio 'udp6-datagram:[FF02::C%wlan0]:1900'

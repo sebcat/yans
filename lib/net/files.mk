@@ -1,7 +1,6 @@
 lib_net_SOURCES = \
     lib/net/dnstres.c \
     lib/net/dsts.c \
-    lib/net/eth.c \
     lib/net/fcgi.c \
     lib/net/scgi.c \
     lib/net/ip.c \
@@ -17,7 +16,6 @@ lib_net_SOURCES = \
 lib_net_HEADERS = \
     lib/net/dnstres.h \
     lib/net/dsts.h \
-    lib/net/eth.h \
     lib/net/fcgi.h \
     lib/net/scgi.h \
     lib/net/ip.h \

@@ -1,5 +1,4 @@
 lib/net/dnstres.o: lib/net/dnstres.c lib/net/dnstres.h
-lib/net/eth.o: lib/net/eth.c lib/net/eth.h
 lib/net/fcgi.o: lib/net/fcgi.c lib/net/fcgi.h
 lib/net/ip.o: lib/net/ip.c lib/net/ip.h
 lib/net/ports.o: lib/net/ports.c lib/net/ports.h

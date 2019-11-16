@@ -36,3 +36,9 @@ tools/freebsd/etc.rc.d/tcpctl: tools/freebsd/etc.rc.d/tcpctl.in
 		-e "s,@DATAROOTDIR@,$(DATAROOTDIR)," \
 		< $@.in > $@;
 
+tools/freebsd/etc.rc.d/getcerts: tools/freebsd/etc.rc.d/getcerts.in
+	sed -e "s,@BINDIR@,$(BINDIR)," \
+		-e "s,@LOCALSTATEDIR@,$(LOCALSTATEDIR)," \
+		-e "s,@DATAROOTDIR@,$(DATAROOTDIR)," \
+		< $@.in > $@;
+

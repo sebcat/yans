@@ -1,0 +1,50 @@
+#!/bin/sh
+# PROVIDE: getcerts
+# REQUIRE: LOGIN
+# BEFORE: nginx
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+
+name="getcerts"
+rcvar="getcerts_enable"
+start_cmd="getcerts_start"
+
+: ${getcerts_enable:="no"}
+: ${getcerts_certdir:="@LOCALSTATEDIR@/certs"}
+: ${getcerts_workdir:="@LOCALSTATEDIR@/certs.wrk"}
+: ${getcerts_domains:=""}
+
+getcerts_start()
+{
+  local __domains __domain __fromdir __dstdir
+
+  if [ x"$getcerts_domains" = x ]; then
+    return 0
+  fi
+
+  for __domain in $getcerts_domains; do
+    __domains="$__domains -d $__domain"
+  done
+
+  rm -rf "${getcerts_workdir}"
+  install -d -m 700 "${getcerts_workdir}"
+
+  LE_WORKING_DIR=${getcerts_workdir} \
+      acme.sh --standalone --issue $__domains
+
+  for __domain in $getcerts_domains; do
+    __dstdir="${getcerts_certdir}/$__domain"
+    __fromdir="${getcerts_workdir}/$__domain"
+    mkdir -p "$__dstdir"
+    install -o www -g www -m 644 "$__fromdir/fullchain.cer" "$__dstdir"
+    install -o www -g www -m 600 "$__fromdir/$__domain.key" "$__dstdir"
+  done
+
+  rm -rf "${getcerts_workdir}"
+  return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

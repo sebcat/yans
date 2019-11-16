@@ -32,7 +32,8 @@ getcerts_start()
   install -d -m 700 "${getcerts_workdir}"
 
   LE_WORKING_DIR=${getcerts_workdir} \
-      acme.sh --standalone --issue $__domains
+      PATH="$PATH:/usr/local/bin" \
+      /usr/local/sbin/acme.sh --standalone --issue $__domains
 
   for __domain in $getcerts_domains; do
     __dstdir="${getcerts_certdir}/$__domain"

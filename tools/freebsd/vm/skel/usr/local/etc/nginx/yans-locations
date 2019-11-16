@@ -1,0 +1,27 @@
+
+    location /a1/sysinfo {
+      include              scgi_params;
+      scgi_cache           mycache;
+      scgi_cache_key       localhost:sysinfoapi$request_uri;
+      scgi_cache_valid     200 5s;
+      scgi_cache_lock      on;
+      scgi_cache_use_stale updating;
+      scgi_pass            unix:/var/yans/sysinfoapi/sysinfoapi.sock;
+    }
+
+    location /a1 {
+      include              scgi_params;
+      scgi_cache           mycache;
+      scgi_cache_key       localhost:yansapi$request_uri;
+      scgi_cache_valid     200 1s;
+      scgi_cache_lock      on;
+      scgi_cache_use_stale updating;
+      scgi_pass            unix:/var/yans/yansapi.sock;
+    }
+
+    location / {
+      sendfile      on;
+      tcp_nopush    on;
+      root          /usr/local/share/yans-fe;
+      index         index.html index.htm;
+    }

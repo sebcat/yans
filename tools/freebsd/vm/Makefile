@@ -20,7 +20,10 @@ CFGFILES=skel/boot/loader.conf \
     skel/etc/unbound.conf.template \
     skel/usr/local/etc/nginx/mime.types \
     skel/usr/local/etc/nginx/nginx.conf \
-    skel/usr/local/etc/nginx/scgi_params
+    skel/usr/local/etc/nginx/scgi_params \
+    skel/usr/local/etc/nginx/disco.sajber.se.conf \
+    skel/usr/local/etc/nginx/yans-locations
+
 
 
 SCRIPTS=skel/etc/rc.d/xsshd \

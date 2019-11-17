@@ -1,20 +1,35 @@
 # Yet Another Network Scanner
 
-This code base grew slowly over the course of a couple of years as a
-side-project for playing with various concepts, algorithms and technologies
-such as process level sandboxing, domain-specific languages, hash tables,
-netstring based IPC, ...
+This code base grew slowly over time as a side-project for playing with
+various concepts, algorithms and technologies such as process level
+sandboxing, domain-specific languages, hash tables, netstring based IPC, &c
 
 While most of the code is intended to be POSIX-compatible, some
 FreeBSD-only functionality exists and the complete solution currently only
 works on FreeBSD.
 
-## Try it out
-
-TODO: disco.sajber.se, image
+The main build artifact is an .ISO which can be run by most amd64
+hypervisors and most(?) amd64 hardware. See tools/freebsd/vm/YANS for the
+kernel configuration. The .ISO is mounted as the read-only root filesystem
+at boot. /var and /tmp are mounted as memory-backed file systems. There's
+a cron-job restarting the machine once a day. No data is saved by the
+image between reboots.
 
 The virtual machine has a password-less user that anyone with console
-access can use: scan-user.
+access can use: scan-user. The release images may have ttyv0, ttyu0 marked
+as secure which will allow root to login as well (v1.0.0 has). This is for
+debugging purposes. Otherwise all access should be done over HTTP/HTTPS.
+
+## Try it out
+
+An instance of the image is running at
+[disco.sajber.se](https://disco.sajber.se/). It's one $10 instance so don't
+expect it to be available all the time.
+
+yans-1.0.0.iso.xz is available [here](#TODO).
+The released .ISO only listens with http on port 80.
+
+# The code
 
 ## lib/net
 

@@ -242,7 +242,7 @@ static pid_t fork_reqproc(struct eds_client *cli, int fd, struct cgi_env *env,
 
   /* fexecve! */
   cgi_argv[0] = env->full_cgi_path;
-  ret = fexecve(env->cgifd, cgi_argv, (void*)env->envp_buf.data);
+  fexecve(env->cgifd, cgi_argv, (void*)env->envp_buf.data);
   /* we can't log this here - stderr will redirect to client */
   /* CLIERR(cli, fd, "fexecve: %s", strerror(errno)); */
   clean_cgi_env(env);

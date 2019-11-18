@@ -83,6 +83,7 @@ int test_parse() {
             netstring_strerror(inputs[i].expected_rets[j]),
             netstring_strerror(ret));
         status = EXIT_FAILURE;
+        continue;
       }
       if (ret == NETSTRING_OK) {
         if (strcmp(res, inputs[i].expected_strs[j]) != 0) {

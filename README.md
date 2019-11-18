@@ -26,10 +26,37 @@ An instance of the image is running at
 [disco.sajber.se](https://disco.sajber.se/). It's one $10 qemu-backed
 instance so don't expect it to be available all the time.
 
-yans-1.0.0.iso.xz is available [here](#TODO).
+yans-1.0.0.iso.xz is available [here](https://github.com/sebcat/yans/releases/download/v1.0.0/yans-1.0.0.iso.xz).
 The released .ISO only listens with http on port 80.
 
 ## The code
+
+### vulnspec
+
+vulnspec is an S-expression based DSL with a simple byte code. The
+code for parsing and evaluation of vulnspec expressions can be found in
+lib/vulnspec. Examples of the vulnspec expressions themselves can be found
+in data/vulnspec/components.vsi. e.g.,
+
+```
+(cve "CVE-2007-0626" 7.60 -1.00 "The comment_form_add_preview function in comment.module in Drupal before 4.7.6, and 5.x before 5.1, and vbDrupal, allows remote attackers with \"post comments\" privileges and access to multiple input filters to execute arbitrary code by previewing comments, which are not processed by \"normal form validation routines.\""
+  (v
+    (^
+      (> "drupal/drupal" "4.0.0")
+      (< "drupal/drupal" "4.7.6"))
+    (^
+      (>= "drupal/drupal" "5.0")
+      (< "drupal/drupal" "5.1"))))
+
+```
+
+I feel that the problem space is suitable for a DSL. It's a basic
+implementation. The execution time of CVE matching in vulnspec is
+currently proportional to the number of components to test multiplied with
+the number of CVEs in the data set.
+
+misc/vulnspec contains POSIX shell and Python code for getting NVD CVE
+listings and generating vulnspec statements from that data.
 
 ### lib/net
 
@@ -85,33 +112,6 @@ The code generation starts with data structures specified in .ycl files
 of which there is only one: lib/ycl/ycl\_msg.ycl. From this file
 lib/ycl/ycl\_msg.c is then generated using apps/yclgen. apps/yclgen
 is a flex/bison tokenizer/parser.
-
-### vulnspec
-
-vulnspec is an S-expression based DSL with a simple byte code. The
-code for parsing and evaluation of vulnspec expressions can be found in
-lib/vulnspec. Examples of the vulnspec expressions themselves can be found
-in data/vulnspec/components.vsi. e.g.,
-
-```
-(cve "CVE-2007-0626" 7.60 -1.00 "The comment_form_add_preview function in comment.module in Drupal before 4.7.6, and 5.x before 5.1, and vbDrupal, allows remote attackers with \"post comments\" privileges and access to multiple input filters to execute arbitrary code by previewing comments, which are not processed by \"normal form validation routines.\""
-  (v
-    (^
-      (> "drupal/drupal" "4.0.0")
-      (< "drupal/drupal" "4.7.6"))
-    (^
-      (>= "drupal/drupal" "5.0")
-      (< "drupal/drupal" "5.1"))))
-
-```
-
-I feel that the problem space is suitable for a DSL. It's a basic
-implementation. The execution time of CVE matching in vulnspec is
-currently proportional to the number of components to test multiplied with
-the number of CVEs in the data set.
-
-misc/vulnspec contains POSIX shell and Python code for getting NVD CVE
-listings and generating vulnspec statements from that data.
 
 ### a2, sc2
 

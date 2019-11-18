@@ -547,7 +547,7 @@ static int get_report_sections(struct yapi_ctx *ctx) {
 
   /* get the kneg status. NB: reuses the message buffer. If subsequent
    * ycl calls are made, 'val' will no longer be valid */
-  ret = yclcli_kneg_status(&a2data->kneg, id, strlen(id), &val);
+  ret = yclcli_kneg_status(&a2data->kneg, id, id ? strlen(id) : 0, &val);
   if (ret != YCL_OK) {
     val = "unknown";
   }

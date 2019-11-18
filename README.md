@@ -125,7 +125,7 @@ its I/O to follow the SCGI protocol. sc2 executes the functions in a2.
 
 apps/deduptbl is a demo utility for lib/util/deduptbl for potentially
 file-backed deduplication of line-oriented data. It could e.g., be used
-to remove previously seen URLs from a set of URLs.
+to remove previously seen URLs from a collection of URLs.
 
 ```
 $ deduptbl create -n 10 lel

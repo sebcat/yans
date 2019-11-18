@@ -124,7 +124,6 @@ static void url_parts_flagstr(int flags, char *buf, size_t len) {
 
   if (flags & URLPART_HAS_FRAGMENT) {
     next = snprintf(buf, len, "|URLPART_HAS_FRAGMENT");
-    buf += next; len -= (size_t)next;
   }
 }
 

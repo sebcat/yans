@@ -267,7 +267,7 @@ static struct vulnspec_value boolean(struct vulnspec_parser *p,
 }
 
 static struct vulnspec_value nalpha(struct vulnspec_parser *p) {
-  struct vulnspec_value val = {0};
+  struct vulnspec_value val;
   enum vulnspec_version_type tmp;
 
   tmp = p->vtype;

@@ -391,6 +391,9 @@ static int write_create_impl(FILE *fp, struct yclgen_msg *msg) {
         "    }\n"
         "  }\n\n",
         f->name, f->name, f->name, f->name, f->name, f->name);
+      if (ret <= 0) {
+        return -1;
+      }
       break;
     }
   }

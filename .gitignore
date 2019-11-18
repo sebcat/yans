@@ -42,6 +42,7 @@ lib/ycl/ycl_msg.c
 lib/ycl/ycl_msg.h
 tools/freebsd/etc.rc.d/clid
 tools/freebsd/etc.rc.d/ethd
+tools/freebsd/etc.rc.d/getcerts
 tools/freebsd/etc.rc.d/knegd
 tools/freebsd/etc.rc.d/stored
 tools/freebsd/etc.rc.d/sysinfoapi

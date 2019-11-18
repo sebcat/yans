@@ -1,5 +1,12 @@
 # Yet Another Network Scanner
 
+## Try it out
+
+Visit [https://disco.sajber.se/](https://disco.sajber.se/) (cheap qemu instance) to see it in action or
+download the [.iso](https://github.com/sebcat/yans/releases/download/v1.0.0/yans-1.0.0.iso.xz) and run it yourself.
+
+## The code
+
 This code base grew slowly over time as a side-project for exploring
 various concepts, methods and algorithms such as process level
 sandboxing, domain-specific languages, hash tables, netstring based IPC, &c
@@ -18,18 +25,7 @@ filesystems.
 
 The virtual machine has a password-less user that anyone with console
 access can use: scan-user. Otherwise all access should be done over
-HTTP/HTTPS.
-
-## Try it out
-
-An instance of the image is running at
-[disco.sajber.se](https://disco.sajber.se/). It's one $10 qemu-backed
-instance so don't expect it to be available all the time.
-
-yans-1.0.0.iso.xz is available [here](https://github.com/sebcat/yans/releases/download/v1.0.0/yans-1.0.0.iso.xz).
-The released .ISO only listens with http on port 80.
-
-## The code
+HTTP/HTTPS. The main .iso listens for HTTP on port 80.
 
 ### vulnspec
 

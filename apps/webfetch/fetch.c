@@ -193,14 +193,16 @@ void fetch_cleanup(struct fetch_ctx *ctx) {
   int i;
   struct fetch_transfer *t;
 
-  for (i = 0; i < ctx->opts.nfetchers; i++) {
-    t = &ctx->fetchers[i];
-    if (t->easy != NULL) {
-      curl_easy_cleanup(t->easy);
-      t->easy = NULL;
-      buf_cleanup(&t->urlbuf);
-      buf_cleanup(&t->connecttobuf);
-      buf_cleanup(&t->recvbuf);
+  if (ctx->fetchers != NULL) {
+    for (i = 0; i < ctx->opts.nfetchers; i++) {
+      t = &ctx->fetchers[i];
+      if (t->easy != NULL) {
+        curl_easy_cleanup(t->easy);
+        t->easy = NULL;
+        buf_cleanup(&t->urlbuf);
+        buf_cleanup(&t->connecttobuf);
+        buf_cleanup(&t->recvbuf);
+      }
     }
   }
 

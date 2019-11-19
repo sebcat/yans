@@ -2,7 +2,7 @@
 
 ## Try it out
 
-Visit ~~[https://disco.sajber.se/](https://disco.sajber.se/)~~ (currently not available due to 5 dups/week Let's Encrypt rate limit) to see it in action or
+Visit [https://disco1.sajber.se/](https://disco.sajber.se/) to (hopefully) see it in action or
 download the [.iso](https://github.com/sebcat/yans/releases/download/v1.0.0/yans-1.0.0.iso.xz) and run it yourself.
 
 ## The code

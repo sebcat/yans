@@ -163,8 +163,7 @@ manifest-rcfiles:
 		echo $(DESTDIR)$(RCFILESDIR)/$$RC; \
 	done
 
-install: $(script_BINS) $(BINS) $(SHLIBS) $(KNEGLIB) \
-		$(KNEGMANIFEST) $(YANS_FE) $(VULNSPEC)
+install:
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(DATAROOTDIR)/kneg

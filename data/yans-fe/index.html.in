@@ -784,7 +784,7 @@ function xxx() {
   }
 }
 
-window.setInterval(xxx, 2000);
+window.setInterval(xxx, 15000);
 
 /* Update sysinfo once per page load. */
 JReq("GET", "/a1/sysinfo")

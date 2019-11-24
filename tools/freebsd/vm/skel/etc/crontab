@@ -5,4 +5,4 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # *     *       *       *       *       root    /usr/bin/true
 */10	*	*	*	*	root	newsyslog
 1,31	0-5	*	*	*	root	adjkerntz -a
-0	0	*	*	*	root	reboot
+0	0	*/2	*	*	root	reboot
